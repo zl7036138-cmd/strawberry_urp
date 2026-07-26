@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "smoke_id": "p5_release_smoke_v1",
+  "scope": "NON_FORMAL_RELEASE_REPRODUCTION_SMOKE",
+  "formal_acceptance": false,
+  "formal_p3_rerun": false,
+  "p4_intervention_used": false,
+  "held_out_real_test_consumed": false,
+  "source_contract_binding": {
+    "relative_path": "config/p3_perception_repeated_dev_gate_v1.json",
+    "sha256": "4fc853a08e75517325fb925cfa2cac8d36a8a5d9157ae8c77b8ab42cf90112ac"
+  },
+  "execution": {
+    "fresh_world_per_trial": true,
+    "headless": true,
+    "base_ros_domain_id": 220,
+    "positive_trials": 5,
+    "negative_trials": 5
+  },
+  "acceptance": {
+    "minimum_positive_success_rate": 0.8,
+    "minimum_negative_no_pick_rate": 1.0,
+    "maximum_negative_false_picks": 0,
+    "maximum_negative_control_attempts": 0,
+    "planning_time_p95_limit_sec": 5.0,
+    "maximum_reference_difference": 0.05,
+    "require_all_infrastructure_valid": true,
+    "require_all_shutdown_clean": true
+  },
+  "interpretation": "Ten-trial release smoke at one clear simulator pose using the ADR-0026 engineering-waived model. This is clean-environment reproducibility evidence only when run in a genuinely clean Ubuntu 24.04 WSL2 distribution and compared with the frozen reference summary. It is not formal P3, P4, real-image, physical-robot, or sim-to-real evidence."
+}

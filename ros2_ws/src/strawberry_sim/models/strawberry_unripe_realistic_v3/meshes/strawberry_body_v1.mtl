@@ -1,0 +1,7 @@
+newmtl strawberry_skin
+Ka 0.18 0.34 0.04
+Kd 0.48 0.68 0.12
+Ks 0.06 0.06 0.06
+Ns 12.0
+illum 2
+map_Kd unripe_strawberry_skin_v2.png

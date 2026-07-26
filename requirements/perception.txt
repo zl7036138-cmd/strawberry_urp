@@ -1,0 +1,11 @@
+# Keep the ROS Jazzy system NumPy ABI while using a Python 3.12 wheel for cv2.
+numpy==1.26.4
+opencv-python==4.11.0.86
+
+# Reproducible YOLO11 / CUDA inference stack. Transitive NVIDIA wheels are
+# resolved into the local wheelhouse before the environment is installed.
+# PyTorch needs setuptools >=77 while ROS colcon-core requires setuptools <80.
+setuptools==79.0.1
+torch==2.13.0
+torchvision==0.28.0
+ultralytics==8.4.92

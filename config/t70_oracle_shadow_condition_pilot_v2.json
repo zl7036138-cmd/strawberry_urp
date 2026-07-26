@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "diagnostic_id": "t70_oracle_shadow_condition_pilot_v2",
+  "scope": "NON_ACCEPTANCE_CONDITION_PILOT",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "control": {
+    "source": "oracle",
+    "topic": "/strawberry/oracle/target_pose",
+    "target_id": 1
+  },
+  "shadow": {
+    "model_role": "baseline__best_below_t30_gate",
+    "model_relative_path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "model_size_bytes": 19161242,
+    "model_sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31
+  },
+  "shadow_measurement": {
+    "boundary": "after_condition_probe_before_robot_motion",
+    "fixed_detection_frames": 60,
+    "post_window_wait_sec": 1.0
+  },
+  "condition_contract": {
+    "benchmark_config_relative_path": "config/benchmark.yaml",
+    "benchmark_config_sha256": "a654bbd81cd1242bebc517349b84b24fac00dcb1c8eba83102f06ece2a02511e",
+    "scene_config_relative_path": "config/t70_scene_conditions.json",
+    "scene_config_sha256": "6f79acd69aec3b4a71b4f5c4f62c933cc54578a1abf627ba557c1d2b5636dab9",
+    "base_world_relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+    "base_world_sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7",
+    "condition_world_seed": 20260710,
+    "scenario_seed_role": "reserved_for_later_formal_scene_randomization"
+  },
+  "scene_setup": {
+    "mode": "single_target_isolation",
+    "formal_position_label": false,
+    "target_model_name": "strawberry_1",
+    "target_id": 1,
+    "target_position_m": [0.47, -0.075, 0.50],
+    "parked_models": [
+      {
+        "model_name": "strawberry_2",
+        "target_id": 2,
+        "position_m": [0.20, -2.00, 1.00]
+      },
+      {
+        "model_name": "strawberry_3",
+        "target_id": 3,
+        "position_m": [0.40, -2.00, 1.00]
+      }
+    ]
+  },
+  "pilot_conditions": [
+    {
+      "scenario_id": "pilot_nominal_none",
+      "lighting": "nominal",
+      "occlusion": "none",
+      "purpose": "camera_clear_baseline"
+    },
+    {
+      "scenario_id": "pilot_dim_none",
+      "lighting": "dim",
+      "occlusion": "none",
+      "purpose": "one_factor_lighting_stress"
+    },
+    {
+      "scenario_id": "pilot_nominal_heavy",
+      "lighting": "nominal",
+      "occlusion": "heavy",
+      "purpose": "one_factor_occlusion_stress"
+    }
+  ]
+}

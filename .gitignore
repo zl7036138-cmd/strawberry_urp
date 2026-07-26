@@ -1,0 +1,42 @@
+# ROS / colcon
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+/build/
+/install/
+/log/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.cache/
+.codex_tmp/
+
+# Data and generated artifacts
+data/raw/
+data/processed/
+artifacts/
+models/*.pt
+weights/*.pt
+outputs/
+results/
+bags/
+runs/
+*.bag
+*.db3
+
+# Gazebo / ROS runtime
+.gazebo/
+.gz/
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

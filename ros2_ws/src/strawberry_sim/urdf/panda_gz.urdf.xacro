@@ -1,0 +1,301 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="panda">
+  <xacro:arg name="initial_positions_file"
+             default="$(find strawberry_sim)/config/panda_initial_positions.yaml"/>
+  <xacro:arg name="enable_attachment" default="false"/>
+  <xacro:arg name="camera_mount" default="fixed"/>
+  <xacro:property name="initial_positions"
+                  value="${xacro.load_yaml('$(arg initial_positions_file)')['initial_positions']}"/>
+  <xacro:property name="camera_mount_mode" value="$(arg camera_mount)"/>
+
+  <xacro:include filename="$(find moveit_resources_panda_description)/urdf/panda.urdf.xacro"/>
+
+  <xacro:macro name="strawberry_rgbd_mount"
+               params="link_name optical_frame joint_name optical_joint_name
+                       parent_link xyz rpy topic sensor_name
+                       image_width image_height update_rate">
+    <link name="${link_name}">
+      <inertial>
+        <mass value="0.12"/>
+        <origin xyz="0 0 0"/>
+        <inertia ixx="0.00008" ixy="0" ixz="0"
+                 iyy="0.00005" iyz="0" izz="0.00008"/>
+      </inertial>
+      <visual name="${sensor_name}_housing_visual">
+        <geometry><box size="0.055 0.080 0.040"/></geometry>
+        <material name="${sensor_name}_dark">
+          <color rgba="0.10 0.10 0.12 1"/>
+        </material>
+      </visual>
+      <collision name="${sensor_name}_housing_collision">
+        <geometry><box size="0.055 0.080 0.040"/></geometry>
+      </collision>
+    </link>
+    <joint name="${joint_name}" type="fixed">
+      <parent link="${parent_link}"/>
+      <child link="${link_name}"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <link name="${optical_frame}">
+      <inertial>
+        <mass value="0.001"/>
+        <inertia ixx="1e-8" ixy="0" ixz="0"
+                 iyy="1e-8" iyz="0" izz="1e-8"/>
+      </inertial>
+    </link>
+    <joint name="${optical_joint_name}" type="fixed">
+      <parent link="${link_name}"/>
+      <child link="${optical_frame}"/>
+      <origin xyz="0 0 0" rpy="-1.5707963268 0 -1.5707963268"/>
+    </joint>
+
+    <gazebo reference="${joint_name}">
+      <preserveFixedJoint>true</preserveFixedJoint>
+    </gazebo>
+    <gazebo reference="${optical_joint_name}">
+      <preserveFixedJoint>true</preserveFixedJoint>
+    </gazebo>
+    <gazebo reference="${link_name}">
+      <sensor name="${sensor_name}" type="rgbd_camera">
+        <camera>
+          <horizontal_fov>1.0471975512</horizontal_fov>
+          <image>
+            <width>${image_width}</width>
+            <height>${image_height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.10</near>
+            <far>5.0</far>
+          </clip>
+          <optical_frame_id>${optical_frame}</optical_frame_id>
+        </camera>
+        <always_on>true</always_on>
+        <update_rate>${update_rate}</update_rate>
+        <visualize>true</visualize>
+        <topic>${topic}</topic>
+        <gz_frame_id>${optical_frame}</gz_frame_id>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Optional eye-in-hand RGB-D camera. The historical fixed camera remains
+       a world model. In wrist mode this housing follows panda_hand. -->
+  <xacro:if value="${camera_mount_mode == 'wrist'}">
+    <xacro:strawberry_rgbd_mount
+        link_name="strawberry_camera_link"
+        optical_frame="strawberry_camera_optical_frame"
+        joint_name="panda_wrist_camera_joint"
+        optical_joint_name="strawberry_camera_optical_joint"
+        parent_link="panda_hand"
+        xyz="-0.065 0 0.045"
+        rpy="0 -1.5707963268 0"
+        topic="/camera"
+        sensor_name="wrist_rgbd"
+        image_width="640"
+        image_height="480"
+        update_rate="30"/>
+  </xacro:if>
+
+  <!-- Dual mode keeps all data planes distinct. The base camera supplies a
+       stable overview from a short mast; the wrist camera is the only precise
+       perception-control source after a settled observation motion. -->
+  <xacro:if value="${camera_mount_mode == 'dual'}">
+    <link name="strawberry_base_camera_mast">
+      <inertial>
+        <mass value="0.35"/>
+        <origin xyz="0 0 0.475"/>
+        <inertia ixx="0.0264" ixy="0" ixz="0"
+                 iyy="0.0264" iyz="0" izz="0.0001"/>
+      </inertial>
+      <visual name="base_camera_mast_visual">
+        <origin xyz="0 0 0.475"/>
+        <geometry><box size="0.040 0.040 0.950"/></geometry>
+        <material name="base_camera_mast_dark">
+          <color rgba="0.08 0.08 0.09 1"/>
+        </material>
+      </visual>
+      <collision name="base_camera_mast_collision">
+        <origin xyz="0 0 0.475"/>
+        <geometry><box size="0.040 0.040 0.950"/></geometry>
+      </collision>
+    </link>
+    <joint name="panda_base_camera_mast_joint" type="fixed">
+      <parent link="panda_link0"/>
+      <child link="strawberry_base_camera_mast"/>
+      <origin xyz="-0.10 -0.42 0.05" rpy="0 0 0"/>
+    </joint>
+    <gazebo reference="panda_base_camera_mast_joint">
+      <preserveFixedJoint>true</preserveFixedJoint>
+    </gazebo>
+
+    <xacro:strawberry_rgbd_mount
+        link_name="strawberry_base_camera_link"
+        optical_frame="strawberry_base_camera_optical_frame"
+        joint_name="panda_base_camera_joint"
+        optical_joint_name="strawberry_base_camera_optical_joint"
+        parent_link="strawberry_base_camera_mast"
+        xyz="0 0 1.00"
+        rpy="0 0.599 0.611"
+        topic="/camera/base"
+        sensor_name="base_rgbd"
+        image_width="320"
+        image_height="240"
+        update_rate="10"/>
+    <xacro:strawberry_rgbd_mount
+        link_name="strawberry_wrist_camera_link"
+        optical_frame="strawberry_wrist_camera_optical_frame"
+        joint_name="panda_wrist_camera_joint"
+        optical_joint_name="strawberry_wrist_camera_optical_joint"
+        parent_link="panda_hand"
+        xyz="-0.065 0 0.045"
+        rpy="0 -1.5707963268 0"
+        topic="/camera/wrist"
+        sensor_name="wrist_rgbd"
+        image_width="640"
+        image_height="480"
+        update_rate="30"/>
+  </xacro:if>
+
+  <!-- The exact `world` + static marker pattern is converted by sdformat_urdf
+       into a fixed joint whose parent is the Gazebo world, not a free model
+       root link. -->
+  <link name="world"/>
+  <gazebo reference="world">
+    <static>true</static>
+  </gazebo>
+  <joint name="panda_world_joint" type="fixed">
+    <parent link="world"/>
+    <child link="panda_link0"/>
+  </joint>
+
+  <!-- Named inner-finger frames support deterministic geometric contact
+       checks.  They intentionally carry no collision geometry: earlier pad
+       boxes created table contacts and cross-finger self-collisions that are
+       absent from the stock Panda gripper. -->
+  <link name="panda_left_contact_pad">
+    <inertial>
+      <mass value="0.001"/>
+      <inertia ixx="1e-7" ixy="0" ixz="0" iyy="1e-7" iyz="0" izz="1e-7"/>
+    </inertial>
+  </link>
+  <joint name="panda_left_contact_pad_joint" type="fixed">
+    <parent link="panda_leftfinger"/>
+    <child link="panda_left_contact_pad"/>
+    <!-- The stock left-finger mesh starts at local y=0 and extends outward.
+         Centre the 4 mm pad on that plane so 2 mm protrudes inward and becomes
+         the first collision seen when the gripper closes. -->
+    <origin xyz="0 0 0.027" rpy="0 0 0"/>
+  </joint>
+
+  <link name="panda_right_contact_pad">
+    <inertial>
+      <mass value="0.001"/>
+      <inertia ixx="1e-7" ixy="0" ixz="0" iyy="1e-7" iyz="0" izz="1e-7"/>
+    </inertial>
+  </link>
+  <joint name="panda_right_contact_pad_joint" type="fixed">
+    <parent link="panda_rightfinger"/>
+    <child link="panda_right_contact_pad"/>
+    <origin xyz="0 0 0.027" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="panda_left_contact_pad_joint">
+    <preserveFixedJoint>true</preserveFixedJoint>
+  </gazebo>
+  <gazebo reference="panda_right_contact_pad_joint">
+    <preserveFixedJoint>true</preserveFixedJoint>
+  </gazebo>
+  <gazebo reference="panda_leftfinger">
+    <sensor name="left_contact_sensor" type="contact">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <contact>
+        <collision>panda_leftfinger_collision</collision>
+        <topic>/strawberry/sim/gripper/left_contacts</topic>
+      </contact>
+    </sensor>
+  </gazebo>
+  <gazebo reference="panda_rightfinger">
+    <sensor name="right_contact_sensor" type="contact">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <contact>
+        <collision>panda_rightfinger_collision</collision>
+        <topic>/strawberry/sim/gripper/right_contacts</topic>
+      </contact>
+    </sensor>
+  </gazebo>
+
+  <ros2_control name="PandaGazeboSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <xacro:macro name="arm_control_joint" params="name">
+      <joint name="${name}">
+        <command_interface name="position"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions[name]}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+    </xacro:macro>
+    <xacro:arm_control_joint name="panda_joint1"/>
+    <xacro:arm_control_joint name="panda_joint2"/>
+    <xacro:arm_control_joint name="panda_joint3"/>
+    <xacro:arm_control_joint name="panda_joint4"/>
+    <xacro:arm_control_joint name="panda_joint5"/>
+    <xacro:arm_control_joint name="panda_joint6"/>
+    <xacro:arm_control_joint name="panda_joint7"/>
+    <joint name="panda_finger_joint1">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="panda_finger_joint2">
+      <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system"
+            name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(find strawberry_sim)/config/panda_controllers.yaml</parameters>
+      <!-- The upstream 0.1 default leaves the simulated arm several centimetres
+           behind short Cartesian trajectories near the edge of its workspace. -->
+      <position_proportional_gain>1.0</position_proportional_gain>
+    </plugin>
+
+    <xacro:if value="$(arg enable_attachment)">
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>panda_link7</parent_link>
+        <child_model>strawberry_1</child_model>
+        <child_link>fruit_link</child_link>
+        <attach_topic>/strawberry/sim/fruit_1/attach</attach_topic>
+        <detach_topic>/strawberry/sim/fruit_1/detach</detach_topic>
+        <output_topic>/strawberry/sim/fruit_1/attached</output_topic>
+      </plugin>
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>panda_link7</parent_link>
+        <child_model>strawberry_2</child_model>
+        <child_link>fruit_link</child_link>
+        <attach_topic>/strawberry/sim/fruit_2/attach</attach_topic>
+        <detach_topic>/strawberry/sim/fruit_2/detach</detach_topic>
+        <output_topic>/strawberry/sim/fruit_2/attached</output_topic>
+      </plugin>
+      <plugin filename="gz-sim-detachable-joint-system"
+              name="gz::sim::systems::DetachableJoint">
+        <parent_link>panda_link7</parent_link>
+        <child_model>strawberry_3</child_model>
+        <child_link>fruit_link</child_link>
+        <attach_topic>/strawberry/sim/fruit_3/attach</attach_topic>
+        <detach_topic>/strawberry/sim/fruit_3/detach</detach_topic>
+        <output_topic>/strawberry/sim/fruit_3/attached</output_topic>
+      </plugin>
+    </xacro:if>
+  </gazebo>
+</robot>

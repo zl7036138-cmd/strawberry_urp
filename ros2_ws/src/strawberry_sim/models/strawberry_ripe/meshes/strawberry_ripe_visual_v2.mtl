@@ -1,0 +1,26 @@
+# Generated from reviewed Blender assets for Strawberry URP.
+# Colours are intentionally embedded; the source files use no image textures.
+
+newmtl Calyx_Green
+Ka 0.012250 0.077000 0.007700
+Kd 0.035000 0.220000 0.022000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl Ripe_Strawberry_Red
+Ka 0.238000 0.006300 0.004200
+Kd 0.680000 0.018000 0.012000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl Strawberry_Seed_Yellow
+Ka 0.252000 0.157500 0.019250
+Kd 0.720000 0.450000 0.055000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2

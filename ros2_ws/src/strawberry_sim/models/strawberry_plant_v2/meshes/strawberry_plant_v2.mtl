@@ -1,0 +1,42 @@
+# Generated from reviewed Blender assets for Strawberry URP.
+# Colours are intentionally embedded; the source files use no image textures.
+
+newmtl Strawberry_Inflorescence_Green_v2
+Ka 0.022750 0.078750 0.013300
+Kd 0.065000 0.225000 0.038000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl Strawberry_Leaf_Green_v2
+Ka 0.008750 0.071750 0.007000
+Kd 0.025000 0.205000 0.020000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl Strawberry_Leaf_Vein_v2
+Ka 0.024500 0.101500 0.014000
+Kd 0.070000 0.290000 0.040000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl Strawberry_Petiole_Green_v2
+Ka 0.017500 0.082250 0.010500
+Kd 0.050000 0.235000 0.030000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl Strawberry_Crown_Green_v2
+Ka 0.021000 0.050750 0.008750
+Kd 0.060000 0.145000 0.025000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2

@@ -1,0 +1,142 @@
+import pathlib
+import sys
+import unittest
+
+
+PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PACKAGE_ROOT))
+
+from strawberry_sim.core import (  # noqa: E402
+    AttachmentGate,
+    BinBounds,
+    BinStabilityTracker,
+    Pose3D,
+    dual_pad_geometric_contact,
+    fruit_models_in_contacts,
+    parse_attachment_state,
+    scene_config_from_mapping,
+)
+
+
+def scene_mapping():
+    return {
+        "schema_version": 1,
+        "world_name": "test_world",
+        "frames": {"robot_base": "panda_link0", "camera_optical": "camera_optical"},
+        "fruits": [
+            {"target_id": 1, "model_name": "fruit_1", "maturity": "RIPE", "initial_pose_m": [0.4, 0.0, 0.5]},
+            {"target_id": 2, "model_name": "fruit_2", "maturity": "UNRIPE", "initial_pose_m": [0.5, 0.0, 0.5]},
+        ],
+        "bin": {
+            "interior_bounds_m": {"min_x": 0.0, "max_x": 1.0, "min_y": -1.0, "max_y": 0.0, "min_z": 0.0, "max_z": 1.0},
+            "required_stability_sec": 1.0,
+        },
+    }
+
+
+class SimulationCoreTests(unittest.TestCase):
+    def test_scene_contract(self):
+        scene = scene_config_from_mapping(scene_mapping())
+        self.assertEqual([item.target_id for item in scene.ordered_fruits], [1, 2])
+        self.assertEqual(scene.fruit(1).maturity, "RIPE")
+        self.assertEqual(
+            scene.fruit(1).pose_tf_topic,
+            "/strawberry/sim/fruit_1/pose_tf",
+        )
+        self.assertEqual(
+            scene.fruit(1).ground_truth_pose_topic,
+            "/strawberry/ground_truth/fruit_1/pose",
+        )
+        for topic in (
+            scene.fruit(1).pose_tf_topic,
+            scene.fruit(1).ground_truth_pose_topic,
+        ):
+            self.assertTrue(all(not token[:1].isdigit() for token in topic.split("/")))
+
+    def test_bin_stability_requires_uninterrupted_time(self):
+        bounds = BinBounds(0, 1, -1, 0, 0, 1)
+        tracker = BinStabilityTracker(bounds, 1.0)
+        inside = Pose3D(0.5, -0.5, 0.5)
+        outside = Pose3D(1.5, -0.5, 0.5)
+        self.assertFalse(tracker.update(1, inside, 0.0))
+        self.assertFalse(tracker.update(1, outside, 0.5))
+        self.assertFalse(tracker.update(1, inside, 1.0))
+        self.assertTrue(tracker.update(1, inside, 2.0))
+
+    def test_attach_gate_requires_fresh_dual_contact(self):
+        gate = AttachmentGate(0.25)
+        accepted = gate.assess_attach(
+            now_sec=2.0,
+            backend_enabled=True,
+            backend_initialized=True,
+            state_known=True,
+            attached=False,
+            left_contact=True,
+            left_stamp_sec=1.9,
+            right_contact=True,
+            right_stamp_sec=1.8,
+        )
+        self.assertTrue(accepted.allowed)
+        rejected = gate.assess_attach(
+            now_sec=2.0,
+            backend_enabled=True,
+            backend_initialized=True,
+            state_known=True,
+            attached=False,
+            left_contact=True,
+            left_stamp_sec=1.0,
+            right_contact=True,
+            right_stamp_sec=1.9,
+        )
+        self.assertFalse(rejected.allowed)
+
+    def test_geometric_contact_requires_close_pads_straddling_fruit(self):
+        fruit = Pose3D(0.42, -0.12, 0.52)
+        left = Pose3D(0.42, -0.145, 0.54)
+        right = Pose3D(0.42, -0.095, 0.54)
+        self.assertTrue(
+            dual_pad_geometric_contact(fruit, left, right, 0.038)
+        )
+        self.assertFalse(
+            dual_pad_geometric_contact(
+                fruit,
+                Pose3D(0.42, -0.16, 0.54),
+                Pose3D(0.42, -0.08, 0.54),
+                0.038,
+            )
+        )
+        self.assertFalse(
+            dual_pad_geometric_contact(
+                fruit,
+                Pose3D(0.42, -0.145, 0.54),
+                Pose3D(0.42, -0.135, 0.54),
+                0.038,
+            )
+        )
+
+    def test_detachable_joint_state_is_parsed_strictly(self):
+        self.assertTrue(parse_attachment_state("attached"))
+        self.assertFalse(parse_attachment_state(" detached "))
+        with self.assertRaises(ValueError):
+            parse_attachment_state("false")
+
+    def test_contact_pairs_map_exact_scoped_fruit_models(self):
+        models = {1: "strawberry_1", 2: "strawberry_2"}
+        active = fruit_models_in_contacts(
+            [
+                (
+                    "panda::panda_left_contact_pad::pad_collision",
+                    "strawberry_2::fruit_link::fruit_collision",
+                ),
+                (
+                    "panda::other",
+                    "strawberry_10::fruit_link::fruit_collision",
+                ),
+            ],
+            models,
+        )
+        self.assertEqual(active, frozenset({2}))
+
+
+if __name__ == "__main__":
+    unittest.main()

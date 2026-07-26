@@ -1,0 +1,51 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    use_sim_time: true
+
+    panda_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    panda_gripper_controller:
+      type: parallel_gripper_action_controller/GripperActionController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+panda_arm_controller:
+  ros__parameters:
+    joints:
+      - panda_joint1
+      - panda_joint2
+      - panda_joint3
+      - panda_joint4
+      - panda_joint5
+      - panda_joint6
+      - panda_joint7
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_nonzero_velocity_at_trajectory_end: true
+    # A position-only Gazebo system can lag the time-parameterized command.
+    # Require the real joint state to converge before reporting success instead
+    # of treating the final trajectory timestamp as sufficient.
+    constraints:
+      goal_time: 8.0
+      stopped_velocity_tolerance: 0.02
+      # The Cartesian endpoint is independently checked at 10 mm / 5 deg.
+      # A 0.05 rad joint gate prevents the old premature success while still
+      # allowing convergence under rigid-contact loads near the table.
+      panda_joint1: {trajectory: 0.50, goal: 0.05}
+      panda_joint2: {trajectory: 0.50, goal: 0.05}
+      panda_joint3: {trajectory: 0.50, goal: 0.05}
+      panda_joint4: {trajectory: 0.50, goal: 0.05}
+      panda_joint5: {trajectory: 0.50, goal: 0.05}
+      panda_joint6: {trajectory: 0.50, goal: 0.05}
+      panda_joint7: {trajectory: 0.50, goal: 0.05}
+
+panda_gripper_controller:
+  ros__parameters:
+    joint: panda_finger_joint1
+    state_interfaces: [position, velocity]
+    allow_stalling: true
+    stall_timeout: 0.25
+    goal_tolerance: 0.003

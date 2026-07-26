@@ -1,0 +1,34 @@
+project:
+  name: strawberry_urp
+  deadline: "2027-03-01"
+  seed: 20260710
+
+frames:
+  robot_base: panda_link0
+  camera_optical: strawberry_camera_optical_frame
+
+timing:
+  use_sim_time: true
+  stale_after_sec: 0.5
+  sensor_retries: 3
+  alternate_approach_retries: 1
+
+selection:
+  maturity: RIPE
+  confidence_threshold: 0.60
+  order: confidence_desc_then_distance_asc
+
+grasp:
+  pregrasp_offset_m: 0.10
+  retreat_distance_m: 0.08
+  bin_stability_sec: 1.0
+
+acceptance:
+  perception_macro_f1_min: 0.85
+  localization_median_error_mm_max: 15.0
+  localization_p95_error_mm_max: 30.0
+  oracle_success_rate_min: 0.90
+  end_to_end_success_rate_min: 0.80
+  false_pick_rate_max: 0.05
+  planning_p95_sec_max: 5.0
+

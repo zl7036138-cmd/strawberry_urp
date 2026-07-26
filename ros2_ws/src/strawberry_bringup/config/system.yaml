@@ -1,0 +1,12 @@
+strawberry_trial_orchestrator:
+  ros__parameters:
+    use_sim_time: true
+    acquisition_timeout_sec: 3.0
+    place_x: 0.35
+    place_y: -0.45
+    place_z: 0.45
+    target_source: oracle
+    control_target_topic: /strawberry/oracle/target_pose
+    shadow_enabled: false
+    shadow_target_topic: /strawberry/shadow/target_pose
+    shadow_detections_topic: /strawberry/shadow/detections

@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "capture_id": "t70_synthetic_capture_preflight_v1",
+  "scope": "NON_ACCEPTANCE_SYNTHETIC_CAPTURE_PREFLIGHT",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "training_started": false,
+  "contracts": {
+    "intervention_relative_path": "config/t70_sim_adaptation_intervention.json",
+    "intervention_sha256": "df489d21cabd535699e73df688934596be9a6d235eec3d7dfdd4fba4102684d4",
+    "scene_condition_relative_path": "config/t70_synthetic_capture_scene_conditions.json",
+    "scene_condition_sha256": "c8b2ac7c15251a0ae7cbfd8806484ed99d01e799743b984e9ef9af3a7cade595",
+    "d2_manifest_relative_path": "config/t70_shadow_multiposition_fixed_window.json",
+    "d2_manifest_sha256": "49c21c95321660c144ade2752d2365c3e64284ed9c9cd5be654fca673c3c1041",
+    "simulation_scene_relative_path": "ros2_ws/src/strawberry_sim/config/scene_tabletop_v1.yaml",
+    "simulation_scene_sha256": "0cbf41226c0c11c561fcd3679fdd1b50997211791bffc756822951ebb67c053c",
+    "base_world_relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+    "base_world_sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7"
+  },
+  "capture": {
+    "image_width": 640,
+    "image_height": 480,
+    "image_format": "png",
+    "png_compression": 3,
+    "fruit_radius_m": 0.035,
+    "settled_frames_after_pose": 5,
+    "images_per_render_configuration": 1,
+    "label_format": "yolo_normalized_xywh",
+    "label_source": "gazebo_truth_sphere_projection",
+    "labels_per_image": 1,
+    "group_count": 36,
+    "expected_train_images": 216,
+    "expected_heldout_images": 72,
+    "expected_total_images": 288
+  },
+  "split_contract": {
+    "train_materialization_id": 20260601,
+    "heldout_materialization_id": 20260602,
+    "formal_seed_labels": [20260710, 20260711, 20260712],
+    "formal_seed_labels_allowed": false,
+    "minimum_distance_from_exact_d2_position_m": 0.015,
+    "train_and_heldout_positions_disjoint": true,
+    "within_split_image_hashes_unique": true,
+    "cross_split_image_hash_overlap_allowed": false,
+    "d2_artifacts_allowed_as_images": false
+  },
+  "classes": [
+    {
+      "maturity": "RIPE",
+      "class_id": 0,
+      "target_id": 1,
+      "target_model_name": "strawberry_1"
+    },
+    {
+      "maturity": "UNRIPE",
+      "class_id": 1,
+      "target_id": 2,
+      "target_model_name": "strawberry_2"
+    }
+  ],
+  "parked_models": [
+    {
+      "model_name": "strawberry_1",
+      "target_id": 1,
+      "position_m": [0.0, -2.0, 1.0]
+    },
+    {
+      "model_name": "strawberry_2",
+      "target_id": 2,
+      "position_m": [0.2, -2.0, 1.0]
+    },
+    {
+      "model_name": "strawberry_3",
+      "target_id": 3,
+      "position_m": [0.4, -2.0, 1.0]
+    }
+  ],
+  "conditions": [
+    {"condition_id": "dim_none", "lighting": "dim", "occlusion": "none"},
+    {"condition_id": "dim_partial", "lighting": "dim", "occlusion": "partial"},
+    {"condition_id": "dim_heavy", "lighting": "dim", "occlusion": "heavy"},
+    {"condition_id": "nominal_none", "lighting": "nominal", "occlusion": "none"},
+    {"condition_id": "nominal_partial", "lighting": "nominal", "occlusion": "partial"},
+    {"condition_id": "nominal_heavy", "lighting": "nominal", "occlusion": "heavy"},
+    {"condition_id": "bright_none", "lighting": "bright", "occlusion": "none"},
+    {"condition_id": "bright_partial", "lighting": "bright", "occlusion": "partial"},
+    {"condition_id": "bright_heavy", "lighting": "bright", "occlusion": "heavy"}
+  ],
+  "splits": {
+    "train": {
+      "materialization_id": 20260601,
+      "positions": [
+        {"position_id": "tr01", "position_m": [0.425, -0.110, 0.505]},
+        {"position_id": "tr02", "position_m": [0.445, -0.110, 0.525]},
+        {"position_id": "tr03", "position_m": [0.465, -0.110, 0.485]},
+        {"position_id": "tr04", "position_m": [0.485, -0.110, 0.515]},
+        {"position_id": "tr05", "position_m": [0.505, -0.085, 0.490]},
+        {"position_id": "tr06", "position_m": [0.425, -0.060, 0.485]},
+        {"position_id": "tr07", "position_m": [0.445, -0.060, 0.510]},
+        {"position_id": "tr08", "position_m": [0.465, -0.060, 0.525]},
+        {"position_id": "tr09", "position_m": [0.485, -0.035, 0.505]},
+        {"position_id": "tr10", "position_m": [0.505, -0.015, 0.490]},
+        {"position_id": "tr11", "position_m": [0.425, 0.010, 0.505]},
+        {"position_id": "tr12", "position_m": [0.465, 0.015, 0.525]}
+      ]
+    },
+    "heldout": {
+      "materialization_id": 20260602,
+      "positions": [
+        {"position_id": "va01", "position_m": [0.435, -0.085, 0.515]},
+        {"position_id": "va02", "position_m": [0.475, -0.105, 0.485]},
+        {"position_id": "va03", "position_m": [0.495, -0.070, 0.505]},
+        {"position_id": "va04", "position_m": [0.435, -0.025, 0.490]}
+      ]
+    }
+  }
+}

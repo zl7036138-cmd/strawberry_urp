@@ -1,0 +1,26 @@
+# ADR-0025 single clean-label intervention. Relative to the historical
+# baseline, only the registered dataset derivative and run name change. The
+# derivative contains consensus-corrected train labels, audited validation,
+# and deliberately no test split.
+model: weights/yolo11s.pt
+data: data/processed/zenodo_6126677_train_audit_v1/dataset.yaml
+task: detect
+mode: train
+imgsz: 640
+epochs: 200
+batch: 8
+device: 0
+workers: 4
+pretrained: true
+seed: 20260710
+deterministic: true
+amp: false
+patience: 50
+save: true
+save_period: 10
+cache: false
+project: outputs/perception
+name: yolo11s_640_train_audit_v1
+exist_ok: false
+plots: true
+verbose: true

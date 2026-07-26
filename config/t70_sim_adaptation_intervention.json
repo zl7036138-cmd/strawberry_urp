@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "intervention_id": "t70_sim_adaptation_heavy_occlusion_v1",
+  "scope": "SIMULATOR_SPECIFIC_CANDIDATE_ONLY",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "trigger_evidence": {
+    "path": "results/t70/shadow_multiposition_fixed_window_v1/summary_v2.json",
+    "size_bytes": 53719,
+    "sha256": "b64cdfae6f0bc64d5efcb635b83755ae6d4b4fe0f0b07106582fb2817c722197",
+    "heavy_fixed_frames": 300,
+    "heavy_ripe_detection_frames": 0,
+    "positions_affected": 5
+  },
+  "baseline_model": {
+    "path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "size_bytes": 19161242,
+    "sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31
+  },
+  "real_data_contract": {
+    "split_manifest_path": "data/processed/zenodo_6126677/split_manifest.json",
+    "split_manifest_size_bytes": 686465,
+    "split_manifest_sha256": "4a146b792ec6838f0b00782dc6145ebce352034678ca35cdc3ae9436eacfe237",
+    "real_train_images_allowed": 501,
+    "real_validation_images_allowed_for_non_regression_only": 116,
+    "real_test_images_allowed": 0,
+    "audited_validation_manifest_path": "data/processed/zenodo_6126677_val_audit_v1/audit_manifest.json",
+    "audited_validation_manifest_size_bytes": 85202,
+    "audited_validation_manifest_sha256": "f2760fbf2836d0fe2c75f789da42aaf2c5218309e3da26782ddcf1a863eec7b3"
+  },
+  "synthetic_data_contract": {
+    "classes": ["ripe", "unripe"],
+    "labels_source": "gazebo_truth_projection",
+    "training_and_validation_render_manifests_must_be_disjoint": true,
+    "training_image_hashes_must_be_unique": true,
+    "validation_image_hashes_must_be_unique": true,
+    "cross_split_image_hash_overlap_allowed": false,
+    "exclude_exact_d2_target_positions_within_m": 0.015,
+    "formal_seed_labels_reserved": [20260710, 20260711, 20260712],
+    "formal_seed_labels_allowed_in_synthetic_training": false,
+    "d2_artifacts_allowed_as_training_data": false,
+    "d2_artifacts_role": "frozen_pre_post_regression_screen_only"
+  },
+  "intervention_boundary": {
+    "primary_change": "mixed_real_train_plus_synthetic_finetuning",
+    "simulator_visual_asset_change_in_same_candidate_allowed": false,
+    "model_architecture_change_allowed": false,
+    "base_model_change_allowed": false,
+    "maximum_training_claims": 1,
+    "training_authorized_before_preflight_receipt": false,
+    "exact_hyperparameters_must_be_hash_frozen_before_claim": true
+  },
+  "promotion_screens": {
+    "synthetic_heldout_macro_f1_minimum": 0.85,
+    "d2_heavy_ripe_frame_rate_minimum": 0.60,
+    "d2_heavy_each_position_ripe_frame_rate_minimum": 0.50,
+    "d2_heavy_target_pose_frame_rate_minimum": 0.50,
+    "d2_nominal_none_ripe_frame_rate_minimum": 0.95,
+    "d2_dim_none_ripe_frame_rate_minimum": 0.95,
+    "d2_nominal_none_target_pose_frame_rate_minimum": 0.90,
+    "d2_dim_none_target_pose_frame_rate_minimum": 0.90,
+    "sim_negative_false_ripe_frame_rate_maximum": 0.05,
+    "sim_unripe_observation_frame_rate_minimum": 0.50,
+    "audited_real_validation_macro_f1_minimum": 0.7958180660147616,
+    "audited_real_validation_ripe_f1_minimum": 0.8743089430894309,
+    "audited_real_validation_unripe_f1_minimum": 0.7173271889400922
+  },
+  "authorization": {
+    "synthetic_capture_preflight": true,
+    "training_now": false,
+    "perception_control": false,
+    "formal_matrix": false,
+    "formal_real_test": false
+  }
+}

@@ -1,0 +1,419 @@
+"""Pure-Python manipulation state machine with a pluggable motion backend."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from enum import IntEnum
+import math
+import time
+from typing import Callable, Protocol
+
+
+class FailureCode(IntEnum):
+    NONE = 0
+    NO_TARGET = 1
+    LOW_CONFIDENCE = 2
+    DEPTH_INVALID = 3
+    TF_TIMEOUT = 4
+    UNREACHABLE = 5
+    PLANNING_FAILED = 6
+    COLLISION = 7
+    GRASP_FAILED = 8
+    PLACE_FAILED = 9
+    STALE_DATA = 10
+
+
+@dataclass(frozen=True)
+class Pose:
+    x: float
+    y: float
+    z: float
+    qx: float = 0.0
+    qy: float = 0.0
+    qz: float = 0.0
+    qw: float = 1.0
+
+    def normalized(self) -> "Pose":
+        norm = math.sqrt(self.qx**2 + self.qy**2 + self.qz**2 + self.qw**2)
+        if norm <= 1e-9:
+            raise ValueError("pose quaternion must be non-zero")
+        return replace(
+            self,
+            qx=self.qx / norm,
+            qy=self.qy / norm,
+            qz=self.qz / norm,
+            qw=self.qw / norm,
+        )
+
+
+@dataclass(frozen=True)
+class ExecutionResult:
+    success: bool
+    failure_code: FailureCode
+    message: str
+    planning_time_sec: float
+    execution_time_sec: float
+    stages: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class MotionOutcome:
+    success: bool
+    planning_time_sec: float = 0.0
+    execution_time_sec: float = 0.0
+    collision: bool = False
+
+
+class MotionBackend(Protocol):
+    def prepare_pick(self, target_id: int, target_pose: Pose) -> bool: ...
+
+    def allow_target_contact(self, target_id: int) -> bool: ...
+
+    def restore_target_collision(self, target_id: int) -> bool: ...
+
+    def move_to(self, pose: Pose, stage: str) -> MotionOutcome: ...
+
+    def close_gripper(self) -> bool: ...
+
+    def open_gripper(self) -> bool: ...
+
+    def attach(self, target_id: int) -> bool: ...
+
+    def detach(self, target_id: int) -> bool: ...
+
+    def move_home(self) -> bool: ...
+
+    def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool: ...
+
+
+def offset_pose(pose: Pose, *, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0) -> Pose:
+    """Apply a base-frame translation while preserving orientation."""
+
+    return replace(pose.normalized(), x=pose.x + dx, y=pose.y + dy, z=pose.z + dz)
+
+
+def offset_along_local_z(pose: Pose, distance_m: float) -> Pose:
+    """Translate along the pose's local +Z tool axis."""
+
+    pose = pose.normalized()
+    if not math.isfinite(distance_m):
+        raise ValueError("tool-axis offset must be finite")
+    axis_x = 2.0 * (pose.qx * pose.qz + pose.qw * pose.qy)
+    axis_y = 2.0 * (pose.qy * pose.qz - pose.qw * pose.qx)
+    axis_z = 1.0 - 2.0 * (pose.qx**2 + pose.qy**2)
+    return replace(
+        pose,
+        x=pose.x + distance_m * axis_x,
+        y=pose.y + distance_m * axis_y,
+        z=pose.z + distance_m * axis_z,
+    )
+
+
+def alternate_approach(pose: Pose) -> Pose:
+    """Rotate the tool 90 degrees about base Z for the one allowed retry."""
+
+    pose = pose.normalized()
+    half = math.pi / 4.0
+    rz = math.sin(half)
+    rw = math.cos(half)
+    # q_retry = q_z90 * q_original
+    return replace(
+        pose,
+        qx=rw * pose.qx - rz * pose.qy,
+        qy=rw * pose.qy + rz * pose.qx,
+        qz=rw * pose.qz + rz * pose.qw,
+        qw=rw * pose.qw - rz * pose.qz,
+    ).normalized()
+
+
+DEFAULT_GRASP_QUATERNION = (1.0, 0.0, 0.0, 0.0)
+DEFAULT_TOOL_CENTER_OFFSET_M = 0.1054
+DEFAULT_PREGRASP_OFFSET_M = 0.15
+
+
+def hand_pose_for_fruit_center(
+    center: Pose,
+    *,
+    quaternion: tuple[float, float, float, float] = DEFAULT_GRASP_QUATERNION,
+    tool_center_offset_m: float = DEFAULT_TOOL_CENTER_OFFSET_M,
+) -> Pose:
+    """Convert a fruit-centre pose into the matching Panda hand pose."""
+
+    if len(quaternion) != 4:
+        raise ValueError("grasp quaternion must contain four values")
+    if not math.isfinite(tool_center_offset_m) or tool_center_offset_m <= 0.0:
+        raise ValueError("tool center offset must be positive and finite")
+    qx, qy, qz, qw = (float(value) for value in quaternion)
+    oriented_center = replace(
+        center, qx=qx, qy=qy, qz=qz, qw=qw
+    ).normalized()
+    return offset_along_local_z(oriented_center, -tool_center_offset_m)
+
+
+def pregrasp_pose_for_fruit_center(
+    center: Pose,
+    *,
+    quaternion: tuple[float, float, float, float] = DEFAULT_GRASP_QUATERNION,
+    tool_center_offset_m: float = DEFAULT_TOOL_CENTER_OFFSET_M,
+    pregrasp_offset_m: float = DEFAULT_PREGRASP_OFFSET_M,
+) -> Pose:
+    """Return the exact pre-grasp goal used by the execution state machine."""
+
+    if not math.isfinite(pregrasp_offset_m) or pregrasp_offset_m <= 0.0:
+        raise ValueError("pregrasp offset must be positive and finite")
+    hand_pose = hand_pose_for_fruit_center(
+        center,
+        quaternion=quaternion,
+        tool_center_offset_m=tool_center_offset_m,
+    )
+    return offset_along_local_z(hand_pose, -pregrasp_offset_m)
+
+
+class PickAndPlaceExecutor:
+    def __init__(
+        self,
+        backend: MotionBackend,
+        *,
+        pregrasp_offset_m: float = DEFAULT_PREGRASP_OFFSET_M,
+        retreat_distance_m: float = 0.08,
+        bin_stability_sec: float = 1.0,
+        tool_center_offset_m: float = DEFAULT_TOOL_CENTER_OFFSET_M,
+        grasp_quaternion: tuple[float, float, float, float] = (
+            DEFAULT_GRASP_QUATERNION
+        ),
+        place_quaternion: tuple[float, float, float, float] = (
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+        ),
+    ) -> None:
+        if pregrasp_offset_m <= 0.0 or retreat_distance_m <= 0.0:
+            raise ValueError("motion offsets must be positive")
+        if tool_center_offset_m <= 0.0:
+            raise ValueError("tool center offset must be positive")
+        if len(grasp_quaternion) != 4 or len(place_quaternion) != 4:
+            raise ValueError("grasp and place quaternions must contain four values")
+        self.backend = backend
+        self.pregrasp_offset_m = pregrasp_offset_m
+        self.retreat_distance_m = retreat_distance_m
+        self.bin_stability_sec = bin_stability_sec
+        self.tool_center_offset_m = tool_center_offset_m
+        self.grasp_quaternion = tuple(float(value) for value in grasp_quaternion)
+        self.place_quaternion = tuple(float(value) for value in place_quaternion)
+
+    def _hand_pose_for_fruit_center(
+        self,
+        center: Pose,
+        quaternion: tuple[float, float, float, float],
+    ) -> Pose:
+        return hand_pose_for_fruit_center(
+            center,
+            quaternion=quaternion,
+            tool_center_offset_m=self.tool_center_offset_m,
+        )
+
+    def execute(
+        self,
+        target_id: int,
+        target_pose: Pose,
+        place_pose: Pose,
+        feedback: Callable[[str, float], None] | None = None,
+    ) -> ExecutionResult:
+        if target_id <= 0:
+            return ExecutionResult(
+                False,
+                FailureCode.NO_TARGET,
+                "target_id must be positive",
+                0.0,
+                0.0,
+                (),
+            )
+
+        if not self.backend.prepare_pick(target_id, target_pose):
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "failed to configure target collision obstacle",
+                0.0,
+                0.0,
+                (),
+            )
+
+        restore_succeeded = False
+        try:
+            result = self._execute_prepared(
+                target_id,
+                target_pose,
+                place_pose,
+                feedback,
+            )
+        finally:
+            # _execute_prepared performs all physical failure recovery (and the
+            # normal move home) before returning.  Keeping scene restoration in
+            # this finally block makes every post-prepare exit close the target
+            # contact corridor, including unexpected exceptions.
+            try:
+                restore_succeeded = bool(
+                    self.backend.restore_target_collision(target_id)
+                )
+            except Exception:
+                restore_succeeded = False
+
+        if restore_succeeded and result.success:
+            if feedback is not None:
+                feedback("DONE", 1.00)
+            return replace(result, stages=result.stages + ("DONE",))
+        if restore_succeeded:
+            return result
+
+        message = f"{result.message}; failed to restore target collision obstacle"
+        return replace(
+            result,
+            success=False,
+            failure_code=(
+                FailureCode.PLANNING_FAILED
+                if result.success
+                else result.failure_code
+            ),
+            message=message,
+        )
+
+    def _execute_prepared(
+        self,
+        target_id: int,
+        target_pose: Pose,
+        place_pose: Pose,
+        feedback: Callable[[str, float], None] | None = None,
+    ) -> ExecutionResult:
+        stages: list[str] = []
+        planning_time = 0.0
+        execution_time = 0.0
+        attached = False
+
+        def mark(stage: str, progress: float) -> None:
+            stages.append(stage)
+            if feedback is not None:
+                feedback(stage, progress)
+
+        def fail(
+            code: FailureCode,
+            message: str,
+            *,
+            recover_home: bool = True,
+        ) -> ExecutionResult:
+            nonlocal attached
+            # Never carry a fruit into the recovery motion.  A failed detach is
+            # treated as a hard stop because moving home with an active Gazebo
+            # constraint can damage the simulated scene and hide the real fault.
+            detached = True
+            if attached:
+                detached = self.backend.detach(target_id)
+                attached = not detached
+            self.backend.open_gripper()
+            if not detached:
+                message = f"{message}; attachment release failed, recovery motion withheld"
+            elif recover_home:
+                self.backend.move_home()
+            return ExecutionResult(
+                False,
+                code,
+                message,
+                planning_time,
+                execution_time,
+                tuple(stages),
+            )
+
+        if not self.backend.open_gripper():
+            return ExecutionResult(
+                False,
+                FailureCode.GRASP_FAILED,
+                "failed to open gripper before approach",
+                planning_time,
+                execution_time,
+                tuple(stages),
+            )
+
+        mark("PLAN", 0.10)
+        # The goal pose denotes the fruit centre. Convert it to the Panda hand
+        # origin, then approach along the hand's local tool axis.
+        grasp_pose = self._hand_pose_for_fruit_center(
+            target_pose, self.grasp_quaternion
+        )
+        pregrasp = pregrasp_pose_for_fruit_center(
+            target_pose,
+            quaternion=self.grasp_quaternion,
+            tool_center_offset_m=self.tool_center_offset_m,
+            pregrasp_offset_m=self.pregrasp_offset_m,
+        )
+        approach = self.backend.move_to(pregrasp, "APPROACH")
+        planning_time += approach.planning_time_sec
+        execution_time += approach.execution_time_sec
+        if not approach.success:
+            retry_pose = alternate_approach(pregrasp)
+            retry = self.backend.move_to(retry_pose, "APPROACH_RETRY")
+            planning_time += retry.planning_time_sec
+            execution_time += retry.execution_time_sec
+            if not retry.success:
+                code = FailureCode.COLLISION if retry.collision else FailureCode.PLANNING_FAILED
+                return fail(
+                    code,
+                    "approach planning failed after one alternate orientation",
+                    recover_home=False,
+                )
+
+        mark("APPROACH", 0.25)
+        if not self.backend.allow_target_contact(target_id):
+            return fail(
+                FailureCode.PLANNING_FAILED,
+                "failed to open the target contact corridor",
+            )
+        grasp_motion = self.backend.move_to(grasp_pose, "GRASP_POSE")
+        planning_time += grasp_motion.planning_time_sec
+        execution_time += grasp_motion.execution_time_sec
+        if not grasp_motion.success:
+            code = FailureCode.COLLISION if grasp_motion.collision else FailureCode.PLANNING_FAILED
+            return fail(code, "failed to reach grasp pose")
+
+        mark("GRASP", 0.40)
+        if not self.backend.close_gripper() or not self.backend.attach(target_id):
+            return fail(FailureCode.GRASP_FAILED, "gripper contact or simulated attachment failed")
+        attached = True
+
+        mark("RETREAT", 0.55)
+        retreat = offset_pose(grasp_pose, dz=self.retreat_distance_m)
+        retreat_motion = self.backend.move_to(retreat, "RETREAT")
+        planning_time += retreat_motion.planning_time_sec
+        execution_time += retreat_motion.execution_time_sec
+        if not retreat_motion.success:
+            return fail(FailureCode.PLANNING_FAILED, "retreat planning failed")
+
+        mark("PLACE", 0.75)
+        # Enter the open bin from above.  Local +Z points down, so the hand
+        # origin remains above the requested fruit-centre release point while
+        # the fingers descend between the collision walls.
+        place_hand_pose = self._hand_pose_for_fruit_center(
+            place_pose, self.place_quaternion
+        )
+        place_motion = self.backend.move_to(place_hand_pose, "PLACE")
+        planning_time += place_motion.planning_time_sec
+        execution_time += place_motion.execution_time_sec
+        if not place_motion.success:
+            return fail(FailureCode.PLACE_FAILED, "failed to reach collection bin")
+        if not self.backend.open_gripper() or not self.backend.detach(target_id):
+            return fail(FailureCode.PLACE_FAILED, "failed to release fruit")
+        attached = False
+
+        mark("VERIFY", 0.90)
+        if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):
+            return fail(FailureCode.PLACE_FAILED, "fruit did not remain in bin")
+
+        self.backend.move_home()
+        return ExecutionResult(
+            True,
+            FailureCode.NONE,
+            "pick-and-place completed",
+            planning_time,
+            execution_time,
+            tuple(stages),
+        )

@@ -1,0 +1,4 @@
+# Linux-only rosdep sources cached by scripts/cache_rosdep_sources.ps1.
+yaml file:///etc/ros/rosdep/local-sources/base.yaml
+yaml file:///etc/ros/rosdep/local-sources/python.yaml
+yaml file:///etc/ros/rosdep/local-sources/ruby.yaml

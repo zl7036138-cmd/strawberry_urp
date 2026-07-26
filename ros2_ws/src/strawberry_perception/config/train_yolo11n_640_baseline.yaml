@@ -1,0 +1,25 @@
+# Speed baseline; all data, resolution, and reproducibility settings match the primary model.
+# Download is intentionally disabled in the formal workflow.  The pinned
+# upstream asset and SHA-256 are declared in tools/perception/experiments.json.
+model: weights/yolo11n.pt
+data: data/processed/zenodo_6126677/dataset.yaml
+task: detect
+mode: train
+imgsz: 640
+epochs: 200
+batch: 8
+device: 0
+workers: 4
+pretrained: true
+seed: 20260710
+deterministic: true
+amp: false
+patience: 50
+save: true
+save_period: 10
+cache: false
+project: outputs/perception
+name: yolo11n_640_baseline
+exist_ok: false
+plots: true
+verbose: true

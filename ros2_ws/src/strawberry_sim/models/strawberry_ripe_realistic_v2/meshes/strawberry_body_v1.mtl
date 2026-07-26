@@ -1,0 +1,7 @@
+newmtl strawberry_skin
+Ka 0.45 0.04 0.03
+Kd 1.00 1.00 1.00
+Ks 0.08 0.08 0.08
+Ns 18.0
+illum 2
+map_Kd ../materials/textures/ripe_strawberry_skin_v2.png

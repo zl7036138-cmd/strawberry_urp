@@ -1,0 +1,64 @@
+schema_version: 1
+world_name: strawberry_orchard
+
+frames:
+  robot_base: panda_link0
+  camera_link: strawberry_camera_link
+  camera_optical: strawberry_camera_optical_frame
+
+camera:
+  image_width: 640
+  image_height: 480
+  update_rate_hz: 30.0
+  horizontal_fov_rad: 1.0471975512
+  near_clip_m: 0.10
+  far_clip_m: 5.0
+  pose_in_robot_base: [0.0, -1.10, 1.05, 0.0, 0.35, 1.5707963268]
+
+# Blender plant origin is placed on top of a shallow 0.47 m planter. Fruit
+# positions are derived from the pedicel endpoints with the fruit model origin
+# at body centre.
+plant:
+  model_name: strawberry_plant
+  asset: strawberry_plant_v2
+  pose_in_robot_base: [0.50, 0.0, 0.47, 0.0, 0.0, 0.0]
+
+fruits:
+  - target_id: 1
+    model_name: strawberry_1
+    maturity: RIPE
+    asset: strawberry_ripe
+    initial_pose_m: [0.419064753, -0.053479813, 0.546111838]
+  - target_id: 2
+    model_name: strawberry_2
+    maturity: UNRIPE
+    asset: strawberry_unripe
+    initial_pose_m: [0.550333202, 0.118588343, 0.532157422]
+  - target_id: 3
+    model_name: strawberry_3
+    maturity: RIPE
+    asset: strawberry_ripe
+    initial_pose_m: [0.578895651, 0.068192676, 0.540231110]
+
+bin:
+  model_name: collection_bin
+  place_pose_m: [0.35, -0.45, 0.45]
+  # These bounds lie inside the four collision walls, not on their surfaces.
+  interior_bounds_m:
+    min_x: 0.19
+    max_x: 0.51
+    min_y: -0.63
+    max_y: -0.27
+    min_z: 0.28
+    max_z: 0.55
+  required_stability_sec: 1.0
+
+attachment_backend:
+  parent_model: panda
+  # URDF fixed-joint reduction folds panda_hand into this Gazebo link.
+  parent_link: panda_link7
+  child_link: fruit_link
+  requires_dual_contact: true
+  # DetachableJoint starts attached. attachment_manager sends bounded detach
+  # retries and locks all services until every plugin confirms false.
+  startup_state: detached_after_confirmation

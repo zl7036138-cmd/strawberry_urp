@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "diagnostic_id": "t70_strawberry_asset_ablation_v4",
+  "asset_revision": "v4",
+  "scope": "NON_ACCEPTANCE_NO_MOTION_ASSET_ABLATION",
+  "formal_acceptance": false,
+  "held_out_real_test_consumed": false,
+  "formal_simulator_matrix_consumed": false,
+  "robot_motion_started": false,
+  "training_started": false,
+  "shadow": {
+    "model_role": "baseline__best_below_t30_gate",
+    "model_relative_path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "model_size_bytes": 19161242,
+    "model_sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31,
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_pose_topic": "/strawberry/shadow/target_pose"
+  },
+  "world": {
+    "base_relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+    "base_size_bytes": 3296,
+    "base_sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7",
+    "lighting": "nominal",
+    "occlusion": "none",
+    "camera": "frozen_fixed_rgbd"
+  },
+  "measurement": {
+    "warmup_detection_frames": 30,
+    "fixed_measurement_frames": 60,
+    "post_window_wait_sec": 1.0,
+    "window_boundary": "after_fixed_warmup_before_robot_motion",
+    "center_position_rgb_capture": true,
+    "scenario_count": 18,
+    "independent_random_seed_count_claimed": 0
+  },
+  "texture_generation": {
+    "mode": "built_in_image_gen",
+    "purpose": "camera-scale albedo with sparse seed detail visible on a 35-45 pixel fruit",
+    "prior_failed_renderer_smokes_preserved": ["v1_full_diagnostic", "v2_mesh_smoke", "v3_mesh_smoke"],
+    "consumer_validation_required": true
+  },
+  "paired_design": {
+    "variants": [
+      {
+        "id": "A",
+        "label": "legacy_solid_sphere",
+        "changed_factors": [],
+        "ripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe/model.sdf", "size_bytes": 2351, "sha256": "3f54e5a6fa1ac11a72d40748d3ffa29b0d4ad25618f05369fb6d14d56df4c777"},
+        "unripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe/model.sdf", "size_bytes": 2188, "sha256": "79fae97ca873b39a778028960ecad36c9cf945849dd0217c3990ebc9bf36760a"}
+      },
+      {
+        "id": "B",
+        "label": "camera_scale_albedo_frozen_sphere_v2",
+        "changed_factors": ["camera_scale_generated_albedo"],
+        "ripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_textured_v2/model.sdf", "size_bytes": 2181, "sha256": "c436e354dd36ceacc60567670e55fe5e9538505d6b8d216aff449315b70a72f6"},
+        "unripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_textured_v2/model.sdf", "size_bytes": 2185, "sha256": "741e7a62ec13b3d96a476404e8034ddc4bd99934b50be75fc53ae056125c4ffc"},
+        "ripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_textured_v2/materials/textures/ripe_strawberry_skin_v2.png", "size_bytes": 3140252, "sha256": "cf8bbc06dff41db7e803f388f40e3ad7eafebf37c5019f1d338d011080840b57"},
+        "unripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_textured_v2/materials/textures/unripe_strawberry_skin_v2.png", "size_bytes": 2521452, "sha256": "401fdcb1f9a08257d16ed41046f0b03481991be87a96bbb88c7aab603123a4db"}
+      },
+      {
+        "id": "C",
+        "label": "native_composite_shape_and_calyx_v4",
+        "changed_factors": ["camera_scale_generated_albedo", "native_sphere_cone_shape", "radial_calyx", "stem"],
+        "ripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_realistic_v4/model.sdf", "size_bytes": 4056, "sha256": "bcc3f31a783fe81c00cffb335e62d1598afa68cb087b53a9dacd3ebba49fc3be"},
+        "unripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_realistic_v4/model.sdf", "size_bytes": 3985, "sha256": "721de5dcb2721e8a4bf1982aabb2e7db9d049a676a2b559a343b9c074eb67745"},
+        "ripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_realistic_v4/materials/textures/ripe_strawberry_skin_v2.png", "size_bytes": 3140252, "sha256": "cf8bbc06dff41db7e803f388f40e3ad7eafebf37c5019f1d338d011080840b57"},
+        "unripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_realistic_v4/materials/textures/unripe_strawberry_skin_v2.png", "size_bytes": 2521452, "sha256": "401fdcb1f9a08257d16ed41046f0b03481991be87a96bbb88c7aab603123a4db"}
+      }
+    ],
+    "target_maturities": ["RIPE", "UNRIPE"],
+    "positions": [
+      {"label": "near_left", "position_m": [0.44, -0.10, 0.48]},
+      {"label": "center", "position_m": [0.47, -0.075, 0.50]},
+      {"label": "near_right", "position_m": [0.50, -0.05, 0.52]}
+    ]
+  },
+  "diagnostic_interpretation": {
+    "material_effect_min_absolute_frame_rate_delta": 0.10,
+    "material_effect_min_absolute_mean_confidence_delta": 0.05,
+    "decision_effect": "architecture_evidence_only",
+    "candidate_promotion_authorized": false,
+    "perception_control_authorized": false
+  }
+}

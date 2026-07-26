@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "diagnostic_id": "t70_strawberry_asset_ablation_v1",
+  "scope": "NON_ACCEPTANCE_NO_MOTION_ASSET_ABLATION",
+  "formal_acceptance": false,
+  "held_out_real_test_consumed": false,
+  "formal_simulator_matrix_consumed": false,
+  "robot_motion_started": false,
+  "training_started": false,
+  "shadow": {
+    "model_role": "baseline__best_below_t30_gate",
+    "model_relative_path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "model_size_bytes": 19161242,
+    "model_sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31,
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_pose_topic": "/strawberry/shadow/target_pose"
+  },
+  "world": {
+    "base_relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+    "base_size_bytes": 3296,
+    "base_sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7",
+    "lighting": "nominal",
+    "occlusion": "none",
+    "camera": "frozen_fixed_rgbd"
+  },
+  "measurement": {
+    "warmup_detection_frames": 30,
+    "fixed_measurement_frames": 60,
+    "post_window_wait_sec": 1.0,
+    "window_boundary": "after_fixed_warmup_before_robot_motion",
+    "center_position_rgb_capture": true,
+    "scenario_count": 18,
+    "independent_random_seed_count_claimed": 0
+  },
+  "paired_design": {
+    "variants": [
+      {
+        "id": "A",
+        "label": "legacy_solid_sphere",
+        "changed_factors": [],
+        "ripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe/model.sdf", "size_bytes": 2351, "sha256": "3f54e5a6fa1ac11a72d40748d3ffa29b0d4ad25618f05369fb6d14d56df4c777"},
+        "unripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe/model.sdf", "size_bytes": 2188, "sha256": "79fae97ca873b39a778028960ecad36c9cf945849dd0217c3990ebc9bf36760a"}
+      },
+      {
+        "id": "B",
+        "label": "realistic_albedo_frozen_sphere",
+        "changed_factors": ["generated_albedo_texture"],
+        "ripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_textured/model.sdf", "size_bytes": 2211, "sha256": "83187de9d0a2f95ba27814dbc7729d8ddd6ea03de0c23cfbb46248c9a400a8cb"},
+        "unripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_textured/model.sdf", "size_bytes": 2217, "sha256": "d3806a3daa41de174f81a669fe5d03cd6d44648f119fe7abe66dd7e06849475d"},
+        "ripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_textured/materials/textures/ripe_strawberry_skin_v1.png", "size_bytes": 2946393, "sha256": "f8a1880fd27075a6d6849dd2aa2c7a152e3212f2a673445d54637c40a8df9532"},
+        "unripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_textured/materials/textures/unripe_strawberry_skin_v1.png", "size_bytes": 2694475, "sha256": "3a924aaf580ad05a1b1b80066434841d40eb5a22a11c4e31b7a4c67fe3b90fde"}
+      },
+      {
+        "id": "C",
+        "label": "realistic_albedo_shape_and_calyx",
+        "changed_factors": ["generated_albedo_texture", "uv_strawberry_shape", "radial_calyx", "stem"],
+        "ripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_realistic/model.sdf", "size_bytes": 3536, "sha256": "3963f0eb3ff74be5a00afe14a9d06b23ef648a21a59766e8321c489876981d47"},
+        "unripe_model": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_realistic/model.sdf", "size_bytes": 3467, "sha256": "7913b042dafbcccbe7bb5e7440ac4bbbc698b8ff0106f4acdd6c9142028348b3"},
+        "ripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_realistic/materials/textures/ripe_strawberry_skin_v1.png", "size_bytes": 2946393, "sha256": "f8a1880fd27075a6d6849dd2aa2c7a152e3212f2a673445d54637c40a8df9532"},
+        "unripe_texture": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_realistic/materials/textures/unripe_strawberry_skin_v1.png", "size_bytes": 2694475, "sha256": "3a924aaf580ad05a1b1b80066434841d40eb5a22a11c4e31b7a4c67fe3b90fde"},
+        "ripe_mesh": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe_realistic/meshes/strawberry_body_v1.obj", "size_bytes": 113644, "sha256": "7b0c120cf249c5240ea2a003b5e9f7004ad4675e946a51d50ee62ba12d15a6e2"},
+        "unripe_mesh": {"path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe_realistic/meshes/strawberry_body_v1.obj", "size_bytes": 113644, "sha256": "7b0c120cf249c5240ea2a003b5e9f7004ad4675e946a51d50ee62ba12d15a6e2"}
+      }
+    ],
+    "target_maturities": ["RIPE", "UNRIPE"],
+    "positions": [
+      {"label": "near_left", "position_m": [0.44, -0.10, 0.48]},
+      {"label": "center", "position_m": [0.47, -0.075, 0.50]},
+      {"label": "near_right", "position_m": [0.50, -0.05, 0.52]}
+    ]
+  },
+  "diagnostic_interpretation": {
+    "material_effect_min_absolute_frame_rate_delta": 0.10,
+    "material_effect_min_absolute_mean_confidence_delta": 0.05,
+    "decision_effect": "architecture_evidence_only",
+    "candidate_promotion_authorized": false,
+    "perception_control_authorized": false
+  }
+}

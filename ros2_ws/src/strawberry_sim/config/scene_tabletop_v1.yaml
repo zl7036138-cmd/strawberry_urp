@@ -1,0 +1,56 @@
+schema_version: 1
+world_name: strawberry_orchard
+
+frames:
+  robot_base: panda_link0
+  camera_link: strawberry_camera_link
+  camera_optical: strawberry_camera_optical_frame
+
+camera:
+  image_width: 640
+  image_height: 480
+  update_rate_hz: 30.0
+  horizontal_fov_rad: 1.0471975512
+  near_clip_m: 0.10
+  far_clip_m: 5.0
+  pose_in_robot_base: [0.0, -1.10, 1.05, 0.0, 0.35, 1.5707963268]
+
+fruits:
+  - target_id: 1
+    model_name: strawberry_1
+    maturity: RIPE
+    asset: strawberry_ripe_tabletop_v1
+    initial_pose_m: [0.42, -0.12, 0.52]
+  - target_id: 2
+    model_name: strawberry_2
+    maturity: UNRIPE
+    asset: strawberry_unripe_tabletop_v1
+    initial_pose_m: [0.44, 0.04, 0.54]
+  - target_id: 3
+    model_name: strawberry_3
+    maturity: RIPE
+    asset: strawberry_ripe_tabletop_v1
+    initial_pose_m: [0.38, 0.17, 0.50]
+
+bin:
+  model_name: collection_bin
+  place_pose_m: [0.35, -0.45, 0.45]
+  # These bounds lie inside the four collision walls, not on their surfaces.
+  interior_bounds_m:
+    min_x: 0.19
+    max_x: 0.51
+    min_y: -0.63
+    max_y: -0.27
+    min_z: 0.28
+    max_z: 0.55
+  required_stability_sec: 1.0
+
+attachment_backend:
+  parent_model: panda
+  # URDF fixed-joint reduction folds panda_hand into this Gazebo link.
+  parent_link: panda_link7
+  child_link: fruit_link
+  requires_dual_contact: true
+  # DetachableJoint starts attached. attachment_manager sends bounded detach
+  # retries and locks all services until every plugin confirms false.
+  startup_state: detached_after_confirmation

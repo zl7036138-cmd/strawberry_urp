@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "waiver_id": "p3_perception_control_waiver_v1",
+  "decision": {
+    "adr": "docs/decisions/0026-accept-below-gate-model-for-simulation-control.md",
+    "recorded_date": "2026-07-17",
+    "requested_by": "project_owner",
+    "status": "ENGINEERING_ACCEPTED_WITH_USER_WAIVER"
+  },
+  "authorization": {
+    "scope": "BOUNDED_SIMULATION_INTEGRATION",
+    "perception_control_authorized": true,
+    "formal_135_plus_30_matrix_authorized": false,
+    "held_out_real_test_authorized": false,
+    "new_training_authorized": false,
+    "numeric_metric_overridden": false,
+    "default_launch_safety_changed": false
+  },
+  "model": {
+    "variant": "yolo11s_640_train_audit_v1",
+    "checkpoint": "best.pt",
+    "relative_path": "outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt",
+    "size_bytes": 19162586,
+    "sha256": "e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70",
+    "confidence_threshold": 0.58,
+    "image_size": 640
+  },
+  "evidence": {
+    "validation_summary": {
+      "relative_path": "artifacts/perception/optimization/yolo11s_640_train_audit_v1_audited_validation_v1/summary.json",
+      "sha256": "98b8dd6e437d2b32c08618e76115c317b974b23fc4178ec30af75c74b0b6e562"
+    },
+    "outcome_handoff": {
+      "relative_path": "artifacts/perception/t30_train_audit_outcome_handoff_v1.json",
+      "sha256": "b5064076d432e13223606fc88cd4a76f0a9519b638745c7d14de40547ba834d1"
+    },
+    "held_out_test_receipt_must_remain_absent": "artifacts/perception/zenodo_6126677_held_out_test_receipt.json"
+  },
+  "validation_result": {
+    "macro_f1": 0.8006746846582575,
+    "ripe_f1": 0.8870636550308009,
+    "unripe_f1": 0.7142857142857143,
+    "required_macro_f1": 0.85,
+    "numeric_gate_passed": false,
+    "engineering_status": "ACCEPTED_WITH_WAIVER"
+  },
+  "runtime_routing": {
+    "target_source": "perception",
+    "detections_topic": "/strawberry/detections",
+    "target_pose_topic": "/strawberry/target_pose",
+    "control_target_topic": "/strawberry/target_pose",
+    "start_oracle_provider": false,
+    "shadow_enabled": false,
+    "ground_truth_association_enabled": true,
+    "ground_truth_use": "TARGET_ID_ASSOCIATION_AND_TEST_VERIFICATION_ONLY",
+    "ground_truth_may_select_target": false,
+    "ground_truth_may_replace_target_pose": false
+  },
+  "smoke_scenario": {
+    "scenario_id": "p3_perception_control_clear_base_pose_01",
+    "conditions": {
+      "lighting": "nominal",
+      "occlusion": "none",
+      "seed": 20260710
+    },
+    "target": {
+      "model_name": "strawberry_1",
+      "target_id": 1,
+      "position_m": [0.42, -0.12, 0.52]
+    },
+    "parked_models": [
+      {
+        "model_name": "strawberry_2",
+        "target_id": 2,
+        "position_m": [0.2, -2.0, 1.0]
+      },
+      {
+        "model_name": "strawberry_3",
+        "target_id": 3,
+        "position_m": [0.4, -2.0, 1.0]
+      }
+    ],
+    "trial_count": 1,
+    "formal_acceptance": false
+  }
+}

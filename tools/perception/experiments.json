@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "dataset_id": "zenodo_6126677",
+  "dataset_yaml": "data/processed/zenodo_6126677/dataset.yaml",
+  "split_manifest": "data/processed/zenodo_6126677/split_manifest.json",
+  "split_contract": {
+    "schema_version": 1,
+    "strategy": "seeded_group_stratified_full_resplit",
+    "seed": 20260710,
+    "ratios": {
+      "train": 0.70,
+      "val": 0.15,
+      "test": 0.15
+    },
+    "counts": {
+      "train": 501,
+      "val": 116,
+      "test": 115
+    },
+    "source_image_count": 813,
+    "excluded_count": 81,
+    "retained_count": 732,
+    "canonical_dataset_sha256": "ae3f17e5929daac983feca57f6f36e4ca70ef2b8838155b350c5f1503a098514",
+    "canonical_split_sha256": {
+      "train": "46093a6beea9704555781cd8f02ec244838d4d51bbb8c132fe2b613cc8146f2d",
+      "val": "dd7e56495330cfb67d27bbf6dbbfd32568ea0cd804a4c82f18e47fd1d77732fb",
+      "test": "43c6fef9294117788c210514ee7ce64e5bbac5e6acc05e1c5bcc7f6b3aa9dc20"
+    },
+    "artifacts": {
+      "groups_csv": {
+        "path": "data/manifests/zenodo_6126677_groups.csv",
+        "sha256": "5a6ce9b3bfefc76d70a3a395aaaf6eb98943e9fb28bef17fb13b89732dfea445"
+      },
+      "group_overrides_csv": {
+        "path": "data/manifests/zenodo_6126677_group_overrides.csv",
+        "sha256": "f854c663dba01247058003e882bb703a76ac0a36bdb6189aa8c81dcd78482c56"
+      },
+      "exclusions_csv": {
+        "path": "data/manifests/zenodo_6126677_exclusions.csv",
+        "sha256": "243909cf5a09d0ea9d6afd70ca2fe6b0b25b517ff81520239e4e8c4131458cc0"
+      },
+      "group_audit": {
+        "path": "artifacts/data/zenodo_6126677_group_audit.json",
+        "sha256": "4d3cb231874fa3601a4f3830c4491c0e399e92b863e35c541be2e51cad9ca95b"
+      },
+      "curation_audit": {
+        "path": "artifacts/data/zenodo_6126677_curation_audit.json",
+        "sha256": "c3f8d54fd3a43ac6742c813314317a091564a9c69213af84771e045da85d62e1"
+      },
+      "split_manifest": {
+        "path": "data/processed/zenodo_6126677/split_manifest.json",
+        "sha256": "4a146b792ec6838f0b00782dc6145ebce352034678ca35cdc3ae9436eacfe237"
+      },
+      "dataset_yaml": {
+        "path": "data/processed/zenodo_6126677/dataset.yaml",
+        "sha256": "b16b95f4c7b31a100012b17a7f9654c19ee7e44a558fdab8d8f6e9fbbb9e4e09"
+      }
+    }
+  },
+  "formal_test": {
+    "variant": "yolo11s_640_cls_pw05_opt1",
+    "receipt": "artifacts/perception/zenodo_6126677_held_out_test_receipt.json",
+    "task": "detect",
+    "imgsz": 640
+  },
+  "metric": {
+    "name": "greedy_per_class_detection_macro_f1_v1",
+    "iou_threshold": 0.5,
+    "macro_f1_min": 0.85,
+    "class_ids": [0, 1],
+    "class_names": {
+      "0": "ripe",
+      "1": "unripe"
+    },
+    "threshold_grid": {
+      "start": 0.05,
+      "stop": 0.95,
+      "step": 0.01
+    }
+  },
+  "optimization_policy": {
+    "schema_version": 1,
+    "baseline_variant": "yolo11s_640",
+    "candidate_variant": "yolo11s_640_cls_pw05_opt1",
+    "intervention": {
+      "parameter": "cls_pw",
+      "baseline_value": 0.0,
+      "candidate_value": 0.5,
+      "note": "The yolo11s_640 run used the Ultralytics 8.4.92 default cls_pw=0.0; Opt1 changes only this class-weight exponent to 0.5."
+    },
+    "validation_promotion": {
+      "unripe_f1_min": 0.709,
+      "macro_f1_min": 0.7971,
+      "ripe_f1_min": 0.8752
+    },
+    "formal_acceptance": {
+      "macro_f1_min": 0.85
+    },
+    "held_out_test_policy": "Do not consume the dataset-level test receipt unless the candidate passes validation promotion; test metrics never select or tune the candidate."
+  },
+  "variants": {
+    "yolo11s_640": {
+      "role": "historical_primary",
+      "training_config": "ros2_ws/src/strawberry_perception/config/train_yolo11s_640.yaml",
+      "validation_config": "ros2_ws/src/strawberry_perception/config/eval_yolo11s_640.yaml",
+      "base_weight": {
+        "path": "weights/yolo11s.pt",
+        "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11s.pt",
+        "size_bytes": 19313732,
+        "sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+      },
+      "trained_weight": "outputs/perception/yolo11s_640/weights/best.pt",
+      "training_receipt": "artifacts/perception/training/yolo11s_640.claim.json"
+    },
+    "yolo11s_640_cls_pw05_opt1": {
+      "role": "primary",
+      "training_config": "ros2_ws/src/strawberry_perception/config/train_yolo11s_640_cls_pw05_opt1.yaml",
+      "validation_config": "ros2_ws/src/strawberry_perception/config/eval_yolo11s_640_cls_pw05_opt1.yaml",
+      "base_weight": {
+        "path": "weights/yolo11s.pt",
+        "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11s.pt",
+        "size_bytes": 19313732,
+        "sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+      },
+      "trained_weight": "outputs/perception/yolo11s_640_cls_pw05_opt1/weights/best.pt",
+      "training_receipt": "artifacts/perception/training/yolo11s_640_cls_pw05_opt1.claim.json"
+    },
+    "yolo11n_640_baseline": {
+      "role": "speed_baseline",
+      "training_config": "ros2_ws/src/strawberry_perception/config/train_yolo11n_640_baseline.yaml",
+      "validation_config": "ros2_ws/src/strawberry_perception/config/eval_yolo11n_640_baseline.yaml",
+      "base_weight": {
+        "path": "weights/yolo11n.pt",
+        "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt",
+        "size_bytes": 5613764,
+        "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1"
+      },
+      "trained_weight": "outputs/perception/yolo11n_640_baseline/weights/best.pt",
+      "training_receipt": "artifacts/perception/training/yolo11n_640_baseline.claim.json"
+    }
+  }
+}

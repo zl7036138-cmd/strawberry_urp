@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<sdf version="1.10">
+  <model name="collection_bin">
+    <static>true</static>
+    <link name="bin_link">
+      <collision name="floor_collision">
+        <pose>0.35 -0.45 0.26 0 0 0</pose>
+        <geometry><box><size>0.38 0.42 0.02</size></box></geometry>
+      </collision>
+      <visual name="floor_visual">
+        <pose>0.35 -0.45 0.26 0 0 0</pose>
+        <geometry><box><size>0.38 0.42 0.02</size></box></geometry>
+        <material><ambient>0.03 0.12 0.35 1</ambient><diffuse>0.05 0.25 0.70 1</diffuse></material>
+      </visual>
+
+      <collision name="left_wall_collision">
+        <pose>0.15 -0.45 0.39 0 0 0</pose>
+        <geometry><box><size>0.02 0.42 0.28</size></box></geometry>
+      </collision>
+      <visual name="left_wall_visual">
+        <pose>0.15 -0.45 0.39 0 0 0</pose>
+        <geometry><box><size>0.02 0.42 0.28</size></box></geometry>
+        <material><ambient>0.03 0.12 0.35 1</ambient><diffuse>0.05 0.25 0.70 1</diffuse></material>
+      </visual>
+
+      <collision name="right_wall_collision">
+        <pose>0.55 -0.45 0.39 0 0 0</pose>
+        <geometry><box><size>0.02 0.42 0.28</size></box></geometry>
+      </collision>
+      <visual name="right_wall_visual">
+        <pose>0.55 -0.45 0.39 0 0 0</pose>
+        <geometry><box><size>0.02 0.42 0.28</size></box></geometry>
+        <material><ambient>0.03 0.12 0.35 1</ambient><diffuse>0.05 0.25 0.70 1</diffuse></material>
+      </visual>
+
+      <collision name="front_wall_collision">
+        <pose>0.35 -0.67 0.39 0 0 0</pose>
+        <geometry><box><size>0.42 0.02 0.28</size></box></geometry>
+      </collision>
+      <visual name="front_wall_visual">
+        <pose>0.35 -0.67 0.39 0 0 0</pose>
+        <geometry><box><size>0.42 0.02 0.28</size></box></geometry>
+        <material><ambient>0.03 0.12 0.35 1</ambient><diffuse>0.05 0.25 0.70 1</diffuse></material>
+      </visual>
+
+      <collision name="back_wall_collision">
+        <pose>0.35 -0.23 0.39 0 0 0</pose>
+        <geometry><box><size>0.42 0.02 0.28</size></box></geometry>
+      </collision>
+      <visual name="back_wall_visual">
+        <pose>0.35 -0.23 0.39 0 0 0</pose>
+        <geometry><box><size>0.42 0.02 0.28</size></box></geometry>
+        <material><ambient>0.03 0.12 0.35 1</ambient><diffuse>0.05 0.25 0.70 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

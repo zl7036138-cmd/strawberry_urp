@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<sdf version="1.10">
+  <model name="strawberry_plant_v2">
+    <static>true</static>
+    <link name="plant_link">
+      <!-- Only the compact crown is a physical obstacle. Leaves and stems
+           remain visual geometry so the perception scene is realistic without
+           introducing unmodelled, high-frequency contacts into MoveIt. -->
+      <collision name="crown_collision">
+        <pose>0 0 0.012 0 0 0</pose>
+        <geometry>
+          <cylinder><radius>0.020</radius><length>0.024</length></cylinder>
+        </geometry>
+      </collision>
+      <visual name="plant_visual">
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_plant_v2/meshes/strawberry_plant_v2.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>

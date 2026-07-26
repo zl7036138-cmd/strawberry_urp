@@ -1,0 +1,46 @@
+strawberry_localization:
+  ros__parameters:
+    use_sim_time: true
+    target_frame: panda_link0
+    confidence_threshold: 0.60
+    detections_topic: /strawberry/detections
+    target_pose_topic: /strawberry/target_pose
+    camera_info_topic: /camera/camera_info
+    depth_topic: /camera/depth/image_raw
+    # Optional coarse attention window. All -1 preserves historical
+    # confidence-first selection. Dual sequential observation may opt in only
+    # after a base-overview candidate selects a bounded wrist preset.
+    selection_roi_min_x_px: -1
+    selection_roi_min_y_px: -1
+    selection_roi_max_x_px: -1
+    selection_roi_max_y_px: -1
+    stale_after_sec: 0.50
+    sync_tolerance_sec: 0.05
+    # Retain historical RGB-D metadata so detections can be matched to their
+    # acquisition frame after YOLO inference finishes.  Both limits are hard
+    # bounds; stale_after_sec remains the final publication-age guard.
+    sensor_cache_capacity: 60
+    sensor_cache_retention_sec: 2.0
+    center_fraction: 0.30
+    min_depth_m: 0.05
+    max_depth_m: 5.0
+    min_valid_pixels: 9
+    # Gazebo v1 uses rigid 35 mm-radius spheres. Median depth observes the
+    # visible surface, so shift that hit 35 mm along its optical ray to report
+    # the fruit-centre pose required by TargetPose.msg.
+    surface_to_center_offset_m: 0.035
+    ground_truth_association_enabled: true
+    association_max_distance_m: 0.08
+    # Eye-in-hand runs may opt in after the arm reaches a settled observation
+    # pose. The default remains fail-closed for all historical fixed-camera
+    # evidence and while the robot is moving.
+    allow_stationary_latest_tf_fallback: false
+    # Eye-in-hand observation may separately opt in after motion settles.
+    # 105 ms covers the observed 99 ms stationary bridge hole while remaining
+    # below two ~15 Hz depth periods. Motion never uses this wider bound.
+    allow_stationary_sensor_sync_fallback: false
+    stationary_sync_tolerance_sec: 0.105
+    stationary_tf_minimum_samples: 5
+    stationary_tf_maximum_joint_delta_rad: 0.002
+    stationary_tf_joint_state_wall_timeout_sec: 0.25
+    stationary_tf_maximum_transform_age_sec: 5.0

@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "matrix_id": "p3_formal_matrix_v1",
+  "scope": "FORMAL_P3_SIMULATOR_MATRIX",
+  "formal_acceptance_eligible": true,
+  "held_out_real_test_consumed": false,
+  "engineering_waiver_active": true,
+  "bindings": {
+    "waiver": {
+      "relative_path": "config/p3_perception_control_waiver_v1.json",
+      "size_bytes": 2948,
+      "sha256": "59b071bd6b867a5f794b1bf3ee15ffcf8101a4d6545346a4fe869da6378981b5"
+    },
+    "repeated_gate_handoff": {
+      "relative_path": "artifacts/p3/perception_repeated_dev_gate_handoff_v1.json",
+      "size_bytes": 5035,
+      "sha256": "480600c50865aba75c7c20ebd89fc62d5107565ed43b2b71427203c666cad05b"
+    },
+    "benchmark": {
+      "relative_path": "config/benchmark.yaml",
+      "size_bytes": 519,
+      "sha256": "a654bbd81cd1242bebc517349b84b24fac00dcb1c8eba83102f06ece2a02511e"
+    },
+    "project": {
+      "relative_path": "config/project.yaml",
+      "size_bytes": 700,
+      "sha256": "9e51276fbb7e0a628f9336d16a1159111ddbe62640179d1e21b19e10866093cc"
+    },
+    "scene_conditions": {
+      "relative_path": "config/t70_scene_conditions_v2.json",
+      "size_bytes": 2330,
+      "sha256": "8632d1a23f3004104f3933b620962d63866e4d958e29a25a27b7d64328e1b60a"
+    },
+    "base_world": {
+      "relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+      "size_bytes": 3296,
+      "sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7"
+    },
+    "simulation_launch": {
+      "relative_path": "ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "size_bytes": 10920,
+      "sha256": "2f1ba64426b12ab28522edb7630eb1c1485eb4cac06d0b15cf35a492b753c316"
+    },
+    "system_launch": {
+      "relative_path": "ros2_ws/src/strawberry_bringup/launch/system.launch.py",
+      "size_bytes": 10113,
+      "sha256": "7b7637a3713665abf9b4f1e3f6cb7c5a5ddf6d1feba2ca0818b7ba9bb80e95a7"
+    }
+  },
+  "model": {
+    "relative_path": "outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt",
+    "size_bytes": 19162586,
+    "sha256": "e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70",
+    "confidence_threshold": 0.58,
+    "image_size": 640,
+    "numeric_t30_gate_passed": false,
+    "numeric_macro_f1": 0.8006746846582575,
+    "required_macro_f1": 0.85
+  },
+  "matrix": {
+    "positive_trials": 135,
+    "negative_trials": 30,
+    "lighting_levels": ["dim", "nominal", "bright"],
+    "occlusion_levels": ["none", "partial", "heavy"],
+    "simulation_seeds": [20260710, 20260711, 20260712],
+    "negative_design": "deterministic_balanced_marginals",
+    "positions": [
+      {"label": "near_left", "source": "camera_clear_01", "position_m": [0.44, -0.10, 0.48]},
+      {"label": "near_right", "source": "camera_clear_03", "position_m": [0.50, -0.05, 0.52]},
+      {"label": "center", "source": "camera_clear_02", "position_m": [0.47, -0.075, 0.50]},
+      {"label": "far_left", "source": "camera_clear_05", "position_m": [0.44, 0.00, 0.52]},
+      {"label": "far_right", "source": "camera_clear_04", "position_m": [0.47, -0.025, 0.48]}
+    ]
+  },
+  "execution": {
+    "fresh_world_per_trial": true,
+    "headless": true,
+    "base_ros_domain_id": 32,
+    "distinct_ros_domain_per_trial": true,
+    "schedule_method": "sha256_rank",
+    "schedule_seed": 20260713,
+    "simulation_seed_launch_argument": "simulation_seed",
+    "simulation_seed_runtime_binding": "gz sim --seed",
+    "condition_materialization_id": 20260710,
+    "condition_materialization_id_role": "world_receipt_only_not_simulation_random_seed",
+    "condition_probe_required": true,
+    "condition_probe_frames": 5,
+    "minimum_positive_detection_frames": 10,
+    "minimum_negative_detection_frames": 10,
+    "startup_timeout_sec": 75,
+    "trial_timeout_sec": 180,
+    "outer_timeout_sec": 300,
+    "control_position_tolerance_m": 0.03,
+    "maximum_infrastructure_attempts_per_trial": 2,
+    "infrastructure_retry_only_before_trial_service_acceptance": true,
+    "behavioral_retry_allowed": false,
+    "preserve_every_attempt": true
+  },
+  "positive_scene": {
+    "target": {"model_name": "strawberry_1", "target_id": 1, "maturity": "RIPE"},
+    "parked_models": [
+      {"model_name": "strawberry_2", "target_id": 2, "position_m": [0.20, -2.00, 1.00]},
+      {"model_name": "strawberry_3", "target_id": 3, "position_m": [0.40, -2.00, 1.00]}
+    ]
+  },
+  "negative_scene": {
+    "target": {"model_name": "strawberry_2", "target_id": 2, "maturity": "UNRIPE"},
+    "parked_models": [
+      {"model_name": "strawberry_1", "target_id": 1, "position_m": [0.20, -2.00, 1.00]},
+      {"model_name": "strawberry_3", "target_id": 3, "position_m": [0.40, -2.00, 1.00]}
+    ]
+  },
+  "acceptance": {
+    "minimum_positive_end_to_end_success_rate": 0.80,
+    "minimum_negative_safe_no_pick_rate": 0.95,
+    "maximum_negative_pick_attempt_rate": 0.05,
+    "maximum_negative_fruit_picked_rate": 0.05,
+    "maximum_planning_time_p95_sec": 5.0,
+    "require_all_scenarios_complete": true,
+    "require_all_infrastructure_valid": true,
+    "require_all_failures_attributed": true,
+    "require_all_shutdowns_clean": true
+  },
+  "failure_taxonomy": {
+    "NO_TARGET": "perception",
+    "LOW_CONFIDENCE": "perception",
+    "DEPTH_INVALID": "depth",
+    "TF_TIMEOUT": "tf",
+    "STALE_DATA": "perception",
+    "UNREACHABLE": "reachability",
+    "PLANNING_FAILED": "planning",
+    "COLLISION": "planning",
+    "GRASP_FAILED": "grasp",
+    "PLACE_FAILED": "place"
+  },
+  "claim_policy": {
+    "claim_relative_path": "artifacts/p3/p3_formal_matrix_claim_v1.json",
+    "preflight_relative_dir": "artifacts/p3/p3_formal_matrix_preflight_v2",
+    "default_result_relative_dir": "results/p3/formal_matrix_v1",
+    "single_claim": true,
+    "no_model_threshold_code_or_config_changes_after_claim": true,
+    "resume_same_claim_for_missing_prebehavior_attempts_only": true,
+    "held_out_real_test_must_remain_sealed": true
+  },
+  "interpretation": "Formal simulator end-to-end evidence under the explicit ADR-0026 detector metric waiver. It is not a real-image, independent detector-test, physical-robot, or sim-to-real claim."
+}

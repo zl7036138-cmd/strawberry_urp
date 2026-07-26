@@ -1,0 +1,10 @@
+strawberry_perception:
+  ros__parameters:
+    use_sim_time: true
+    model_path: weights/yolo11s_640_best.pt
+    image_topic: /camera/color/image_raw
+    detections_topic: /strawberry/detections
+    confidence_threshold: 0.60
+    image_size: 640
+    nms_iou_threshold: 0.70
+    device: "0"

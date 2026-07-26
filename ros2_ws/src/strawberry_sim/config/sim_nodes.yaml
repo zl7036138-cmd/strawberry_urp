@@ -1,0 +1,14 @@
+ground_truth_publisher:
+  ros__parameters:
+    use_sim_time: true
+    publish_rate_hz: 30.0
+
+attachment_manager:
+  ros__parameters:
+    use_sim_time: true
+    attachment_backend_enabled: false
+    contact_freshness_sec: 0.25
+    confirmation_timeout_wall_sec: 0.75
+    verification_timeout_wall_sec: 3.0
+    backend_initialization_attempts: 100
+    backend_initialization_period_sec: 0.20

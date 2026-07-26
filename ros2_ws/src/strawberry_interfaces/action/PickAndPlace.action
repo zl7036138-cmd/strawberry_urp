@@ -1,0 +1,39 @@
+# Copyright 2026 Strawberry URP Team
+# SPDX-License-Identifier: Apache-2.0
+
+# Goal
+# Identity of the localized strawberry selected for manipulation.
+uint32 target_id
+
+# Localized fruit-centre pose in panda_link0.
+geometry_msgs/PoseStamped target_pose
+
+# Fixed destination pose for the collection bin operation.
+geometry_msgs/PoseStamped place_pose
+---
+# Result
+# Stable failure-code contract. NONE is the only valid code when success=true.
+uint8 NONE=0
+uint8 NO_TARGET=1
+uint8 LOW_CONFIDENCE=2
+uint8 DEPTH_INVALID=3
+uint8 TF_TIMEOUT=4
+uint8 UNREACHABLE=5
+uint8 PLANNING_FAILED=6
+uint8 COLLISION=7
+uint8 GRASP_FAILED=8
+uint8 PLACE_FAILED=9
+uint8 STALE_DATA=10
+
+bool success
+uint8 failure_code
+float32 planning_time_sec
+float32 execution_time_sec
+string message
+---
+# Feedback
+# Current deterministic state-machine stage, for example PLAN or GRASP.
+string stage
+
+# Overall action progress in the closed interval [0.0, 1.0].
+float32 progress

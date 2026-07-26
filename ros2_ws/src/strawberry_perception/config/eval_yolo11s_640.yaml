@@ -1,0 +1,24 @@
+# Validation prediction export only.  The held-out test split must be run
+# through tools/perception/run_inference.py, which requires an immutable
+# validation-threshold freeze and creates a one-time claim before inference.
+model: outputs/perception/yolo11s_640/weights/best.pt
+data: data/processed/zenodo_6126677/dataset.yaml
+task: detect
+mode: val
+split: val
+imgsz: 640
+batch: 8
+device: 0
+workers: 4
+# Keep low-confidence candidates so threshold selection is performed only from
+# validation predictions, never from the held-out test set.
+conf: 0.001
+iou: 0.70
+seed: 20260710
+deterministic: true
+save_json: true
+plots: true
+project: outputs/perception_eval
+name: yolo11s_640_validation_raw
+exist_ok: false
+verbose: true

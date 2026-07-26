@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "diagnostic_id": "t60_oracle_shadow_position_v1",
+  "scope": "NON_ACCEPTANCE_DIAGNOSTIC",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "control": {
+    "source": "oracle",
+    "topic": "/strawberry/oracle/target_pose",
+    "target_id": 1
+  },
+  "shadow": {
+    "model_role": "baseline__best",
+    "model_relative_path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "model_sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31,
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_topic": "/strawberry/shadow/target_pose"
+  },
+  "conditions": {
+    "occlusion": "none",
+    "lighting": "nominal",
+    "seed": 20260710,
+    "formal_position_labels": false
+  },
+  "scenarios": [
+    {
+      "scenario_id": "diag_pos_near_left",
+      "position_label": "near_left_diagnostic",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.44, -0.10, 0.52]
+    },
+    {
+      "scenario_id": "diag_pos_near_right",
+      "position_label": "near_right_diagnostic",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.44, 0.10, 0.52]
+    },
+    {
+      "scenario_id": "diag_pos_center",
+      "position_label": "center_diagnostic",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.48, 0.00, 0.52]
+    },
+    {
+      "scenario_id": "diag_pos_far_left",
+      "position_label": "far_left_diagnostic",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.54, -0.10, 0.52]
+    },
+    {
+      "scenario_id": "diag_pos_far_right",
+      "position_label": "far_right_diagnostic",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.54, 0.10, 0.52]
+    }
+  ]
+}

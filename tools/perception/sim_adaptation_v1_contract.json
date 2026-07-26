@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "kind": "simulator_adaptation_training_contract",
+  "status": "FROZEN_TRAINING_AUTHORIZED",
+  "variant": "yolo11s_640_sim_adapt_v1",
+  "decision_record": "docs/decisions/0021-freeze-single-simulator-adaptation-training.md",
+  "authorization_receipt": "artifacts/perception/training/yolo11s_640_sim_adapt_v1_authorization.json",
+  "upstream_preflight": {
+    "handoff": {
+      "path": "artifacts/t70/synthetic_capture_preflight_handoff_v1.json",
+      "size_bytes": 6932,
+      "sha256": "39e4faea55e027ace8576e9961146681c7c85d268ea86dfd5eb14dddd26fd6a6"
+    },
+    "receipt": {
+      "path": "data/processed/t70_sim_adaptation_preflight_v1/preflight_receipt.json",
+      "size_bytes": 3437,
+      "sha256": "e54e3e6a9eabd8aeca2a037e67302a21dc7704a8358422aacffe35a72c8db0c2",
+      "canonical_synthetic_dataset_sha256": "a8f1f157e15f6a52f637b1cc11f275f3320bd4cae156206560a7ead6d17b76b5"
+    },
+    "inventory": {
+      "path": "data/processed/t70_sim_adaptation_preflight_v1/inventory.jsonl",
+      "size_bytes": 466525,
+      "sha256": "38af7c16bfc3c0619ecf6ceca7c2865e471a8b8a53e785d1c3edf1038a09663f"
+    }
+  },
+  "real_training_source": {
+    "split_manifest": {
+      "path": "data/processed/zenodo_6126677/split_manifest.json",
+      "size_bytes": 686465,
+      "sha256": "4a146b792ec6838f0b00782dc6145ebce352034678ca35cdc3ae9436eacfe237",
+      "canonical_train_sha256": "46093a6beea9704555781cd8f02ec244838d4d51bbb8c132fe2b613cc8146f2d"
+    },
+    "image_count": 501,
+    "class_instance_counts": {
+      "0": 1364,
+      "1": 510
+    }
+  },
+  "audited_real_validation": {
+    "manifest": {
+      "path": "data/processed/zenodo_6126677_val_audit_v1/audit_manifest.json",
+      "size_bytes": 85202,
+      "sha256": "f2760fbf2836d0fe2c75f789da42aaf2c5218309e3da26782ddcf1a863eec7b3",
+      "canonical_sha256": "f4e2b735ff50ef42fa5bd7d4fd4b8552d390403327c1c8dd3968566bcd45e7bf"
+    },
+    "image_count": 116,
+    "training_access": false,
+    "checkpoint_selection_access": false,
+    "threshold_selection_access": false,
+    "post_selection_non_regression_only": true
+  },
+  "synthetic_source": {
+    "train_image_count": 216,
+    "heldout_image_count": 72,
+    "train_class_instance_counts": {
+      "0": 108,
+      "1": 108
+    },
+    "heldout_class_instance_counts": {
+      "0": 36,
+      "1": 36
+    },
+    "condition_count": 9,
+    "d2_source_image_overlap": 0,
+    "formal_seed_labels_used": []
+  },
+  "dataset_derivative": {
+    "output_dir": "data/processed/yolo11s_640_sim_adapt_v1",
+    "manifest": "data/processed/yolo11s_640_sim_adapt_v1/training_manifest.json",
+    "dataset_yaml": "data/processed/yolo11s_640_sim_adapt_v1/dataset.yaml",
+    "test_split_present": false,
+    "train_image_count": 717,
+    "validation_image_count": 72,
+    "train_source_counts": {
+      "real": 501,
+      "synthetic": 216
+    },
+    "train_class_instance_counts": {
+      "0": 1472,
+      "1": 618
+    },
+    "validation_class_instance_counts": {
+      "0": 36,
+      "1": 36
+    },
+    "materialization_rule": "one_copy_per_registered_source_no_oversampling"
+  },
+  "base_weight": {
+    "role": "baseline__best",
+    "path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "size_bytes": 19161242,
+    "sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425"
+  },
+  "training": {
+    "config": "ros2_ws/src/strawberry_perception/config/train_yolo11s_640_sim_adapt_v1.yaml",
+    "output_dir": "outputs/perception/yolo11s_640_sim_adapt_v1",
+    "trained_weight": "outputs/perception/yolo11s_640_sim_adapt_v1/weights/best.pt",
+    "claim": "artifacts/perception/training/yolo11s_640_sim_adapt_v1.claim.json",
+    "log": "artifacts/perception/training/yolo11s_640_sim_adapt_v1.log",
+    "preflight_receipt": "artifacts/perception/training/yolo11s_640_sim_adapt_v1_preflight.json",
+    "maximum_claims": 1,
+    "retry_authorized": false,
+    "hyperparameters": {
+      "model": "outputs/perception/yolo11s_640/weights/best.pt",
+      "data": "data/processed/yolo11s_640_sim_adapt_v1/dataset.yaml",
+      "task": "detect",
+      "mode": "train",
+      "imgsz": 640,
+      "epochs": 30,
+      "batch": 8,
+      "device": 0,
+      "workers": 4,
+      "pretrained": true,
+      "optimizer": "SGD",
+      "lr0": 0.001,
+      "lrf": 0.01,
+      "momentum": 0.937,
+      "weight_decay": 0.0005,
+      "warmup_epochs": 1.0,
+      "warmup_momentum": 0.8,
+      "warmup_bias_lr": 0.1,
+      "cos_lr": false,
+      "seed": 20260603,
+      "deterministic": true,
+      "amp": false,
+      "patience": 30,
+      "save": true,
+      "save_period": 5,
+      "cache": false,
+      "close_mosaic": 5,
+      "hsv_h": 0.015,
+      "hsv_s": 0.7,
+      "hsv_v": 0.4,
+      "degrees": 0.0,
+      "translate": 0.1,
+      "scale": 0.5,
+      "shear": 0.0,
+      "perspective": 0.0,
+      "flipud": 0.0,
+      "fliplr": 0.5,
+      "bgr": 0.0,
+      "mosaic": 1.0,
+      "mixup": 0.0,
+      "cutmix": 0.0,
+      "copy_paste": 0.0,
+      "project": "outputs/perception",
+      "name": "yolo11s_640_sim_adapt_v1",
+      "exist_ok": false,
+      "plots": true,
+      "verbose": true
+    }
+  },
+  "selection_and_evaluation": {
+    "synthetic_heldout_only_for_checkpoint_and_threshold_selection": true,
+    "raw_confidence": 0.001,
+    "nms_iou": 0.7,
+    "metric_iou": 0.5,
+    "imgsz": 640,
+    "batch": 8,
+    "device": "0",
+    "threshold_grid": {
+      "start": 0.05,
+      "stop": 0.95,
+      "step": 0.01
+    },
+    "checkpoint_rule": "max_synthetic_macro_f1_then_max_synthetic_min_class_f1_then_max_threshold_then_prefer_best_then_lexical",
+    "real_validation_rule": "evaluate_selected_checkpoint_once_at_synthetic_selected_threshold_no_retuning",
+    "promotion": {
+      "synthetic_heldout_macro_f1_min": 0.85,
+      "d2_heavy_ripe_frame_rate_overall_min": 0.60,
+      "d2_heavy_ripe_frame_rate_each_position_min": 0.50,
+      "d2_heavy_target_pose_rate_min": 0.50,
+      "d2_clear_dim_ripe_frame_rate_min": 0.95,
+      "d2_clear_dim_target_pose_rate_min": 0.90,
+      "simulator_false_ripe_negative_rate_max": 0.05,
+      "simulator_unripe_observation_rate_min": 0.50,
+      "audited_real_validation_baseline": {
+        "macro_f1": 0.8158180660147616,
+        "ripe_f1": 0.8943089430894309,
+        "unripe_f1": 0.7373271889400922
+      },
+      "audited_real_validation_minimum": {
+        "macro_f1": 0.7958180660147616,
+        "ripe_f1": 0.8743089430894309,
+        "unripe_f1": 0.7173271889400922
+      }
+    }
+  },
+  "safety": {
+    "formal_real_test_access_authorized": false,
+    "formal_real_test_receipt_must_remain_absent": "artifacts/perception/zenodo_6126677_held_out_test_receipt.json",
+    "perception_control_authorized": false,
+    "robot_motion_authorized": false,
+    "formal_simulator_matrix_authorized": false,
+    "sim_to_real_claim_authorized": false
+  }
+}

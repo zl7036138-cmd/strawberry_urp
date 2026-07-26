@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "qualification_id": "p4_sim_adapt_qualification_v1",
+  "scope": "SIMULATOR_ONLY_NO_MOTION_QUALIFICATION",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "single_execution": true,
+  "intervention": {
+    "decision_path": "docs/decisions/0031-freeze-single-p4-simulator-perception-intervention.md",
+    "decision_size_bytes": 3150,
+    "decision_sha256": "59853558cb1c6e3090760ad85b034a29a040176a89da2ecbee0520d0c8bbb447",
+    "only_change": "simulator_perception_checkpoint_substitution",
+    "model_relative_path": "outputs/perception/yolo11s_640_sim_adapt_v1/weights/best.pt",
+    "model_size_bytes": 19162266,
+    "model_sha256": "2806968b8b4157169302948a75c99427de41b287b9c77dd2cfd4a436782c7e17",
+    "confidence_threshold": 0.80,
+    "real_validation_status": "REJECTED_REGRESSION",
+    "real_validation_macro_f1": 0.6255373375244244,
+    "new_training_allowed": false,
+    "asset_change_allowed": false,
+    "runtime_motion_change_allowed": false
+  },
+  "trigger_evidence": {
+    "formal_p3_summary_path": "results/p3/formal_matrix_v1/summary.json",
+    "formal_p3_summary_size_bytes": 355646,
+    "formal_p3_summary_sha256": "91567b319f4562042bcde4ab03ceda3a26afe3e6bb3e8a54d364cedb61cd4957",
+    "perception_failures": 84,
+    "grasp_failures": 12,
+    "positive_successes": 39,
+    "positive_trials": 135
+  },
+  "prior_candidate_evidence": {
+    "synthetic_summary_path": "artifacts/perception/optimization/yolo11s_640_sim_adapt_v1_synthetic_heldout_v1/summary.json",
+    "synthetic_summary_size_bytes": 15281,
+    "synthetic_summary_sha256": "b9a725f432476cd55cbb2285d91091c163f03391db210fbe3e65490f774261b1",
+    "synthetic_heldout_images": 72,
+    "synthetic_macro_f1": 1.0,
+    "real_summary_path": "artifacts/perception/optimization/yolo11s_640_sim_adapt_v1_real_nonregression_v1/summary.json",
+    "real_summary_size_bytes": 2008,
+    "real_summary_sha256": "b2a89bbdf511dbc15bfa547b734f43f2083c14c7d5238121e44832a4e9b6cb86",
+    "held_out_real_test_accessed": false
+  },
+  "runtime": {
+    "headless": true,
+    "robot_motion_started": false,
+    "start_manipulation": false,
+    "start_orchestrator": false,
+    "enable_attachment": false,
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_pose_topic": "/strawberry/shadow/target_pose",
+    "base_ros_domain_id": 200,
+    "gazebo_simulation_seed": 20260718,
+    "condition_materialization_id": 20260710,
+    "schedule_seed": 20260718,
+    "claim_relative_path": "artifacts/p4/p4_sim_adapt_qualification_claim_v1.json"
+  },
+  "condition_contract": {
+    "scene_config_relative_path": "config/t70_scene_conditions_v2.json",
+    "scene_config_size_bytes": 2330,
+    "scene_config_sha256": "8632d1a23f3004104f3933b620962d63866e4d958e29a25a27b7d64328e1b60a",
+    "base_world_relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+    "base_world_size_bytes": 3332,
+    "base_world_sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7"
+  },
+  "measurement": {
+    "condition_probe_frames": 5,
+    "settled_frames_after_pose": 10,
+    "fixed_detection_frames": 60,
+    "post_window_wait_sec": 1.0,
+    "scenario_count": 30
+  },
+  "scenes": {
+    "RIPE": {
+      "target_model_name": "strawberry_1",
+      "target_id": 1,
+      "parked_models": [
+        {"model_name": "strawberry_2", "target_id": 2, "position_m": [0.20, -2.00, 1.00]},
+        {"model_name": "strawberry_3", "target_id": 3, "position_m": [0.40, -2.00, 1.00]}
+      ]
+    },
+    "UNRIPE": {
+      "target_model_name": "strawberry_2",
+      "target_id": 2,
+      "parked_models": [
+        {"model_name": "strawberry_1", "target_id": 1, "position_m": [0.20, -2.00, 1.00]},
+        {"model_name": "strawberry_3", "target_id": 3, "position_m": [0.40, -2.00, 1.00]}
+      ]
+    }
+  },
+  "positions": [
+    {"label": "near_left", "position_m": [0.44, -0.10, 0.48]},
+    {"label": "near_right", "position_m": [0.50, -0.05, 0.52]},
+    {"label": "center", "position_m": [0.47, -0.075, 0.50]},
+    {"label": "far_left", "position_m": [0.44, 0.00, 0.52]},
+    {"label": "far_right", "position_m": [0.47, -0.025, 0.48]}
+  ],
+  "conditions": [
+    {"label": "nominal_none", "lighting": "nominal", "occlusion": "none"},
+    {"label": "dim_none", "lighting": "dim", "occlusion": "none"},
+    {"label": "nominal_heavy", "lighting": "nominal", "occlusion": "heavy"}
+  ],
+  "acceptance": {
+    "minimum_no_occlusion_ripe_frame_rate_each_condition": 0.95,
+    "minimum_no_occlusion_target_pose_frame_rate_each_condition": 0.95,
+    "minimum_heavy_ripe_frame_rate_overall": 0.60,
+    "minimum_heavy_target_pose_frame_rate_overall": 0.60,
+    "minimum_heavy_ripe_frame_rate_each_position": 0.50,
+    "minimum_heavy_target_pose_frame_rate_each_position": 0.50,
+    "maximum_unripe_false_ripe_frame_rate_overall": 0.05,
+    "minimum_unripe_correct_observation_frame_rate_overall": 0.50,
+    "all_scenarios_complete": true,
+    "all_infrastructure_valid": true,
+    "robot_motion_must_remain_false": true
+  }
+}

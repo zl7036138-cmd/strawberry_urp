@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "kind": "training_label_audit_training_contract",
+  "status": "AUTHORIZED",
+  "variant": "yolo11s_640_train_audit_v1",
+  "decision_record": "docs/decisions/0025-authorize-consensus-train-label-retraining.md",
+  "authorization_receipt": "artifacts/perception/training/yolo11s_640_train_audit_v1_authorization.json",
+  "upstream_handoff": {
+    "path": "artifacts/perception/rebaseline/t30_validation_rebaseline_v1.json",
+    "size_bytes": 11045,
+    "sha256": "43a5854bb47415d59635e871935ef41b51942daa9c874bf49ffea9a0e3523cad"
+  },
+  "review_resolution": {
+    "path": "artifacts/perception/label_audit/t30_train_label_screen_v1/review_resolution_v1.json",
+    "size_bytes": 25206,
+    "sha256": "80d4b4accefaa9b21418cca385bcfaaf20254184916f8c861acbfe9473c00d01"
+  },
+  "source_split_manifest": {
+    "path": "data/processed/zenodo_6126677/split_manifest.json",
+    "size_bytes": 686465,
+    "sha256": "4a146b792ec6838f0b00782dc6145ebce352034678ca35cdc3ae9436eacfe237",
+    "canonical_train_sha256": "46093a6beea9704555781cd8f02ec244838d4d51bbb8c132fe2b613cc8146f2d"
+  },
+  "audited_validation_manifest": {
+    "path": "data/processed/zenodo_6126677_val_audit_v1/audit_manifest.json",
+    "size_bytes": 85202,
+    "sha256": "f2760fbf2836d0fe2c75f789da42aaf2c5218309e3da26782ddcf1a863eec7b3",
+    "canonical_sha256": "f4e2b735ff50ef42fa5bd7d4fd4b8552d390403327c1c8dd3968566bcd45e7bf"
+  },
+  "dataset_derivative": {
+    "output_dir": "data/processed/zenodo_6126677_train_audit_v1",
+    "manifest": "data/processed/zenodo_6126677_train_audit_v1/training_manifest.json",
+    "dataset_yaml": "data/processed/zenodo_6126677_train_audit_v1/dataset.yaml",
+    "test_split_present": false,
+    "train_image_count": 501,
+    "validation_image_count": 116,
+    "approved_label_change_count": 13,
+    "relabel_count": 5,
+    "addition_count": 8,
+    "original_train_class_counts": {
+      "0": 1364,
+      "1": 510
+    },
+    "corrected_train_class_counts": {
+      "0": 1371,
+      "1": 511
+    }
+  },
+  "base_weight": {
+    "path": "weights/yolo11s.pt",
+    "size_bytes": 19313732,
+    "sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+  },
+  "training": {
+    "config": "ros2_ws/src/strawberry_perception/config/train_yolo11s_640_train_audit_v1.yaml",
+    "output_dir": "outputs/perception/yolo11s_640_train_audit_v1",
+    "trained_weight": "outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt",
+    "claim": "artifacts/perception/training/yolo11s_640_train_audit_v1.claim.json",
+    "log": "artifacts/perception/training/yolo11s_640_train_audit_v1.log",
+    "only_data_and_name_differ_from_baseline": true
+  },
+  "validation": {
+    "output_dir": "artifacts/perception/optimization/yolo11s_640_train_audit_v1_audited_validation_v1",
+    "raw_confidence": 0.001,
+    "nms_iou": 0.7,
+    "imgsz": 640,
+    "batch": 8,
+    "device": "0",
+    "metric_iou": 0.5,
+    "threshold_grid": {
+      "start": 0.05,
+      "stop": 0.95,
+      "step": 0.01
+    },
+    "checkpoint_rule": "evaluate_every_preserved_best_last_and_epochN_weight_then_select_max_macro_f1_then_max_min_class_f1_then_max_threshold_then_prefer_best_then_lexical",
+    "promotion": {
+      "macro_f1_min": 0.85,
+      "ripe_f1_min": 0.8843089430894309,
+      "unripe_f1_min": 0.7573271889400922
+    },
+    "audited_baseline": {
+      "macro_f1": 0.8158180660147616,
+      "ripe_f1": 0.8943089430894309,
+      "unripe_f1": 0.7373271889400922
+    }
+  },
+  "formal_test": {
+    "access_authorized": false,
+    "receipt_must_remain_absent": "artifacts/perception/zenodo_6126677_held_out_test_receipt.json"
+  }
+}

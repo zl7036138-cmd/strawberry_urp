@@ -1,0 +1,28 @@
+use_sim_time: true
+qos_overrides:
+  /clock:
+    subscription:
+      depth: 1
+      durability: volatile
+      history: keep_last
+      reliability: best_effort
+
+planning_scene_monitor_options:
+  name: strawberry_planning_scene_monitor
+  robot_description: robot_description
+  joint_state_topic: /joint_states
+  attached_collision_object_topic: /strawberry_moveit_py/planning_scene_monitor
+  publish_planning_scene_topic: /strawberry_moveit_py/publish_planning_scene
+  monitored_planning_scene_topic: /strawberry_moveit_py/monitored_planning_scene
+  wait_for_initial_state_timeout: 15.0
+
+planning_pipelines:
+  pipeline_names: [ompl]
+
+plan_request_params:
+  planning_attempts: 3
+  planning_pipeline: ompl
+  planner_id: RRTConnectkConfigDefault
+  max_velocity_scaling_factor: 0.30
+  max_acceleration_scaling_factor: 0.30
+  planning_time: 5.0

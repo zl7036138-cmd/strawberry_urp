@@ -1,0 +1,457 @@
+import pathlib
+import shutil
+import subprocess
+import tempfile
+import unittest
+import xml.etree.ElementTree as ET
+
+import yaml
+
+
+PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+class SimulationAssetTests(unittest.TestCase):
+    def test_camera_tf_uses_ros_optical_axis_conversion(self):
+        launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"--child-frame-id", "strawberry_camera_link"', launch_text)
+        self.assertIn('name="camera_optical_static_tf"', launch_text)
+        self.assertIn('"--roll", "-1.5707963268"', launch_text)
+        self.assertIn('"--yaw", "-1.5707963268"', launch_text)
+
+    def test_pose_control_service_is_explicitly_opt_in(self):
+        launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            launch_text,
+            r'DeclareLaunchArgument\(\s*"enable_pose_control",\s*default_value="false"',
+        )
+        self.assertIn("ros_gz_interfaces/srv/SetEntityPose", launch_text)
+
+    def test_materialized_world_override_is_explicit_and_fails_closed(self):
+        launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            launch_text,
+            r'DeclareLaunchArgument\(\s*"world_file",\s*default_value=""',
+        )
+        self.assertIn('LaunchConfiguration("world_file").perform(context)', launch_text)
+        self.assertIn("if not os.path.isfile(world_file):", launch_text)
+
+    def test_simulation_seed_is_explicit_opt_in_and_reaches_gazebo(self):
+        launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            launch_text,
+            r'DeclareLaunchArgument\(\s*"simulation_seed",\s*default_value=""',
+        )
+        self.assertIn('gz_command.extend(["--seed", str(simulation_seed)])', launch_text)
+        self.assertIn("if not 0 <= simulation_seed <= 0xFFFFFFFF:", launch_text)
+
+    def test_every_xml_asset_is_well_formed(self):
+        files = (
+            list(PACKAGE_ROOT.rglob("*.sdf"))
+            + list(PACKAGE_ROOT.rglob("*.config"))
+            + list(PACKAGE_ROOT.rglob("*.xacro"))
+        )
+        self.assertGreaterEqual(len(files), 9)
+        for path in files:
+            with self.subTest(path=path):
+                ET.parse(path)
+
+    def test_world_contains_fixed_scene_contract(self):
+        root = ET.parse(PACKAGE_ROOT / "worlds" / "strawberry_orchard.sdf").getroot()
+        names = [element.findtext("name") for element in root.findall(".//include")]
+        self.assertIn("strawberry_rgbd_camera", names)
+        self.assertIn("collection_bin", names)
+        self.assertIn("strawberry_plant", names)
+        self.assertEqual(sum(name and name.startswith("strawberry_") and name[-1:].isdigit() for name in names), 3)
+
+    def test_blender_visual_assets_are_the_canonical_scene(self):
+        world = ET.parse(
+            PACKAGE_ROOT / "worlds" / "strawberry_orchard.sdf"
+        ).getroot()
+        plant = world.find("./world/include[name='strawberry_plant']")
+        self.assertEqual(plant.findtext("uri"), "model://strawberry_plant_v2")
+        for model_name in ("strawberry_ripe", "strawberry_unripe"):
+            model = ET.parse(
+                PACKAGE_ROOT / "models" / model_name / "model.sdf"
+            ).getroot()
+            mesh_uri = model.findtext("./model/link/visual/geometry/mesh/uri")
+            self.assertIn(f"model://{model_name}/meshes/", mesh_uri)
+            mesh_path = (
+                PACKAGE_ROOT
+                / "models"
+                / model_name
+                / "meshes"
+                / pathlib.Path(mesh_uri).name
+            )
+            self.assertTrue(mesh_path.is_file())
+            self.assertGreater(mesh_path.stat().st_size, 100_000)
+
+    def test_archived_tabletop_world_uses_archived_sphere_assets(self):
+        world = ET.parse(
+            PACKAGE_ROOT / "worlds" / "strawberry_tabletop_benchmark_v1.sdf"
+        ).getroot()
+        fruit_uris = {
+            include.findtext("uri")
+            for include in world.findall("./world/include")
+            if include.findtext("name", "").startswith("strawberry_")
+            and include.findtext("name", "")[-1:].isdigit()
+        }
+        self.assertEqual(
+            fruit_uris,
+            {
+                "model://strawberry_ripe_tabletop_v1",
+                "model://strawberry_unripe_tabletop_v1",
+            },
+        )
+        for asset in ("strawberry_ripe_tabletop_v1", "strawberry_unripe_tabletop_v1"):
+            self.assertTrue((PACKAGE_ROOT / "models" / asset / "model.sdf").is_file())
+
+    def test_rgbd_camera_resolution_and_topics(self):
+        root = ET.parse(PACKAGE_ROOT / "models" / "rgbd_camera" / "model.sdf").getroot()
+        sensor = root.find(".//sensor")
+        self.assertIsNotNone(sensor)
+        self.assertEqual(sensor.attrib["type"], "rgbd_camera")
+        self.assertEqual(sensor.findtext("camera/image/width"), "640")
+        self.assertEqual(sensor.findtext("camera/image/height"), "480")
+        self.assertEqual(sensor.findtext("topic"), "/camera")
+
+    def test_robot_camera_mounts_are_opt_in_reusable_and_topic_isolated(self):
+        root = ET.parse(PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro").getroot()
+        xacro_namespace = "{http://www.ros.org/wiki/xacro}"
+        argument = root.find(f"./{xacro_namespace}arg[@name='camera_mount']")
+        self.assertIsNotNone(argument)
+        self.assertEqual(argument.attrib["default"], "fixed")
+
+        camera_macro = root.find(
+            f"./{xacro_namespace}macro[@name='strawberry_rgbd_mount']"
+        )
+        self.assertIsNotNone(camera_macro)
+        camera_link = camera_macro.find("link[@name='${link_name}']")
+        self.assertIsNotNone(
+            camera_link.find("collision[@name='${sensor_name}_housing_collision']")
+        )
+        joint = camera_macro.find("joint[@name='${joint_name}']")
+        self.assertEqual(joint.find("parent").attrib["link"], "${parent_link}")
+        self.assertEqual(joint.find("child").attrib["link"], "${link_name}")
+        sensor = camera_macro.find(
+            "gazebo[@reference='${link_name}']/sensor[@name='${sensor_name}']"
+        )
+        self.assertIsNotNone(sensor)
+        self.assertEqual(sensor.attrib["type"], "rgbd_camera")
+        self.assertEqual(sensor.findtext("topic"), "${topic}")
+        self.assertEqual(
+            sensor.findtext("camera/optical_frame_id"),
+            "${optical_frame}",
+        )
+
+        mount_calls = root.findall(
+            f"./{xacro_namespace}if/{xacro_namespace}strawberry_rgbd_mount"
+        )
+        topics = [call.attrib["topic"] for call in mount_calls]
+        self.assertEqual(topics, ["/camera", "/camera/base", "/camera/wrist"])
+        self.assertEqual(
+            [call.attrib["optical_frame"] for call in mount_calls],
+            [
+                "strawberry_camera_optical_frame",
+                "strawberry_base_camera_optical_frame",
+                "strawberry_wrist_camera_optical_frame",
+            ],
+        )
+        self.assertEqual(
+            [
+                (
+                    call.attrib["image_width"],
+                    call.attrib["image_height"],
+                    call.attrib["update_rate"],
+                )
+                for call in mount_calls
+            ],
+            [("640", "480", "30"), ("320", "240", "10"), ("640", "480", "30")],
+        )
+        dual_condition = root.find(
+            f"./{xacro_namespace}if[@value=\"${{camera_mount_mode == 'dual'}}\"]"
+        )
+        self.assertIsNotNone(
+            dual_condition.find("link[@name='strawberry_base_camera_mast']")
+        )
+        mast_joint = dual_condition.find(
+            "joint[@name='panda_base_camera_mast_joint']"
+        )
+        self.assertEqual(mast_joint.find("parent").attrib["link"], "panda_link0")
+
+    def test_panda_has_gazebo_control_contact_and_attachment_plugins(self):
+        root = ET.parse(PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro").getroot()
+        hardware_plugin = root.findtext(".//ros2_control/hardware/plugin")
+        self.assertEqual(hardware_plugin, "gz_ros2_control/GazeboSimSystem")
+        gazebo_control_plugin = root.find(
+            ".//plugin[@name='gz_ros2_control::GazeboSimROS2ControlPlugin']"
+        )
+        self.assertIsNotNone(gazebo_control_plugin)
+        self.assertEqual(
+            gazebo_control_plugin.findtext("position_proportional_gain"), "1.0"
+        )
+        root_gazebo = root.find("./gazebo[@reference='world']")
+        self.assertIsNotNone(root_gazebo)
+        self.assertEqual(root_gazebo.findtext("static"), "true")
+        sensors = root.findall(".//sensor[@type='contact']")
+        self.assertEqual(len(sensors), 2)
+        detachable = [
+            plugin
+            for plugin in root.findall(".//plugin")
+            if plugin.attrib.get("filename") == "gz-sim-detachable-joint-system"
+        ]
+        self.assertEqual(len(detachable), 3)
+        self.assertEqual(
+            {plugin.findtext("child_model") for plugin in detachable},
+            {"strawberry_1", "strawberry_2", "strawberry_3"},
+        )
+
+        joints = {
+            joint.attrib["name"]: tuple(
+                float(value) for value in joint.find("origin").attrib["xyz"].split()
+            )
+            for joint in root.findall(".//joint")
+            if joint.attrib.get("name")
+            in {
+                "panda_left_contact_pad_joint",
+                "panda_right_contact_pad_joint",
+            }
+        }
+        self.assertEqual(joints["panda_left_contact_pad_joint"], (0.0, 0.0, 0.027))
+        self.assertEqual(joints["panda_right_contact_pad_joint"], (0.0, 0.0, 0.027))
+
+    def test_arm_controller_waits_for_actual_joint_convergence(self):
+        config = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "panda_controllers.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        parameters = config["panda_arm_controller"]["ros__parameters"]
+        constraints = parameters["constraints"]
+        self.assertEqual(constraints["goal_time"], 8.0)
+        self.assertEqual(constraints["stopped_velocity_tolerance"], 0.02)
+        for joint_name in parameters["joints"]:
+            self.assertEqual(constraints[joint_name]["goal"], 0.05)
+            self.assertEqual(constraints[joint_name]["trajectory"], 0.50)
+
+    def test_world_fruit_poses_match_scene_manifest(self):
+        root = ET.parse(PACKAGE_ROOT / "worlds" / "strawberry_orchard.sdf").getroot()
+        world_poses = {
+            include.findtext("name"): tuple(
+                float(value) for value in include.findtext("pose").split()[:3]
+            )
+            for include in root.findall("./world/include")
+            if include.findtext("name", "").startswith("strawberry_")
+            and include.findtext("name", "")[-1:].isdigit()
+        }
+        manifest = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "scene.yaml").read_text(encoding="utf-8")
+        )
+        manifest_poses = {
+            fruit["model_name"]: tuple(float(value) for value in fruit["initial_pose_m"])
+            for fruit in manifest["fruits"]
+        }
+        self.assertEqual(world_poses, manifest_poses)
+
+    def test_fruits_disable_gravity_but_decay_collision_impulses(self):
+        for model_name in ("strawberry_ripe", "strawberry_unripe"):
+            root = ET.parse(
+                PACKAGE_ROOT / "models" / model_name / "model.sdf"
+            ).getroot()
+            link = root.find("./model/link[@name='fruit_link']")
+            self.assertIsNotNone(link)
+            self.assertEqual(link.findtext("gravity"), "false")
+            self.assertGreater(float(link.findtext("velocity_decay/linear")), 0.0)
+            self.assertGreater(float(link.findtext("velocity_decay/angular")), 0.0)
+            sensor = link.find("sensor[@name='fruit_contact_sensor']")
+            self.assertIsNotNone(sensor)
+            self.assertEqual(sensor.attrib["type"], "contact")
+            self.assertEqual(
+                sensor.findtext("contact/collision"), "fruit_collision"
+            )
+            self.assertEqual(
+                sensor.findtext("contact/topic"),
+                "/strawberry/sim/fruit_contacts",
+            )
+
+    def test_contact_frames_are_collision_free_and_sensors_use_stock_fingers(self):
+        root = ET.parse(PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro").getroot()
+        for side in ("left", "right"):
+            joint = root.find(
+                f"./joint[@name='panda_{side}_contact_pad_joint']/origin"
+            )
+            self.assertIsNotNone(joint)
+            self.assertEqual(joint.attrib["xyz"], "0 0 0.027")
+            pad_link = root.find(
+                f"./link[@name='panda_{side}_contact_pad']"
+            )
+            self.assertIsNotNone(pad_link)
+            self.assertEqual(pad_link.findall("collision"), [])
+            sensor = root.find(
+                f"./gazebo[@reference='panda_{side}finger']"
+                f"/sensor[@name='{side}_contact_sensor']"
+            )
+            self.assertIsNotNone(sensor)
+            self.assertEqual(
+                sensor.findtext("contact/collision"),
+                f"panda_{side}finger_collision",
+            )
+
+    @unittest.skipUnless(
+        shutil.which("xacro") and shutil.which("gz"),
+        "xacro and Gazebo are required for the conversion-level check",
+    )
+    def test_finger_contact_sensor_references_survive_urdf_to_sdf_conversion(self):
+        try:
+            from ament_index_python.packages import get_package_share_directory
+
+            get_package_share_directory("strawberry_sim")
+        except (ImportError, LookupError):
+            self.skipTest("strawberry_sim is not present in the ament index")
+        xacro_path = PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro"
+        initial_positions = PACKAGE_ROOT / "config" / "panda_initial_positions.yaml"
+        expanded = subprocess.run(
+            [
+                "xacro",
+                str(xacro_path),
+                f"initial_positions_file:={initial_positions}",
+                "enable_attachment:=false",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".urdf", encoding="utf-8"
+        ) as temporary_urdf:
+            temporary_urdf.write(expanded)
+            temporary_urdf.flush()
+            converted = subprocess.run(
+                ["gz", "sdf", "-p", temporary_urdf.name],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        root = ET.fromstring(converted)
+        world_joint = root.find("./model/joint[@name='panda_world_joint']")
+        self.assertIsNotNone(world_joint)
+        self.assertEqual(world_joint.findtext("parent"), "world")
+        self.assertEqual(world_joint.findtext("child"), "panda_link0")
+        for side in ("left", "right"):
+            link = root.find(
+                f"./model/link[@name='panda_{side}finger']"
+            )
+            self.assertIsNotNone(link)
+            collision_names = {
+                collision.attrib["name"] for collision in link.findall("collision")
+            }
+            sensor_reference = link.findtext("sensor/contact/collision")
+            self.assertIn(sensor_reference, collision_names)
+            sensor_collision = next(
+                collision
+                for collision in link.findall("collision")
+                if collision.attrib["name"] == sensor_reference
+            )
+            collision_pose = tuple(
+                float(value)
+                for value in sensor_collision.findtext(
+                    "pose", "0 0 0 0 0 0"
+                ).split()
+            )
+            self.assertEqual(collision_pose[:5], (0.0, 0.0, 0.0, 0.0, 0.0))
+            if side == "left":
+                self.assertAlmostEqual(collision_pose[5], 0.0)
+            else:
+                self.assertAlmostEqual(abs(collision_pose[5]), 3.141592653589793)
+            self.assertEqual(
+                link.findtext("sensor/contact/topic"),
+                f"/strawberry/sim/gripper/{side}_contacts",
+            )
+
+    @unittest.skipUnless(
+        shutil.which("xacro"),
+        "xacro is required for the robot-camera expansion check",
+    )
+    def test_robot_camera_modes_expand_to_distinct_links_frames_and_topics(self):
+        try:
+            from ament_index_python.packages import get_package_share_directory
+
+            get_package_share_directory("strawberry_sim")
+        except (ImportError, LookupError):
+            self.skipTest("strawberry_sim is not present in the ament index")
+        xacro_path = PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro"
+        initial_positions = PACKAGE_ROOT / "config" / "panda_initial_positions.yaml"
+
+        expected = {
+            "fixed": [],
+            "wrist": [
+                (
+                    "strawberry_camera_link",
+                    "strawberry_camera_optical_frame",
+                    "/camera",
+                )
+            ],
+            "dual": [
+                (
+                    "strawberry_base_camera_link",
+                    "strawberry_base_camera_optical_frame",
+                    "/camera/base",
+                ),
+                (
+                    "strawberry_wrist_camera_link",
+                    "strawberry_wrist_camera_optical_frame",
+                    "/camera/wrist",
+                ),
+            ],
+        }
+        for mode, cameras in expected.items():
+            with self.subTest(camera_mount=mode):
+                expanded = subprocess.run(
+                    [
+                        "xacro",
+                        str(xacro_path),
+                        f"initial_positions_file:={initial_positions}",
+                        "enable_attachment:=false",
+                        f"camera_mount:={mode}",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout
+                robot = ET.fromstring(expanded)
+                for link_name, optical_frame, topic in cameras:
+                    link = robot.find(f"./link[@name='{link_name}']")
+                    self.assertIsNotNone(link)
+                    self.assertIsNotNone(link.find("collision"))
+                    self.assertIsNotNone(
+                        robot.find(f"./link[@name='{optical_frame}']")
+                    )
+                    sensor = robot.find(
+                        f"./gazebo[@reference='{link_name}']/sensor"
+                    )
+                    self.assertEqual(sensor.findtext("topic"), topic)
+                    self.assertEqual(
+                        sensor.findtext("camera/optical_frame_id"), optical_frame
+                    )
+                camera_topics = {
+                    element.text
+                    for element in robot.findall("./gazebo/sensor/topic")
+                    if element.text and element.text.startswith("/camera")
+                }
+                self.assertEqual(camera_topics, {camera[2] for camera in cameras})
+                if mode == "dual":
+                    self.assertIsNotNone(
+                        robot.find("./link[@name='strawberry_base_camera_mast']")
+                    )
+
+
+if __name__ == "__main__":
+    unittest.main()

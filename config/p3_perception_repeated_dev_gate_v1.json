@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "gate_id": "p3_perception_repeated_dev_gate_v1",
+  "scope": "NON_FORMAL_SIMPLE_SCENE_DEVELOPMENT_GATE",
+  "formal_acceptance": false,
+  "formal_135_plus_30_matrix_consumed": false,
+  "held_out_real_test_consumed": false,
+  "waiver_binding": {
+    "relative_path": "config/p3_perception_control_waiver_v1.json",
+    "sha256": "59b071bd6b867a5f794b1bf3ee15ffcf8101a4d6545346a4fe869da6378981b5"
+  },
+  "execution": {
+    "fresh_world_per_trial": true,
+    "base_ros_domain_id": 180,
+    "headless": true,
+    "minimum_settled_detection_frames": 10,
+    "conditions": {
+      "lighting": "nominal",
+      "occlusion": "none",
+      "seed": 20260710
+    }
+  },
+  "acceptance": {
+    "positive_trials": 10,
+    "minimum_positive_success_rate": 0.8,
+    "negative_trials": 10,
+    "minimum_negative_no_pick_rate": 1.0,
+    "maximum_negative_false_pick_rate": 0.05,
+    "maximum_negative_control_attempts": 0,
+    "planning_time_p95_limit_sec": 5.0,
+    "require_all_infrastructure_valid": true,
+    "require_all_shutdown_clean": true
+  },
+  "positive_scene": {
+    "scenario_id": "clear_single_ripe_base_pose",
+    "expected_outcome": "SUCCESS",
+    "target": {
+      "model_name": "strawberry_1",
+      "target_id": 1,
+      "maturity": "RIPE",
+      "position_m": [0.42, -0.12, 0.52]
+    },
+    "parked_models": [
+      {
+        "model_name": "strawberry_2",
+        "target_id": 2,
+        "position_m": [0.2, -2.0, 1.0]
+      },
+      {
+        "model_name": "strawberry_3",
+        "target_id": 3,
+        "position_m": [0.4, -2.0, 1.0]
+      }
+    ]
+  },
+  "negative_scene": {
+    "scenario_id": "clear_single_unripe_base_pose",
+    "expected_outcome": "NO_PICK",
+    "target": {
+      "model_name": "strawberry_2",
+      "target_id": 2,
+      "maturity": "UNRIPE",
+      "position_m": [0.42, -0.12, 0.52]
+    },
+    "parked_models": [
+      {
+        "model_name": "strawberry_1",
+        "target_id": 1,
+        "position_m": [0.2, -2.0, 1.0]
+      },
+      {
+        "model_name": "strawberry_3",
+        "target_id": 3,
+        "position_m": [0.4, -2.0, 1.0]
+      }
+    ]
+  },
+  "interpretation": "Fresh-world repeatability and only-unripe safety evidence at one camera-clear pose. This is not position, lighting, occlusion, seed, formal-P3, or sim-to-real evidence."
+}

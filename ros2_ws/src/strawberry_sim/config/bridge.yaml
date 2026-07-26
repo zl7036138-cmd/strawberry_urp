@@ -1,0 +1,175 @@
+# Gazebo Harmonic -> ROS 2 Jazzy topic contract.
+- ros_topic_name: /clock
+  gz_topic_name: /clock
+  ros_type_name: rosgraph_msgs/msg/Clock
+  gz_type_name: gz.msgs.Clock
+  direction: GZ_TO_ROS
+  qos_profile: CLOCK
+
+- ros_topic_name: /camera/color/image_raw
+  gz_topic_name: /camera/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/depth/image_raw
+  gz_topic_name: /camera/depth_image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/camera_info
+  gz_topic_name: /camera/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+# Dual-camera mode. These bridges remain idle in fixed and wrist-only modes.
+- ros_topic_name: /camera/base/color/image_raw
+  gz_topic_name: /camera/base/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/base/depth/image_raw
+  gz_topic_name: /camera/base/depth_image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/base/camera_info
+  gz_topic_name: /camera/base/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/wrist/color/image_raw
+  gz_topic_name: /camera/wrist/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/wrist/depth/image_raw
+  gz_topic_name: /camera/wrist/depth_image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /camera/wrist/camera_info
+  gz_topic_name: /camera/wrist/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /strawberry/sim/gripper/left_contacts
+  gz_topic_name: /strawberry/sim/gripper/left_contacts
+  ros_type_name: ros_gz_interfaces/msg/Contacts
+  gz_type_name: gz.msgs.Contacts
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /strawberry/sim/gripper/right_contacts
+  gz_topic_name: /strawberry/sim/gripper/right_contacts
+  ros_type_name: ros_gz_interfaces/msg/Contacts
+  gz_type_name: gz.msgs.Contacts
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+# A shared fruit-side contact stream preserves the complete collision pair,
+# including robot links that are not instrumented as gripper pads.  It is used
+# for failure attribution and guard-path validation, not for attachment.
+- ros_topic_name: /strawberry/sim/fruit_contacts
+  gz_topic_name: /strawberry/sim/fruit_contacts
+  ros_type_name: ros_gz_interfaces/msg/Contacts
+  gz_type_name: gz.msgs.Contacts
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+# Each fruit owns a model-local PosePublisher. Separate topics preserve target
+# identity and avoid relying on SceneBroadcaster Pose_V ordering.
+- ros_topic_name: /strawberry/sim/fruit_1/pose_tf
+  gz_topic_name: /model/strawberry_1/pose
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /strawberry/sim/fruit_2/pose_tf
+  gz_topic_name: /model/strawberry_2/pose
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+- ros_topic_name: /strawberry/sim/fruit_3/pose_tf
+  gz_topic_name: /model/strawberry_3/pose
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+  qos_profile: SENSOR_DATA
+
+# The following topics become active only after the DetachableJoint fragments
+# are embedded in the real Panda model. Missing plugins produce no state, so
+# attachment_manager times out and reports failure rather than simulating it.
+- ros_topic_name: /strawberry/sim/fruit_1/attach_command
+  gz_topic_name: /strawberry/sim/fruit_1/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /strawberry/sim/fruit_1/detach_command
+  gz_topic_name: /strawberry/sim/fruit_1/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /strawberry/sim/fruit_1/attached_state
+  gz_topic_name: /strawberry/sim/fruit_1/attached
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /strawberry/sim/fruit_2/attach_command
+  gz_topic_name: /strawberry/sim/fruit_2/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /strawberry/sim/fruit_2/detach_command
+  gz_topic_name: /strawberry/sim/fruit_2/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /strawberry/sim/fruit_2/attached_state
+  gz_topic_name: /strawberry/sim/fruit_2/attached
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /strawberry/sim/fruit_3/attach_command
+  gz_topic_name: /strawberry/sim/fruit_3/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /strawberry/sim/fruit_3/detach_command
+  gz_topic_name: /strawberry/sim/fruit_3/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+
+- ros_topic_name: /strawberry/sim/fruit_3/attached_state
+  gz_topic_name: /strawberry/sim/fruit_3/attached
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS

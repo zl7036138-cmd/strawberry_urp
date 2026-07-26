@@ -1,0 +1,26 @@
+# Single-intervention Opt1 detector. Relative to train_yolo11s_640.yaml, only
+# the run name and the explicit cls_pw pin differ. All other training settings
+# remain identical so validation can attribute any change to class weighting.
+model: weights/yolo11s.pt
+data: data/processed/zenodo_6126677/dataset.yaml
+task: detect
+mode: train
+imgsz: 640
+epochs: 200
+batch: 8
+device: 0
+workers: 4
+pretrained: true
+seed: 20260710
+deterministic: true
+amp: false
+patience: 50
+save: true
+save_period: 10
+cache: false
+project: outputs/perception
+name: yolo11s_640_cls_pw05_opt1
+exist_ok: false
+plots: true
+verbose: true
+cls_pw: 0.5

@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+  NON-LOADABLE INTEGRATION FRAGMENT.
+
+  Copy the plugin elements below into the real Panda <model> after confirming
+  its parent link is named panda_hand. Do not include this file as a Gazebo
+  model. Gazebo's DetachableJoint starts attached; attachment_manager performs
+  bounded detach retries at startup and will not unlock services until all
+  three state topics explicitly report false.
+-->
+<detachable_joint_plugins expected_parent_model="panda" parent_link="panda_hand">
+  <plugin filename="gz-sim-detachable-joint-system"
+          name="gz::sim::systems::DetachableJoint">
+    <parent_link>panda_link7</parent_link>
+    <child_model>strawberry_1</child_model>
+    <child_link>fruit_link</child_link>
+    <attach_topic>/strawberry/sim/fruit_1/attach</attach_topic>
+    <detach_topic>/strawberry/sim/fruit_1/detach</detach_topic>
+    <output_topic>/strawberry/sim/fruit_1/attached</output_topic>
+  </plugin>
+  <plugin filename="gz-sim-detachable-joint-system"
+          name="gz::sim::systems::DetachableJoint">
+    <parent_link>panda_link7</parent_link>
+    <child_model>strawberry_2</child_model>
+    <child_link>fruit_link</child_link>
+    <attach_topic>/strawberry/sim/fruit_2/attach</attach_topic>
+    <detach_topic>/strawberry/sim/fruit_2/detach</detach_topic>
+    <output_topic>/strawberry/sim/fruit_2/attached</output_topic>
+  </plugin>
+  <plugin filename="gz-sim-detachable-joint-system"
+          name="gz::sim::systems::DetachableJoint">
+    <parent_link>panda_link7</parent_link>
+    <child_model>strawberry_3</child_model>
+    <child_link>fruit_link</child_link>
+    <attach_topic>/strawberry/sim/fruit_3/attach</attach_topic>
+    <detach_topic>/strawberry/sim/fruit_3/detach</detach_topic>
+    <output_topic>/strawberry/sim/fruit_3/attached</output_topic>
+  </plugin>
+</detachable_joint_plugins>

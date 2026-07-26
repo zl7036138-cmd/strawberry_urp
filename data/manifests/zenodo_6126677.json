@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "dataset_id": "zenodo_6126677",
+  "record": {
+    "record_id": 6126677,
+    "doi": "10.5281/zenodo.6126677",
+    "url": "https://zenodo.org/records/6126677",
+    "title": "Strawberry dataset for object detection",
+    "version": "v1",
+    "published": "2022-02-17",
+    "publisher": "Zenodo",
+    "creators": [
+      "Pastell, Matti",
+      "Lemsalu, Madis",
+      "Bloch, Victor"
+    ]
+  },
+  "license": {
+    "spdx": "CC-BY-4.0",
+    "name": "Creative Commons Attribution 4.0 International",
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "citation": "Pastell, Matti; Lemsalu, Madis; and Bloch, Victor (2022). Strawberry dataset for object detection (v1) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.6126677",
+  "related_publication": {
+    "doi": "10.1016/j.ifacol.2022.11.109",
+    "title": "Real-Time CNN-based Computer Vision System for Open-Field Strawberry Harvesting Robot"
+  },
+  "files": [
+    {
+      "name": "strawberries.zip",
+      "url": "https://zenodo.org/records/6126677/files/strawberries.zip?download=1",
+      "size_display": "1.5 GB",
+      "size_bytes": 1485730857,
+      "checksum": {
+        "algorithm": "md5",
+        "value": "db8d5dcb4b8adebf1621788373fd3031"
+      }
+    }
+  ],
+  "source_classes": [
+    {"id": 0, "name": "ripe", "v1_maturity": "RIPE", "include_in_v1": true},
+    {"id": 1, "name": "unripe", "v1_maturity": "UNRIPE", "include_in_v1": true},
+    {"id": 2, "name": "peduncle", "v1_maturity": "UNKNOWN", "include_in_v1": false}
+  ],
+  "archive": {
+    "root_directory": "strawberries",
+    "confirmed_entries": ["names.txt", "strawberries.yaml", "training"],
+    "official_train_aliases": ["training", "train"],
+    "official_held_out_aliases": ["validation", "valid", "val", "evaluation", "test"]
+  },
+  "split_policy": {
+    "seed": 20260710,
+    "fallback_ratios": {"train": 0.70, "val": 0.15, "test": 0.15},
+    "two_way_official_policy": "keep the official held-out subset as test and derive validation from official training",
+    "derived_validation_fraction_of_official_training": 0.15,
+    "scene_identity_policy": "fail_closed",
+    "groups_csv_columns": ["image", "group_id"],
+    "groups_csv_required_when": "a derived split contains any filename without an explicit non-empty scene prefix and frame token"
+  },
+  "processed_content_binding": {
+    "algorithm": "sha256",
+    "canonical_schema": "strawberry_materialized_dataset_v3",
+    "default_image_mode": "copy",
+    "image_normalization": "append_jpeg_eoi_if_missing_v1",
+    "raw_extraction_is_immutable": true,
+    "absolute_roots_are_informational": true,
+    "verify_before": ["training", "validation", "test"]
+  }
+}

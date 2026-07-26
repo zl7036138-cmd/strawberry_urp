@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "diagnostic_id": "t60_oracle_shadow_single_target_position_v1",
+  "scope": "NON_ACCEPTANCE_DIAGNOSTIC",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "control": {
+    "source": "oracle",
+    "topic": "/strawberry/oracle/target_pose",
+    "target_id": 1
+  },
+  "shadow": {
+    "model_role": "baseline__best",
+    "model_relative_path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "model_sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31,
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_topic": "/strawberry/shadow/target_pose"
+  },
+  "conditions": {
+    "occlusion": "none",
+    "lighting": "nominal",
+    "seed": 20260710,
+    "formal_position_labels": false
+  },
+  "scene_setup": {
+    "mode": "single_target_isolation",
+    "parked_models": [
+      {
+        "model_name": "strawberry_2",
+        "target_id": 2,
+        "position_m": [0.20, -2.00, 1.00]
+      },
+      {
+        "model_name": "strawberry_3",
+        "target_id": 3,
+        "position_m": [0.40, -2.00, 1.00]
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "scenario_id": "single_clear_position_01",
+      "position_label": "camera_clear_01",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.44, -0.10, 0.48]
+    },
+    {
+      "scenario_id": "single_clear_position_02",
+      "position_label": "camera_clear_02",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.47, -0.075, 0.50]
+    },
+    {
+      "scenario_id": "single_clear_position_03",
+      "position_label": "camera_clear_03",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.50, -0.05, 0.52]
+    },
+    {
+      "scenario_id": "single_clear_position_04",
+      "position_label": "camera_clear_04",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.47, -0.025, 0.48]
+    },
+    {
+      "scenario_id": "single_clear_position_05",
+      "position_label": "camera_clear_05",
+      "target_model_name": "strawberry_1",
+      "target_position_m": [0.44, 0.00, 0.52]
+    }
+  ]
+}

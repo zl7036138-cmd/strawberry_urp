@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "diagnostic_id": "t70_shadow_multiposition_fixed_window_v1",
+  "scope": "NON_ACCEPTANCE_NO_MOTION_DIAGNOSTIC",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "control": {
+    "robot_motion_started": false,
+    "perception_role": "shadow_observation_only",
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_pose_topic": "/strawberry/shadow/target_pose"
+  },
+  "shadow": {
+    "model_role": "baseline__best_below_t30_gate",
+    "model_relative_path": "outputs/perception/yolo11s_640/weights/best.pt",
+    "model_size_bytes": 19161242,
+    "model_sha256": "ce6c998ed52ae97c8e8b51880adb60618733fff11be22378baa0044f9a126425",
+    "confidence_threshold": 0.31
+  },
+  "measurement": {
+    "boundary": "after_condition_probe_before_robot_motion",
+    "fixed_detection_frames": 60,
+    "post_window_wait_sec": 1.0,
+    "condition_probe_frames": 5,
+    "expected_distinct_materialized_worlds": 7
+  },
+  "condition_contract": {
+    "benchmark_config_relative_path": "config/benchmark.yaml",
+    "benchmark_config_sha256": "a654bbd81cd1242bebc517349b84b24fac00dcb1c8eba83102f06ece2a02511e",
+    "scene_config_relative_path": "config/t70_scene_conditions_v2.json",
+    "scene_config_sha256": "8632d1a23f3004104f3933b620962d63866e4d958e29a25a27b7d64328e1b60a",
+    "base_world_relative_path": "ros2_ws/src/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf",
+    "base_world_sha256": "68a2692c06cdf89e6b2e1f9d02e0c8fb17b9d3030b409e172eb223ec6f1cbce7",
+    "condition_world_seed": 20260710,
+    "seed_role": "single_diagnostic_materialization_only",
+    "independent_random_seed_count_claimed": 0
+  },
+  "scene_setup": {
+    "mode": "single_target_isolation",
+    "target_model_name": "strawberry_1",
+    "target_id": 1,
+    "parked_models": [
+      {
+        "model_name": "strawberry_2",
+        "target_id": 2,
+        "position_m": [0.20, -2.00, 1.00]
+      },
+      {
+        "model_name": "strawberry_3",
+        "target_id": 3,
+        "position_m": [0.40, -2.00, 1.00]
+      }
+    ]
+  },
+  "positions": [
+    {
+      "position_label": "near_left",
+      "source_position_label": "camera_clear_01",
+      "target_position_m": [0.44, -0.10, 0.48]
+    },
+    {
+      "position_label": "near_right",
+      "source_position_label": "camera_clear_03",
+      "target_position_m": [0.50, -0.05, 0.52]
+    },
+    {
+      "position_label": "center",
+      "source_position_label": "camera_clear_02",
+      "target_position_m": [0.47, -0.075, 0.50]
+    },
+    {
+      "position_label": "far_left",
+      "source_position_label": "camera_clear_05",
+      "target_position_m": [0.44, 0.00, 0.52]
+    },
+    {
+      "position_label": "far_right",
+      "source_position_label": "camera_clear_04",
+      "target_position_m": [0.47, -0.025, 0.48]
+    }
+  ],
+  "conditions": [
+    {
+      "condition_label": "nominal_none",
+      "lighting": "nominal",
+      "occlusion": "none",
+      "purpose": "camera_clear_baseline"
+    },
+    {
+      "condition_label": "dim_none",
+      "lighting": "dim",
+      "occlusion": "none",
+      "purpose": "one_factor_lighting_stress"
+    },
+    {
+      "condition_label": "nominal_heavy",
+      "lighting": "nominal",
+      "occlusion": "heavy",
+      "purpose": "one_factor_occlusion_stress"
+    }
+  ]
+}

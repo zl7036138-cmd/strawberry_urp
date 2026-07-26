@@ -1,0 +1,26 @@
+benchmark:
+  schema_version: 1
+
+  # The positive benchmark is the complete Cartesian product: 3 x 3 x 5 x 3.
+  occlusion_levels:
+    - none
+    - partial
+    - heavy
+  lighting_levels:
+    - dim
+    - nominal
+    - bright
+  positions:
+    - near_left
+    - near_right
+    - center
+    - far_left
+    - far_right
+  seeds:
+    - 20260710
+    - 20260711
+    - 20260712
+
+  # Negative worlds contain only UNRIPE fruit. The generator balances every
+  # one-dimensional condition across these 30 trials.
+  negative_trials: 30

@@ -63,6 +63,16 @@ class LocalizationGateCoreTests(unittest.TestCase):
         self.assertIn("surface_to_center_offset_m: 0.035", config_text)
         self.assertIn('"enable_pose_control": "true"', launch_text)
 
+    def test_blender_v2_config_has_separate_26_mm_offset(self) -> None:
+        v1_config = (
+            PACKAGE_ROOT / "config" / "localization.yaml"
+        ).read_text(encoding="utf-8")
+        v2_config = (
+            PACKAGE_ROOT / "config" / "localization_blender_v2.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("surface_to_center_offset_m: 0.035", v1_config)
+        self.assertIn("surface_to_center_offset_m: 0.026", v2_config)
+
     def test_default_grid_contains_one_hundred_distinct_positions(self) -> None:
         positions = benchmark_positions()
         self.assertEqual(len(positions), 100)

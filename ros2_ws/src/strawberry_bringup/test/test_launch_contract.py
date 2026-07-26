@@ -80,6 +80,28 @@ class LaunchContractTests(unittest.TestCase):
         self.assertIn('world_file = LaunchConfiguration("world_file")', text)
         self.assertIn('"world_file": world_file', text)
 
+    def test_scene_geometry_is_shared_with_localization(self) -> None:
+        text = (PACKAGE_ROOT / "launch" / "system.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            text,
+            r'DeclareLaunchArgument\(\s*"scene_config_file",\s*default_value=""',
+        )
+        self.assertIn("scene = load_scene_config(scene_path)", text)
+        self.assertIn(
+            "offset = scene.fruit_collision_radius_m",
+            text,
+        )
+        self.assertGreaterEqual(
+            text.count('"scene_config_file": scene_config_file'),
+            2,
+        )
+        self.assertIn(
+            '"surface_to_center_offset_m":',
+            text,
+        )
+
     def test_camera_mount_defaults_fixed_and_is_forwarded_explicitly(self) -> None:
         text = (PACKAGE_ROOT / "launch" / "system.launch.py").read_text(
             encoding="utf-8"
@@ -89,8 +111,7 @@ class LaunchContractTests(unittest.TestCase):
             r'DeclareLaunchArgument\(\s*"camera_mount",\s*default_value="fixed"',
         )
         self.assertIn('camera_mount = LaunchConfiguration("camera_mount")', text)
-        self.assertIn('"camera_mount": camera_mount', text)
-        self.assertIn('{"use_sim_time": True, "camera_mount": camera_mount}', text)
+        self.assertGreaterEqual(text.count('"camera_mount": camera_mount'), 2)
         self.assertIn('choices=["fixed", "wrist", "dual"]', text)
 
     def test_perception_camera_topics_are_explicit_and_keep_legacy_defaults(self) -> None:

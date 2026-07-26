@@ -142,6 +142,7 @@ class SceneConfig:
     world_name: str
     base_frame: str
     camera_optical_frame: str
+    fruit_collision_radius_m: float
     fruits: tuple[FruitSpec, ...]
     bin_bounds: BinBounds
     bin_stability_sec: float
@@ -151,6 +152,8 @@ class SceneConfig:
             raise ValueError(f"unsupported scene schema_version {self.schema_version}")
         if not self.world_name or not self.base_frame or not self.camera_optical_frame:
             raise ValueError("world and frame names must be non-empty")
+        if self.fruit_collision_radius_m <= 0.0:
+            raise ValueError("fruit collision radius must be positive")
         if not self.fruits:
             raise ValueError("scene must contain at least one fruit")
         target_ids = [fruit.target_id for fruit in self.fruits]
@@ -220,6 +223,13 @@ def scene_config_from_mapping(data: Mapping[str, Any]) -> SceneConfig:
         world_name=str(data.get("world_name", "")).strip(),
         base_frame=str(frames.get("robot_base", "")).strip(),
         camera_optical_frame=str(frames.get("camera_optical", "")).strip(),
+        fruit_collision_radius_m=_finite(
+            # Schema-v1 manifests predate this explicit field.  Preserve the
+            # hash-frozen tabletop-v1 contract with its historical 35 mm
+            # sphere while requiring the canonical v2 scene to override it.
+            data.get("fruit_collision_radius_m", 0.035),
+            "fruit_collision_radius_m",
+        ),
         fruits=tuple(fruits),
         bin_bounds=bounds,
         bin_stability_sec=_finite(

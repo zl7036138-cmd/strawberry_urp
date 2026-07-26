@@ -94,7 +94,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("safe_transit_clearance_m", 0.02)
             self.declare_parameter("safe_transit_corridor_y_m", -0.10)
             self.declare_parameter("scene_config_file", default_scene_config)
-            self.declare_parameter("fruit_collision_radius_m", 0.026)
             self.declare_parameter("ground_truth_pose_timeout_sec", 2.0)
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
@@ -212,9 +211,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("safe_transit_corridor_y_m").value
                 ),
                 fruit_obstacles=fruit_obstacles,
-                fruit_collision_radius_m=float(
-                    self.get_parameter("fruit_collision_radius_m").value
-                ),
+                fruit_collision_radius_m=scene.fruit_collision_radius_m,
                 fruit_pose_provider=self._fruit_pose_snapshot,
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)

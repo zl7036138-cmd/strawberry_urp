@@ -12,6 +12,8 @@
 *.srdf text eol=lf
 *.msg text eol=lf
 *.action text eol=lf
+# Decision records may be content-hash-bound by experiment contracts.
+docs/decisions/*.md text eol=lf
 
 # Binary project assets.
 *.blend binary

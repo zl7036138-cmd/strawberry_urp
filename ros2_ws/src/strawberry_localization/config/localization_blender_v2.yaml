@@ -1,0 +1,34 @@
+strawberry_localization:
+  ros__parameters:
+    use_sim_time: true
+    target_frame: panda_link0
+    confidence_threshold: 0.60
+    detections_topic: /strawberry/detections
+    target_pose_topic: /strawberry/target_pose
+    camera_info_topic: /camera/camera_info
+    depth_topic: /camera/depth/image_raw
+    selection_roi_min_x_px: -1
+    selection_roi_min_y_px: -1
+    selection_roi_max_x_px: -1
+    selection_roi_max_y_px: -1
+    stale_after_sec: 0.50
+    sync_tolerance_sec: 0.05
+    sensor_cache_capacity: 60
+    sensor_cache_retention_sec: 2.0
+    sensor_qos_depth: 5
+    center_fraction: 0.30
+    min_depth_m: 0.05
+    max_depth_m: 5.0
+    min_valid_pixels: 9
+    # Blender plant v2 fruit collision radius. RGB-D median depth observes the
+    # visible surface, so shift the hit 26 mm along the optical ray.
+    surface_to_center_offset_m: 0.026
+    ground_truth_association_enabled: true
+    association_max_distance_m: 0.08
+    allow_stationary_latest_tf_fallback: false
+    allow_stationary_sensor_sync_fallback: false
+    stationary_sync_tolerance_sec: 0.105
+    stationary_tf_minimum_samples: 5
+    stationary_tf_maximum_joint_delta_rad: 0.002
+    stationary_tf_joint_state_wall_timeout_sec: 0.25
+    stationary_tf_maximum_transform_age_sec: 5.0

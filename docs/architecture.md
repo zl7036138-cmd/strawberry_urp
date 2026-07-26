@@ -235,13 +235,22 @@ IDs and image dimensions, then still applies the 0.5 s stale-data limit. This
 absorbs bounded detector inference latency without silently localizing against
 the newest unrelated depth frame or allowing unbounded memory growth.
 
-For the rigid 0.035 m-radius v1 fruit, central-crop median depth measures the
-visible sphere surface. The configured `surface_to_center_offset_m: 0.035`
-moves that surface hit exactly 35 mm farther along its Euclidean camera ray to
-estimate the fruit centre; it is not treated as a simple optical-Z increment.
-The T40 acceptance gate moves a simulated fruit through 100 distinct known
-positions and requires all measurements, median error no greater than 15 mm,
-and p95 error no greater than 30 mm.
+Central-crop median depth measures the visible fruit surface, not its centre.
+The surface-to-centre shift is therefore scene geometry: archived tabletop v1
+uses its schema-v1 `0.035 m` compatibility default so its hash-frozen manifest
+remains byte-for-byte reproducible, while the canonical Blender plant v2
+explicitly uses `0.026 m`. The values also have separate localization YAML
+files. `system.launch.py` loads the selected scene, derives the offset from
+`fruit_collision_radius_m`, and rejects an explicit override that disagrees
+with the manifest. The shift is applied along the Euclidean camera ray, not as
+a simple optical-Z increment.
+
+The historical T40 acceptance gate is a v1 test: it moves a rigid 35 mm fruit
+through 100 distinct known positions and requires all measurements, median
+error no greater than 15 mm, and p95 error no greater than 30 mm. It must not be
+reported as a v2 accuracy result. The fresh Blender-v2 isolated diagnostic uses
+the corrected 26 mm offset and establishes TargetPose availability, but a
+separate v2 100-position accuracy gate remains required.
 
 ## Simulation startup and control invariants
 
@@ -285,14 +294,17 @@ MoveIt checks interpolated joint states at no more than 0.01 rad spacing so a
 collision between Cartesian IK waypoints cannot be skipped. The table top is
 padded upward by 0.05 m as a planning-only safety margin.
 
-All manifest fruit are represented in MoveIt by 0.035 m-radius collision
-spheres. Before preparing a simulated pick, the action server requires a fresh,
-complete `/strawberry/ground_truth/poses` snapshot and synchronizes every fruit
-sphere to that live scene state. The expected ID set must match the immutable
-manifest exactly and the snapshot must be no more than two seconds old. The
-selected sphere is then updated from the action goal, which remains the
-authoritative commanded target pose. Simulation truth cannot select the target
-or replace a perception result.
+All manifest fruit are represented in MoveIt by collision spheres whose radius
+comes from the resolved scene contract: 35 mm for archived tabletop v1 and
+26 mm for Blender plant v2. The attachment fallback and the action server use
+the same source instead of independent hard-coded defaults. Before preparing a
+simulated pick, the action server requires a fresh, complete
+`/strawberry/ground_truth/poses` snapshot and synchronizes every fruit sphere
+to that live scene state. The expected ID set must match the immutable manifest
+exactly and the snapshot must be no more than two seconds old. The selected
+sphere is then updated from the action goal, which remains the authoritative
+commanded target pose. Simulation truth cannot select the target or replace a
+perception result.
 
 The selected sphere remains solid throughout transit and pre-grasp; only that
 sphere is removed immediately before the final straight descent to open a
@@ -313,9 +325,12 @@ perception evidence. A future formal perception-controlled P3/P4 run may not
 use it until a separate decision freezes the allowed planning-scene source; it
 can never select the target or replace the action target pose.
 
-The 0.035 m-radius rigid fruit is grasped with a 0.025 m per-finger close
-command. Controller stall is an acceptable close result, but attachment still
-requires fresh dual contact; commanding zero width is intentionally forbidden.
+The archived 0.035 m-radius v1 fruit was grasped with a 0.025 m per-finger
+close command. Controller stall is an acceptable close result, but attachment
+still requires fresh dual contact; commanding zero width is intentionally
+forbidden. Blender-v2 planning now uses the correct 26 mm collision radius, but
+its close width, tool offset, and contact section require a separate execution
+requalification before a perception-derived pick can be authorized.
 
 ## Contact and collision diagnostics
 

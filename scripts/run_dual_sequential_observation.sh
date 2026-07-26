@@ -42,7 +42,7 @@ perception_config="$(
 )/share/strawberry_perception/config/perception.yaml"
 localization_config="$(
   ros2 pkg prefix strawberry_localization
-)/share/strawberry_localization/config/localization.yaml"
+)/share/strawberry_localization/config/localization_blender_v2.yaml"
 
 sim_pid=""
 pipeline_pids=()

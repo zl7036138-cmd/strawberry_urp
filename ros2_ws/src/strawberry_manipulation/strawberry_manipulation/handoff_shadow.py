@@ -510,6 +510,7 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
                 planning_scene_monitor,
                 expected_frame_id,
                 truth_centers,
+                scene.fruit_collision_radius_m,
             )
             time.sleep(0.5)
             with planning_scene_monitor.read_only() as planning_scene:

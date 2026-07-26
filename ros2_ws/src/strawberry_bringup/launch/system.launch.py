@@ -6,12 +6,58 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    LogInfo,
+    OpaqueFunction,
+    SetLaunchConfiguration,
+)
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from strawberry_sim.core import load_scene_config
+
+
+def _configure_scene_geometry(context, *, sim_share: str):
+    """Resolve one scene manifest as the geometry source for all subsystems."""
+
+    requested_scene = LaunchConfiguration("scene_config_file").perform(
+        context
+    ).strip()
+    scene_path = requested_scene or os.path.join(
+        sim_share, "config", "scene.yaml"
+    )
+    scene_path = os.path.abspath(os.path.expanduser(scene_path))
+    if not os.path.isfile(scene_path):
+        raise RuntimeError(f"scene config file does not exist: {scene_path}")
+    scene = load_scene_config(scene_path)
+
+    requested_offset = LaunchConfiguration(
+        "surface_to_center_offset_m"
+    ).perform(context).strip()
+    if requested_offset:
+        try:
+            offset = float(requested_offset)
+        except ValueError as exc:
+            raise RuntimeError(
+                "surface_to_center_offset_m must be a number"
+            ) from exc
+        if abs(offset - scene.fruit_collision_radius_m) > 1.0e-9:
+            raise RuntimeError(
+                "surface_to_center_offset_m must match the selected scene "
+                f"fruit radius ({scene.fruit_collision_radius_m:.6f} m)"
+            )
+    else:
+        offset = scene.fruit_collision_radius_m
+    return [
+        SetLaunchConfiguration("scene_config_file", scene_path),
+        SetLaunchConfiguration(
+            "surface_to_center_offset_m", f"{offset:.9f}"
+        ),
+    ]
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -29,6 +75,7 @@ def generate_launch_description() -> LaunchDescription:
 
     headless = LaunchConfiguration("headless")
     world_file = LaunchConfiguration("world_file")
+    scene_config_file = LaunchConfiguration("scene_config_file")
     camera_mount = LaunchConfiguration("camera_mount")
     simulation_seed = LaunchConfiguration("simulation_seed")
     start_perception = LaunchConfiguration("start_perception")
@@ -47,6 +94,9 @@ def generate_launch_description() -> LaunchDescription:
     localization_depth_topic = LaunchConfiguration("localization_depth_topic")
     localization_camera_info_topic = LaunchConfiguration(
         "localization_camera_info_topic"
+    )
+    surface_to_center_offset_m = LaunchConfiguration(
+        "surface_to_center_offset_m"
     )
     localization_selection_roi_min_x_px = LaunchConfiguration(
         "localization_selection_roi_min_x_px"
@@ -79,6 +129,9 @@ def generate_launch_description() -> LaunchDescription:
     stationary_tf_fallback_parameter = ParameterValue(
         allow_stationary_latest_tf_fallback, value_type=bool
     )
+    surface_to_center_offset_parameter = ParameterValue(
+        surface_to_center_offset_m, value_type=float
+    )
     selection_roi_parameters = {
         "selection_roi_min_x_px": ParameterValue(
             localization_selection_roi_min_x_px, value_type=int
@@ -98,6 +151,21 @@ def generate_launch_description() -> LaunchDescription:
         [
             DeclareLaunchArgument("headless", default_value="true"),
             DeclareLaunchArgument("world_file", default_value=""),
+            DeclareLaunchArgument(
+                "scene_config_file",
+                default_value="",
+                description=(
+                    "Scene geometry manifest. Empty selects Blender plant v2."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "surface_to_center_offset_m",
+                default_value="",
+                description=(
+                    "Optional audited override; it must equal the selected "
+                    "scene fruit radius. Empty derives it from the manifest."
+                ),
+            ),
             DeclareLaunchArgument(
                 "camera_mount",
                 default_value="fixed",
@@ -213,6 +281,10 @@ def generate_launch_description() -> LaunchDescription:
                 "shadow_detections_topic",
                 default_value="/strawberry/shadow/detections",
             ),
+            OpaqueFunction(
+                function=_configure_scene_geometry,
+                kwargs={"sim_share": sim_share},
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     os.path.join(sim_share, "launch", "sim.launch.py")
@@ -220,6 +292,7 @@ def generate_launch_description() -> LaunchDescription:
                 launch_arguments={
                     "headless": headless,
                     "world_file": world_file,
+                    "scene_config_file": scene_config_file,
                     "camera_mount": camera_mount,
                     "simulation_seed": simulation_seed,
                     "enable_attachment": enable_attachment,
@@ -270,6 +343,8 @@ def generate_launch_description() -> LaunchDescription:
                         "target_pose_topic": perception_target_topic,
                         "depth_topic": localization_depth_topic,
                         "camera_info_topic": localization_camera_info_topic,
+                        "surface_to_center_offset_m":
+                            surface_to_center_offset_parameter,
                         **selection_roi_parameters,
                         "allow_stationary_latest_tf_fallback":
                             stationary_tf_fallback_parameter,
@@ -283,7 +358,11 @@ def generate_launch_description() -> LaunchDescription:
                 output="screen",
                 condition=IfCondition(start_manipulation),
                 parameters=[
-                    {"use_sim_time": True, "camera_mount": camera_mount}
+                    {
+                        "use_sim_time": True,
+                        "camera_mount": camera_mount,
+                        "scene_config_file": scene_config_file,
+                    }
                 ],
             ),
             Node(

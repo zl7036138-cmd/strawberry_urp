@@ -70,6 +70,24 @@ handoffs, 5/5 discarded pre-grasp plans, and zero control commands. This remains
 development evidence; the next work is longer monitoring and audited perception
 improvement, not trajectory execution.
 
+The v1/v2 fruit geometry is now resolved consistently end to end. The
+hash-frozen tabletop-v1 manifest retains its schema-v1 35 mm default, while
+Blender plant v2 explicitly uses 26 mm. Bringup derives localization and
+collision geometry from the selected scene contract and rejects mismatched
+overrides. A fresh isolated, no-motion v2
+diagnostic records ripe detection/TargetPose rates of 60/60 and 60/60 for
+`strawberry_1`, 60/60 and 58/60 for `strawberry_3`, and 0/60 for the unripe
+`strawberry_2`. This confirms an unripe appearance-domain gap after separating
+the ripe occlusion/viewpoint issue.
+
+ADR 0037 then consumed one bounded non-formal research claim using 72 new
+Blender-v2 training renders, 24 disjoint synthetic held-out renders, and the
+501 consensus-corrected real training images. The fixed `last.pt@0.58` reaches
+synthetic ripe/unripe F1 `0.857143/0.000000`, so ADR 0038 rejects it before
+audited real validation or live qualification. The previous engineering
+checkpoint remains active; no retry, threshold change, control test, or
+held-out real-test access occurred.
+
 ## Stage status
 
 | Stage | Status | Exit gate |
@@ -86,7 +104,7 @@ Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
 Latest verified local baseline (2026-07-26): all seven packages build and all
-311 colcon tests pass with no errors, failures, or skips in
+322 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

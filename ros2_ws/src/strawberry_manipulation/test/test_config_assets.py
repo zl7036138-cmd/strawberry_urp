@@ -83,3 +83,14 @@ def test_dual_sequence_stops_base_pipeline_before_wrist_motion():
     assert "pregrasp_planning_shadow" in source
     assert "--pregrasp-shadow-json" in source
     assert "--planning-attempts 3" in source
+    assert "localization_blender_v2.yaml" in source
+
+
+def test_runtime_collision_users_take_radius_from_scene_manifest():
+    for relative_path in (
+        "strawberry_manipulation/action_server.py",
+        "strawberry_manipulation/handoff_shadow.py",
+        "strawberry_manipulation/pregrasp_shadow.py",
+    ):
+        source = (PACKAGE_ROOT / relative_path).read_text(encoding="utf-8")
+        assert "scene.fruit_collision_radius_m" in source

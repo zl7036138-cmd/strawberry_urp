@@ -506,6 +506,7 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
             planning_scene_monitor,
             expected_frame_id,
             node.truth_centers,
+            scene.fruit_collision_radius_m,
         )
         with planning_scene_monitor.read_only() as planning_scene:
             collision_ids_before = sorted(

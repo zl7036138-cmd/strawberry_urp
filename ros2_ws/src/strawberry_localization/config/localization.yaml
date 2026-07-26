@@ -29,9 +29,10 @@ strawberry_localization:
     min_depth_m: 0.05
     max_depth_m: 5.0
     min_valid_pixels: 9
-    # Gazebo v1 uses rigid 35 mm-radius spheres. Median depth observes the
-    # visible surface, so shift that hit 35 mm along its optical ray to report
-    # the fruit-centre pose required by TargetPose.msg.
+    # Archived Gazebo tabletop v1 uses rigid 35 mm-radius spheres. Keep this
+    # file as the v1 contract; Blender plant v2 uses localization_blender_v2.yaml.
+    # Median depth observes the visible surface, so shift that hit 35 mm along
+    # its optical ray to report the fruit-centre pose required by TargetPose.msg.
     surface_to_center_offset_m: 0.035
     ground_truth_association_enabled: true
     association_max_distance_m: 0.08

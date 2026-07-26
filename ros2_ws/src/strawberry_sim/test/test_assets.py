@@ -7,11 +7,18 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+from strawberry_sim.core import load_scene_config
+
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class SimulationAssetTests(unittest.TestCase):
+    def test_package_data_excludes_transient_python_bytecode(self):
+        setup_text = (PACKAGE_ROOT / "setup.py").read_text(encoding="utf-8")
+        self.assertIn('dirname != "__pycache__"', setup_text)
+        self.assertIn('filename.endswith((".pyc", ".pyo"))', setup_text)
+
     def test_camera_tf_uses_ros_optical_axis_conversion(self):
         launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
             encoding="utf-8"
@@ -276,6 +283,26 @@ class SimulationAssetTests(unittest.TestCase):
             for fruit in manifest["fruits"]
         }
         self.assertEqual(world_poses, manifest_poses)
+
+    def test_scene_manifests_split_v1_and_v2_fruit_geometry(self):
+        canonical = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "scene.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        archived = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "scene_tabletop_v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(canonical["fruit_collision_radius_m"], 0.026)
+        self.assertNotIn("fruit_collision_radius_m", archived)
+        self.assertEqual(
+            load_scene_config(
+                PACKAGE_ROOT / "config" / "scene_tabletop_v1.yaml"
+            ).fruit_collision_radius_m,
+            0.035,
+        )
 
     def test_fruits_disable_gravity_but_decay_collision_impulses(self):
         for model_name in ("strawberry_ripe", "strawberry_unripe"):

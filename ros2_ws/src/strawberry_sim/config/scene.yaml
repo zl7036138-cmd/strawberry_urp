@@ -1,5 +1,7 @@
 schema_version: 1
 world_name: strawberry_orchard
+# Blender plant v2 fruit collision and visual-centre contract.
+fruit_collision_radius_m: 0.026
 
 frames:
   robot_base: panda_link0

@@ -14,8 +14,19 @@ def share_data_files(*directories: str) -> list[tuple[str, list[str]]]:
 
     result: list[tuple[str, list[str]]] = []
     for directory in directories:
-        for current, _, filenames in os.walk(directory):
-            files = [os.path.join(current, filename) for filename in filenames]
+        for current, dirnames, filenames in os.walk(directory):
+            # Importing a launch file can create transient Python bytecode in
+            # the source tree.  Never let those cache files enter setuptools'
+            # persistent manifest, where their later disappearance breaks an
+            # otherwise valid incremental ROS build.
+            dirnames[:] = [
+                dirname for dirname in dirnames if dirname != "__pycache__"
+            ]
+            files = [
+                os.path.join(current, filename)
+                for filename in filenames
+                if not filename.endswith((".pyc", ".pyo"))
+            ]
             if files:
                 result.append((os.path.join("share", PACKAGE_NAME, current), files))
     return result

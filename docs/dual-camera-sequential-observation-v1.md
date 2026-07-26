@@ -159,9 +159,91 @@ Motion never uses the wider bound. Generic localization defaults keep this
 fallback disabled.
 
 The Shadow probe no longer treats ten arbitrary detections as readiness. It
-requires 15 consecutive detection timestamps with a matching TargetPose, then
-starts a new 60-frame measurement window. The sequence finalizer rejects
-missing or shorter readiness evidence.
+requires 15 consecutive detection timestamps where a ripe detection identity
+has an identity-matched TargetPose, then starts a new 60-frame measurement
+window. The sequence finalizer rejects missing or shorter readiness evidence.
+
+### Readiness attribution telemetry
+
+The readiness probe now writes a schema-v2 receipt at both success and timeout.
+Each observed detection timestamp is classified as `READY`, `NO_DETECTION`,
+`NO_RIPE_DETECTION`, `TARGET_POSE_MISSING`, or
+`TARGET_IDENTITY_MISMATCH`. The receipt records the longest and terminal ready
+streaks, streak-reset reasons, all observed identities, orphan TargetPose
+timestamps, and the callback receipt delay between a detection and its matched
+TargetPose. A timeout writes `completed=false` with failure stage
+`WRIST_READINESS_GATE` before the process exits nonzero, so an intermittent
+failure no longer leaves only an unattributed exception.
+
+The first fresh-world sequence using this telemetry is retained at
+`results/development/dual_sequential_readiness_telemetry_v1`. It passed the
+complete observation, no-motion handoff, and controller-free pre-grasp planning
+chain:
+
+- readiness observations: 21 detection timestamps;
+- initial `TARGET_POSE_MISSING`: 6;
+- qualifying run: detection indices 7--21, 15 consecutive `READY`;
+- streak resets: 0;
+- identity mismatches: 0;
+- TargetPose callback receipt delay: 0.018--1.114 wall seconds;
+- final wrist TargetPose: 59/60 frames;
+- planning attempts: 1, accepted trajectory generated and discarded;
+- control commands: 0;
+- pick authorized: false.
+
+The six initial missing entries show pipeline warm-up rather than an interrupted
+ready streak. The delay is measured with `time.monotonic()` at this probe's ROS
+callbacks. It must not be compared directly with the 0.5 simulated-second
+sensor freshness limit.
+
+An isolated no-publisher runtime check is retained at
+`results/development/wrist_readiness_no_input_v1`. It exits nonzero as designed
+and still writes a structured zero-input failure receipt.
+
+### Depth transport stabilization
+
+Five attribution-enabled worlds without additional buffering are retained in
+`dual_sequential_readiness_telemetry_v1` through `v5`. The strict repeat result
+is 4/5 worlds and 299/300 final TargetPose frames. The sole missing measurement
+frame is detection frame 37 at simulated stamp 39.930 s in v1. It contains two
+ripe detections, but localization deferred and then expired because the nearest
+depth stamps were approximately -0.263 s and +0.232 s away. Both are outside
+the stationary 0.105 s bound. This identifies a depth transport hole, not a
+YOLO, TF, confidence, or identity failure.
+
+The stationary sequential path now uses a 30-sample depth/CameraInfo ROS
+history plus a 30-sample wrist-depth `ros_gz_bridge` publisher queue. Historical
+localization defaults retain depth five. The nominal 50 ms synchronization
+bound, stationary 105 ms bound, 0.5 s freshness limit, and all motion
+boundaries are unchanged.
+
+Five complete fresh worlds using the bounded queue are retained in
+`dual_sequential_depth_queue30_v1` through `v4` and `v6`:
+
+- repeat: 5/5;
+- final wrist TargetPose: 300/300 frames;
+- readiness: 75 `READY`, 22 initial `TARGET_POSE_MISSING`;
+- readiness streak resets: 0;
+- detection or identity failures: 0;
+- maximum callback receipt delay: 1.017 wall seconds;
+- handoff: 5/5;
+- controller-free pre-grasp planning: 5/5;
+- generated/discarded trajectories: 5/5;
+- total control commands: 0;
+- pick authorized: false.
+
+Evidence:
+`results/development/dual_sequential_depth_queue30_repeat_v1_v4_v6/summary.json`,
+SHA-256
+`3f586cdc11a65c7e0ad3c368c25de51632516b108ae295d975066924ef0a4719`.
+
+An additional queue-enabled world, `dual_sequential_depth_queue30_v5`, is
+retained as failed handoff evidence. Its wrist measurement was 60/60, but one
+handoff sample was 66 ms ahead of the probe's current `/clock` callback and the
+audit correctly stopped before planning. Both handoff and planning probes now
+ignore and count samples more than 50 ms in the future before forming their
+15-sample window. This does not admit a future sample; a persistent clock
+mismatch still times out.
 
 The intermediate five-run diagnostic at
 `results/development/dual_sequential_repeat_v7_v12_pre105.json` is intentionally
@@ -360,10 +442,10 @@ can produce a collision-checked pre-grasp plan in the three worlds that reached
 handoff; they do not establish full sequence repeatability or authorize
 execution.
 
-The next engineering work should improve and instrument the intermittent wrist
-readiness failure before any motion boundary is expanded: record detection and
-TargetPose streak resets, distinguish detection loss from RGB-D/TF localization
-loss, and repeat the no-motion readiness window. In parallel, improve the
+Readiness attribution and bounded depth-transport buffering are now implemented
+without expanding the motion boundary. The initial post-change repeat is clean,
+but longer repetitions should continue to watch the recorded status, reset,
+depth-hole, and clock-skew distributions. In parallel, improve the
 underrepresented/unripe perception domain using training and audited validation
 only. Do not consume the sealed test, remove the target collision object, or
 execute a perception-derived trajectory while the frozen perception gate

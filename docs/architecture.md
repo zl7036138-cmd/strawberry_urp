@@ -63,12 +63,22 @@ ROI publishes no target rather than falling back to another fruit. The
 selection transition never authorizes a pick.
 
 The wrist measurement boundary requires 15 consecutive detection timestamps
-with TargetPose before collecting a new 60-frame window. RGB-D localization
-keeps a nominal 50 ms synchronization bound and a 0.5 s freshness limit.
-Sequential wrist observation may opt into a 105 ms bound only while fresh
-joint-state samples prove the arm stationary; generic and moving paths remain
-at 50 ms. Delayed detections are retried asynchronously inside the freshness
-limit so TF waits do not block sensor callbacks.
+where at least one ripe detection identity has an identity-matched TargetPose
+before collecting a new 60-frame window. A schema-v2 readiness receipt records
+per-timestamp detection, ripe-detection, and TargetPose identities; attributes
+non-ready frames to no detection, no ripe detection, missing TargetPose, or
+identity mismatch; and reports streak-reset causes. A readiness timeout fails
+closed but still writes this receipt before exiting. Its TargetPose delay is a
+wall-clock callback receipt offset for pipeline diagnosis, not simulated sensor
+age. RGB-D localization keeps a nominal 50 ms synchronization bound and a
+0.5 s freshness limit. Sequential wrist observation may opt into a 105 ms
+bound only while fresh joint-state samples prove the arm stationary; generic
+and moving paths remain at 50 ms. Delayed detections are retried asynchronously
+inside the freshness limit so TF waits do not block sensor callbacks.
+The same stationary sequential path opts into a 30-sample ROS depth/CameraInfo
+history and a 30-sample wrist-depth bridge publisher queue to absorb transport
+bursts. Historical paths keep a depth of five. Queueing never widens the
+50/105 ms synchronization bounds or the 0.5 s freshness bound.
 
 After the final wrist window, an optional control-side handoff Shadow receives
 15 additional TargetPose samples. It verifies the selected identity, bounded
@@ -78,6 +88,9 @@ remains a collision object. Its MoveIt configuration removes controller and
 trajectory-execution parameters, runtime requires zero instantiated controller
 endpoints, and the probe has no action client or publisher. It always records
 `pick_authorized=false` and stops before `/strawberry/pick_and_place`.
+Target samples more than 50 ms ahead of the probe's received `/clock` are
+counted and ignored before the 15-sample window; they are never admitted and a
+persistent clock mismatch therefore times out fail-closed.
 
 An optional follow-on pre-grasp planning Shadow may run only after that handoff
 passes. It derives the same hand/pre-grasp geometry as the production

@@ -135,7 +135,7 @@ class HandoffShadowTests(unittest.TestCase):
         self.assertNotIn("moveit.execute(", source)
         self.assertIn("enable_trajectory_execution=False", source)
 
-    def test_clock_readiness_rejects_only_large_startup_skew(self):
+    def test_clock_readiness_rejects_startup_and_future_skew(self):
         self.assertFalse(
             target_clock_is_coherent(
                 receipt_stamp_sec=0.0,
@@ -154,6 +154,20 @@ class HandoffShadowTests(unittest.TestCase):
             target_clock_is_coherent(
                 receipt_stamp_sec=39.85,
                 acquisition_stamp_sec=39.8,
+                maximum_startup_skew_sec=0.5,
+            )
+        )
+        self.assertFalse(
+            target_clock_is_coherent(
+                receipt_stamp_sec=43.627,
+                acquisition_stamp_sec=43.693,
+                maximum_startup_skew_sec=0.5,
+            )
+        )
+        self.assertTrue(
+            target_clock_is_coherent(
+                receipt_stamp_sec=43.643,
+                acquisition_stamp_sec=43.693,
                 maximum_startup_skew_sec=0.5,
             )
         )

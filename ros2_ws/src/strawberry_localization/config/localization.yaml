@@ -21,6 +21,10 @@ strawberry_localization:
     # bounds; stale_after_sec remains the final publication-age guard.
     sensor_cache_capacity: 60
     sensor_cache_retention_sec: 2.0
+    # DDS history for depth/CameraInfo receipt. The default preserves the
+    # historical path; stationary dual-camera observation may opt into a
+    # deeper queue to absorb ros_gz_bridge bursts without widening sync time.
+    sensor_qos_depth: 5
     center_fraction: 0.30
     min_depth_m: 0.05
     max_depth_m: 5.0

@@ -30,17 +30,22 @@ def target_clock_is_coherent(
     receipt_stamp_sec: float,
     acquisition_stamp_sec: float,
     maximum_startup_skew_sec: float,
+    maximum_future_skew_sec: float = 0.05,
 ) -> bool:
     """Reject samples received before a simulation clock becomes coherent."""
 
-    if maximum_startup_skew_sec <= 0.0:
-        raise ValueError("maximum_startup_skew_sec must be positive")
+    if maximum_startup_skew_sec <= 0.0 or maximum_future_skew_sec <= 0.0:
+        raise ValueError("clock skew limits must be positive")
+    if maximum_future_skew_sec > maximum_startup_skew_sec:
+        raise ValueError(
+            "future clock skew cannot exceed the startup skew bound"
+        )
     if not _all_finite((receipt_stamp_sec, acquisition_stamp_sec)):
         return False
     return (
         receipt_stamp_sec > 0.0
         and acquisition_stamp_sec - receipt_stamp_sec
-        <= maximum_startup_skew_sec
+        <= maximum_future_skew_sec
     )
 
 

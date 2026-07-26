@@ -61,7 +61,13 @@ pre-grasp Shadow is also complete for three worlds that reached handoff: 3/3
 plans accepted, all trajectories discarded, all target collisions retained,
 and zero control commands. One of four attempted worlds failed earlier at the
 wrist readiness gate, so full end-to-end repeatability is not accepted. The
-next work is readiness instrumentation/stabilization and audited perception
+readiness gate now records identity-aware per-frame status, streak-reset causes,
+and callback receipt delay, including a structured receipt on timeout. This
+isolated a one-frame depth transport hole in a 299/300 baseline. A bounded
+30-sample wrist-depth bridge/subscription queue then produced 300/300 final
+TargetPose frames across five complete fresh worlds, with 5/5 no-motion
+handoffs, 5/5 discarded pre-grasp plans, and zero control commands. This remains
+development evidence; the next work is longer monitoring and audited perception
 improvement, not trajectory execution.
 
 ## Stage status
@@ -79,9 +85,10 @@ improvement, not trajectory execution.
 Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
-Latest verified clean baseline (2026-07-24): all seven packages build and all
-246 colcon tests pass with no errors, failures, or skips in the separate
-`Ubuntu-24.04-URP-Repro` distribution. The dependency-light
+Latest verified local baseline (2026-07-26): all seven packages build and all
+311 colcon tests pass with no errors, failures, or skips in
+`Ubuntu-24.04-URP`. The earlier release reproduction in
+`Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated
 truth-target manipulation gate passes at 90%, and the T40 localization gate
 passes all 100 positions with 1.345 mm median and 1.897 mm p95 error. See

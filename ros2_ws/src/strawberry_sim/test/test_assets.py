@@ -242,6 +242,22 @@ class SimulationAssetTests(unittest.TestCase):
             self.assertEqual(constraints[joint_name]["goal"], 0.05)
             self.assertEqual(constraints[joint_name]["trajectory"], 0.50)
 
+    def test_wrist_depth_bridge_has_bounded_burst_queue(self):
+        bridges = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "bridge.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        wrist_depth = next(
+            item
+            for item in bridges
+            if item.get("ros_topic_name")
+            == "/camera/wrist/depth/image_raw"
+        )
+        self.assertEqual(wrist_depth["direction"], "GZ_TO_ROS")
+        self.assertEqual(wrist_depth["qos_profile"], "SENSOR_DATA")
+        self.assertEqual(wrist_depth["publisher_queue"], 30)
+
     def test_world_fruit_poses_match_scene_manifest(self):
         root = ET.parse(PACKAGE_ROOT / "worlds" / "strawberry_orchard.sdf").getroot()
         world_poses = {

@@ -128,6 +128,7 @@ start_wrist_pipeline() {
     -p target_pose_topic:=/strawberry/shadow/target_pose \
     -p depth_topic:=/camera/wrist/depth/image_raw \
     -p camera_info_topic:=/camera/wrist/camera_info \
+    -p sensor_qos_depth:=30 \
     -p selection_roi_min_x_px:="${roi_min_x}" \
     -p selection_roi_min_y_px:="${roi_min_y}" \
     -p selection_roi_max_x_px:="${roi_max_x}" \

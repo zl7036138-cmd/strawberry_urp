@@ -20,6 +20,7 @@ from strawberry_localization.node import (  # noqa: E402
     select_ripe_detection,
     select_sensor_frames,
     shutdown_executor_and_wait,
+    validate_sensor_qos_depth,
     validate_selection_roi,
 )
 
@@ -113,6 +114,13 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         self.assertFalse(
             localization_retry_is_fresh(now_stamp_s=9.94, **common)
         )
+
+    def test_sensor_qos_depth_is_positive_and_bounded(self) -> None:
+        self.assertEqual(5, validate_sensor_qos_depth(5))
+        self.assertEqual(30, validate_sensor_qos_depth(30))
+        for value in (True, 0, -1, 121):
+            with self.assertRaises(ValueError):
+                validate_sensor_qos_depth(value)
 
     def test_stationary_sync_bound_spans_one_15hz_depth_period(self) -> None:
         cache = SensorFrameCache(capacity=4, retention_sec=2.0)

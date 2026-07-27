@@ -31,6 +31,15 @@ EXPECTED_EXECUTION = {
             "blender_v2_perception_handoff_pregrasp_v2"
         ),
     },
+    "blender_v2_perception_handoff_pregrasp_v3": {
+        "maximum_trials": 1,
+        "retry_authorized": False,
+        "ros_domain_id": 232,
+        "output_directory": (
+            "results/development/"
+            "blender_v2_perception_handoff_pregrasp_v3"
+        ),
+    },
 }
 EXPECTED_SCOPE = "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_HANDOFF_PREGRASP"
 EXPECTED_BINDINGS_V1 = {
@@ -57,6 +66,18 @@ EXPECTED_BINDINGS = {
             "validator",
             "failed_v1_summary",
             "failed_v1_observation_log",
+        }
+    ),
+    "blender_v2_perception_handoff_pregrasp_v3": (
+        EXPECTED_BINDINGS_V1
+        | {
+            "moveit_backend",
+            "validator",
+            "failed_v1_summary",
+            "failed_v1_observation_log",
+            "failed_v2_summary",
+            "failed_v2_wrist_window",
+            "failed_v2_runtime_topics",
         }
     ),
 }
@@ -177,6 +198,7 @@ def evaluate(
     contract: Mapping[str, object],
     sequence: Mapping[str, object],
     observation_motion: Mapping[str, object],
+    wrist_window: Mapping[str, object],
     handoff: Mapping[str, object],
     pregrasp: Mapping[str, object],
     runtime_nodes: list[str],
@@ -210,6 +232,42 @@ def evaluate(
             for receipt in observation_motion.get("planning_attempts", [])
         ),
         "observation motion encountered a collision",
+    )
+    wrist_summary = wrist_window.get("summary") or {}
+    readiness = wrist_window.get("readiness_gate") or {}
+    _require(
+        violations,
+        wrist_window.get("completed") is True,
+        "wrist measurement window did not complete",
+    )
+    _require(
+        violations,
+        int(wrist_summary.get("frame_count", 0))
+        == int(parameters["wrist_measurement_frames"])
+        and int(wrist_summary.get("frames_with_target_pose", 0))
+        == int(parameters["required_matching_wrist_target_pose_frames"]),
+        "wrist receipt does not prove complete target-pose coverage",
+    )
+    _require(
+        violations,
+        readiness.get("satisfied") is True
+        and int(readiness.get("required_consecutive_target_pose_frames", 0))
+        == int(parameters["minimum_ready_consecutive_frames"]),
+        "wrist readiness gate did not pass",
+    )
+    _require(
+        violations,
+        all(
+            frame.get("target_pose_ids") == [target_id]
+            for frame in wrist_window.get("frames", [])
+        ),
+        "wrist receipt contains an unexpected target identity",
+    )
+    _require(
+        violations,
+        wrist_window.get("formal_acceptance") is False
+        and wrist_window.get("held_out_test_consumed") is False,
+        "wrist receipt crossed an acceptance boundary",
     )
     _require(
         violations,
@@ -429,11 +487,6 @@ def evaluate(
 
     _require(
         violations,
-        target_topic in runtime_topics,
-        "perception target topic was absent at runtime",
-    )
-    _require(
-        violations,
         "/strawberry/oracle/target_pose" not in runtime_topics,
         "Oracle target topic existed at runtime",
     )
@@ -463,6 +516,7 @@ def main() -> int:
         "observation_motion": (
             args.run_directory / "observation_motion.json"
         ),
+        "wrist_window": args.run_directory / "wrist_window.json",
         "handoff": args.run_directory / "handoff_shadow.json",
         "pregrasp": args.run_directory / "pregrasp_shadow.json",
         "runtime_nodes": args.run_directory / "wrist_runtime_nodes.txt",
@@ -483,6 +537,11 @@ def main() -> int:
             inputs["observation_motion"].read_text(encoding="utf-8")
         )
         if inputs["observation_motion"].is_file()
+        else {}
+    )
+    wrist_window = (
+        json.loads(inputs["wrist_window"].read_text(encoding="utf-8"))
+        if inputs["wrist_window"].is_file()
         else {}
     )
     handoff = (
@@ -509,6 +568,7 @@ def main() -> int:
         contract,
         sequence,
         observation_motion,
+        wrist_window,
         handoff,
         pregrasp,
         runtime_nodes,
@@ -545,6 +605,8 @@ def main() -> int:
         "candidate_target_id": sequence.get("candidate_target_id"),
         "selected_preset": sequence.get("selected_preset"),
         "observation_motion": observation_motion,
+        "wrist_window_summary": wrist_window.get("summary"),
+        "wrist_readiness_gate": wrist_window.get("readiness_gate"),
         "base_support_frames": sequence.get("base_support_frames"),
         "wrist_matching_target_pose_frames": sequence.get(
             "wrist_matching_target_pose_frames"

@@ -1,0 +1,30 @@
+{
+  "base_window": {
+    "path": "results/development/blender_v2_perception_handoff_pregrasp_v2/base_window.json",
+    "sha256": "ad5be9425b95734aef16c05d4ee6822a6b853ba97c96f692ac0914f8d79e9c21"
+  },
+  "candidate_target_id": 1,
+  "focus_roi_xyxy_px": [
+    320,
+    240,
+    640,
+    480
+  ],
+  "formal_acceptance": false,
+  "frame_count": 60,
+  "generated_at_utc": "2026-07-27T03:54:09.878862+00:00",
+  "held_out_test_consumed": false,
+  "identity_source": "simulation_ground_truth_association",
+  "pick_authorized": false,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_DUAL_CAMERA_OBSERVATION_SELECTION",
+  "selected_preset": "lower",
+  "state_history": [
+    "OVERVIEW_ACQUIRE",
+    "OVERVIEW_CANDIDATE_VALIDATED",
+    "WRIST_PRESET_SELECTED"
+  ],
+  "support_fraction": 1.0,
+  "support_frames": 60,
+  "wrist_observation_authorized": true
+}

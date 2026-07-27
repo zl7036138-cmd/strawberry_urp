@@ -10,6 +10,8 @@
 *.xacro text eol=lf
 *.sdf text eol=lf
 *.srdf text eol=lf
+*.obj text eol=lf
+*.mtl text eol=lf
 *.msg text eol=lf
 *.action text eol=lf
 # Decision records may be content-hash-bound by experiment contracts.

@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 import yaml
 
 from strawberry_sim.core import load_scene_config
+from strawberry_sim.obj_winding import winding_stats
 
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -100,6 +101,20 @@ class SimulationAssetTests(unittest.TestCase):
             )
             self.assertTrue(mesh_path.is_file())
             self.assertGreater(mesh_path.stat().st_size, 100_000)
+
+    def test_blender_v2_fruit_body_faces_have_outward_winding(self):
+        for model_name, mesh_name in (
+            ("strawberry_ripe", "strawberry_ripe_visual_v2.obj"),
+            ("strawberry_unripe", "strawberry_unripe_visual_v2.obj"),
+        ):
+            stats = winding_stats(
+                PACKAGE_ROOT / "models" / model_name / "meshes" / mesh_name,
+                "strawberry_ripe_body_v5",
+            )
+            self.assertEqual(stats.triangle_count, 11796)
+            self.assertEqual(stats.outward_triangles, 11796)
+            self.assertEqual(stats.inward_triangles, 0)
+            self.assertEqual(stats.degenerate_triangles, 0)
 
     def test_archived_tabletop_world_uses_archived_sphere_assets(self):
         world = ET.parse(

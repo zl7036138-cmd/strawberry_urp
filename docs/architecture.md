@@ -248,9 +248,14 @@ a simple optical-Z increment.
 The historical T40 acceptance gate is a v1 test: it moves a rigid 35 mm fruit
 through 100 distinct known positions and requires all measurements, median
 error no greater than 15 mm, and p95 error no greater than 30 mm. It must not be
-reported as a v2 accuracy result. The fresh Blender-v2 isolated diagnostic uses
-the corrected 26 mm offset and establishes TargetPose availability, but a
-separate v2 100-position accuracy gate remains required.
+reported as a v2 accuracy result. The independent, non-formal Blender-v2 gate
+uses the corrected 26 mm offset and a camera-clear `5 × 5 × 4` volume. Its
+pre-repair run exposed inward fruit-body face winding with median/P95 error
+`44.062873/44.537073 mm`. Reversing only those face references restores the
+camera-facing depth surface; the otherwise identical post-repair run passes
+100/100 with median/P95 `4.503614/5.045998 mm` and maximum `5.196535 mm`.
+This qualifies visible-surface v2 geometry only. Natural leaf occlusion still
+requires the separate base/wrist multi-view path.
 
 ## Simulation startup and control invariants
 

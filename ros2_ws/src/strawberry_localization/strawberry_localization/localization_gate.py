@@ -16,6 +16,11 @@ from typing import Callable, Optional, Sequence
 
 from .core import CameraIntrinsics, LocalizationError
 from .gate_core import benchmark_positions, sphere_projection_bbox, summarize_gate
+from .v2_gate_contract import (
+    load_contract as load_v2_gate_contract,
+    position_grid as v2_position_grid,
+    validate_world_receipt,
+)
 
 
 FRUIT_RADIUS_M = 0.035
@@ -85,6 +90,10 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         "--domain-selection-mode", choices=("automatic", "explicit"), required=True
     )
     parser.add_argument("--domain-probe-spin-sec", type=float, required=True)
+    parser.add_argument("--gate-contract", type=Path)
+    parser.add_argument("--repository-root", type=Path)
+    parser.add_argument("--materialized-world", type=Path)
+    parser.add_argument("--world-receipt", type=Path)
     return parser.parse_args(argv)
 
 
@@ -131,6 +140,83 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
     if not 0 <= ros_domain_id <= 232:
         raise ValueError("ROS_DOMAIN_ID must be between 0 and 232")
 
+    v2_contract = None
+    if options.gate_contract is not None:
+        if (
+            options.repository_root is None
+            or options.materialized_world is None
+            or options.world_receipt is None
+        ):
+            raise ValueError(
+                "v2 gate requires repository root, materialized world, "
+                "and world receipt"
+            )
+        v2_contract = load_v2_gate_contract(
+            options.gate_contract,
+            options.repository_root,
+        )
+        validate_world_receipt(
+            options.world_receipt,
+            options.materialized_world,
+            v2_contract,
+        )
+        runtime = v2_contract["runtime"]
+        if (
+            options.attempts_per_position
+            != int(runtime["attempts_per_position"])
+            or options.sensor_timeout_sec
+            != float(runtime["sensor_timeout_sec"])
+            or options.runner_timeout_sec
+            != float(runtime["runner_timeout_sec"])
+            or not options.launch_headless
+        ):
+            raise ValueError("runtime arguments differ from the frozen v2 contract")
+        target_model = str(v2_contract["target"]["model_name"])
+        fruit_radius_m = float(v2_contract["target"]["fruit_radius_m"])
+        original_positions = {
+            str(model_name): tuple(float(value) for value in position)
+            for model_name, position in v2_contract[
+                "scene_materialization"
+            ]["canonical_restore_positions_m"].items()
+        }
+        parked_positions = {
+            str(model_name): tuple(float(value) for value in pose[:3])
+            for model_name, pose in v2_contract[
+                "scene_materialization"
+            ]["parked_fruit_poses_xyz_rpy"].items()
+        }
+        positions = v2_position_grid(v2_contract)
+        gate_name = str(v2_contract["gate_id"])
+        gate_scope = str(v2_contract["scope"])
+        localization_config_name = "localization_blender_v2.yaml"
+        launch_name = "blender_v2_localization_gate.launch.py"
+        thresholds = v2_contract["thresholds"]
+        minimum_positions = int(thresholds["minimum_positions"])
+        median_limit_mm = float(thresholds["median_error_mm_max"])
+        p95_limit_mm = float(thresholds["p95_error_mm_max"])
+    else:
+        if any(
+            value is not None
+            for value in (
+                options.repository_root,
+                options.materialized_world,
+                options.world_receipt,
+            )
+        ):
+            raise ValueError("v2-only arguments require --gate-contract")
+        target_model = TARGET_MODEL
+        fruit_radius_m = FRUIT_RADIUS_M
+        original_positions = ORIGINAL_POSITIONS
+        parked_positions = PARKED_POSITIONS
+        positions = benchmark_positions()
+        gate_name = "T40_localization"
+        gate_scope = "FORMAL_T40_LOCALIZATION"
+        localization_config_name = "localization.yaml"
+        launch_name = "localization_gate.launch.py"
+        minimum_positions = 100
+        median_limit_mm = 15.0
+        p95_limit_mm = 30.0
+
     package_source = Path(__file__).resolve().parent
     package_share = Path(
         get_package_share_directory("strawberry_localization")
@@ -143,12 +229,33 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
         "source/gate_core.py": package_source / "gate_core.py",
         "source/localization_gate.py": package_source / "localization_gate.py",
         "source/node.py": package_source / "node.py",
-        "config/localization.yaml": package_share / "config" / "localization.yaml",
-        "launch/localization_gate.launch.py": (
-            package_share / "launch" / "localization_gate.launch.py"
+        f"config/{localization_config_name}": (
+            package_share / "config" / localization_config_name
         ),
-        "runner/run_localization_gate.sh": runner_script,
+        f"launch/{launch_name}": (
+            package_share / "launch" / launch_name
+        ),
+        f"runner/{runner_script.name}": runner_script,
     }
+    if v2_contract is not None:
+        provenance_files.update(
+            {
+                "source/v2_gate_contract.py": (
+                    package_source / "v2_gate_contract.py"
+                ),
+                "contract/gate.json": options.gate_contract.resolve(
+                    strict=True
+                ),
+                "contract/materialized_world.sdf": (
+                    options.materialized_world.resolve(strict=True)
+                ),
+                "contract/materialized_world_receipt.json": (
+                    options.world_receipt.resolve(strict=True)
+                ),
+            }
+        )
+        for label, value in v2_contract["_resolved_paths"].items():
+            provenance_files[f"contract/binding/{label}"] = Path(value)
     provenance_files.update(
         {
             f"strawberry_sim/share/{relative_path}": (
@@ -170,7 +277,7 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
     ]
     if missing_provenance_files:
         raise RuntimeError(
-            "cannot fingerprint installed T40 files: "
+            f"cannot fingerprint installed {gate_name} files: "
             + ", ".join(missing_provenance_files)
         )
 
@@ -321,7 +428,7 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
             box = sphere_projection_bbox(
                 camera_xyz,
                 self.intrinsics(),
-                sphere_radius_m=FRUIT_RADIUS_M,
+                sphere_radius_m=fruit_radius_m,
                 image_width=int(self.camera_info.width),
                 image_height=int(self.camera_info.height),
             )
@@ -362,7 +469,7 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
             return self.target, box, camera_xyz, expected_stamp
 
         def measure_position(self, index: int, desired: Sequence[float]):
-            self.set_model_pose(TARGET_MODEL, desired)
+            self.set_model_pose(target_model, desired)
             self.wait_for_position(desired)
             attempt_errors = []
             for attempt in range(1, options.attempts_per_position + 1):
@@ -412,10 +519,9 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
                 30.0,
                 "initial RGB-D and truth inputs",
             )
-            for model_name, xyz in PARKED_POSITIONS.items():
+            for model_name, xyz in parked_positions.items():
                 self.set_model_pose(model_name, xyz)
 
-            positions = benchmark_positions()
             samples = []
             failures = []
             try:
@@ -440,7 +546,7 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
                             f"{sample['error_mm']:.2f} mm"
                         )
             finally:
-                for model_name, xyz in ORIGINAL_POSITIONS.items():
+                for model_name, xyz in original_positions.items():
                     try:
                         self.set_model_pose(model_name, xyz)
                     except GateRuntimeError as error:
@@ -451,14 +557,25 @@ def main(args: Optional[Sequence[str]] = None) -> int:  # pragma: no cover - ROS
             summary = summarize_gate(
                 [float(sample["error_mm"]) for sample in samples],
                 requested_positions=len(positions),
+                minimum_positions=minimum_positions,
+                median_limit_mm=median_limit_mm,
+                p95_limit_mm=p95_limit_mm,
             )
             result = {
                 "schema_version": 2,
-                "gate": "T40_localization",
+                "gate": gate_name,
+                "scope": gate_scope,
+                "formal_acceptance": False if v2_contract else True,
+                "formal_real_test_accessed": False,
+                "robot_motion_started": False,
+                "gripper_command_started": False,
+                "attachment_started": False,
+                "perception_model_started": False,
+                "simulated_fruit_pose_motion_started": True,
                 "target_frame": "panda_link0",
                 "camera_frame": "strawberry_camera_optical_frame",
-                "target_model": TARGET_MODEL,
-                "fruit_radius_m": FRUIT_RADIUS_M,
+                "target_model": target_model,
+                "fruit_radius_m": fruit_radius_m,
                 "attempts_per_position": options.attempts_per_position,
                 "provenance": {
                     "generated_at_utc": datetime.now(timezone.utc).isoformat(),

@@ -88,6 +88,15 @@ audited real validation or live qualification. The previous engineering
 checkpoint remains active; no retry, threshold change, control test, or
 held-out real-test access occurred.
 
+The independent Blender-v2 100-position localization gate then exposed inward
+face winding on both canonical fruit-body meshes: all 100 measurements were
+present, but the pre-repair median/P95 error was `44.062873/44.537073 mm`.
+ADR 0040 authorizes only a mechanical face-order correction. With identical
+positions, camera, 26 mm offset, crop, retries, and thresholds, the post-repair
+gate passes `100/100` with median/P95 error `4.503614/5.045998 mm` and maximum
+error `5.196535 mm`. Ripe detection remains `60/60` for both isolated ripe
+fruits; the unripe limitation remains `0/60`.
+
 ## Stage status
 
 | Stage | Status | Exit gate |
@@ -103,8 +112,8 @@ held-out real-test access occurred.
 Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
-Latest verified local baseline (2026-07-26): all seven packages build and all
-322 colcon tests pass with no errors, failures, or skips in
+Latest verified local baseline (2026-07-27): all seven packages build and all
+326 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

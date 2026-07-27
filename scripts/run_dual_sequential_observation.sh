@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-artifact_root="${STRAWBERRY_COLCON_ROOT:-${repo_root}/ros2_ws}"
+artifact_root="${STRAWBERRY_COLCON_ROOT:-${HOME}/.cache/strawberry_urp/colcon}"
 output_dir="${1:-${repo_root}/results/development/dual_sequential_observation_v1}"
 model_path="${2:-${repo_root}/outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt}"
 domain_id="${3:-222}"
@@ -211,6 +211,25 @@ timeout --signal=TERM 180 ros2 run strawberry_perception shadow_window_probe \
   --post-window-wait-sec 2 \
   --window-boundary after_wrist_observation_settle_before_pick_motion \
   >"${output_dir}/wrist_window.log" 2>&1
+ros2 node list --no-daemon \
+  | grep -Ev '^/_ros2cli_[[:alnum:]_]+$' \
+  | sort -u >"${output_dir}/wrist_runtime_nodes.txt"
+ros2 topic list --no-daemon \
+  | sort -u >"${output_dir}/wrist_runtime_topics.txt"
+grep -Fxq "/strawberry/shadow/target_pose" \
+  "${output_dir}/wrist_runtime_topics.txt" || {
+    echo "Wrist perception target topic is missing" >&2
+    exit 1
+  }
+if grep -Fxq "/strawberry/oracle/target_pose" \
+  "${output_dir}/wrist_runtime_topics.txt"; then
+  echo "Oracle target topic unexpectedly exists" >&2
+  exit 1
+fi
+if grep -Eqi "oracle|orchestrator" "${output_dir}/wrist_runtime_nodes.txt"; then
+  echo "Oracle or orchestrator node unexpectedly exists" >&2
+  exit 1
+fi
 timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   handoff_shadow_probe \
   --output-json "${output_dir}/handoff_shadow.json" \

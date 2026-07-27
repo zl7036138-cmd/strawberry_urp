@@ -265,3 +265,13 @@ processed exactly 501 registered training images with `baseline__best` and
 generated 34 review candidates: 22 cross-class conflicts and 12 high-confidence
 unmatched boxes. No validation/test inference, training, label modification,
 motion, or stage-gate acceptance occurred. The packet is pending user review.
+
+ADR 0056 accepts the Blender-v2 natural-plant v3 diagnostic as a working
+no-motion dual-camera chain. Base selection, one collision-planned observation
+move, 60/60 wrist target poses, stationary handoff, and controller-free
+pre-grasp planning all pass; the trajectory is discarded with zero control
+commands. The execution-readiness gate then fails closed because the perceived
+centre is 29.177346 mm from truth and lies outside both qualified grasp-geometry
+limits. Perception execution remains unauthorized. The next bounded milestone
+is a frozen natural-plant depth-region or fruit-mask localization diagnostic,
+followed by the same geometry check and a separate repeatability decision.

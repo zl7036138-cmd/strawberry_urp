@@ -1,0 +1,12 @@
+/attachment_manager
+/controller_manager
+/ground_truth_publisher
+/gz_ros_control
+/joint_state_broadcaster
+/panda_arm_controller
+/panda_gripper_controller
+/panda_robot_state_publisher
+/strawberry_contact_monitor
+/strawberry_gz_bridge
+/strawberry_wrist_attention_localization
+/strawberry_wrist_attention_perception

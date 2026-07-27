@@ -357,6 +357,24 @@ clean shutdown with no unexpected fruit contact. This qualifies only the
 exact canonical Oracle scene. Perception-derived control, target/pose
 variation, natural plant contact, and physical hardware remain unauthorized.
 
+The natural-plant dual-camera path first uses the fixed base camera to select
+one target and a named observation preset. `WRIST_OBSERVATION` remains a
+MoveIt collision-planned operation, but its planned joint sequence is executed
+through the same startup-verified rclpy arm action client used by the
+diagnostic harness; production pick stages are unchanged. After motion stops,
+the wrist pipeline must produce one stable target identity, the handoff must
+prove fresh target data and stationary joint/MoveIt state, and pre-grasp
+planning must retain every collision object and discard its trajectory.
+
+Passing that no-motion chain does not authorize execution. The
+geometry-aware perception execution-readiness evaluator maps the simulation
+truth centre into the already commanded hand frame and checks it against the
+exact-mesh bilateral-contact and finger-axial envelope. Truth is safety
+verification only: it cannot select the target or replace/correct the
+perceived command. The Blender-v2 v3 handoff passes, but its `29.177346 mm`
+centre error violates both geometric limits, so execution and picking remain
+fail-closed.
+
 ## Contact and collision diagnostics
 
 Raw Gazebo contact sensors on the stock left- and right-finger collision meshes

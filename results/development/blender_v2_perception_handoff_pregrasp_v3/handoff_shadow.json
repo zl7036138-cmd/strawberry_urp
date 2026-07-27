@@ -1,0 +1,101 @@
+{
+  "camera_mount": "dual",
+  "clock_unsynchronized_target_samples_ignored": 3,
+  "collision_scene": {
+    "allowed_frame_ids": [
+      "panda_link0",
+      "world"
+    ],
+    "expected_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "frames": {
+      "collection_bin": "world",
+      "strawberry_fruit_1": "world",
+      "strawberry_fruit_2": "world",
+      "strawberry_fruit_3": "world",
+      "strawberry_plant_crown": "world",
+      "strawberry_planter": "world",
+      "work_table": "world"
+    },
+    "missing_ids": [],
+    "observed_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "selected_fruit_collision_retained": true
+  },
+  "control_interface_created": false,
+  "controller_configuration_keys": [],
+  "expected_target_id": 1,
+  "formal_acceptance": false,
+  "frozen_target_pose": {
+    "acquisition_stamp_sec": 31.054,
+    "age_sec": 0.04600000000000293,
+    "detection_confidence": 0.7992880344390869,
+    "frame_id": "panda_link0",
+    "orientation_xyzw": [
+      -0.6731213137959698,
+      0.6750069618617885,
+      -0.21361121988344065,
+      0.21364349999851034
+    ],
+    "position_sigma_m": 0.0016602263785898685,
+    "position_xyz_m": [
+      0.41045713336026773,
+      -0.04799510535429612,
+      0.5734457795376586
+    ],
+    "receipt_stamp_sec": 31.1,
+    "target_id": 1
+  },
+  "generated_at_utc": "2026-07-27T04:02:13.098953+00:00",
+  "gripper_command_sent": false,
+  "handoff_passed": true,
+  "held_out_test_consumed": false,
+  "joint_sample_count": 10,
+  "maximum_joint_delta_rad": 0.002,
+  "maximum_target_age_sec": 0.5,
+  "minimum_joint_samples": 10,
+  "minimum_target_samples": 15,
+  "moveit_state_delta_rad": 0.0,
+  "observed_joint_delta_rad": 0.0,
+  "observed_target_ids": [
+    1
+  ],
+  "pick_action_called": false,
+  "pick_authorized": false,
+  "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml",
+  "scene_source": "tracked static geometry plus live simulation fruit truth",
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_OBSERVATION_TO_CONTROL_HANDOFF_SHADOW",
+  "state_history": [
+    "SHADOW_TARGET_RECEIVE",
+    "SHADOW_TARGET_FROZEN",
+    "SHADOW_IDENTITY_VALIDATED",
+    "SHADOW_AGE_VALIDATED",
+    "SHADOW_STATIONARITY_VALIDATED",
+    "SHADOW_COLLISION_SCENE_VALIDATED",
+    "STOP_BEFORE_PICK_ACTION"
+  ],
+  "target_age_sec": {
+    "maximum": 0.07800000000000296,
+    "minimum": 0.03200000000000358
+  },
+  "target_sample_count": 15,
+  "target_topic": "/strawberry/shadow/target_pose",
+  "trajectory_command_sent": false,
+  "trajectory_execution_configured": false,
+  "violations": []
+}

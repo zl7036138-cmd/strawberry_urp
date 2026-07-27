@@ -1,0 +1,72 @@
+{
+  "actual_center_in_commanded_hand_xyz_m": [
+    0.008607619639732278,
+    0.005484707645703878,
+    0.12373394153765871
+  ],
+  "estimated_center_xyz_m": [
+    0.41045713336026773,
+    -0.04799510535429612,
+    0.5734457795376586
+  ],
+  "estimated_minus_truth_xyz_m": [
+    -0.008607619639732278,
+    0.005484707645703878,
+    0.027333941537658668
+  ],
+  "euclidean_error_m": 0.029177345557903127,
+  "execution_readiness_passed": false,
+  "formal_acceptance": false,
+  "fruit_radius_m": 0.026,
+  "generated_at_utc": "2026-07-27T04:09:30.265214+00:00",
+  "grasp_geometry": {
+    "close_width_m_per_finger": 0.022,
+    "finger_axial_range_hand_z_m": [
+      0.0585316962443525,
+      0.11224903401136399
+    ],
+    "first_contact_width_m_per_finger": 0.025857178634063095,
+    "maximum_cross_jaw_error_m": 0.0038571786340630965,
+    "tool_center_offset_m": 0.0964
+  },
+  "held_out_test_accessed": false,
+  "inputs": {
+    "geometry_gate": {
+      "path": "results\\development\\blender_v2_gripper_geometry_sweep_v1\\summary.json",
+      "sha256": "70dd93e29aa72bad8b5b0c5be50596fe35f60f565946fb71270ca45747ba5781",
+      "size_bytes": 77616
+    },
+    "handoff": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\handoff_shadow.json",
+      "sha256": "21270a715feec68e8d0d7ea4af822e53ef47795c82d3189447bf83f5056b6fb9",
+      "size_bytes": 2914
+    },
+    "no_motion_gate": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\summary.json",
+      "sha256": "5973d2347e816669a0aeb2c5343b35ace42f8f262d94128ab077835832ffcbf0",
+      "size_bytes": 24484
+    },
+    "scene": {
+      "path": "ros2_ws\\src\\strawberry_sim\\config\\scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    }
+  },
+  "observed_cross_jaw_error_m": 0.005484707645703878,
+  "observed_hand_axial_position_m": 0.12373394153765871,
+  "perception_execution_authorized": false,
+  "pick_authorized": false,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_EXECUTION_READINESS",
+  "target_id": 1,
+  "truth_center_xyz_m": [
+    0.419064753,
+    -0.053479813,
+    0.546111838
+  ],
+  "truth_use": "SIMULATION_EXECUTION_SAFETY_VERIFICATION_ONLY",
+  "violations": [
+    "cross-jaw centre error exceeds the qualified bilateral-contact overtravel",
+    "actual fruit centre lies outside the qualified finger axial section"
+  ]
+}

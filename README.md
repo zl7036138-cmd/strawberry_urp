@@ -119,6 +119,18 @@ gates: `pick_authorized=false`; perception-derived execution, pose variation,
 occlusion/contact robustness, formal acceptance, and physical hardware remain
 unqualified.
 
+The natural-plant dual-camera v3 gate now completes the base-camera selection,
+MoveIt-planned wrist observation move, wrist-camera 60/60 target window,
+stationary same-world handoff, and controller-free pre-grasp plan. Its
+38-waypoint trajectory ends within `0.795461 mm / 0.005676 rad` and is
+discarded with zero control commands. A new geometry-aware readiness check
+then blocks execution: the perceived fruit centre is `29.177346 mm` from
+truth, the `5.484708 mm` cross-jaw error exceeds the qualified
+`3.857179 mm` bilateral-contact margin, and the fruit lies beyond the
+qualified finger axial section. This is a useful no-motion system pass, not a
+pick authorization; the next bounded task is depth-region/fruit-mask
+diagnosis for the natural plant view.
+
 ## Stage status
 
 | Stage | Status | Exit gate |
@@ -135,7 +147,7 @@ Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
 Latest verified local baseline (2026-07-27): all seven packages build and all
-361 colcon tests pass with no errors, failures, or skips in
+365 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

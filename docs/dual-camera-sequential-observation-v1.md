@@ -450,3 +450,51 @@ underrepresented/unripe perception domain using training and audited validation
 only. Do not consume the sealed test, remove the target collision object, or
 execute a perception-derived trajectory while the frozen perception gate
 remains failed.
+
+## Blender-v2 natural-plant requalification
+
+ADRs 0053-0055 freeze and preserve three one-attempt runs against the updated
+Blender-v2 plant and 26 mm grasp profile. V1 selected target 1 from 60/60 base
+frames and planned a collision-free wrist observation move, but the internal
+MoveIt controller client was not connected; it failed before sending a
+trajectory. The bounded repair retains MoveIt planning and routes only the
+`WRIST_OBSERVATION` joint path through the startup-verified arm action client.
+V2 then completed observation motion and 60/60 wrist TargetPose frames but
+stopped on an incomplete instantaneous DDS topic inventory. That topic list is
+now diagnostic; the received 60-frame target window is the authoritative
+positive channel proof, while Oracle topics/nodes remain forbidden.
+
+V3 passes the complete no-motion chain:
+
+- base support: 60/60, target 1, `lower` preset;
+- observation planning/execution: `0.024113108 / 23.304810362 s`, one attempt;
+- wrist target pose: 60/60, with 15 consecutive ready frames;
+- handoff: 15 target samples, 10 joint samples, maximum target age `0.078 s`,
+  and zero observed joint or MoveIt-state delta;
+- planning scene: 7/7 collision objects retained;
+- pre-grasp: one attempt, `0.022236882 s`, 38 waypoints,
+  `0.795461 mm / 0.005676 rad` endpoint error; and
+- trajectory generated then discarded, zero control commands, no Oracle,
+  orchestrator, pick action, gripper command, or attachment.
+
+The authoritative summary is
+`results/development/blender_v2_perception_handoff_pregrasp_v3/summary.json`,
+SHA-256
+`5973d2347e816669a0aeb2c5343b35ace42f8f262d94128ab077835832ffcbf0`.
+
+The subsequent geometry-aware execution check deliberately fails. The frozen
+perceived centre is `29.177346 mm` from target 1 truth. In the commanded hand
+frame, its `5.484708 mm` cross-jaw error exceeds the qualified
+`3.857179 mm` bilateral-contact margin, and its `0.123733942 m` axial
+position lies beyond the qualified `[0.058531696, 0.112249034] m` finger
+section. The readiness evidence is
+`results/development/blender_v2_perception_handoff_pregrasp_v3/execution_readiness.json`,
+SHA-256
+`d6e5842ce221f5a55ddf43fe293650fe66dfed7ec03bf7ed62d9458a211c95bd`.
+
+This upgrades the system boundary: the dual-camera observation, handoff, and
+pre-grasp planner work in the natural-plant scene, and the execution interlock
+correctly rejects an unsafe stable pose. Perception execution is still
+unauthorized. The next bounded work is a frozen comparison of depth regions,
+fruit masks, or multi-view centre estimation; it must not use truth as the
+command, access the held-out test, or relax the qualified grasp envelope.

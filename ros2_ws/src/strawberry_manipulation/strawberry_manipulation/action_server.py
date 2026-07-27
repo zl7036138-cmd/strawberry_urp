@@ -9,6 +9,7 @@ import threading
 import time
 
 from .core import FailureCode, PickAndPlaceExecutor, Pose
+from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
 
 
@@ -51,6 +52,23 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "config",
                 "scene.yaml",
             )
+            default_grasp_geometry = os.path.join(
+                get_package_share_directory("strawberry_manipulation"),
+                "config",
+                "grasp_geometry.yaml",
+            )
+            self.declare_parameter("scene_config_file", default_scene_config)
+            self.declare_parameter(
+                "grasp_geometry_config_file", default_grasp_geometry
+            )
+            scene = load_scene_config(
+                str(self.get_parameter("scene_config_file").value)
+            )
+            grasp_geometry = load_grasp_geometry(
+                str(self.get_parameter("grasp_geometry_config_file").value),
+                world_name=scene.world_name,
+                fruit_collision_radius_m=scene.fruit_collision_radius_m,
+            )
             self.declare_parameter("planning_group", "panda_arm")
             self.declare_parameter("pose_link", "panda_hand")
             self.declare_parameter("camera_mount", "fixed")
@@ -65,13 +83,16 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("gripper_joint", "panda_finger_joint1")
             # The parallel-gripper controller commands panda_finger_joint1;
             # 0.04 m per finger corresponds to the 0.08 m total opening.
-            self.declare_parameter("gripper_open_width_m", 0.04)
-            # The pad midpoint is 20 mm above the fruit equator after applying
-            # the palm-clearance tool offset.  At that section a 35 mm sphere
-            # has a 28.7 mm radius.  A 25 mm command supplies enough simulated
-            # over-travel for both rigid contact pads to stall on the surface;
-            # the controller accepts that contact stall as a successful close.
-            self.declare_parameter("gripper_closed_width_m", 0.025)
+            self.declare_parameter(
+                "gripper_open_width_m",
+                grasp_geometry.gripper_open_width_m_per_finger,
+            )
+            # Close width is scene-bound: tabletop-v1 retains 25 mm per finger,
+            # while the qualified 26 mm Blender-v2 fruit uses 22 mm.
+            self.declare_parameter(
+                "gripper_closed_width_m",
+                grasp_geometry.gripper_closed_width_m_per_finger,
+            )
             self.declare_parameter("gripper_max_effort_n", 40.0)
             self.declare_parameter("request_timeout_sec", 5.0)
             self.declare_parameter("startup_timeout_sec", 30.0)
@@ -93,21 +114,16 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("max_collision_joint_step_rad", 0.01)
             self.declare_parameter("safe_transit_clearance_m", 0.02)
             self.declare_parameter("safe_transit_corridor_y_m", -0.10)
-            self.declare_parameter("scene_config_file", default_scene_config)
             self.declare_parameter("ground_truth_pose_timeout_sec", 2.0)
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
             self.declare_parameter("bin_stability_sec", 1.0)
-            # The pad centre is 85.4 mm from panda_hand, but centring a 70 mm
-            # fruit there intersects the hand collision mesh.  A 105.4 mm
-            # fruit-centre offset leaves 4.4 mm nominal palm clearance while
-            # keeping the equator inside the 54 mm pad length.
-            self.declare_parameter("tool_center_offset_m", 0.1054)
+            self.declare_parameter(
+                "tool_center_offset_m",
+                grasp_geometry.tool_center_offset_m,
+            )
             self.declare_parameter("shutdown_timeout_sec", 60.0)
             self.declare_parameter("moveit_teardown_workaround", True)
-            scene = load_scene_config(
-                str(self.get_parameter("scene_config_file").value)
-            )
             base_frame = str(self.get_parameter("base_frame").value)
             if scene.base_frame != base_frame:
                 raise RuntimeError(

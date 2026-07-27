@@ -97,6 +97,19 @@ gate passes `100/100` with median/P95 error `4.503614/5.045998 mm` and maximum
 error `5.196535 mm`. Ripe detection remains `60/60` for both isolated ripe
 fruits; the unripe limitation remains `0/60`.
 
+The Blender-v2 manipulation geometry is now scene-bound instead of reusing the
+archived 35 mm-fruit constants. A frozen 24-candidate exact-mesh sweep rejects
+the legacy `0.1054/0.025 m` tool/close pair and selects a `0.0964 m`
+tool-centre offset with a `0.022 m` per-finger close command. A gripper-only
+runtime round trip confirms raw and processed bilateral target contact,
+attach/detach, fruit restore, and reopen recovery without arm motion. The
+follow-on controller-free pre-grasp gate succeeds on its first planning
+attempt in `0.038638462 s`, produces 24 waypoints with `0.832448 mm` endpoint
+error, retains all seven collision objects, and discards the trajectory with
+zero control commands. These are non-acceptance development gates:
+`pick_authorized=false`; final approach, retreat, placement, repeated picks,
+perception-derived picking, and physical hardware remain unqualified.
+
 ## Stage status
 
 | Stage | Status | Exit gate |
@@ -113,7 +126,7 @@ Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
 Latest verified local baseline (2026-07-27): all seven packages build and all
-326 colcon tests pass with no errors, failures, or skips in
+348 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

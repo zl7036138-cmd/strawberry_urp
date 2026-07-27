@@ -93,14 +93,18 @@ counted and ignored before the 15-sample window; they are never admitted and a
 persistent clock mismatch therefore times out fail-closed.
 
 An optional follow-on pre-grasp planning Shadow may run only after that handoff
-passes. It derives the same hand/pre-grasp geometry as the production
-pick-and-place executor, freezes 15 new TargetPose samples plus 10 stationary
-joint-state samples, retains all seven collision objects including the selected
-fruit, and asks MoveIt for a collision-checked `panda_hand` plan. The MoveIt
-configuration remains controller-free. A valid trajectory is audited for its
-endpoint and then discarded; trajectory execution, action clients, command
-publishers, gripper commands, and target-collision removal are prohibited.
-This path always records `pick_authorized=false` and is non-acceptance evidence.
+passes. It loads the same scene-keyed grasp profile and derives the same
+hand/pre-grasp geometry as the production pick-and-place executor, freezes 15
+new TargetPose samples plus 10 stationary joint-state samples, retains all
+seven collision objects including the selected fruit, and asks MoveIt for a
+collision-checked `panda_hand` plan. The MoveIt configuration remains
+controller-free. A valid trajectory is audited for its endpoint and then
+discarded; trajectory execution, action clients, command publishers, gripper
+commands, and target-collision removal are prohibited. This path always
+records `pick_authorized=false` and is non-acceptance evidence. The consumed
+Blender-v2 requalification selected `blender_v2_26mm`, planned on its first
+attempt in 0.038638462 s, retained all seven collision objects, and discarded
+the 24-waypoint trajectory with zero control commands.
 
 Perception and localization own SIGTERM cleanup so callbacks and executor
 workers drain before their ROS context and entities are destroyed. The
@@ -285,11 +289,16 @@ timeout fails immediately; the correction is never an unbounded retry.
 ## Pick-and-place definition
 
 The grasp point is the fruit-centre position estimated from the median valid
-depth in the central 30 percent of its bounding box. The Panda hand origin is
-placed 0.1054 m behind that centre along its local tool axis. The nominal
-pre-grasp is a further 0.15 m back on the same axis. Before any arm motion, the
-selected fruit obstacle is prepared and the gripper is explicitly opened to
-0.04 m per finger.
+depth in the central 30 percent of its bounding box. A single grasp profile is
+resolved from the exact `(world_name, fruit_collision_radius_m)` scene pair.
+The archived 35 mm tabletop profile places the Panda hand origin 0.1054 m
+behind the centre and closes to 0.025 m per finger. The canonical 26 mm
+Blender-v2 profile uses a qualified 0.0964 m hand offset and 0.022 m close
+command. Both retain a 0.15 m pre-grasp stand-off and 0.04 m per-finger open
+command. Missing, duplicate, mismatched, non-finite, or invalid profiles fail
+closed. The production action server and pre-grasp Shadow load the same
+profile. Before any arm motion, the selected fruit obstacle is prepared and
+the gripper is explicitly opened.
 
 The guarded approach lifts vertically to 0.02 m above the higher endpoint,
 reorients in place, moves to the `y=-0.10 m` safe corridor in `panda_link0`,
@@ -330,12 +339,17 @@ perception evidence. A future formal perception-controlled P3/P4 run may not
 use it until a separate decision freezes the allowed planning-scene source; it
 can never select the target or replace the action target pose.
 
-The archived 0.035 m-radius v1 fruit was grasped with a 0.025 m per-finger
-close command. Controller stall is an acceptable close result, but attachment
-still requires fresh dual contact; commanding zero width is intentionally
-forbidden. Blender-v2 planning now uses the correct 26 mm collision radius, but
-its close width, tool offset, and contact section require a separate execution
-requalification before a perception-derived pick can be authorized.
+Controller stall is an acceptable close result, but attachment still requires
+fresh dual contact; commanding zero width is intentionally forbidden. For the
+Blender-v2 profile, a frozen exact-mesh sweep evaluates 24 tool/close pairs and
+selects the qualified `0.0964/0.022 m` pair. The gripper-only runtime gate
+measures first contact at 0.025853592 m per finger, sees bilateral raw and
+processed target contact with no non-target contact, confirms attach/detach,
+restores the fruit within 0.009966 mm, and reopens without arm motion. A
+separate controller-free gate confirms collision-checked pre-grasp planning.
+These gates do not authorize the final approach, target-collision removal,
+arm execution, retreat, placement, repeated picking, or a perception-derived
+pick.
 
 ## Contact and collision diagnostics
 

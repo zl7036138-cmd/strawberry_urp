@@ -14,6 +14,7 @@ import time
 from typing import Mapping, Sequence
 
 from .core import Pose, pregrasp_pose_for_fruit_center
+from .grasp_geometry import load_grasp_geometry
 from .handoff_shadow import ARM_JOINT_NAMES, target_clock_is_coherent
 from .scene_geometry import STATIC_COLLISION_OBJECTS, fruit_collision_id
 
@@ -336,6 +337,16 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
         / "scene.yaml"
     )
     scene = load_scene_config(scene_path)
+    grasp_geometry_path = (
+        Path(get_package_share_directory("strawberry_manipulation"))
+        / "config"
+        / "grasp_geometry.yaml"
+    )
+    grasp_geometry = load_grasp_geometry(
+        grasp_geometry_path,
+        world_name=scene.world_name,
+        fruit_collision_radius_m=scene.fruit_collision_radius_m,
+    )
     expected_frame_id = scene.base_frame
     fruit_ids = tuple(fruit.target_id for fruit in scene.ordered_fruits)
     expected_collision_ids = [
@@ -548,7 +559,10 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
             float(center_xyz[1]),
             float(center_xyz[2]),
         )
-        pregrasp = pregrasp_pose_for_fruit_center(center)
+        pregrasp = pregrasp_pose_for_fruit_center(
+            center,
+            tool_center_offset_m=grasp_geometry.tool_center_offset_m,
+        )
         goal = PoseStamped()
         goal.header.frame_id = expected_frame_id
         goal.header.stamp = node.get_clock().now().to_msg()
@@ -664,6 +678,8 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
     result["target_topic"] = options.target_topic
     result["camera_mount"] = options.camera_mount
     result["scene_config"] = str(scene_path)
+    result["grasp_geometry_config"] = str(grasp_geometry_path)
+    result["grasp_geometry_profile"] = grasp_geometry.profile_id
     result["clock_unsynchronized_target_samples_ignored"] = (
         clock_unsynchronized_target_samples
     )
@@ -677,7 +693,7 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
                 pregrasp.qz,
                 pregrasp.qw,
             ],
-            "tool_center_offset_m": 0.1054,
+            "tool_center_offset_m": grasp_geometry.tool_center_offset_m,
             "pregrasp_offset_m": 0.15,
         }
         if pregrasp is not None

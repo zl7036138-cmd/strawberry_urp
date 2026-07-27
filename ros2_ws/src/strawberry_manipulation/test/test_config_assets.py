@@ -94,3 +94,19 @@ def test_runtime_collision_users_take_radius_from_scene_manifest():
     ):
         source = (PACKAGE_ROOT / relative_path).read_text(encoding="utf-8")
         assert "scene.fruit_collision_radius_m" in source
+
+
+def test_execution_and_planning_shadow_share_scene_bound_grasp_geometry():
+    action_source = (
+        PACKAGE_ROOT / "strawberry_manipulation" / "action_server.py"
+    ).read_text(encoding="utf-8")
+    shadow_source = (
+        PACKAGE_ROOT / "strawberry_manipulation" / "pregrasp_shadow.py"
+    ).read_text(encoding="utf-8")
+    for source in (action_source, shadow_source):
+        assert "load_grasp_geometry" in source
+        assert "scene.world_name" in source
+        assert "scene.fruit_collision_radius_m" in source
+        assert "grasp_geometry.tool_center_offset_m" in source
+    assert "grasp_geometry.gripper_closed_width_m_per_finger" in action_source
+    assert '"tool_center_offset_m": 0.1054' not in shadow_source

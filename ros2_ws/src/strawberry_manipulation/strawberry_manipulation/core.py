@@ -314,7 +314,8 @@ class PickAndPlaceExecutor:
             if not detached:
                 message = f"{message}; attachment release failed, recovery motion withheld"
             elif recover_home:
-                self.backend.move_home()
+                if not self.backend.move_home():
+                    message = f"{message}; recovery home motion failed"
             return ExecutionResult(
                 False,
                 code,
@@ -408,7 +409,15 @@ class PickAndPlaceExecutor:
         if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):
             return fail(FailureCode.PLACE_FAILED, "fruit did not remain in bin")
 
-        self.backend.move_home()
+        if not self.backend.move_home():
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "pick-and-place completed but final home motion failed",
+                planning_time,
+                execution_time,
+                tuple(stages),
+            )
         return ExecutionResult(
             True,
             FailureCode.NONE,

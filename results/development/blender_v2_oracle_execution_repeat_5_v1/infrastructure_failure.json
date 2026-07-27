@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "gate": "blender_v2_oracle_execution_repeat_5_v1",
+  "passed": false,
+  "formal_acceptance": false,
+  "held_out_test_accessed": false,
+  "pick_authorized": false,
+  "worlds_started": 0,
+  "robot_actions_started": 0,
+  "trials_consumed": 0,
+  "failure_class": "INFRASTRUCTURE_PREFLIGHT",
+  "message": "ROS domain scan treated each ros2 node list command's own /_ros2cli_<pid> node as an occupied domain",
+  "contract": {
+    "path": "config/blender_v2_oracle_execution_repeat_5_v1.json"
+  },
+  "authorized_fix": "Filter only the exact /_ros2cli_<digits> self-node before testing whether a domain contains another node; do not change motion, scene, target, thresholds, or trial count"
+}

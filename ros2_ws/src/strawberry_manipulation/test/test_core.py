@@ -27,6 +27,7 @@ class FakeBackend:
         attach=True,
         detach=True,
         in_bin=True,
+        home=True,
     ):
         self.outcomes = list(outcomes or [])
         self.prepare_ok = prepare
@@ -35,6 +36,7 @@ class FakeBackend:
         self.attach_ok = attach
         self.detach_ok = detach
         self.in_bin_ok = in_bin
+        self.home_ok = home
         self.calls = []
         self.poses = []
 
@@ -61,7 +63,7 @@ class FakeBackend:
     def open_gripper(self): self.calls.append("open"); return True
     def attach(self, target_id): self.calls.append("attach"); return self.attach_ok
     def detach(self, target_id): self.calls.append("detach"); return self.detach_ok
-    def move_home(self): self.calls.append("home"); return True
+    def move_home(self): self.calls.append("home"); return self.home_ok
     def fruit_in_bin(self, target_id, stable_for_sec): self.calls.append("verify"); return self.in_bin_ok
 
 
@@ -172,6 +174,29 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertIn("approach planning failed", result.message)
         self.assertIn("failed to restore target collision obstacle", result.message)
         self.assertEqual(backend.calls[-2:], ["open", "restore"])
+
+    def test_final_home_failure_converts_success_to_planning_failure(self):
+        backend = FakeBackend(home=False)
+        result = PickAndPlaceExecutor(backend).execute(
+            1, self.target, self.bin
+        )
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertIn("final home motion failed", result.message)
+        self.assertEqual(backend.calls.count("home"), 1)
+        self.assertEqual(backend.calls[-2:], ["home", "restore"])
+
+    def test_failed_recovery_reports_home_failure_without_retry(self):
+        backend = FakeBackend(
+            [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False)],
+            home=False,
+        )
+        result = PickAndPlaceExecutor(backend).execute(
+            1, self.target, self.bin
+        )
+        self.assertFalse(result.success)
+        self.assertIn("recovery home motion failed", result.message)
+        self.assertEqual(backend.calls.count("home"), 1)
 
     def test_fixed_grasp_geometry_places_tool_axis_toward_positive_y(self):
         pose = Pose(0.5, 0.0, 0.6, qx=-(2**-0.5), qw=2**-0.5)

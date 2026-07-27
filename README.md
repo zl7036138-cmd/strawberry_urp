@@ -106,9 +106,18 @@ attach/detach, fruit restore, and reopen recovery without arm motion. The
 follow-on controller-free pre-grasp gate succeeds on its first planning
 attempt in `0.038638462 s`, produces 24 waypoints with `0.832448 mm` endpoint
 error, retains all seven collision objects, and discards the trajectory with
-zero control commands. These are non-acceptance development gates:
-`pick_authorized=false`; final approach, retreat, placement, repeated picks,
-perception-derived picking, and physical hardware remain unqualified.
+zero control commands.
+
+The subsequent Oracle execution qualification preserves one mechanically
+successful but evidence-incomplete v1 run, then passes the measurement-repaired
+single gate and all five independent fresh-world repetitions. Every repeat
+completes `PLAN, APPROACH, GRASP, RETREAT, PLACE, VERIFY, DONE`, confirms raw
+and processed bilateral contact plus attach/detach, reports no unexpected
+fruit contact, returns home within `9.52e-11 rad`, and shuts down cleanly.
+Planning spans `0.0357-0.0777 s`. These remain non-acceptance development
+gates: `pick_authorized=false`; perception-derived execution, pose variation,
+occlusion/contact robustness, formal acceptance, and physical hardware remain
+unqualified.
 
 ## Stage status
 
@@ -126,7 +135,7 @@ Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
 Latest verified local baseline (2026-07-27): all seven packages build and all
-348 colcon tests pass with no errors, failures, or skips in
+361 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

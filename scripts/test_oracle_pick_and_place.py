@@ -72,7 +72,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
     from rclpy.time import Time
     from ros_gz_interfaces.msg import Contacts
     from sensor_msgs.msg import JointState
-    from std_msgs.msg import Bool
+    from std_msgs.msg import Bool, String
     from strawberry_interfaces.action import PickAndPlace
     from tf2_ros import Buffer, TransformException, TransformListener
 
@@ -145,6 +145,12 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         "max_pad_separation_m": None,
     }
     latest_arm_joint_positions = {}
+    arm_joint_sample_count = 0
+    initial_arm_joint_positions = None
+    initial_finger_positions = None
+    latest_attachment_state = None
+    initial_attachment_state = None
+    attachment_state_events = []
 
     def on_target(message):
         target_samples.append(message)
@@ -331,11 +337,16 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             known_pairs.add(pair)
 
     def on_joint_state(message: JointState) -> None:
+        nonlocal arm_joint_sample_count
         positions = dict(zip(message.name, message.position, strict=False))
+        observed_arm_joint = False
         for index in range(1, 8):
             name = f"panda_joint{index}"
             if name in positions:
+                observed_arm_joint = True
                 latest_arm_joint_positions[name] = float(positions[name])
+        if observed_arm_joint:
+            arm_joint_sample_count += 1
         for name, diagnostics in finger_diagnostics.items():
             if name not in positions:
                 continue
@@ -354,6 +365,32 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 if diagnostics["max_m"] is None
                 else max(diagnostics["max_m"], position)
             )
+
+    def on_attachment_state(message: String) -> None:
+        nonlocal latest_attachment_state
+        state = str(message.data).strip().lower()
+        if state not in {"attached", "detached"}:
+            attachment_state_events.append(
+                {
+                    "state": state,
+                    "attached": None,
+                    "stage": current_stage,
+                    "elapsed_sec": elapsed_action_time(),
+                }
+            )
+            return
+        attached = state == "attached"
+        if latest_attachment_state is attached:
+            return
+        latest_attachment_state = attached
+        attachment_state_events.append(
+            {
+                "state": state,
+                "attached": attached,
+                "stage": current_stage,
+                "elapsed_sec": elapsed_action_time(),
+            }
+        )
 
     subscription = node.create_subscription(
         PoseStamped, target_topic, on_target, qos_profile_sensor_data
@@ -392,6 +429,14 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             qos_profile_sensor_data,
         )
     )
+    diagnostic_subscriptions.append(
+        node.create_subscription(
+            String,
+            f"/strawberry/sim/fruit_{arguments.target_id}/attached_state",
+            on_attachment_state,
+            qos_profile_sensor_data,
+        )
+    )
     client = ActionClient(node, PickAndPlace, "/strawberry/pick_and_place")
     feedback_log = []
 
@@ -413,6 +458,23 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             displacement_by_stage[stage] = max(
                 displacement_by_stage.get(stage, 0.0), value
             )
+        initial_arm = initial_arm_joint_positions or {}
+        final_arm = dict(latest_arm_joint_positions)
+        shared_arm_names = sorted(set(initial_arm) & set(final_arm))
+        arm_joint_delta = (
+            max(
+                abs(final_arm[name] - initial_arm[name])
+                for name in shared_arm_names
+            )
+            if shared_arm_names
+            else None
+        )
+        initial_fingers = initial_finger_positions or {}
+        final_fingers = {
+            name: diagnostics["latest_m"]
+            for name, diagnostics in finger_diagnostics.items()
+        }
+        final_target = target_samples[-1].pose.position if target_samples else None
         return {
             "contacts": contact_report,
             "fruit_contacts": {
@@ -436,6 +498,30 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             ),
             "target_max_displacement_by_stage_m": displacement_by_stage,
             "target_displacement_events": displacement_events,
+            "target_final_position_m": (
+                [
+                    float(final_target.x),
+                    float(final_target.y),
+                    float(final_target.z),
+                ]
+                if final_target is not None
+                else None
+            ),
+            "arm_recovery": {
+                "joint_sample_count": arm_joint_sample_count,
+                "initial_positions_rad": initial_arm,
+                "final_positions_rad": final_arm,
+                "maximum_initial_final_delta_rad": arm_joint_delta,
+            },
+            "gripper_recovery": {
+                "initial_positions_m": initial_fingers,
+                "final_positions_m": final_fingers,
+            },
+            "attachment_state": {
+                "initial_attached": initial_attachment_state,
+                "final_attached": latest_attachment_state,
+                "events": attachment_state_events,
+            },
         }
 
     try:
@@ -462,6 +548,12 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         remaining = max(0.0, deadline - time.monotonic())
         if not client.wait_for_server(timeout_sec=remaining):
             raise RuntimeError("pick-and-place action server is unavailable")
+        initial_arm_joint_positions = dict(latest_arm_joint_positions)
+        initial_finger_positions = {
+            name: diagnostics["latest_m"]
+            for name, diagnostics in finger_diagnostics.items()
+        }
+        initial_attachment_state = latest_attachment_state
 
         goal = PickAndPlace.Goal()
         goal.target_id = arguments.target_id
@@ -520,6 +612,9 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             raise RuntimeError("pick-and-place action exceeded its timeout")
         wrapped_result = result_future.result()
         result = wrapped_result.result
+        diagnostic_deadline = time.monotonic() + 0.5
+        while rclpy.ok() and time.monotonic() < diagnostic_deadline:
+            rclpy.spin_once(node, timeout_sec=0.05)
         action_succeeded = (
             wrapped_result.status == GoalStatus.STATUS_SUCCEEDED
             and bool(result.success)

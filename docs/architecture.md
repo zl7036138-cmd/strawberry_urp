@@ -347,9 +347,15 @@ measures first contact at 0.025853592 m per finger, sees bilateral raw and
 processed target contact with no non-target contact, confirms attach/detach,
 restores the fruit within 0.009966 mm, and reopens without arm motion. A
 separate controller-free gate confirms collision-checked pre-grasp planning.
-These gates do not authorize the final approach, target-collision removal,
-arm execution, retreat, placement, repeated picking, or a perception-derived
-pick.
+The motion-capable follow-on first captures a complete read-only ready-state
+snapshot, then permits exactly one Oracle target action in each fresh world.
+The executor now requires final `move_home()` success; a failed home is a
+failed action and is not retried. The canonical repeat gate passes 5/5:
+all trials complete final approach, bilateral contact, attachment, retreat,
+bin placement, detach, verification, reopen, home, collision restoration, and
+clean shutdown with no unexpected fruit contact. This qualifies only the
+exact canonical Oracle scene. Perception-derived control, target/pose
+variation, natural plant contact, and physical hardware remain unauthorized.
 
 ## Contact and collision diagnostics
 

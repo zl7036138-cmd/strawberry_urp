@@ -69,6 +69,13 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 world_name=scene.world_name,
                 fruit_collision_radius_m=scene.fruit_collision_radius_m,
             )
+            self.get_logger().info(
+                "Loaded grasp geometry profile "
+                f"{grasp_geometry.profile_id}: "
+                f"tool_center_offset_m={grasp_geometry.tool_center_offset_m}, "
+                "gripper_closed_width_m_per_finger="
+                f"{grasp_geometry.gripper_closed_width_m_per_finger}"
+            )
             self.declare_parameter("planning_group", "panda_arm")
             self.declare_parameter("pose_link", "panda_hand")
             self.declare_parameter("camera_mount", "fixed")

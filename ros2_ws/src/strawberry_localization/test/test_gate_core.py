@@ -90,6 +90,17 @@ class LocalizationGateCoreTests(unittest.TestCase):
         self.assertIn("surface_to_center_offset_m: 0.035", v1_config)
         self.assertIn("surface_to_center_offset_m: 0.026", v2_config)
 
+    def test_renamed_dual_camera_nodes_receive_v2_offset_explicitly(self) -> None:
+        runner = (
+            REPOSITORY_ROOT / "scripts" / "run_dual_sequential_observation.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("__node:=strawberry_base_overview_localization", runner)
+        self.assertIn("__node:=strawberry_wrist_attention_localization", runner)
+        self.assertEqual(
+            runner.count("-p surface_to_center_offset_m:=0.026"),
+            2,
+        )
+
     def test_default_grid_contains_one_hundred_distinct_positions(self) -> None:
         positions = benchmark_positions()
         self.assertEqual(len(positions), 100)

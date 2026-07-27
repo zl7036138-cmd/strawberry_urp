@@ -18,6 +18,48 @@ from .moveit_scene import (
 from .scene_geometry import FRUIT_COLLISION_RADIUS_M
 
 
+def gripper_result_allows_command(
+    *,
+    target_position_m: float,
+    observed_position_m: float,
+    open_position_m: float,
+    closed_position_m: float,
+    stalled: bool,
+    reached_goal: bool,
+    position_tolerance_m: float = 0.002,
+) -> bool:
+    """Reject a false gripper stall that occurred without meaningful travel."""
+
+    values = (
+        target_position_m,
+        observed_position_m,
+        open_position_m,
+        closed_position_m,
+        position_tolerance_m,
+    )
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("gripper result positions must be finite")
+    if not 0.0 <= closed_position_m < open_position_m:
+        raise ValueError("gripper result limits are invalid")
+    if position_tolerance_m <= 0.0:
+        raise ValueError("gripper result tolerance must be positive")
+    closing = target_position_m <= closed_position_m + 1.0e-6
+    if not closing:
+        return reached_goal and (
+            abs(observed_position_m - target_position_m)
+            <= position_tolerance_m
+        )
+    if reached_goal and (
+        abs(observed_position_m - target_position_m)
+        <= position_tolerance_m
+    ):
+        return True
+    return stalled and (
+        observed_position_m
+        <= open_position_m - position_tolerance_m
+    )
+
+
 class MoveItBackend:
     """Plan with MoveItPy and execute through ros2_control controllers.
 
@@ -1107,11 +1149,34 @@ class MoveItBackend:
         if wrapped is None:
             return False
         result = wrapped.result
-        # GripperCommand.Result has reached_goal and stalled. A stalled close is
-        # valid contact; opening must reach its commanded width.
-        if position <= self.closed_width_m + 1e-6:
-            return bool(result.reached_goal or result.stalled)
-        return bool(result.reached_goal)
+        state_positions = dict(
+            zip(result.state.name, result.state.position, strict=False)
+        )
+        observed_position = state_positions.get(self.gripper_joint)
+        if observed_position is None:
+            self.node.get_logger().error(
+                "gripper result omitted the commanded joint state"
+            )
+            return False
+        self.node.get_logger().info(
+            "gripper result: target_m="
+            f"{position:.6f}, observed_m={float(observed_position):.6f}, "
+            f"stalled={bool(result.stalled)}, "
+            f"reached_goal={bool(result.reached_goal)}"
+        )
+        accepted = gripper_result_allows_command(
+            target_position_m=position,
+            observed_position_m=float(observed_position),
+            open_position_m=self.open_width_m,
+            closed_position_m=self.closed_width_m,
+            stalled=bool(result.stalled),
+            reached_goal=bool(result.reached_goal),
+        )
+        if not accepted:
+            self.node.get_logger().error(
+                "gripper result failed measured-position validation"
+            )
+        return accepted
 
     def close_gripper(self) -> bool:
         return self._gripper_command(self.closed_width_m)

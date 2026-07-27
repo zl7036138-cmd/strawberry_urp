@@ -10,7 +10,10 @@ from unittest.mock import patch
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from strawberry_manipulation.moveit_backend import MoveItBackend  # noqa: E402
+from strawberry_manipulation.moveit_backend import (  # noqa: E402
+    MoveItBackend,
+    gripper_result_allows_command,
+)
 from strawberry_manipulation.core import MotionOutcome, Pose  # noqa: E402
 
 
@@ -63,6 +66,30 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(manifest[1], (0.4, 0.1, 0.5))
         with self.assertRaises(TypeError):
             manifest[1] = (0.0, 0.0, 0.0)
+
+    def test_close_accepts_real_contact_stall_after_measured_travel(self):
+        self.assertTrue(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.0253,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=True,
+                reached_goal=False,
+            )
+        )
+
+    def test_close_rejects_false_stall_at_fully_open_position(self):
+        self.assertFalse(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.03999,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=True,
+                reached_goal=False,
+            )
+        )
 
     def test_prepare_rejects_unknown_target_before_scene_update(self):
         backend = self.lifecycle_backend()

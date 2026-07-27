@@ -70,3 +70,45 @@ def test_calyx_depth_bias_fails_cross_jaw_and_axial_interlocks():
         result["observed_hand_axial_position_m"]
         > result["grasp_geometry"]["finger_axial_range_hand_z_m"][1]
     )
+
+
+def test_live_sequence_summary_is_accepted_only_when_motion_stays_discarded():
+    values = inputs([0.42, -0.05, 0.55])
+    values["no_motion_gate"] = {
+        "scope": "NON_ACCEPTANCE_DUAL_CAMERA_SEQUENTIAL_OBSERVATION",
+        "sequence_passed": True,
+        "handoff_shadow_passed": True,
+        "pregrasp_shadow_passed": True,
+        "pregrasp_trajectory_discarded": True,
+        "pregrasp_control_command_count": 0,
+        "pick_authorized": False,
+        "violations": [],
+    }
+    result = MODULE.evaluate_execution_readiness(**values)
+    assert result["execution_readiness_passed"] is True
+
+    values["no_motion_gate"]["pregrasp_trajectory_discarded"] = False
+    try:
+        MODULE.evaluate_execution_readiness(**values)
+    except ValueError as exc:
+        assert str(exc) == "no-motion gate input did not pass"
+    else:
+        raise AssertionError("an executable trajectory must fail the no-motion gate")
+
+
+def test_pregrasp_shadow_is_a_valid_same_world_no_motion_gate():
+    values = inputs([0.42, -0.05, 0.55])
+    values["no_motion_gate"] = {
+        "scope": "NON_ACCEPTANCE_PREGRASP_PLANNING_SHADOW",
+        "planning_passed": True,
+        "trajectory_generated": True,
+        "trajectory_discarded": True,
+        "trajectory_executed": False,
+        "trajectory_execution_requested": False,
+        "control_command_count": 0,
+        "pick_action_called": False,
+        "pick_authorized": False,
+        "violations": [],
+    }
+    result = MODULE.evaluate_execution_readiness(**values)
+    assert result["execution_readiness_passed"] is True

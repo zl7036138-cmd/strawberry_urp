@@ -131,6 +131,19 @@ qualified finger axial section. This is a useful no-motion system pass, not a
 pick authorization; the next bounded task is depth-region/fruit-mask
 diagnosis for the natural plant view.
 
+The mainline follow-up found that the earlier 29 mm result was primarily a
+runtime parameter-routing defect, not a failed depth estimator: renaming the
+dual-camera localization nodes prevented the profile's 26 mm
+surface-to-centre offset from matching the YAML node name. Passing the offset
+explicitly reduces the same natural-plant target error to about 4.85 mm and
+passes the exact grasp-envelope check. One subsequent perception-derived
+simulation action reached `PLAN, APPROACH, GRASP` and the final grasp pose, but
+the gripper remained effectively fully open (`~0.040 m` per finger), produced
+no target contact, and failed attachment. Recovery reopened the gripper,
+restored the fruit collision object, and returned the arm to `ready`. The
+active mainline issue is therefore measured gripper-close execution at the
+natural-plant grasp pose, not camera target selection or pre-grasp planning.
+
 ## Stage status
 
 | Stage | Status | Exit gate |
@@ -147,7 +160,7 @@ Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
 Latest verified local baseline (2026-07-27): all seven packages build and all
-365 colcon tests pass with no errors, failures, or skips in
+371 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

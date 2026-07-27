@@ -27,3 +27,4 @@ docs/decisions/*.md text eol=lf
 
 # Preserve this hash-bound mixed-platform experiment exactly as generated.
 results/development/blender_v2_perception_handoff_pregrasp_v3/** binary
+results/development/blender_v2_perception_pick_once_v3/** binary

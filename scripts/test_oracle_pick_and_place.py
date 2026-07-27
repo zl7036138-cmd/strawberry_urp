@@ -15,6 +15,12 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target-id", type=int, default=1)
     parser.add_argument("--target-topic", default="")
+    parser.add_argument(
+        "--target-message-type",
+        choices=("pose_stamped", "target_pose"),
+        default="pose_stamped",
+        help="ROS message type published by --target-topic",
+    )
     parser.add_argument("--place-x", type=float, default=0.35)
     parser.add_argument("--place-y", type=float, default=-0.45)
     parser.add_argument("--place-z", type=float, default=0.45)
@@ -74,6 +80,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
     from sensor_msgs.msg import JointState
     from std_msgs.msg import Bool, String
     from strawberry_interfaces.action import PickAndPlace
+    from strawberry_interfaces.msg import TargetPose
     from tf2_ros import Buffer, TransformException, TransformListener
 
     rclpy.init()
@@ -153,9 +160,17 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
     attachment_state_events = []
 
     def on_target(message):
-        target_samples.append(message)
+        if arguments.target_message_type == "target_pose":
+            if int(message.target_id) != arguments.target_id:
+                return
+            target = PoseStamped()
+            target.header = message.header
+            target.pose = message.pose
+        else:
+            target = message
+        target_samples.append(target)
         if sent_target_xyz is not None and action_started_at is not None:
-            position = message.pose.position
+            position = target.pose.position
             displacement = math.dist(
                 (position.x, position.y, position.z), sent_target_xyz
             )
@@ -392,8 +407,13 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             }
         )
 
+    target_ros_type = (
+        TargetPose
+        if arguments.target_message_type == "target_pose"
+        else PoseStamped
+    )
     subscription = node.create_subscription(
-        PoseStamped, target_topic, on_target, qos_profile_sensor_data
+        target_ros_type, target_topic, on_target, qos_profile_sensor_data
     )
     diagnostic_subscriptions = [
         node.create_subscription(
@@ -574,6 +594,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         report = {
             "target_id": arguments.target_id,
             "target_topic": target_topic,
+            "target_message_type": arguments.target_message_type,
             "target_position_m": [
                 target_position.x,
                 target_position.y,
@@ -639,6 +660,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             {
                 "target_id": arguments.target_id,
                 "target_topic": target_topic,
+                "target_message_type": arguments.target_message_type,
                 "success": False,
                 "error": str(exc),
                 "feedback": feedback_log,

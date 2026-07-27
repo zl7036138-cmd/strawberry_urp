@@ -31,6 +31,33 @@ def _finite_xyz(values: Sequence[object], label: str) -> tuple[float, ...]:
     return result
 
 
+def _no_motion_gate_passed(gate: Mapping[str, object]) -> bool:
+    if gate.get("passed") is True:
+        return True
+    if gate.get("scope") == "NON_ACCEPTANCE_PREGRASP_PLANNING_SHADOW":
+        return (
+            gate.get("planning_passed") is True
+            and gate.get("trajectory_generated") is True
+            and gate.get("trajectory_discarded") is True
+            and gate.get("trajectory_executed") is False
+            and gate.get("trajectory_execution_requested") is False
+            and int(gate.get("control_command_count", -1)) == 0
+            and gate.get("pick_action_called") is False
+            and gate.get("pick_authorized") is False
+            and not gate.get("violations")
+        )
+    return (
+        gate.get("scope") == "NON_ACCEPTANCE_DUAL_CAMERA_SEQUENTIAL_OBSERVATION"
+        and gate.get("sequence_passed") is True
+        and gate.get("handoff_shadow_passed") is True
+        and gate.get("pregrasp_shadow_passed") is True
+        and gate.get("pregrasp_trajectory_discarded") is True
+        and int(gate.get("pregrasp_control_command_count", -1)) == 0
+        and gate.get("pick_authorized") is False
+        and not gate.get("violations")
+    )
+
+
 def evaluate_execution_readiness(
     *,
     handoff: Mapping[str, object],
@@ -40,7 +67,7 @@ def evaluate_execution_readiness(
 ) -> dict[str, object]:
     if handoff.get("handoff_passed") is not True:
         raise ValueError("handoff input did not pass")
-    if no_motion_gate.get("passed") is not True:
+    if not _no_motion_gate_passed(no_motion_gate):
         raise ValueError("no-motion gate input did not pass")
     if geometry_gate.get("passed") is not True:
         raise ValueError("gripper geometry input did not pass")

@@ -97,6 +97,7 @@ start_base_pipeline() {
     -p target_pose_topic:=/strawberry/shadow/target_pose \
     -p depth_topic:=/camera/base/depth/image_raw \
     -p camera_info_topic:=/camera/base/camera_info \
+    -p surface_to_center_offset_m:=0.026 \
     -p allow_stationary_latest_tf_fallback:=false \
     >"${output_dir}/base_localization.log" 2>&1 &
   pipeline_pids+=("$!")
@@ -128,6 +129,7 @@ start_wrist_pipeline() {
     -p target_pose_topic:=/strawberry/shadow/target_pose \
     -p depth_topic:=/camera/wrist/depth/image_raw \
     -p camera_info_topic:=/camera/wrist/camera_info \
+    -p surface_to_center_offset_m:=0.026 \
     -p sensor_qos_depth:=30 \
     -p selection_roi_min_x_px:="${roi_min_x}" \
     -p selection_roi_min_y_px:="${roi_min_y}" \
@@ -211,6 +213,14 @@ timeout --signal=TERM 180 ros2 run strawberry_perception shadow_window_probe \
   --post-window-wait-sec 2 \
   --window-boundary after_wrist_observation_settle_before_pick_motion \
   >"${output_dir}/wrist_window.log" 2>&1
+timeout --signal=TERM 90 python \
+  "${repo_root}/scripts/capture_rgbd_localization_samples.py" \
+  --output-npz "${output_dir}/wrist_rgbd_samples.npz" \
+  --output-json "${output_dir}/wrist_rgbd_samples.json" \
+  --expected-target-id "${expected_target_id}" \
+  --roi "${roi_min_x}" "${roi_min_y}" "${roi_max_x}" "${roi_max_y}" \
+  --samples 20 --timeout-sec 60 \
+  >"${output_dir}/wrist_rgbd_capture.log" 2>&1
 ros2 node list --no-daemon \
   | grep -Ev '^/_ros2cli_[[:alnum:]_]+$' \
   | sort -u >"${output_dir}/wrist_runtime_nodes.txt"

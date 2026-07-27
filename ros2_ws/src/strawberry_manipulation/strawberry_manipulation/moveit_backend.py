@@ -751,6 +751,13 @@ class MoveItBackend:
     ) -> tuple[bool, float]:
         if not joint_path:
             return False, 0.0
+        if not self._arm_action_probe.wait_for_server(
+            timeout_sec=self.request_timeout_sec
+        ):
+            self.node.get_logger().error(
+                "Panda arm trajectory action server became unavailable"
+            )
+            return False, 0.0
         goal = self._FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = list(self._arm_joint_names)
         previous = start_positions
@@ -994,8 +1001,85 @@ class MoveItBackend:
             current = self._current_link_pose()
         return MotionOutcome(True, planning_time, execution_time)
 
+    def _move_to_planned_joint_path(self, pose: Pose) -> MotionOutcome:
+        """Plan with MoveIt, then use the startup-verified action client.
+
+        MoveIt's simple controller manager creates its action client only when
+        execution starts and can observe a transient not-connected state.  The
+        bounded wrist observation motion instead sends the same collision-
+        checked joint path through the action client that was required ready
+        during backend startup.
+        """
+
+        if not self._wait_until_arm_settled():
+            return MotionOutcome(False, 0.0, 0.0)
+        self._arm.set_start_state_to_current_state()
+        self._arm.set_goal_state(
+            pose_stamped_msg=self._pose_message(pose),
+            pose_link=self.pose_link,
+        )
+        planning_started = time.perf_counter()
+        try:
+            plan_result = self._arm.plan()
+        except Exception as exc:
+            self.node.get_logger().error(f"MoveIt planning exception: {exc}")
+            return MotionOutcome(
+                False, time.perf_counter() - planning_started, 0.0
+            )
+        planning_time = time.perf_counter() - planning_started
+        if not plan_result:
+            return MotionOutcome(False, planning_time, 0.0)
+        trajectory = plan_result.trajectory
+        waypoint_count = len(trajectory)
+        if waypoint_count < 2:
+            self.node.get_logger().error(
+                "MoveIt observation plan contains fewer than two waypoints"
+            )
+            return MotionOutcome(False, planning_time, 0.0)
+        planned_endpoint = trajectory[waypoint_count - 1].get_pose(
+            self.pose_link
+        )
+        if not self._pose_is_within_tolerance(
+            pose, planned_endpoint, "planned endpoint"
+        ):
+            return MotionOutcome(False, planning_time, 0.0)
+        positions = tuple(
+            tuple(
+                float(value)
+                for value in trajectory[index].get_joint_group_positions(
+                    self.planning_group
+                )
+            )
+            for index in range(waypoint_count)
+        )
+        if any(
+            len(values) != len(self._arm_joint_names)
+            for values in positions
+        ):
+            self.node.get_logger().error(
+                "MoveIt observation plan has an invalid arm state"
+            )
+            return MotionOutcome(False, planning_time, 0.0)
+        executed, execution_time = self._execute_joint_path(
+            positions[0], positions[1:]
+        )
+        if not executed or not self._wait_until_arm_settled():
+            return MotionOutcome(False, planning_time, execution_time)
+        with self._planning_scene_monitor.read_only() as scene:
+            actual_pose = scene.current_state.get_pose(self.pose_link)
+        executed = self._pose_is_within_tolerance(
+            pose, actual_pose, "executed endpoint"
+        )
+        return MotionOutcome(
+            executed,
+            planning_time,
+            execution_time,
+        )
+
     def move_to(self, pose: Pose, stage: str) -> MotionOutcome:
         self.node.get_logger().info(f"MoveIt stage {stage}")
+        if stage == "WRIST_OBSERVATION":
+            return self._move_to_planned_joint_path(pose)
         if stage in {"APPROACH", "APPROACH_RETRY"}:
             return self._move_guarded_approach(pose)
         if stage in {"GRASP_POSE", "RETREAT"}:

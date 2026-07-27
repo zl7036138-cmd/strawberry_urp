@@ -12,9 +12,28 @@ from pathlib import Path
 from typing import Mapping
 
 
-EXPECTED_GATE = "blender_v2_perception_handoff_pregrasp_v1"
+EXPECTED_EXECUTION = {
+    "blender_v2_perception_handoff_pregrasp_v1": {
+        "maximum_trials": 1,
+        "retry_authorized": False,
+        "ros_domain_id": 230,
+        "output_directory": (
+            "results/development/"
+            "blender_v2_perception_handoff_pregrasp_v1"
+        ),
+    },
+    "blender_v2_perception_handoff_pregrasp_v2": {
+        "maximum_trials": 1,
+        "retry_authorized": False,
+        "ros_domain_id": 231,
+        "output_directory": (
+            "results/development/"
+            "blender_v2_perception_handoff_pregrasp_v2"
+        ),
+    },
+}
 EXPECTED_SCOPE = "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_HANDOFF_PREGRASP"
-EXPECTED_BINDINGS = {
+EXPECTED_BINDINGS_V1 = {
     "perception_waiver",
     "model",
     "runner",
@@ -28,6 +47,18 @@ EXPECTED_BINDINGS = {
     "grasp_geometry_loader",
     "grasp_geometry_config",
     "scene_config",
+}
+EXPECTED_BINDINGS = {
+    "blender_v2_perception_handoff_pregrasp_v1": EXPECTED_BINDINGS_V1,
+    "blender_v2_perception_handoff_pregrasp_v2": (
+        EXPECTED_BINDINGS_V1
+        | {
+            "moveit_backend",
+            "validator",
+            "failed_v1_summary",
+            "failed_v1_observation_log",
+        }
+    ),
 }
 EXPECTED_COLLISIONS = {
     "collection_bin",
@@ -69,9 +100,10 @@ def load_contract(path: Path, root: Path) -> dict:
     contract_path = path.resolve(strict=True)
     root = root.resolve(strict=True)
     raw = json.loads(contract_path.read_text(encoding="utf-8"))
+    gate_id = raw.get("gate_id")
     if (
         raw.get("schema_version") != 1
-        or raw.get("gate_id") != EXPECTED_GATE
+        or gate_id not in EXPECTED_EXECUTION
         or raw.get("scope") != EXPECTED_SCOPE
         or raw.get("status") != "FROZEN_EXECUTION_AUTHORIZED"
     ):
@@ -81,7 +113,7 @@ def load_contract(path: Path, root: Path) -> dict:
             root, raw["decision_record"], "decision_record"
         )
     }
-    if set(raw.get("bindings", {})) != EXPECTED_BINDINGS:
+    if set(raw.get("bindings", {})) != EXPECTED_BINDINGS[gate_id]:
         raise ValueError("perception handoff bindings changed")
     for label, record in raw["bindings"].items():
         resolved[label] = bound_path(root, record, label)
@@ -124,15 +156,7 @@ def load_contract(path: Path, root: Path) -> dict:
     }
     if raw.get("safety") != expected_safety:
         raise ValueError("unsafe perception handoff authorization")
-    if raw.get("execution") != {
-        "maximum_trials": 1,
-        "retry_authorized": False,
-        "ros_domain_id": 230,
-        "output_directory": (
-            "results/development/"
-            "blender_v2_perception_handoff_pregrasp_v1"
-        ),
-    }:
+    if raw.get("execution") != EXPECTED_EXECUTION[gate_id]:
         raise ValueError("perception handoff execution boundary changed")
     raw["_contract_path"] = str(contract_path)
     raw["_contract_sha256"] = sha256(contract_path)
@@ -152,6 +176,7 @@ def _require(
 def evaluate(
     contract: Mapping[str, object],
     sequence: Mapping[str, object],
+    observation_motion: Mapping[str, object],
     handoff: Mapping[str, object],
     pregrasp: Mapping[str, object],
     runtime_nodes: list[str],
@@ -162,6 +187,30 @@ def evaluate(
     target_id = int(parameters["expected_target_id"])
     target_topic = str(parameters["target_topic"])
 
+    _require(
+        violations,
+        observation_motion.get("success") is True,
+        "wrist observation-pose motion did not pass",
+    )
+    _require(
+        violations,
+        observation_motion.get("camera_mount") == parameters["camera_mount"],
+        "observation motion used the wrong camera mount",
+    )
+    _require(
+        violations,
+        observation_motion.get("robot_motion_started") is True
+        and observation_motion.get("fruit_manipulation_started") is False,
+        "observation motion crossed the fruit-manipulation boundary",
+    )
+    _require(
+        violations,
+        all(
+            receipt.get("collision") is False
+            for receipt in observation_motion.get("planning_attempts", [])
+        ),
+        "observation motion encountered a collision",
+    )
     _require(
         violations,
         sequence.get("sequence_passed") is True,
@@ -411,26 +460,55 @@ def main() -> int:
     contract = load_contract(args.contract, args.repository_root)
     inputs = {
         "sequence": args.run_directory / "sequence_summary.json",
+        "observation_motion": (
+            args.run_directory / "observation_motion.json"
+        ),
         "handoff": args.run_directory / "handoff_shadow.json",
         "pregrasp": args.run_directory / "pregrasp_shadow.json",
         "runtime_nodes": args.run_directory / "wrist_runtime_nodes.txt",
         "runtime_topics": args.run_directory / "wrist_runtime_topics.txt",
     }
-    for label, path in inputs.items():
-        if not path.is_file():
-            raise FileNotFoundError(f"missing {label}: {path}")
-    sequence = json.loads(inputs["sequence"].read_text(encoding="utf-8"))
-    handoff = json.loads(inputs["handoff"].read_text(encoding="utf-8"))
-    pregrasp = json.loads(inputs["pregrasp"].read_text(encoding="utf-8"))
-    runtime_nodes = inputs["runtime_nodes"].read_text(
-        encoding="utf-8"
-    ).splitlines()
-    runtime_topics = inputs["runtime_topics"].read_text(
-        encoding="utf-8"
-    ).splitlines()
-    violations = evaluate(
+    missing = [
+        f"missing {label}: {path}"
+        for label, path in inputs.items()
+        if not path.is_file()
+    ]
+    sequence = (
+        json.loads(inputs["sequence"].read_text(encoding="utf-8"))
+        if inputs["sequence"].is_file()
+        else {}
+    )
+    observation_motion = (
+        json.loads(
+            inputs["observation_motion"].read_text(encoding="utf-8")
+        )
+        if inputs["observation_motion"].is_file()
+        else {}
+    )
+    handoff = (
+        json.loads(inputs["handoff"].read_text(encoding="utf-8"))
+        if inputs["handoff"].is_file()
+        else {}
+    )
+    pregrasp = (
+        json.loads(inputs["pregrasp"].read_text(encoding="utf-8"))
+        if inputs["pregrasp"].is_file()
+        else {}
+    )
+    runtime_nodes = (
+        inputs["runtime_nodes"].read_text(encoding="utf-8").splitlines()
+        if inputs["runtime_nodes"].is_file()
+        else []
+    )
+    runtime_topics = (
+        inputs["runtime_topics"].read_text(encoding="utf-8").splitlines()
+        if inputs["runtime_topics"].is_file()
+        else []
+    )
+    violations = missing or evaluate(
         contract,
         sequence,
+        observation_motion,
         handoff,
         pregrasp,
         runtime_nodes,
@@ -460,10 +538,13 @@ def main() -> int:
             for label, path in contract["_resolved_paths"].items()
         },
         "run_inputs": {
-            label: fingerprint(path) for label, path in inputs.items()
+            label: fingerprint(path)
+            for label, path in inputs.items()
+            if path.is_file()
         },
         "candidate_target_id": sequence.get("candidate_target_id"),
         "selected_preset": sequence.get("selected_preset"),
+        "observation_motion": observation_motion,
         "base_support_frames": sequence.get("base_support_frames"),
         "wrist_matching_target_pose_frames": sequence.get(
             "wrist_matching_target_pose_frames"

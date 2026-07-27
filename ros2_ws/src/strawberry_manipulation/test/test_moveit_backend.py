@@ -184,6 +184,41 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertIs(backend.move_to(target, "RETREAT"), expected)
         self.assertEqual(requested, [target])
 
+    def test_wrist_observation_uses_startup_verified_action_path(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        expected = MotionOutcome(True, 0.1, 0.2)
+        requested = []
+        backend._move_to_planned_joint_path = (
+            lambda pose: requested.append(pose) or expected
+        )
+
+        target = Pose(0.28, 0.0, 0.72, qy=0.95, qw=0.31)
+        self.assertIs(
+            backend.move_to(target, "WRIST_OBSERVATION"), expected
+        )
+        self.assertEqual(requested, [target])
+
+    def test_direct_joint_path_waits_for_action_server_before_goal(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.request_timeout_sec = 5.0
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: False
+        )
+
+        succeeded, execution_time = backend._execute_joint_path(
+            (0.0,), ((0.1,),)
+        )
+
+        self.assertFalse(succeeded)
+        self.assertEqual(execution_time, 0.0)
+        self.assertIn(
+            "Panda arm trajectory action server became unavailable",
+            logger.errors,
+        )
+
     def test_cartesian_endpoint_miss_gets_exactly_one_measured_correction(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         logger = self.Logger()

@@ -73,9 +73,17 @@ def _launch_nodes(context):
     if not os.path.isfile(scene_config):
         raise RuntimeError(f"scene config file does not exist: {scene_config}")
     panda_xacro = os.path.join(package_share, "urdf", "panda_gz.urdf.xacro")
-    initial_positions = os.path.join(
+    requested_initial_positions = (
+        LaunchConfiguration("initial_positions_file").perform(context).strip()
+    )
+    initial_positions = requested_initial_positions or os.path.join(
         package_share, "config", "panda_initial_positions.yaml"
     )
+    initial_positions = os.path.abspath(os.path.expanduser(initial_positions))
+    if not os.path.isfile(initial_positions):
+        raise RuntimeError(
+            f"Panda initial positions file does not exist: {initial_positions}"
+        )
     model_path = os.path.join(package_share, "models")
     headless = LaunchConfiguration("headless").perform(context).lower() in {
         "1",
@@ -213,6 +221,16 @@ def _launch_nodes(context):
                     ],
                     output="screen",
                 ),
+                Node(
+                    package="controller_manager",
+                    executable="spawner",
+                    arguments=[
+                        "panda_gripper_right_controller",
+                        "--controller-manager-timeout",
+                        "30",
+                    ],
+                    output="screen",
+                ),
             ],
         ),
         Node(
@@ -334,6 +352,14 @@ def generate_launch_description():
                 description=(
                     "Optional Gazebo RNG seed. Formal benchmark runners must "
                     "set this explicitly; an empty value preserves normal launches."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "initial_positions_file",
+                default_value="",
+                description=(
+                    "Optional absolute Panda initial-joint YAML. Empty keeps "
+                    "the accepted v2 ready configuration."
                 ),
             ),
             DeclareLaunchArgument(

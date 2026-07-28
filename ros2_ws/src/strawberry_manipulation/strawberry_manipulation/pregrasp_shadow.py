@@ -16,7 +16,7 @@ from typing import Mapping, Sequence
 from .core import Pose, pregrasp_pose_for_fruit_center
 from .grasp_geometry import load_grasp_geometry
 from .handoff_shadow import ARM_JOINT_NAMES, target_clock_is_coherent
-from .scene_geometry import STATIC_COLLISION_OBJECTS, fruit_collision_id
+from .scene_geometry import fruit_collision_id, static_collision_objects
 
 
 def _finite_float(value) -> float | None:
@@ -291,6 +291,11 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
     parser.add_argument("--handoff-json", type=Path, required=True)
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument(
+        "--scene-config",
+        type=Path,
+        help="Scene manifest that selects fruit and static collision geometry.",
+    )
+    parser.add_argument(
         "--target-topic", default="/strawberry/shadow/target_pose"
     )
     parser.add_argument(
@@ -331,12 +336,18 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
         apply_static_collision_scene,
     )
 
-    scene_path = (
-        Path(get_package_share_directory("strawberry_sim"))
-        / "config"
-        / "scene.yaml"
-    )
+    scene_path = options.scene_config
+    if scene_path is None:
+        scene_path = (
+            Path(get_package_share_directory("strawberry_sim"))
+            / "config"
+            / "scene.yaml"
+        )
+    scene_path = scene_path.resolve(strict=True)
     scene = load_scene_config(scene_path)
+    static_objects = static_collision_objects(
+        scene.static_collision_profile
+    )
     grasp_geometry_path = (
         Path(get_package_share_directory("strawberry_manipulation"))
         / "config"
@@ -350,7 +361,7 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
     expected_frame_id = scene.base_frame
     fruit_ids = tuple(fruit.target_id for fruit in scene.ordered_fruits)
     expected_collision_ids = [
-        specification.object_id for specification in STATIC_COLLISION_OBJECTS
+        specification.object_id for specification in static_objects
     ] + [fruit_collision_id(target_id) for target_id in fruit_ids]
 
     class PlanningInputNode(Node):
@@ -511,7 +522,9 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
             raise RuntimeError("live fruit truth uses an unexpected frame")
 
         apply_static_collision_scene(
-            planning_scene_monitor, expected_frame_id
+            planning_scene_monitor,
+            expected_frame_id,
+            static_objects,
         )
         apply_fruit_collision_scene(
             planning_scene_monitor,

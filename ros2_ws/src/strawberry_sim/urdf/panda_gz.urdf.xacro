@@ -253,7 +253,11 @@
       <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
       <state_interface name="velocity"/>
     </joint>
-    <joint name="panda_finger_joint2">
+    <!-- Disable ros2_control's mimic activation for this hardware interface:
+         DART does not apply the URDF mimic constraint, so a second controller
+         must command the physical simulation joint explicitly. -->
+    <joint name="panda_finger_joint2" mimic="false">
+      <command_interface name="position"/>
       <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
       <state_interface name="velocity"/>
     </joint>

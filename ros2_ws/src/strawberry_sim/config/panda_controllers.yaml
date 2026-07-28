@@ -9,6 +9,9 @@ controller_manager:
     panda_gripper_controller:
       type: parallel_gripper_action_controller/GripperActionController
 
+    panda_gripper_right_controller:
+      type: parallel_gripper_action_controller/GripperActionController
+
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
@@ -51,5 +54,15 @@ panda_gripper_controller:
     # finger displacement immediately after a long arm trajectory.  The old
     # 0.25 s gate could report a false stall at the fully open 0.04 m position.
     # Runtime manipulation still rejects any stalled close with <2 mm travel.
+    stall_timeout: 1.0
+    goal_tolerance: 0.003
+
+panda_gripper_right_controller:
+  ros__parameters:
+    joint: panda_finger_joint2
+    state_interfaces: [position, velocity]
+    allow_stalling: true
+    # DART does not enforce the Panda mimic constraint, so the right finger
+    # receives the same bounded command through its own single-joint action.
     stall_timeout: 1.0
     goal_tolerance: 0.003

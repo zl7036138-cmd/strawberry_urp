@@ -138,11 +138,18 @@ def main(args=None) -> int:  # pragma: no cover - ROS/Gazebo integration
                 "left": [],
                 "right": [],
             }
-            self.gripper = ActionClient(
-                self,
-                ParallelGripperCommand,
-                "/panda_gripper_controller/gripper_cmd",
-            )
+            self.grippers = {
+                FINGER_JOINTS[0]: ActionClient(
+                    self,
+                    ParallelGripperCommand,
+                    "/panda_gripper_controller/gripper_cmd",
+                ),
+                FINGER_JOINTS[1]: ActionClient(
+                    self,
+                    ParallelGripperCommand,
+                    "/panda_gripper_right_controller/gripper_cmd",
+                ),
+            }
             self.create_subscription(
                 JointState,
                 "/joint_states",
@@ -260,54 +267,82 @@ def main(args=None) -> int:  # pragma: no cover - ROS/Gazebo integration
                 name: self.latest_joints.get(name) for name in FINGER_JOINTS
             }
             started_sec = self.elapsed()
-            goal = ParallelGripperCommand.Goal()
-            goal.command.name = [FINGER_JOINTS[0]]
-            goal.command.position = [position_m]
-            goal.command.effort = [40.0]
-            handle = self.wait_future(
-                self.gripper.send_goal_async(goal),
-                options.action_timeout_sec,
-                f"gripper goal acceptance at {position_m}",
-            )
-            if not handle.accepted:
-                raise RuntimeError(f"gripper rejected position {position_m}")
-            wrapped = self.wait_future(
-                handle.get_result_async(),
-                options.action_timeout_sec,
-                f"gripper result at {position_m}",
-            )
-            state = _result_state(wrapped.result.state)
-            commanded = state.get(FINGER_JOINTS[0], {})
-            observed = commanded.get("position")
-            observed_source = "controller_result"
-            if observed is None:
-                observed = self.latest_joints.get(FINGER_JOINTS[0])
-                observed_source = "joint_states_fallback"
-            accepted = False
-            if observed is not None:
-                accepted = gripper_result_allows_command(
-                    target_position_m=position_m,
-                    observed_position_m=observed,
-                    open_position_m=open_width_m,
-                    closed_position_m=closed_width_m,
-                    stalled=bool(wrapped.result.stalled),
-                    reached_goal=bool(wrapped.result.reached_goal),
+            pending = {}
+            for joint_name, client in self.grippers.items():
+                goal = ParallelGripperCommand.Goal()
+                goal.command.name = [joint_name]
+                goal.command.position = [position_m]
+                goal.command.effort = [40.0]
+                pending[joint_name] = client.send_goal_async(goal)
+            handles = {
+                joint_name: self.wait_future(
+                    future,
+                    options.action_timeout_sec,
+                    f"{joint_name} goal acceptance at {position_m}",
                 )
+                for joint_name, future in pending.items()
+            }
+            for joint_name, handle in handles.items():
+                if not handle.accepted:
+                    raise RuntimeError(
+                        f"gripper rejected {joint_name} position {position_m}"
+                    )
+            wrapped_results = {
+                joint_name: self.wait_future(
+                    handle.get_result_async(),
+                    options.action_timeout_sec,
+                    f"{joint_name} result at {position_m}",
+                )
+                for joint_name, handle in handles.items()
+            }
+            per_joint = {}
+            for joint_name, wrapped in wrapped_results.items():
+                state = _result_state(wrapped.result.state)
+                observed = state.get(joint_name, {}).get("position")
+                observed_source = "controller_result"
+                if observed is None:
+                    observed = self.latest_joints.get(joint_name)
+                    observed_source = "joint_states_fallback"
+                accepted = bool(
+                    observed is not None
+                    and gripper_result_allows_command(
+                        target_position_m=position_m,
+                        observed_position_m=observed,
+                        open_position_m=open_width_m,
+                        closed_position_m=closed_width_m,
+                        stalled=bool(wrapped.result.stalled),
+                        reached_goal=bool(wrapped.result.reached_goal),
+                    )
+                )
+                per_joint[joint_name] = {
+                    "status": int(wrapped.status),
+                    "status_succeeded": (
+                        wrapped.status == GoalStatus.STATUS_SUCCEEDED
+                    ),
+                    "stalled": bool(wrapped.result.stalled),
+                    "reached_goal": bool(wrapped.result.reached_goal),
+                    "measured_position_validation_passed": accepted,
+                    "result_state": state,
+                    "observed_position_m": observed,
+                    "observed_position_source": observed_source,
+                }
             return {
                 "target_position_m_per_finger": position_m,
                 "started_elapsed_sec": round(started_sec, 6),
                 "completed_elapsed_sec": round(self.elapsed(), 6),
-                "status": int(wrapped.status),
-                "status_succeeded": (
-                    wrapped.status == GoalStatus.STATUS_SUCCEEDED
+                "status_succeeded": all(
+                    row["status_succeeded"] for row in per_joint.values()
                 ),
-                "stalled": bool(wrapped.result.stalled),
-                "reached_goal": bool(wrapped.result.reached_goal),
-                "measured_position_validation_passed": accepted,
+                "stalled": any(row["stalled"] for row in per_joint.values()),
+                "reached_goal": all(
+                    row["reached_goal"] for row in per_joint.values()
+                ),
+                "measured_position_validation_passed": all(
+                    row["measured_position_validation_passed"]
+                    for row in per_joint.values()
+                ),
                 "positions_before_m": before,
-                "result_state": state,
-                "observed_position_m": observed,
-                "observed_position_source": observed_source,
+                "per_joint": per_joint,
             }
 
     def motion_receipt(outcome) -> dict[str, object]:
@@ -354,7 +389,10 @@ def main(args=None) -> int:  # pragma: no cover - ROS/Gazebo integration
             if (
                 all(name in node.latest_joints for name in FINGER_JOINTS)
                 and node.truth_samples
-                and node.gripper.server_is_ready()
+                and all(
+                    client.server_is_ready()
+                    for client in node.grippers.values()
+                )
             ):
                 break
             time.sleep(0.05)

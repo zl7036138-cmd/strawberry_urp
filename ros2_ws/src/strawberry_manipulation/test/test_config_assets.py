@@ -96,6 +96,23 @@ def test_runtime_collision_users_take_radius_from_scene_manifest():
         assert "scene.fruit_collision_radius_m" in source
 
 
+def test_runtime_collision_users_take_static_profile_from_scene_manifest():
+    for relative_path in (
+        "strawberry_manipulation/action_server.py",
+        "strawberry_manipulation/handoff_shadow.py",
+        "strawberry_manipulation/pregrasp_shadow.py",
+    ):
+        source = (PACKAGE_ROOT / relative_path).read_text(encoding="utf-8")
+        assert "static_collision_objects" in source
+        assert "scene.static_collision_profile" in source
+
+    observation_source = (
+        REPOSITORY_ROOT / "scripts" / "move_wrist_observation_pose.py"
+    ).read_text(encoding="utf-8")
+    assert "static_collision_objects" in observation_source
+    assert "scene.static_collision_profile" in observation_source
+
+
 def test_execution_and_planning_shadow_share_scene_bound_grasp_geometry():
     action_source = (
         PACKAGE_ROOT / "strawberry_manipulation" / "action_server.py"

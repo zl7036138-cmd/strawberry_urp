@@ -1,3 +1,4 @@
+import math
 import pathlib
 import sys
 import unittest
@@ -7,12 +8,15 @@ PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
 from strawberry_manipulation.core import (  # noqa: E402
+    DEFAULT_TOOL_CENTER_OFFSET_M,
     FailureCode,
     MotionOutcome,
     PickAndPlaceExecutor,
     Pose,
+    alternate_approach,
     offset_along_local_z,
     pregrasp_pose_for_fruit_center,
+    rotate_about_base_z,
 )
 
 
@@ -127,6 +131,90 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
 
+    def test_grasp_collision_gets_one_alternate_orientation_retry(self):
+        backend = FakeBackend(
+            [
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+            ]
+        )
+        result = PickAndPlaceExecutor(backend).execute(
+            4, self.target, self.bin
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(backend.calls.count("GRASP_RETRY_PREP"), 1)
+        self.assertEqual(backend.calls.count("GRASP_POSE_RETRY"), 1)
+        poses = dict(backend.poses)
+        expected_grasp = alternate_approach(
+            poses["GRASP_POSE"]
+        )
+        self.assertEqual(poses["GRASP_POSE_RETRY"], expected_grasp)
+        self.assertEqual(
+            poses["RETREAT"].qx,
+            expected_grasp.qx,
+        )
+        self.assertEqual(
+            poses["RETREAT"].qy,
+            expected_grasp.qy,
+        )
+
+    def test_noncollision_grasp_failure_does_not_retry(self):
+        backend = FakeBackend(
+            [MotionOutcome(True), MotionOutcome(False)]
+        )
+        result = PickAndPlaceExecutor(backend).execute(
+            4, self.target, self.bin
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertNotIn("GRASP_RETRY_PREP", backend.calls)
+        self.assertNotIn("GRASP_POSE_RETRY", backend.calls)
+
+    def test_grasp_collision_checks_all_three_alternate_orientations(self):
+        backend = FakeBackend(
+            [
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+            ]
+        )
+        result = PickAndPlaceExecutor(backend).execute(
+            4, self.target, self.bin
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.COLLISION)
+        self.assertIn("three alternate orientations", result.message)
+        self.assertEqual(
+            [
+                stage
+                for stage in backend.calls
+                if stage.startswith("GRASP_RETRY_PREP")
+            ],
+            [
+                "GRASP_RETRY_PREP",
+                "GRASP_RETRY_PREP_2",
+                "GRASP_RETRY_PREP_3",
+            ],
+        )
+        original_grasp = dict(backend.poses)["GRASP_POSE"]
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["GRASP_POSE_RETRY_2"],
+            rotate_about_base_z(original_grasp, math.pi),
+        )
+
     def test_failure_after_attachment_detaches_before_recovery(self):
         backend = FakeBackend(
             [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False)]
@@ -214,6 +302,45 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertAlmostEqual(grasp_pose.x, self.target.x, places=6)
         self.assertAlmostEqual(grasp_pose.y, self.target.y, places=6)
         self.assertAlmostEqual(grasp_pose.z, self.target.z + 0.1054, places=6)
+
+    def test_refines_target_after_approach_before_grasp(self):
+        backend = FakeBackend()
+        refined = Pose(0.415, 0.092, 0.487)
+        executor = PickAndPlaceExecutor(
+            backend,
+            target_pose_refiner=lambda target_id, initial: refined,
+        )
+        result = executor.execute(7, self.target, self.bin)
+        self.assertTrue(result.success)
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["APPROACH"],
+            pregrasp_pose_for_fruit_center(self.target),
+        )
+        self.assertAlmostEqual(poses["GRASP_POSE"].x, refined.x, places=6)
+        self.assertAlmostEqual(poses["GRASP_POSE"].y, refined.y, places=6)
+        self.assertAlmostEqual(
+            poses["GRASP_POSE"].z,
+            refined.z + DEFAULT_TOOL_CENTER_OFFSET_M,
+            places=6,
+        )
+
+    def test_refinement_failure_aborts_before_contact_corridor_opens(self):
+        backend = FakeBackend()
+
+        def fail_refinement(target_id, initial):
+            raise RuntimeError("latest perception target is stale")
+
+        executor = PickAndPlaceExecutor(
+            backend,
+            target_pose_refiner=fail_refinement,
+        )
+        result = executor.execute(7, self.target, self.bin)
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.STALE_DATA)
+        self.assertIn("latest perception target is stale", result.message)
+        self.assertNotIn("allow_contact", backend.calls)
+        self.assertNotIn("GRASP_POSE", backend.calls)
 
     def test_planning_shadow_pregrasp_matches_executor_geometry(self):
         backend = FakeBackend()

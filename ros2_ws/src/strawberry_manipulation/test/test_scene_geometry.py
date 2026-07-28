@@ -11,11 +11,13 @@ sys.path.insert(0, str(PACKAGE_ROOT))
 from strawberry_manipulation.scene_geometry import (  # noqa: E402
     BoxPrimitive,
     CollisionObjectSpec,
+    FIELD_V3_STATIC_COLLISION_OBJECTS,
     FRUIT_COLLISION_RADIUS_M,
     SpherePrimitive,
     STATIC_COLLISION_OBJECTS,
     TABLE_TOP_PADDING_M,
     fruit_collision_id,
+    static_collision_objects,
 )
 
 
@@ -57,6 +59,93 @@ class SceneGeometryTests(unittest.TestCase):
             SpherePrimitive((0.0, 0.0, 0.0), 0.0)
         with self.assertRaises(ValueError):
             fruit_collision_id(0)
+        with self.assertRaisesRegex(
+            ValueError, "unknown static collision profile"
+        ):
+            static_collision_objects("missing")
+
+    def test_field_v3_geometry_matches_gazebo_sdf(self):
+        world_root = ET.parse(
+            SIM_ROOT / "worlds" / "strawberry_field_v3.sdf"
+        ).getroot()
+        field_root = ET.parse(
+            SIM_ROOT / "models" / "strawberry_field_v3" / "model.sdf"
+        ).getroot()
+        bin_root = ET.parse(
+            SIM_ROOT / "models" / "collection_bin" / "model.sdf"
+        ).getroot()
+        plant_root = ET.parse(
+            SIM_ROOT / "models" / "strawberry_plant_v2" / "model.sdf"
+        ).getroot()
+
+        field_boxes = _collision_boxes(field_root.find("./model"))
+        bin_boxes = _collision_boxes(bin_root.find("./model"))
+        crown = plant_root.find(
+            "./model/link/collision[@name='crown_collision']"
+        )
+        self.assertIsNotNone(crown)
+        crown_pose = tuple(
+            float(value) for value in crown.findtext("pose").split()
+        )
+        crown_radius = float(crown.findtext("geometry/cylinder/radius"))
+        crown_length = float(crown.findtext("geometry/cylinder/length"))
+
+        includes = {
+            include.findtext("name"): include
+            for include in world_root.findall("./world/include")
+        }
+        bin_pose = tuple(
+            float(value)
+            for value in includes["collection_bin"].findtext("pose").split()
+        )
+        plant_pose = tuple(
+            float(value)
+            for value in includes["strawberry_plant"].findtext("pose").split()
+        )
+        moveit_boxes = {
+            specification.object_id: tuple(
+                (box.center_m, box.size_m) for box in specification.boxes
+            )
+            for specification in FIELD_V3_STATIC_COLLISION_OBJECTS
+        }
+
+        for index, object_id in enumerate(
+            ("field_ground", "field_ridge_1", "field_ridge_2", "field_ridge_3")
+        ):
+            self.assertEqual(moveit_boxes[object_id], (field_boxes[index],))
+        self.assertEqual(
+            moveit_boxes["collection_bin"],
+            tuple(
+                (
+                    tuple(
+                        round(center[axis] + bin_pose[axis], 9)
+                        for axis in range(3)
+                    ),
+                    size,
+                )
+                for center, size in bin_boxes
+            ),
+        )
+        self.assertEqual(
+            moveit_boxes["strawberry_plant_crown"],
+            (
+                (
+                    tuple(
+                        round(crown_pose[axis] + plant_pose[axis], 9)
+                        for axis in range(3)
+                    ),
+                    (
+                        2.0 * crown_radius,
+                        2.0 * crown_radius,
+                        crown_length,
+                    ),
+                ),
+            ),
+        )
+        self.assertIs(
+            static_collision_objects("field_v3"),
+            FIELD_V3_STATIC_COLLISION_OBJECTS,
+        )
 
     def test_fruit_collision_contract_matches_gazebo_assets(self):
         self.assertEqual(fruit_collision_id(3), "strawberry_fruit_3")

@@ -16,6 +16,7 @@ class GraspGeometryProfile:
     tool_center_offset_m: float
     gripper_open_width_m_per_finger: float
     gripper_closed_width_m_per_finger: float
+    gripper_position_tolerance_m_per_finger: float
 
     def __post_init__(self) -> None:
         values = (
@@ -23,6 +24,7 @@ class GraspGeometryProfile:
             self.tool_center_offset_m,
             self.gripper_open_width_m_per_finger,
             self.gripper_closed_width_m_per_finger,
+            self.gripper_position_tolerance_m_per_finger,
         )
         if not self.profile_id or not self.world_name:
             raise ValueError("grasp profile identity must be non-empty")
@@ -74,6 +76,12 @@ def profiles_from_mapping(
                 ),
                 gripper_closed_width_m_per_finger=float(
                     row.get("gripper_closed_width_m_per_finger", 0.0)
+                ),
+                gripper_position_tolerance_m_per_finger=float(
+                    row.get(
+                        "gripper_position_tolerance_m_per_finger",
+                        0.0,
+                    )
                 ),
             )
         )

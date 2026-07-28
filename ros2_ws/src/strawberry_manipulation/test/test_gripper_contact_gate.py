@@ -110,6 +110,10 @@ class GripperContactGateTests(unittest.TestCase):
         self.assertNotIn("PickAndPlace", probe)
         self.assertNotIn("MoveIt", probe)
         self.assertIn('"pick_action_started": False', probe)
+        self.assertIn(
+            '"/panda_gripper_right_controller/gripper_cmd"',
+            probe,
+        )
 
     def test_contract_if_present_has_narrow_authority(self):
         path = (

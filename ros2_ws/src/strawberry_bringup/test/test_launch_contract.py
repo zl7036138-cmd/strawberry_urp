@@ -80,6 +80,20 @@ class LaunchContractTests(unittest.TestCase):
         self.assertIn('world_file = LaunchConfiguration("world_file")', text)
         self.assertIn('"world_file": world_file', text)
 
+    def test_initial_joint_file_is_an_explicit_simulation_override(self) -> None:
+        text = (PACKAGE_ROOT / "launch" / "system.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            text,
+            r'DeclareLaunchArgument\(\s*"initial_positions_file",\s*default_value=""',
+        )
+        self.assertIn(
+            'initial_positions_file = LaunchConfiguration("initial_positions_file")',
+            text,
+        )
+        self.assertIn('"initial_positions_file": initial_positions_file', text)
+
     def test_scene_geometry_is_shared_with_localization(self) -> None:
         text = (PACKAGE_ROOT / "launch" / "system.launch.py").read_text(
             encoding="utf-8"

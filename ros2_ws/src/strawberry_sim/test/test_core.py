@@ -39,6 +39,7 @@ class SimulationCoreTests(unittest.TestCase):
     def test_scene_contract(self):
         scene = scene_config_from_mapping(scene_mapping())
         self.assertEqual(scene.fruit_collision_radius_m, 0.026)
+        self.assertEqual(scene.static_collision_profile, "blender_v2")
         self.assertEqual([item.target_id for item in scene.ordered_fruits], [1, 2])
         self.assertEqual(scene.fruit(1).maturity, "RIPE")
         self.assertEqual(
@@ -68,6 +69,14 @@ class SimulationCoreTests(unittest.TestCase):
         del mapping["fruit_collision_radius_m"]
         scene = scene_config_from_mapping(mapping)
         self.assertEqual(scene.fruit_collision_radius_m, 0.035)
+
+    def test_scene_accepts_explicit_static_collision_profile(self):
+        mapping = scene_mapping()
+        mapping["planning_scene"] = {
+            "static_collision_profile": "field_v3",
+        }
+        scene = scene_config_from_mapping(mapping)
+        self.assertEqual(scene.static_collision_profile, "field_v3")
 
     def test_bin_stability_requires_uninterrupted_time(self):
         bounds = BinBounds(0, 1, -1, 0, 0, 1)

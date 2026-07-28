@@ -31,6 +31,9 @@ class GraspGeometryProfileTests(unittest.TestCase):
         self.assertEqual(v2.profile_id, "blender_v2_26mm")
         self.assertEqual(v2.tool_center_offset_m, 0.0964)
         self.assertEqual(v2.gripper_closed_width_m_per_finger, 0.022)
+        self.assertEqual(
+            v2.gripper_position_tolerance_m_per_finger, 0.0039
+        )
         self.assertEqual(legacy.profile_id, "tabletop_v1_35mm")
         self.assertEqual(legacy.tool_center_offset_m, 0.1054)
         self.assertEqual(legacy.gripper_closed_width_m_per_finger, 0.025)
@@ -66,6 +69,7 @@ class GraspGeometryProfileTests(unittest.TestCase):
                     "tool_center_offset_m": 0.0964,
                     "gripper_open_width_m_per_finger": 0.04,
                     "gripper_closed_width_m_per_finger": 0.026,
+                    "gripper_position_tolerance_m_per_finger": 0.003,
                 }
             ],
         }
@@ -88,8 +92,9 @@ class GraspGeometryProfileTests(unittest.TestCase):
             (
                 selected.tool_center_offset_m,
                 selected.gripper_closed_width_m_per_finger,
+                selected.gripper_position_tolerance_m_per_finger,
             ),
-            (0.0964, 0.022),
+            (0.0964, 0.022, 0.0039),
         )
 
 

@@ -135,11 +135,18 @@ def main() -> int:  # pragma: no cover - ROS/Gazebo integration
             self.detach_client = self.create_client(
                 Trigger, f"{prefix}/detach"
             )
-            self.gripper_client = ActionClient(
-                self,
-                ParallelGripperCommand,
-                "/panda_gripper_controller/gripper_cmd",
-            )
+            self.gripper_clients = {
+                FINGER_JOINTS[0]: ActionClient(
+                    self,
+                    ParallelGripperCommand,
+                    "/panda_gripper_controller/gripper_cmd",
+                ),
+                FINGER_JOINTS[1]: ActionClient(
+                    self,
+                    ParallelGripperCommand,
+                    "/panda_gripper_right_controller/gripper_cmd",
+                ),
+            }
             self.create_subscription(
                 JointState,
                 "/joint_states",
@@ -304,40 +311,68 @@ def main() -> int:  # pragma: no cover - ROS/Gazebo integration
             )
 
         def command_gripper(self, position_m: float) -> dict[str, object]:
-            goal = ParallelGripperCommand.Goal()
-            goal.command.name = ["panda_finger_joint1"]
-            goal.command.position = [position_m]
-            goal.command.effort = [
-                float(parameters["gripper_effort_n"])
-            ]
-            handle = self.wait_future(
-                self.gripper_client.send_goal_async(goal),
-                action_timeout,
-                f"accept gripper {position_m}",
-            )
-            if not handle.accepted:
-                raise RuntimeError(f"gripper rejected {position_m}")
-            wrapped = self.wait_future(
-                handle.get_result_async(),
-                action_timeout,
-                f"complete gripper {position_m}",
-            )
-            result = wrapped.result
-            state = result.state
-            return {
-                "command_m_per_finger": position_m,
-                "status": int(wrapped.status),
-                "status_succeeded": (
-                    wrapped.status == GoalStatus.STATUS_SUCCEEDED
-                ),
-                "reached_goal": bool(result.reached_goal),
-                "stalled": bool(result.stalled),
-                "result_state": {
+            pending = {}
+            for joint_name, client in self.gripper_clients.items():
+                goal = ParallelGripperCommand.Goal()
+                goal.command.name = [joint_name]
+                goal.command.position = [position_m]
+                goal.command.effort = [
+                    float(parameters["gripper_effort_n"])
+                ]
+                pending[joint_name] = client.send_goal_async(goal)
+            handles = {
+                joint_name: self.wait_future(
+                    future,
+                    action_timeout,
+                    f"accept {joint_name} at {position_m}",
+                )
+                for joint_name, future in pending.items()
+            }
+            for joint_name, handle in handles.items():
+                if not handle.accepted:
+                    raise RuntimeError(
+                        f"gripper rejected {joint_name} at {position_m}"
+                    )
+            wrapped_results = {
+                joint_name: self.wait_future(
+                    handle.get_result_async(),
+                    action_timeout,
+                    f"complete {joint_name} at {position_m}",
+                )
+                for joint_name, handle in handles.items()
+            }
+            per_joint = {}
+            result_state = {}
+            for joint_name, wrapped in wrapped_results.items():
+                result = wrapped.result
+                state = result.state
+                state_positions = {
                     str(name): float(value)
                     for name, value in zip(
                         state.name, state.position, strict=False
                     )
-                },
+                }
+                result_state.update(state_positions)
+                per_joint[joint_name] = {
+                    "status": int(wrapped.status),
+                    "status_succeeded": (
+                        wrapped.status == GoalStatus.STATUS_SUCCEEDED
+                    ),
+                    "reached_goal": bool(result.reached_goal),
+                    "stalled": bool(result.stalled),
+                    "result_state": state_positions,
+                }
+            return {
+                "command_m_per_finger": position_m,
+                "status_succeeded": all(
+                    row["status_succeeded"] for row in per_joint.values()
+                ),
+                "reached_goal": all(
+                    row["reached_goal"] for row in per_joint.values()
+                ),
+                "stalled": any(row["stalled"] for row in per_joint.values()),
+                "result_state": result_state,
+                "per_joint": per_joint,
             }
 
     rclpy.init(args=ros_args)
@@ -358,7 +393,10 @@ def main() -> int:  # pragma: no cover - ROS/Gazebo integration
                 and node.pose_client.service_is_ready()
                 and node.attach_client.service_is_ready()
                 and node.detach_client.service_is_ready()
-                and node.gripper_client.server_is_ready()
+                and all(
+                    client.server_is_ready()
+                    for client in node.gripper_clients.values()
+                )
             ),
             startup_timeout,
             "joint state, truth, services, and gripper action",

@@ -15,7 +15,7 @@ from .moveit_scene import (
     apply_static_collision_scene,
     set_target_fruit_collision,
 )
-from .scene_geometry import FRUIT_COLLISION_RADIUS_M
+from .scene_geometry import FRUIT_COLLISION_RADIUS_M, STATIC_COLLISION_OBJECTS
 
 
 def gripper_result_allows_command(
@@ -80,10 +80,15 @@ class MoveItBackend:
         base_frame: str = "panda_link0",
         home_configuration: str = "ready",
         gripper_action: str = "/panda_gripper_controller/gripper_cmd",
+        gripper_secondary_action: str = (
+            "/panda_gripper_right_controller/gripper_cmd"
+        ),
         arm_action: str = "/panda_arm_controller/follow_joint_trajectory",
         gripper_joint: str = "panda_finger_joint1",
+        gripper_secondary_joint: str = "panda_finger_joint2",
         open_width_m: float = 0.04,
         closed_width_m: float = 0.025,
+        gripper_position_tolerance_m: float = 0.003,
         max_effort_n: float = 40.0,
         request_timeout_sec: float = 5.0,
         startup_timeout_sec: float = 30.0,
@@ -101,9 +106,11 @@ class MoveItBackend:
         max_orientation_segment_rad: float = math.radians(10.0),
         max_collision_joint_step_rad: float = 0.01,
         safe_transit_clearance_m: float = 0.02,
+        place_transit_clearance_m: float | None = None,
         safe_transit_corridor_y_m: float = -0.10,
         fruit_obstacles: dict[int, Pose] | None = None,
         fruit_collision_radius_m: float = FRUIT_COLLISION_RADIUS_M,
+        static_collision_objects=STATIC_COLLISION_OBJECTS,
         fruit_pose_provider: Callable[
             [], Mapping[int, tuple[float, float, float]]
         ]
@@ -133,12 +140,19 @@ class MoveItBackend:
             not planning_group
             or not pose_link
             or not base_frame
+            or not gripper_action
+            or not gripper_secondary_action
             or not gripper_joint
+            or not gripper_secondary_joint
             or not arm_action
         ):
             raise ValueError("planning group and frame names must be non-empty")
+        if gripper_joint == gripper_secondary_joint:
+            raise ValueError("gripper joint names must be distinct")
         if not 0.0 <= closed_width_m < open_width_m:
             raise ValueError("gripper widths must satisfy 0 <= closed < open")
+        if gripper_position_tolerance_m <= 0.0:
+            raise ValueError("gripper position tolerance must be positive")
         if request_timeout_sec <= 0.0:
             raise ValueError("request timeout must be positive")
         if startup_timeout_sec <= 0.0:
@@ -170,6 +184,10 @@ class MoveItBackend:
             raise ValueError("collision-check joint step must be positive")
         if safe_transit_clearance_m <= 0.0:
             raise ValueError("safe transit clearance must be positive")
+        if place_transit_clearance_m is None:
+            place_transit_clearance_m = safe_transit_clearance_m
+        if place_transit_clearance_m <= 0.0:
+            raise ValueError("place transit clearance must be positive")
         if not math.isfinite(safe_transit_corridor_y_m):
             raise ValueError("safe transit corridor must be finite")
         if fruit_collision_radius_m <= 0.0:
@@ -182,8 +200,16 @@ class MoveItBackend:
         self.base_frame = base_frame
         self.home_configuration = home_configuration
         self.gripper_joint = gripper_joint
+        self.gripper_secondary_joint = gripper_secondary_joint
+        self.gripper_joints = (
+            self.gripper_joint,
+            self.gripper_secondary_joint,
+        )
         self.open_width_m = float(open_width_m)
         self.closed_width_m = float(closed_width_m)
+        self.gripper_position_tolerance_m = float(
+            gripper_position_tolerance_m
+        )
         self.max_effort_n = float(max_effort_n)
         self.request_timeout_sec = float(request_timeout_sec)
         self.startup_timeout_sec = float(startup_timeout_sec)
@@ -211,10 +237,22 @@ class MoveItBackend:
             max_collision_joint_step_rad
         )
         self.safe_transit_clearance_m = float(safe_transit_clearance_m)
+        self.place_transit_clearance_m = float(
+            place_transit_clearance_m
+        )
         self.safe_transit_corridor_y_m = float(
             safe_transit_corridor_y_m
         )
         self.fruit_collision_radius_m = float(fruit_collision_radius_m)
+        self.static_collision_objects = tuple(static_collision_objects)
+        static_collision_ids = [
+            specification.object_id
+            for specification in self.static_collision_objects
+        ]
+        if not static_collision_ids:
+            raise ValueError("static collision scene must not be empty")
+        if len(static_collision_ids) != len(set(static_collision_ids)):
+            raise ValueError("static collision object IDs must be unique")
         # Preserve the declared manifest as a fallback only for dependency-light
         # tests. Runtime simulation supplies a fresh all-fruit truth snapshot
         # before every goal so dynamic scenes cannot leave ghost obstacles.
@@ -246,8 +284,16 @@ class MoveItBackend:
             gripper_action,
             callback_group=self._callback_group,
         )
+        self._gripper_secondary = ActionClient(
+            node,
+            ParallelGripperCommand,
+            gripper_secondary_action,
+            callback_group=self._callback_group,
+        )
         self._gripper_state_lock = threading.Lock()
-        self._latest_gripper_position_m = None
+        self._latest_gripper_positions_m = {
+            joint_name: None for joint_name in self.gripper_joints
+        }
         self._gripper_state_subscription = node.create_subscription(
             JointState,
             "/joint_states",
@@ -258,7 +304,9 @@ class MoveItBackend:
         self._service_clients: dict[tuple[int, str], object] = {}
         self._wait_until_runtime_ready()
         self.static_collision_ids = apply_static_collision_scene(
-            self._planning_scene_monitor, self.base_frame
+            self._planning_scene_monitor,
+            self.base_frame,
+            self.static_collision_objects,
         )
         self.node.get_logger().info(
             "MoveIt static collision scene loaded: "
@@ -286,10 +334,12 @@ class MoveItBackend:
         for name, position in zip(
             message.name, message.position, strict=False
         ):
-            if str(name) == self.gripper_joint:
+            joint_name = str(name)
+            if joint_name in self.gripper_joints:
                 with self._gripper_state_lock:
-                    self._latest_gripper_position_m = float(position)
-                return
+                    self._latest_gripper_positions_m[joint_name] = float(
+                        position
+                    )
 
     @staticmethod
     def _build_fruit_manifest(fruit_obstacles) -> MappingProxyType:
@@ -457,7 +507,10 @@ class MoveItBackend:
             raise RuntimeError("Panda arm trajectory action server is unavailable")
         remaining = max(0.0, deadline - time.monotonic())
         if not self._gripper.wait_for_server(timeout_sec=remaining):
-            raise RuntimeError("Panda gripper action server is unavailable")
+            raise RuntimeError("Panda left gripper action server is unavailable")
+        remaining = max(0.0, deadline - time.monotonic())
+        if not self._gripper_secondary.wait_for_server(timeout_sec=remaining):
+            raise RuntimeError("Panda right gripper action server is unavailable")
 
     @staticmethod
     def _wait_future(future, timeout_sec: float):
@@ -1013,7 +1066,9 @@ class MoveItBackend:
         """Enter the open collection bin vertically instead of through a wall."""
 
         current = self._current_link_pose()
-        safe_z = max(current.z, target.z) + self.safe_transit_clearance_m
+        safe_z = (
+            max(current.z, target.z) + self.place_transit_clearance_m
+        )
         waypoints = (
             ("vertical lift", Pose(
                 current.x,
@@ -1142,74 +1197,183 @@ class MoveItBackend:
             execution_time,
         )
 
+    def _move_to_named_configuration_direct(
+        self, configuration: str
+    ) -> MotionOutcome:
+        """Plan a named posture and execute it through the bounded arm client.
+
+        Recovery and final-home motions must not depend on MoveItPy's
+        controller-manager wait, which can remain blocked after the underlying
+        trajectory controller has already reported success. The direct client
+        is probed during startup and enforces a wall-time deadline.
+        """
+
+        if not self._wait_until_arm_settled():
+            return MotionOutcome(False, 0.0, 0.0)
+        self._arm.set_start_state_to_current_state()
+        self._arm.set_goal_state(configuration_name=configuration)
+        planning_started = time.perf_counter()
+        try:
+            plan_result = self._arm.plan()
+        except Exception as exc:
+            self.node.get_logger().error(f"MoveIt planning exception: {exc}")
+            return MotionOutcome(
+                False, time.perf_counter() - planning_started, 0.0
+            )
+        planning_time = time.perf_counter() - planning_started
+        if not plan_result:
+            return MotionOutcome(False, planning_time, 0.0)
+
+        trajectory = plan_result.trajectory
+        waypoint_count = len(trajectory)
+        if waypoint_count < 2:
+            self.node.get_logger().error(
+                "MoveIt named-configuration plan contains fewer than two "
+                "waypoints"
+            )
+            return MotionOutcome(False, planning_time, 0.0)
+        positions = tuple(
+            tuple(
+                float(value)
+                for value in trajectory[index].get_joint_group_positions(
+                    self.planning_group
+                )
+            )
+            for index in range(waypoint_count)
+        )
+        if any(
+            len(values) != len(self._arm_joint_names)
+            for values in positions
+        ):
+            self.node.get_logger().error(
+                "MoveIt named-configuration plan has an invalid arm state"
+            )
+            return MotionOutcome(False, planning_time, 0.0)
+        executed, execution_time = self._execute_joint_path(
+            positions[0], positions[1:]
+        )
+        if executed:
+            executed = self._wait_until_arm_settled()
+        return MotionOutcome(executed, planning_time, execution_time)
+
     def move_to(self, pose: Pose, stage: str) -> MotionOutcome:
         self.node.get_logger().info(f"MoveIt stage {stage}")
         if stage == "WRIST_OBSERVATION":
             return self._move_to_planned_joint_path(pose)
         if stage in {"APPROACH", "APPROACH_RETRY"}:
             return self._move_guarded_approach(pose)
-        if stage in {"GRASP_POSE", "RETREAT"}:
+        if stage in {
+            "GRASP_POSE",
+            "GRASP_RETRY_PREP",
+            "GRASP_POSE_RETRY",
+            "RETREAT",
+        } or stage.startswith(("GRASP_RETRY_PREP_", "GRASP_POSE_RETRY_")):
             return self._move_to_segmented(pose)
         if stage == "PLACE":
             return self._move_guarded_place(pose)
         return self._plan_and_execute(pose=pose)
 
     def _gripper_command(self, position: float) -> bool:
-        if not self._gripper.wait_for_server(timeout_sec=self.request_timeout_sec):
-            self.node.get_logger().error("gripper action server is unavailable")
-            return False
-        goal = self._ParallelGripperCommand.Goal()
-        goal.command.name = [self.gripper_joint]
-        goal.command.position = [float(position)]
-        goal.command.effort = [self.max_effort_n]
-        goal_handle = self._wait_future(
-            self._gripper.send_goal_async(goal), self.request_timeout_sec
+        grippers = (
+            (self.gripper_joint, self._gripper),
+            (self.gripper_secondary_joint, self._gripper_secondary),
         )
-        if goal_handle is None or not goal_handle.accepted:
-            return False
-        wrapped = self._wait_future(
-            goal_handle.get_result_async(), self.request_timeout_sec
-        )
-        if wrapped is None:
-            return False
-        result = wrapped.result
-        state_positions = dict(
-            zip(result.state.name, result.state.position, strict=False)
-        )
-        observed_position = state_positions.get(self.gripper_joint)
-        observed_source = "controller_result"
-        if observed_position is None:
-            with self._gripper_state_lock:
-                observed_position = self._latest_gripper_position_m
-            observed_source = "joint_states_fallback"
-        if observed_position is None:
-            self.node.get_logger().error(
-                "gripper position is absent from both the controller result "
-                "and live joint states"
+        for joint_name, client in grippers:
+            if not client.wait_for_server(timeout_sec=self.request_timeout_sec):
+                self.node.get_logger().error(
+                    f"gripper action server is unavailable for {joint_name}"
+                )
+                return False
+
+        pending_goals = []
+        for joint_name, client in grippers:
+            goal = self._ParallelGripperCommand.Goal()
+            goal.command.name = [joint_name]
+            goal.command.position = [float(position)]
+            goal.command.effort = [self.max_effort_n]
+            pending_goals.append(
+                (
+                    joint_name,
+                    self._wait_future(
+                        client.send_goal_async(goal),
+                        self.request_timeout_sec,
+                    ),
+                )
             )
-            return False
-        self.node.get_logger().info(
-            "gripper result: target_m="
-            f"{position:.6f}, observed_m={float(observed_position):.6f}, "
-            f"source={observed_source}, "
-            f"stalled={bool(result.stalled)}, "
-            f"reached_goal={bool(result.reached_goal)}"
-        )
-        accepted = gripper_result_allows_command(
-            target_position_m=position,
-            observed_position_m=float(observed_position),
-            open_position_m=self.open_width_m,
-            closed_position_m=self.closed_width_m,
-            stalled=bool(result.stalled),
-            reached_goal=bool(result.reached_goal),
-        )
-        if not accepted:
-            self.node.get_logger().error(
-                "gripper result failed measured-position validation"
+
+        goal_handles = []
+        for joint_name, goal_handle in pending_goals:
+            if goal_handle is None or not goal_handle.accepted:
+                self.node.get_logger().error(
+                    f"gripper goal was rejected for {joint_name}"
+                )
+                return False
+            goal_handles.append((joint_name, goal_handle))
+
+        accepted = True
+        for joint_name, goal_handle in goal_handles:
+            wrapped = self._wait_future(
+                goal_handle.get_result_async(), self.request_timeout_sec
             )
+            if wrapped is None:
+                self.node.get_logger().error(
+                    f"gripper result timed out for {joint_name}"
+                )
+                accepted = False
+                continue
+            result = wrapped.result
+            state_positions = dict(
+                zip(result.state.name, result.state.position, strict=False)
+            )
+            observed_position = state_positions.get(joint_name)
+            observed_source = "controller_result"
+            if observed_position is None:
+                with self._gripper_state_lock:
+                    observed_position = self._latest_gripper_positions_m.get(
+                        joint_name
+                    )
+                observed_source = "joint_states_fallback"
+            if observed_position is None:
+                self.node.get_logger().error(
+                    f"{joint_name} position is absent from both the controller "
+                    "result and live joint states"
+                )
+                accepted = False
+                continue
+            self.node.get_logger().info(
+                f"gripper result ({joint_name}): target_m="
+                f"{position:.6f}, observed_m={float(observed_position):.6f}, "
+                f"source={observed_source}, "
+                f"stalled={bool(result.stalled)}, "
+                f"reached_goal={bool(result.reached_goal)}"
+            )
+            joint_accepted = gripper_result_allows_command(
+                target_position_m=position,
+                observed_position_m=float(observed_position),
+                open_position_m=self.open_width_m,
+                closed_position_m=self.closed_width_m,
+                stalled=bool(result.stalled),
+                reached_goal=bool(result.reached_goal),
+                position_tolerance_m=self.gripper_position_tolerance_m,
+            )
+            if not joint_accepted:
+                self.node.get_logger().error(
+                    f"gripper result failed measured-position validation for "
+                    f"{joint_name}"
+                )
+                accepted = False
         return accepted
 
     def close_gripper(self) -> bool:
+        if self._gripper_command(self.closed_width_m):
+            return True
+        self.node.get_logger().warning(
+            "gripper close produced no validated travel; resetting the open "
+            "command before one bounded retry"
+        )
+        if not self._gripper_command(self.open_width_m):
+            return False
+        time.sleep(self.settle_sample_period_sec)
         return self._gripper_command(self.closed_width_m)
 
     def open_gripper(self) -> bool:
@@ -1253,7 +1417,9 @@ class MoveItBackend:
         return self._trigger(target_id, "verify_in_bin")
 
     def move_home(self) -> bool:
-        return self._plan_and_execute(configuration=self.home_configuration).success
+        return self._move_to_named_configuration_direct(
+            self.home_configuration
+        ).success
 
     def shutdown(self) -> bool:
         """Stop MoveItPy's worker thread while retaining the Python object.

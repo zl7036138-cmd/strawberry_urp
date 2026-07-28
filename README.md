@@ -161,6 +161,25 @@ repeatability, varied-pose, hardware, or fruit-damage qualification. See
 [`ADR 0057`](docs/decisions/0057-accept-natural-plant-perception-pick.md) and
 [`docs/natural-plant-perception-pick-v1.md`](docs/natural-plant-perception-pick-v1.md).
 
+The user-supplied `st1.blend` field is now an opt-in `field-v3` scene rather
+than a replacement for Blender-v2. It retains 101 instanced background plants,
+places the qualified v2 workcell in one outer-row bay, and uses a base overview
+camera plus wrist RGB-D camera. After passing its no-motion localization and
+collision-planning gates, the exact fixed-scene runner completed three
+consecutive perception-derived pick/place cycles. Every cycle records
+bilateral raw and processed fruit contact, `attached -> detached`, all seven
+action stages, open-gripper recovery, and return to `ready`.
+
+Field-v3 uses two explicit single-joint gripper controllers because DART does
+not enforce the Panda right-finger mimic constraint. The backend sends both
+goals together and independently validates both measured finger positions.
+This is fixed-target, fixed-seed, non-formal simulator evidence; it does not
+qualify varied plants/poses, arbitrary fruit coverage, fruit damage, hardware,
+sim-to-real transfer, or the detector's failed numeric gate. Reproduction and
+evidence hashes are in
+[`docs/field-v3-integration.md`](docs/field-v3-integration.md) and
+[`ADR 0060`](docs/decisions/0060-accept-field-v3-perception-pick-repeat.md).
+
 ## Stage status
 
 | Stage | Status | Exit gate |
@@ -177,7 +196,7 @@ Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
 Latest verified local baseline (2026-07-28): all seven packages build and all
-376 colcon tests pass with no errors, failures, or skips in
+396 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

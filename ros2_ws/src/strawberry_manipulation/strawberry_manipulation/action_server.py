@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import math
 import os
 import signal
 import sys
 import threading
 import time
 
-from .core import FailureCode, PickAndPlaceExecutor, Pose
+from .core import PickAndPlaceExecutor, Pose
 from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
 
@@ -37,12 +38,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from rclpy.qos import qos_profile_sensor_data
         from geometry_msgs.msg import PoseArray
         from strawberry_interfaces.action import PickAndPlace
+        from strawberry_interfaces.msg import TargetPose
         from strawberry_sim.core import load_scene_config
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
 
     from .moveit_backend import MoveItBackend
     from .moveit_config import build_moveit_config
+    from .scene_geometry import static_collision_objects
 
     class PickAndPlaceServer(Node):
         def __init__(self) -> None:
@@ -85,11 +88,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "gripper_action", "/panda_gripper_controller/gripper_cmd"
             )
             self.declare_parameter(
+                "gripper_secondary_action",
+                "/panda_gripper_right_controller/gripper_cmd",
+            )
+            self.declare_parameter(
                 "arm_action", "/panda_arm_controller/follow_joint_trajectory"
             )
             self.declare_parameter("gripper_joint", "panda_finger_joint1")
-            # The parallel-gripper controller commands panda_finger_joint1;
-            # 0.04 m per finger corresponds to the 0.08 m total opening.
+            self.declare_parameter(
+                "gripper_secondary_joint", "panda_finger_joint2"
+            )
+            # DART does not enforce the Panda mimic constraint. Two
+            # single-joint actions therefore receive the same per-finger
+            # target; 0.04 m each is the 0.08 m total opening.
             self.declare_parameter(
                 "gripper_open_width_m",
                 grasp_geometry.gripper_open_width_m_per_finger,
@@ -99,6 +110,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter(
                 "gripper_closed_width_m",
                 grasp_geometry.gripper_closed_width_m_per_finger,
+            )
+            self.declare_parameter(
+                "gripper_position_tolerance_m",
+                grasp_geometry.gripper_position_tolerance_m_per_finger,
             )
             self.declare_parameter("gripper_max_effort_n", 40.0)
             self.declare_parameter("request_timeout_sec", 5.0)
@@ -120,8 +135,18 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("max_orientation_segment_rad", 0.174533)
             self.declare_parameter("max_collision_joint_step_rad", 0.01)
             self.declare_parameter("safe_transit_clearance_m", 0.02)
+            self.declare_parameter("place_transit_clearance_m", 0.02)
             self.declare_parameter("safe_transit_corridor_y_m", -0.10)
             self.declare_parameter("ground_truth_pose_timeout_sec", 2.0)
+            self.declare_parameter("target_refinement_topic", "")
+            self.declare_parameter("target_refinement_timeout_sec", 3.0)
+            self.declare_parameter(
+                "target_refinement_max_correction_m", 0.05
+            )
+            self.declare_parameter(
+                "target_refinement_min_confidence", 0.31
+            )
+            self.declare_parameter("target_refinement_max_sigma_m", 0.015)
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
             self.declare_parameter("bin_stability_sec", 1.0)
@@ -161,6 +186,52 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self._on_ground_truth_poses,
                 qos_profile_sensor_data,
             )
+            target_refinement_topic = str(
+                self.get_parameter("target_refinement_topic").value
+            ).strip()
+            self._target_refinement_lock = threading.Lock()
+            self._target_refinement_samples = {}
+            self._target_refinement_timeout_sec = float(
+                self.get_parameter("target_refinement_timeout_sec").value
+            )
+            self._target_refinement_max_correction_m = float(
+                self.get_parameter(
+                    "target_refinement_max_correction_m"
+                ).value
+            )
+            self._target_refinement_min_confidence = float(
+                self.get_parameter(
+                    "target_refinement_min_confidence"
+                ).value
+            )
+            self._target_refinement_max_sigma_m = float(
+                self.get_parameter("target_refinement_max_sigma_m").value
+            )
+            if (
+                self._target_refinement_timeout_sec <= 0.0
+                or self._target_refinement_max_correction_m <= 0.0
+                or not 0.0
+                <= self._target_refinement_min_confidence
+                <= 1.0
+                or self._target_refinement_max_sigma_m <= 0.0
+            ):
+                raise ValueError("target refinement limits are invalid")
+            self._target_refinement_subscription = None
+            target_pose_refiner = None
+            if target_refinement_topic:
+                self._target_refinement_subscription = (
+                    self.create_subscription(
+                        TargetPose,
+                        target_refinement_topic,
+                        self._on_target_refinement,
+                        qos_profile_sensor_data,
+                    )
+                )
+                target_pose_refiner = self._refine_target_pose
+                self.get_logger().info(
+                    "Near-grasp visual refinement enabled on "
+                    f"{target_refinement_topic}"
+                )
             backend = MoveItBackend(
                 self,
                 planning_group=str(self.get_parameter("planning_group").value),
@@ -170,13 +241,24 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("home_configuration").value
                 ),
                 gripper_action=str(self.get_parameter("gripper_action").value),
+                gripper_secondary_action=str(
+                    self.get_parameter("gripper_secondary_action").value
+                ),
                 arm_action=str(self.get_parameter("arm_action").value),
                 gripper_joint=str(self.get_parameter("gripper_joint").value),
+                gripper_secondary_joint=str(
+                    self.get_parameter("gripper_secondary_joint").value
+                ),
                 open_width_m=float(
                     self.get_parameter("gripper_open_width_m").value
                 ),
                 closed_width_m=float(
                     self.get_parameter("gripper_closed_width_m").value
+                ),
+                gripper_position_tolerance_m=float(
+                    self.get_parameter(
+                        "gripper_position_tolerance_m"
+                    ).value
                 ),
                 max_effort_n=float(
                     self.get_parameter("gripper_max_effort_n").value
@@ -230,11 +312,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 safe_transit_clearance_m=float(
                     self.get_parameter("safe_transit_clearance_m").value
                 ),
+                place_transit_clearance_m=float(
+                    self.get_parameter(
+                        "place_transit_clearance_m"
+                    ).value
+                ),
                 safe_transit_corridor_y_m=float(
                     self.get_parameter("safe_transit_corridor_y_m").value
                 ),
                 fruit_obstacles=fruit_obstacles,
                 fruit_collision_radius_m=scene.fruit_collision_radius_m,
+                static_collision_objects=static_collision_objects(
+                    scene.static_collision_profile
+                ),
                 fruit_pose_provider=self._fruit_pose_snapshot,
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)
@@ -254,6 +344,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 tool_center_offset_m=float(
                     self.get_parameter("tool_center_offset_m").value
                 ),
+                target_pose_refiner=target_pose_refiner,
             )
             self._goal_gate = ExclusiveGoalGate()
             self.shutdown_timeout_sec = float(
@@ -309,6 +400,91 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         f"live fruit ground truth is stale by {age:.3f} seconds"
                     )
                 return dict(centers)
+
+        def _on_target_refinement(self, message) -> None:
+            base_frame = str(self.get_parameter("base_frame").value)
+            if message.header.frame_id != base_frame:
+                self.get_logger().error(
+                    "ignoring visual refinement whose frame differs from "
+                    "the manipulation base"
+                )
+                return
+            target_id = int(message.target_id)
+            position = message.pose.position
+            center = (
+                float(position.x),
+                float(position.y),
+                float(position.z),
+            )
+            confidence = float(message.detection_confidence)
+            sigma_m = float(message.position_sigma_m)
+            if (
+                target_id <= 0
+                or not all(math.isfinite(value) for value in center)
+                or not math.isfinite(confidence)
+                or not math.isfinite(sigma_m)
+            ):
+                self.get_logger().error(
+                    "ignoring non-finite visual target refinement"
+                )
+                return
+            with self._target_refinement_lock:
+                self._target_refinement_samples[target_id] = (
+                    center,
+                    confidence,
+                    sigma_m,
+                    time.monotonic(),
+                )
+
+        def _refine_target_pose(
+            self, target_id: int, initial_pose: Pose
+        ) -> Pose:
+            with self._target_refinement_lock:
+                sample = self._target_refinement_samples.get(target_id)
+            if sample is None:
+                raise RuntimeError(
+                    f"no visual refinement sample for target {target_id}"
+                )
+            center, confidence, sigma_m, received = sample
+            age = time.monotonic() - received
+            if age > self._target_refinement_timeout_sec:
+                raise RuntimeError(
+                    f"visual refinement is stale by {age:.3f} seconds"
+                )
+            if confidence < self._target_refinement_min_confidence:
+                raise RuntimeError(
+                    "visual refinement confidence "
+                    f"{confidence:.3f} is below "
+                    f"{self._target_refinement_min_confidence:.3f}"
+                )
+            if not 0.0 <= sigma_m <= self._target_refinement_max_sigma_m:
+                raise RuntimeError(
+                    f"visual refinement sigma {sigma_m:.4f} m exceeds "
+                    f"{self._target_refinement_max_sigma_m:.4f} m"
+                )
+            correction_m = math.dist(
+                (initial_pose.x, initial_pose.y, initial_pose.z),
+                center,
+            )
+            if correction_m > self._target_refinement_max_correction_m:
+                raise RuntimeError(
+                    f"visual refinement correction {correction_m:.4f} m "
+                    "exceeds the configured limit"
+                )
+            self.get_logger().info(
+                "Near-grasp visual target refined: "
+                f"target={target_id}, correction={correction_m * 1000.0:.1f} "
+                f"mm, confidence={confidence:.3f}, sigma={sigma_m * 1000.0:.1f} mm"
+            )
+            return Pose(
+                x=center[0],
+                y=center[1],
+                z=center[2],
+                qx=initial_pose.qx,
+                qy=initial_pose.qy,
+                qz=initial_pose.qz,
+                qw=initial_pose.qw,
+            )
 
         def _goal_callback(self, goal_request):
             del goal_request

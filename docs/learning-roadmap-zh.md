@@ -124,7 +124,8 @@ SDF 对象提供。
 - PlanningScene 和 CollisionObject；
 - 起点状态、目标位姿、规划轨迹和终点误差；
 - 规划成功与执行成功的区别；
-- 为什么当前预抓取 Shadow 生成轨迹后必须丢弃。
+- 为什么预抓取 Shadow 在获得独立执行授权前必须丢弃轨迹；
+- field-v3 专用 runner 如何在前置门通过后执行有界动作并验证恢复。
 
 项目入口：
 
@@ -144,7 +145,8 @@ SDF 对象提供。
 - 夹爪相机为什么适合精确定位；
 - 顺序观察与多相机融合的区别；
 - 连续帧就绪门、目标身份冻结和失败关闭；
-- `pick_authorized=false` 如何贯穿选择、交接和规划阶段。
+- 无运动阶段的 `pick_authorized=false` 如何阻止执行；
+- ADR 0060 如何只给固定场景专用 runner 开放窄范围动作授权。
 
 项目入口：
 
@@ -152,8 +154,11 @@ SDF 对象提供。
 - `ros2_ws/src/strawberry_bringup/strawberry_bringup/observation_sequence.py`
 - `ros2_ws/src/strawberry_manipulation/strawberry_manipulation/handoff_shadow.py`
 - `docs/dual-camera-sequential-observation-v1.md`
+- `scripts/run_field_v3_perception_pick_headed.sh`
+- `docs/field-v3-integration.md`
 
-建议练习：根据一次运行结果画出从底座观察到轨迹丢弃的状态转换图。
+建议练习：分别画出无运动 Shadow 的“规划后丢弃”流程和 field-v3 的
+“前置门通过后执行、验证、恢复”流程，标出二者的授权边界。
 
 ### 9. 测试、实验设计与可复现性
 
@@ -185,6 +190,7 @@ SDF 对象提供。
 5. 用测试验证理解；
 6. 最后再进入下一章。
 
-当前项目应保持在“安全预抓取规划完成、轨迹不执行”的冻结状态。学习期间优先使用
-只读检查、单元测试和无机械臂动作的 Shadow 运行，避免在尚未理解安全边界时开放
-感知驱动执行。
+当前项目已冻结在“固定 field-v3 场景连续三次完整感知抓放成功”的可工作状态。
+学习期间优先使用只读检查、单元测试和无机械臂动作的 Shadow 运行；只有在需要复现
+已接受演示时才使用专用 runner，不要在尚未理解安全边界时扩大目标、姿态、阈值或
+硬件动作范围。

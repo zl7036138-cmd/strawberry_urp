@@ -78,9 +78,22 @@ def generate_launch_description() -> LaunchDescription:
     scene_config_file = LaunchConfiguration("scene_config_file")
     camera_mount = LaunchConfiguration("camera_mount")
     simulation_seed = LaunchConfiguration("simulation_seed")
+    initial_positions_file = LaunchConfiguration("initial_positions_file")
     start_perception = LaunchConfiguration("start_perception")
     start_oracle_provider = LaunchConfiguration("start_oracle_provider")
     start_manipulation = LaunchConfiguration("start_manipulation")
+    target_refinement_topic = LaunchConfiguration(
+        "target_refinement_topic"
+    )
+    manipulation_request_timeout_sec = LaunchConfiguration(
+        "manipulation_request_timeout_sec"
+    )
+    manipulation_safe_transit_clearance_m = LaunchConfiguration(
+        "manipulation_safe_transit_clearance_m"
+    )
+    manipulation_place_transit_clearance_m = LaunchConfiguration(
+        "manipulation_place_transit_clearance_m"
+    )
     start_orchestrator = LaunchConfiguration("start_orchestrator")
     enable_attachment = LaunchConfiguration("enable_attachment")
     enable_pose_control = LaunchConfiguration("enable_pose_control")
@@ -132,6 +145,15 @@ def generate_launch_description() -> LaunchDescription:
     surface_to_center_offset_parameter = ParameterValue(
         surface_to_center_offset_m, value_type=float
     )
+    manipulation_request_timeout_parameter = ParameterValue(
+        manipulation_request_timeout_sec, value_type=float
+    )
+    manipulation_safe_transit_clearance_parameter = ParameterValue(
+        manipulation_safe_transit_clearance_m, value_type=float
+    )
+    manipulation_place_transit_clearance_parameter = ParameterValue(
+        manipulation_place_transit_clearance_m, value_type=float
+    )
     selection_roi_parameters = {
         "selection_roi_min_x_px": ParameterValue(
             localization_selection_roi_min_x_px, value_type=int
@@ -177,6 +199,14 @@ def generate_launch_description() -> LaunchDescription:
                 description="Optional Gazebo RNG seed forwarded unchanged to gz sim.",
             ),
             DeclareLaunchArgument(
+                "initial_positions_file",
+                default_value="",
+                description=(
+                    "Optional Panda initial-joint YAML forwarded unchanged "
+                    "to strawberry_sim."
+                ),
+            ),
+            DeclareLaunchArgument(
                 "start_perception",
                 default_value="false",
                 description=(
@@ -190,6 +220,38 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="false",
                 description=(
                     "Enable after Panda MoveIt/Gazebo integration passes its gate."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "target_refinement_topic",
+                default_value="",
+                description=(
+                    "Optional fresh TargetPose stream used once immediately "
+                    "before the final grasp descent."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "manipulation_request_timeout_sec",
+                default_value="5.0",
+                description=(
+                    "Wall-time limit for manipulation action and service "
+                    "responses."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "manipulation_safe_transit_clearance_m",
+                default_value="0.02",
+                description=(
+                    "Vertical clearance used before guarded horizontal "
+                    "approach and place motions."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "manipulation_place_transit_clearance_m",
+                default_value="0.02",
+                description=(
+                    "Vertical clearance used specifically while carrying a "
+                    "fruit horizontally above the collection bin."
                 ),
             ),
             DeclareLaunchArgument(
@@ -295,6 +357,7 @@ def generate_launch_description() -> LaunchDescription:
                     "scene_config_file": scene_config_file,
                     "camera_mount": camera_mount,
                     "simulation_seed": simulation_seed,
+                    "initial_positions_file": initial_positions_file,
                     "enable_attachment": enable_attachment,
                     "enable_pose_control": enable_pose_control,
                 }.items(),
@@ -362,6 +425,13 @@ def generate_launch_description() -> LaunchDescription:
                         "use_sim_time": True,
                         "camera_mount": camera_mount,
                         "scene_config_file": scene_config_file,
+                        "target_refinement_topic": target_refinement_topic,
+                        "request_timeout_sec":
+                            manipulation_request_timeout_parameter,
+                        "safe_transit_clearance_m":
+                            manipulation_safe_transit_clearance_parameter,
+                        "place_transit_clearance_m":
+                            manipulation_place_transit_clearance_parameter,
                     }
                 ],
             ),

@@ -275,3 +275,17 @@ centre is 29.177346 mm from truth and lies outside both qualified grasp-geometry
 limits. Perception execution remains unauthorized. The next bounded milestone
 is a frozen natural-plant depth-region or fruit-mask localization diagnostic,
 followed by the same geometry check and a separate repeatability decision.
+
+ADR 0057 resolves the natural-plant localization parameter-routing fault and
+bounded gripper stall-window fault, then accepts one complete Blender-v2
+perception-derived development pick with bilateral contact, attach/detach,
+bin verification, reopen, and home recovery.
+
+ADRs 0058-0060 add the opt-in field-v3 scene from `st1.blend`. Its no-motion
+dual-camera localization and collision-parity gates pass first. The final
+fixed-seed runner then completes three consecutive perception-derived
+pick/place cycles with all seven stages, bilateral raw/processed target
+contact, attach/detach, release, and recovery. DART's unsupported finger mimic
+is replaced by two explicit single-joint controllers with independent
+measured-position validation. This is a non-formal fixed-scene development
+repeat, not varied-pose, hardware, damage, or sim-to-real acceptance.

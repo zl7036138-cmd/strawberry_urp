@@ -136,13 +136,30 @@ runtime parameter-routing defect, not a failed depth estimator: renaming the
 dual-camera localization nodes prevented the profile's 26 mm
 surface-to-centre offset from matching the YAML node name. Passing the offset
 explicitly reduces the same natural-plant target error to about 4.85 mm and
-passes the exact grasp-envelope check. One subsequent perception-derived
-simulation action reached `PLAN, APPROACH, GRASP` and the final grasp pose, but
-the gripper remained effectively fully open (`~0.040 m` per finger), produced
-no target contact, and failed attachment. Recovery reopened the gripper,
-restored the fruit collision object, and returned the arm to `ready`. The
-active mainline issue is therefore measured gripper-close execution at the
-natural-plant grasp pose, not camera target selection or pre-grasp planning.
+passes the exact grasp-envelope check.
+
+The first perception-derived action then exposed a separate gripper-control
+fault: the `0.25 s` controller stall window could expire at the fully open
+`0.040 m` position before Gazebo produced the first measured finger motion.
+The repair extends that bounded window to `1.0 s`, reads live joint state when
+the controller returns an empty result state, aligns reached-goal validation
+with the controller's `3 mm` tolerance, and still rejects any stalled close
+with less than `2 mm` measured travel. An isolated same-pose diagnostic then
+records `14.138 mm` measured close travel, raw and processed bilateral target
+contact, `1.909 mm` fruit displacement, no non-target contact, reopen,
+collision restoration, and final home recovery.
+
+One subsequent, exactly-once perception-derived development action completes
+`PLAN, APPROACH, GRASP, RETREAT, PLACE, VERIFY, DONE`. Its wrist estimate is
+`4.934 mm` from truth; cross-jaw error is `2.573 mm` inside the qualified
+`3.857 mm` margin, and axial position is `100.598 mm` inside the qualified
+finger section. Both fingers make raw and processed target contact, the
+attachment transitions to attached and back to detached, the fruit remains in
+the collection bin, the gripper reopens, and the arm returns to `ready`.
+This closes the current single-scene development mainline. It is not a formal
+repeatability, varied-pose, hardware, or fruit-damage qualification. See
+[`ADR 0057`](docs/decisions/0057-accept-natural-plant-perception-pick.md) and
+[`docs/natural-plant-perception-pick-v1.md`](docs/natural-plant-perception-pick-v1.md).
 
 ## Stage status
 
@@ -159,8 +176,8 @@ natural-plant grasp pose, not camera target selection or pre-grasp planning.
 Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
-Latest verified local baseline (2026-07-27): all seven packages build and all
-371 colcon tests pass with no errors, failures, or skips in
+Latest verified local baseline (2026-07-28): all seven packages build and all
+376 colcon tests pass with no errors, failures, or skips in
 `Ubuntu-24.04-URP`. The earlier release reproduction in
 `Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated

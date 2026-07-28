@@ -264,6 +264,17 @@ class SimulationAssetTests(unittest.TestCase):
             self.assertEqual(constraints[joint_name]["goal"], 0.05)
             self.assertEqual(constraints[joint_name]["trajectory"], 0.50)
 
+    def test_gripper_stall_window_allows_first_measured_motion(self):
+        config = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "panda_controllers.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        parameters = config["panda_gripper_controller"]["ros__parameters"]
+        self.assertTrue(parameters["allow_stalling"])
+        self.assertEqual(parameters["stall_timeout"], 1.0)
+        self.assertEqual(parameters["goal_tolerance"], 0.003)
+
     def test_wrist_depth_bridge_has_bounded_burst_queue(self):
         bridges = yaml.safe_load(
             (PACKAGE_ROOT / "config" / "bridge.yaml").read_text(

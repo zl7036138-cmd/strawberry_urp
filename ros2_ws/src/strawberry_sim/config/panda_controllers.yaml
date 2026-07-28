@@ -47,5 +47,9 @@ panda_gripper_controller:
     joint: panda_finger_joint1
     state_interfaces: [position, velocity]
     allow_stalling: true
-    stall_timeout: 0.25
+    # Gazebo may need several controller cycles to produce the first measured
+    # finger displacement immediately after a long arm trajectory.  The old
+    # 0.25 s gate could report a false stall at the fully open 0.04 m position.
+    # Runtime manipulation still rejects any stalled close with <2 mm travel.
+    stall_timeout: 1.0
     goal_tolerance: 0.003

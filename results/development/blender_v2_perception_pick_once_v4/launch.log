@@ -1,0 +1,344 @@
+[INFO] [launch]: All log files can be found below /home/lzl/.ros/log/2026-07-28-09-47-31-066139-liuzelin-32183
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [launch.user]: Perception/localization are gated off until trained weights are supplied with model_path:=...
+[INFO] [gazebo-1]: process started with pid [32203]
+[INFO] [parameter_bridge-2]: process started with pid [32204]
+[INFO] [parameter_bridge-3]: process started with pid [32205]
+[INFO] [robot_state_publisher-4]: process started with pid [32206]
+[INFO] [create-5]: process started with pid [32207]
+[INFO] [ground_truth_publisher-6]: process started with pid [32208]
+[INFO] [contact_monitor-7]: process started with pid [32209]
+[INFO] [attachment_manager-8]: process started with pid [32210]
+[INFO] [pick_and_place_server-9]: process started with pid [32211]
+[robot_state_publisher-4] [INFO] [1785203251.333776168] [panda_robot_state_publisher]: Robot initialized
+[create-5] [INFO] [1785203251.348666008] [spawn_panda]: Waiting messages on topic [robot_description].
+[parameter_bridge-2] [INFO] [1785203251.370561544] [strawberry_world_control_bridge]: Creating ROS->GZ service bridge [/world/strawberry_orchard/control (ros_gz_interfaces/srv/ControlWorld -> /)]
+[attachment_manager-8] [WARN] [1785203251.649825917] [attachment_manager]: attachment backend enabled; waiting for every DetachableJoint to confirm the detached startup state
+[pick_and_place_server-9] [INFO] [1785203251.925080210] [strawberry_pick_and_place]: Loaded grasp geometry profile blender_v2_26mm: tool_center_offset_m=0.0964, gripper_closed_width_m_per_finger=0.022
+[pick_and_place_server-9] WARNING:root:[33;21mCannot infer URDF from `/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation`. -- using config/panda.urdf[0m
+[pick_and_place_server-9] WARNING:root:[33;21mCannot infer SRDF from `/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation`. -- using config/panda.srdf[0m
+[create-5] [INFO] [1785203252.034310207] [spawn_panda]: Entity creation successful.
+[INFO] [create-5]: process has finished cleanly [pid 32207]
+[pick_and_place_server-9] [INFO] [1785203252.210650977] [moveit_3085523162.moveit.py.cpp_initializer]: Initialize rclcpp
+[pick_and_place_server-9] [INFO] [1785203252.210688627] [moveit_3085523162.moveit.py.cpp_initializer]: Initialize node parameters
+[pick_and_place_server-9] [INFO] [1785203252.210694572] [moveit_3085523162.moveit.py.cpp_initializer]: Initialize node and executor
+[pick_and_place_server-9] [INFO] [1785203252.216321870] [moveit_3085523162.moveit.py.cpp_initializer]: Spin separate thread
+[pick_and_place_server-9] [INFO] [1785203252.219193813] [moveit_3085523162.moveit.ros.rdf_loader]: Loaded robot model in 0 seconds
+[pick_and_place_server-9] [INFO] [1785203252.219256919] [moveit_3085523162.moveit.core.robot_model]: Loading robot model 'panda'...
+[pick_and_place_server-9] [INFO] [1785203252.219264989] [moveit_3085523162.moveit.core.robot_model]: No root/virtual joint specified in SRDF. Assuming fixed joint
+[pick_and_place_server-9] [INFO] [1785203252.222916548] [moveit_3085523162.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda_arm': 1 1 1 1 1 1 1
+[pick_and_place_server-9] [INFO] [1785203252.241473818] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[pick_and_place_server-9] [INFO] [1785203252.241672757] [moveit_3085523162.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[pick_and_place_server-9] [INFO] [1785203252.242454086] [moveit_3085523162.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[pick_and_place_server-9] [INFO] [1785203252.242994712] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[pick_and_place_server-9] [INFO] [1785203252.243009035] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Stopping existing planning scene publisher.
+[pick_and_place_server-9] [INFO] [1785203252.243107669] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Stopped publishing maintained planning scene.
+[pick_and_place_server-9] [INFO] [1785203252.243474065] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[pick_and_place_server-9] [INFO] [1785203252.243547524] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[pick_and_place_server-9] [INFO] [1785203252.244223283] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[pick_and_place_server-9] [INFO] [1785203252.244236464] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[pick_and_place_server-9] [INFO] [1785203252.244706063] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[pick_and_place_server-9] [INFO] [1785203252.245160482] [moveit_3085523162.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[pick_and_place_server-9] [WARN] [1785203252.245276729] [moveit_3085523162.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[pick_and_place_server-9] [ERROR] [1785203252.245284758] [moveit_3085523162.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[pick_and_place_server-9] [INFO] [1785203252.251536886] [moveit_3085523162.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[pick_and_place_server-9] [INFO] [1785203252.252174523] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[pick_and_place_server-9] [INFO] [1785203252.252887089] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[pick_and_place_server-9] [INFO] [1785203252.252922475] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[pick_and_place_server-9] [INFO] [1785203252.253135592] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[pick_and_place_server-9] [INFO] [1785203252.253143998] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[pick_and_place_server-9] [INFO] [1785203252.253160248] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[pick_and_place_server-9] [INFO] [1785203252.253162308] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[pick_and_place_server-9] [INFO] [1785203252.253168888] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[pick_and_place_server-9] [INFO] [1785203252.253686259] [strawberry_moveit_py]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[pick_and_place_server-9] [INFO] [1785203252.254800743] [strawberry_moveit_py]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[pick_and_place_server-9] [INFO] [1785203252.254810577] [strawberry_moveit_py]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[pick_and_place_server-9] [INFO] [1785203252.256061797] [strawberry_moveit_py]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[pick_and_place_server-9] [INFO] [1785203252.270261153] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for panda_arm_controller
+[pick_and_place_server-9] [INFO] [1785203252.270426341] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203252.270440312] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203252.270810005] [moveit_3085523162.moveit.ros.trajectory_execution_manager]: Trajectory execution is not managing controllers
+[parameter_bridge-3] [INFO] [1785203252.390295727] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/clock (gz.msgs.Clock) -> /clock (rosgraph_msgs/msg/Clock)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.391784597] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/image (gz.msgs.Image) -> /camera/color/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.394035210] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/depth_image (gz.msgs.Image) -> /camera/depth/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.394727390] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/camera_info (gz.msgs.CameraInfo) -> /camera/camera_info (sensor_msgs/msg/CameraInfo)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.395546230] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/base/image (gz.msgs.Image) -> /camera/base/color/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.396312340] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/base/depth_image (gz.msgs.Image) -> /camera/base/depth/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.397142384] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/base/camera_info (gz.msgs.CameraInfo) -> /camera/base/camera_info (sensor_msgs/msg/CameraInfo)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.397862813] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/wrist/image (gz.msgs.Image) -> /camera/wrist/color/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.398781228] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/wrist/depth_image (gz.msgs.Image) -> /camera/wrist/depth/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.399811282] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/wrist/camera_info (gz.msgs.CameraInfo) -> /camera/wrist/camera_info (sensor_msgs/msg/CameraInfo)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.400953264] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/gripper/left_contacts (gz.msgs.Contacts) -> /strawberry/sim/gripper/left_contacts (ros_gz_interfaces/msg/Contacts)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.403801766] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/gripper/right_contacts (gz.msgs.Contacts) -> /strawberry/sim/gripper/right_contacts (ros_gz_interfaces/msg/Contacts)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.404618157] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_contacts (gz.msgs.Contacts) -> /strawberry/sim/fruit_contacts (ros_gz_interfaces/msg/Contacts)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.405273856] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/model/strawberry_1/pose (gz.msgs.Pose_V) -> /strawberry/sim/fruit_1/pose_tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.407036611] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/model/strawberry_2/pose (gz.msgs.Pose_V) -> /strawberry/sim/fruit_2/pose_tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.407814772] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/model/strawberry_3/pose (gz.msgs.Pose_V) -> /strawberry/sim/fruit_3/pose_tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.408591946] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_1/attach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_1/attach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.409643608] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_1/detach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_1/detach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.410608367] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_1/attached (gz.msgs.StringMsg) -> /strawberry/sim/fruit_1/attached_state (std_msgs/msg/String)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.411428098] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_2/attach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_2/attach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.412206917] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_2/detach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_2/detach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.412937310] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_2/attached (gz.msgs.StringMsg) -> /strawberry/sim/fruit_2/attached_state (std_msgs/msg/String)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.413954929] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_3/attach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_3/attach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.415495220] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_3/detach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_3/detach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.416301208] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_3/attached (gz.msgs.StringMsg) -> /strawberry/sim/fruit_3/attached_state (std_msgs/msg/String)] (Lazy 0)
+[parameter_bridge-3] [INFO] [1785203252.584018743] [strawberry_gz_bridge]: Passing message from ROS std_msgs/msg/Empty to Gazebo gz.msgs.Empty (showing msg only once per type)
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="panda"]/link[@name="strawberry_base_camera_link"]/sensor[@name="base_rgbd"]/gz_frame_id:<urdf-string>:L0]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="panda"]/link[@name="strawberry_wrist_camera_link"]/sensor[@name="wrist_rgbd"]/gz_frame_id:<urdf-string>:L0]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [INFO] [1785203253.581280050] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_world_joint'] (Entity='100') is skipped.
+[gazebo-1] [INFO] [1785203253.581478080] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_base_camera_mast_joint'] (Entity='101') is skipped.
+[gazebo-1] [INFO] [1785203253.581488601] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_base_camera_joint'] (Entity='102') is skipped.
+[gazebo-1] [INFO] [1785203253.581491110] [gz_ros_control]: [gz_ros2_control] Fixed joint ['strawberry_base_camera_optical_joint'] (Entity='103') is skipped.
+[gazebo-1] [INFO] [1785203253.581497146] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_left_contact_pad_joint'] (Entity='112') is skipped.
+[gazebo-1] [INFO] [1785203253.581500952] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_right_contact_pad_joint'] (Entity='114') is skipped.
+[gazebo-1] [INFO] [1785203253.581503152] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_wrist_camera_joint'] (Entity='115') is skipped.
+[gazebo-1] [INFO] [1785203253.581505487] [gz_ros_control]: [gz_ros2_control] Fixed joint ['strawberry_wrist_camera_optical_joint'] (Entity='116') is skipped.
+[gazebo-1] [INFO] [1785203253.581968606] [gz_ros_control]: Loading controller_manager
+[gazebo-1] [INFO] [1785203253.599281585] [controller_manager]: Using ROS clock for triggering controller manager cycles.
+[gazebo-1] [INFO] [1785203253.602335199] [controller_manager]: Subscribing to '/robot_description' topic for robot description.
+[gazebo-1] [WARN] [1785203253.605017953] [gz_ros_control]: Waiting RM to load and initialize hardware...
+[gazebo-1] [INFO] [1785203253.875586874] [controller_manager]: Received robot description from topic.
+[gazebo-1] [INFO] [1785203253.875642514] [controller_manager]: Enforcing command limits is disabled. Command limits from URDF will be ignored.
+[gazebo-1] [INFO] [1785203253.878682726] [gz_ros_control]: The position_proportional_gain has been set to: 1
+[gazebo-1] [INFO] [1785203253.878742504] [gz_ros_control]: Loading joint: panda_joint1
+[gazebo-1] [INFO] [1785203253.878748888] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878752655] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878779293] [gz_ros_control]: 			 found initial value: 0.000000
+[gazebo-1] [INFO] [1785203253.878786737] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878797599] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878801960] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878811171] [gz_ros_control]: Loading joint: panda_joint2
+[gazebo-1] [INFO] [1785203253.878813485] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878815054] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878817027] [gz_ros_control]: 			 found initial value: -0.785000
+[gazebo-1] [INFO] [1785203253.878842989] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878846790] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878849367] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878855487] [gz_ros_control]: Loading joint: panda_joint3
+[gazebo-1] [INFO] [1785203253.878858358] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878860492] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878862492] [gz_ros_control]: 			 found initial value: 0.000000
+[gazebo-1] [INFO] [1785203253.878864674] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878866238] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878867896] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878873055] [gz_ros_control]: Loading joint: panda_joint4
+[gazebo-1] [INFO] [1785203253.878875126] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878876741] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878878454] [gz_ros_control]: 			 found initial value: -2.356000
+[gazebo-1] [INFO] [1785203253.878880385] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878881971] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878883416] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878887868] [gz_ros_control]: Loading joint: panda_joint5
+[gazebo-1] [INFO] [1785203253.878889682] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878891171] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878893442] [gz_ros_control]: 			 found initial value: 0.000000
+[gazebo-1] [INFO] [1785203253.878895177] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878896867] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878898302] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878903335] [gz_ros_control]: Loading joint: panda_joint6
+[gazebo-1] [INFO] [1785203253.878926369] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878928180] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878929731] [gz_ros_control]: 			 found initial value: 1.571000
+[gazebo-1] [INFO] [1785203253.878931570] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878933133] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878934616] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878939136] [gz_ros_control]: Loading joint: panda_joint7
+[gazebo-1] [INFO] [1785203253.878940852] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878942375] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878943834] [gz_ros_control]: 			 found initial value: 0.785000
+[gazebo-1] [INFO] [1785203253.878946759] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878948415] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878949960] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878954333] [gz_ros_control]: Loading joint: panda_finger_joint1
+[gazebo-1] [INFO] [1785203253.878956301] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878957949] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878959476] [gz_ros_control]: 			 found initial value: 0.040000
+[gazebo-1] [INFO] [1785203253.878961504] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878963113] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.878964717] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878970611] [gz_ros_control]: Loading joint: panda_finger_joint2
+[gazebo-1] [INFO] [1785203253.878973422] [gz_ros_control]: Joint 'panda_finger_joint2'is mimicking joint 'panda_finger_joint1' with multiplier: 1 and offset: 0
+[gazebo-1] [INFO] [1785203253.878975809] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785203253.878977645] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785203253.878980108] [gz_ros_control]: 			 found initial value: 0.040000
+[gazebo-1] [INFO] [1785203253.878982131] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785203253.878984644] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785203253.879082739] [controller_manager]: Initialize hardware 'PandaGazeboSystem' 
+[gazebo-1] [WARN] [1785203253.879095444] [controller_manager.hardware_component.system.PandaGazeboSystem]: Executor is not available during hardware component initialization for 'PandaGazeboSystem'. Skipping node creation!
+[gazebo-1] [INFO] [1785203253.879140397] [controller_manager]: Successful initialization of hardware 'PandaGazeboSystem'
+[gazebo-1] [INFO] [1785203253.879235167] [controller_manager]: Activating component 'PandaGazeboSystem'.
+[gazebo-1] [INFO] [1785203253.879252890] [resource_manager]: 'configure' hardware 'PandaGazeboSystem' 
+[gazebo-1] [INFO] [1785203253.879257331] [gz_ros_control]: System Successfully configured!
+[gazebo-1] [INFO] [1785203253.879262168] [resource_manager]: Successful 'configure' of hardware 'PandaGazeboSystem'
+[gazebo-1] [INFO] [1785203253.879267651] [resource_manager]: 'activate' hardware 'PandaGazeboSystem' 
+[gazebo-1] [INFO] [1785203253.879276372] [resource_manager]: Successful 'activate' of hardware 'PandaGazeboSystem'
+[gazebo-1] [WARN] [1785203253.879326511] [controller_manager]: Component 'PandaGazeboSystem' does not have read or write statistics initialized, skipping registration.
+[gazebo-1] [INFO] [1785203253.879331318] [controller_manager]: Resource Manager has been successfully initialized. Starting Controller Manager services...
+[gazebo-1] [INFO] [1785203253.988879766] [controller_manager]: Received robot description from topic.
+[gazebo-1] [WARN] [1785203253.988968319] [controller_manager]: ResourceManager has already loaded a urdf. Ignoring attempt to reload a robot description.
+[gazebo-1] [INFO] [1785203253.989060099] [controller_manager]: Received robot description from topic.
+[gazebo-1] [WARN] [1785203253.989069290] [controller_manager]: ResourceManager has already loaded a urdf. Ignoring attempt to reload a robot description.
+[gazebo-1] [1;31m[Err] [Physics.cc:1808] [0m[1;31mAttempting to create a mimic constraint for joint [[0m[1;31mpanda_finger_joint2[0m[1;31m] but the chosen physics engine does not support [0m[1;31mmimic constraints, so no constraint will be [0m[1;31mcreated.[0m[1;31m[0m
+[gazebo-1] [WARN] [1785203255.632158134] [gz_ros_control]:  Desired controller update period (0.01 s) is slower than the gazebo simulation period (0 s).
+[attachment_manager-8] [INFO] [1785203255.981935108] [attachment_manager]: all fruits detached at their initial poses; requesting Gazebo physics resume
+[attachment_manager-8] [INFO] [1785203256.090212086] [attachment_manager]: attachment backend initialized with all fruits detached; Gazebo physics resumed
+[INFO] [spawner-10]: process started with pid [32615]
+[INFO] [spawner-11]: process started with pid [32616]
+[INFO] [spawner-12]: process started with pid [32617]
+[spawner-12] [INFO] [1785203256.469904821] [spawner_panda_gripper_controller]: waiting for service /controller_manager/list_controllers to become available...
+[gazebo-1] [INFO] [1785203257.223044592] [controller_manager]: Loading controller : 'panda_gripper_controller' of type 'parallel_gripper_action_controller/GripperActionController'
+[gazebo-1] [INFO] [1785203257.223152799] [controller_manager]: Loading controller 'panda_gripper_controller'
+[gazebo-1] [INFO] [1785203257.227480524] [controller_manager]: Controller 'panda_gripper_controller' node arguments: --ros-args --params-file /home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/panda_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-12] [INFO] [1785203257.256347595] [spawner_panda_gripper_controller]: Loaded panda_gripper_controller
+[gazebo-1] [INFO] [1785203257.257508846] [controller_manager]: Configuring controller: 'panda_gripper_controller'
+[gazebo-1] [INFO] [1785203257.257695979] [panda_gripper_controller]: Action status changes will be monitored at 20.000000 Hz.
+[gazebo-1] [INFO] [1785203257.257726410] [panda_gripper_controller]: Joint name is : panda_finger_joint1
+[gazebo-1] [INFO] [1785203258.016107138] [controller_manager]: Activating controllers: [ panda_gripper_controller ]
+[gazebo-1] [INFO] [1785203258.034635189] [controller_manager]: Successfully switched controllers!
+[spawner-12] [INFO] [1785203258.045440991] [spawner_panda_gripper_controller]: Configured and activated panda_gripper_controller
+[spawner-10] [INFO] [1785203258.142895970] [spawner_joint_state_broadcaster]: waiting for service /controller_manager/list_controllers to become available...
+[INFO] [spawner-12]: process has finished cleanly [pid 32617]
+[gazebo-1] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | panda) The name [fixed] is a duplicate, so it has been renamed to [fixed(1)]
+[gazebo-1] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::N4dart8dynamics9ShapeNodeE | panda) The name [fruit_link:fruit_collision] is a duplicate, so it has been renamed to [fruit_link:fruit_collision(1)]
+[gazebo-1] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::Joint | panda) The name [fixed] is a duplicate, so it has been renamed to [fixed(2)]
+[gazebo-1] [1;32mMsg[0m [NameManager::issueNewName] (Skeleton::N4dart8dynamics9ShapeNodeE | panda) The name [fruit_link:fruit_collision] is a duplicate, so it has been renamed to [fruit_link:fruit_collision(2)]
+[gazebo-1] [INFO] [1785203262.215840980] [controller_manager]: Loading controller : 'joint_state_broadcaster' of type 'joint_state_broadcaster/JointStateBroadcaster'
+[gazebo-1] [INFO] [1785203262.215919832] [controller_manager]: Loading controller 'joint_state_broadcaster'
+[gazebo-1] [INFO] [1785203262.218929793] [controller_manager]: Controller 'joint_state_broadcaster' node arguments: --ros-args --params-file /home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/panda_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-10] [INFO] [1785203262.305933103] [spawner_joint_state_broadcaster]: Loaded joint_state_broadcaster
+[gazebo-1] [INFO] [1785203262.307717961] [controller_manager]: Configuring controller: 'joint_state_broadcaster'
+[gazebo-1] [INFO] [1785203262.308006916] [joint_state_broadcaster]: 'joints' or 'interfaces' parameter is empty. All available state interfaces will be published
+[gazebo-1] [INFO] [1785203262.318211664] [controller_manager]: Activating controllers: [ joint_state_broadcaster ]
+[gazebo-1] [INFO] [1785203262.324736054] [controller_manager]: Successfully switched controllers!
+[spawner-10] [INFO] [1785203262.335639010] [spawner_joint_state_broadcaster]: Configured and activated joint_state_broadcaster
+[spawner-11] [INFO] [1785203262.458183650] [spawner_panda_arm_controller]: waiting for service /controller_manager/list_controllers to become available...
+[INFO] [spawner-10]: process has finished cleanly [pid 32615]
+[gazebo-1] [INFO] [1785203265.213551855] [controller_manager]: Loading controller : 'panda_arm_controller' of type 'joint_trajectory_controller/JointTrajectoryController'
+[gazebo-1] [INFO] [1785203265.213627790] [controller_manager]: Loading controller 'panda_arm_controller'
+[gazebo-1] [INFO] [1785203265.218046471] [controller_manager]: Controller 'panda_arm_controller' node arguments: --ros-args --params-file /home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/panda_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-11] [INFO] [1785203265.311064826] [spawner_panda_arm_controller]: Loaded panda_arm_controller
+[gazebo-1] [INFO] [1785203265.313047222] [controller_manager]: Configuring controller: 'panda_arm_controller'
+[gazebo-1] [INFO] [1785203265.313235625] [panda_arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.
+[gazebo-1] [INFO] [1785203265.313268275] [panda_arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].
+[gazebo-1] [INFO] [1785203265.313293298] [panda_arm_controller]: Using 'splines' interpolation method.
+[gazebo-1] [INFO] [1785203265.316373073] [panda_arm_controller]: Action status changes will be monitored at 20.00 Hz.
+[gazebo-1] [INFO] [1785203265.325902575] [panda_arm_controller]: Setting initial scaling factor to 1.000000
+[gazebo-1] [INFO] [1785203265.325947749] [panda_arm_controller]: No scaling interface set. This controller will not read speed scaling from the hardware.
+[gazebo-1] [INFO] [1785203265.331934893] [controller_manager]: Activating controllers: [ panda_arm_controller ]
+[gazebo-1] [INFO] [1785203265.364931525] [controller_manager]: Successfully switched controllers!
+[spawner-11] [INFO] [1785203265.375545712] [spawner_panda_arm_controller]: Configured and activated panda_arm_controller
+[pick_and_place_server-9] [INFO] [1785203265.525472980] [strawberry_pick_and_place]: MoveIt static collision scene loaded: work_table, strawberry_planter, strawberry_plant_crown, collection_bin
+[INFO] [spawner-11]: process has finished cleanly [pid 32616]
+[pick_and_place_server-9] [INFO] [1785203265.542884255] [strawberry_pick_and_place]: MoveIt fruit collision scene loaded: strawberry_fruit_1, strawberry_fruit_2, strawberry_fruit_3
+[gazebo-1] [INFO] [1785203266.001409000] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203266.001500443] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203286.105822853] [panda_arm_controller]: Goal reached, success!
+[gazebo-1] [INFO] [1785203314.267594189] [controller_manager]: Received robot description from topic.
+[gazebo-1] [WARN] [1785203314.267705605] [controller_manager]: ResourceManager has already loaded a urdf. Ignoring attempt to reload a robot description.
+[pick_and_place_server-9] [INFO] [1785203324.581629476] [strawberry_pick_and_place]: MoveIt live fruit scene synchronized; target obstacle strawberry_fruit_1 enabled for transit
+[gazebo-1] [INFO] [1785203324.583010710] [panda_gripper_controller]: Received & accepted new action goal
+[pick_and_place_server-9] [INFO] [1785203324.662552453] [strawberry_pick_and_place]: gripper result: target_m=0.040000, observed_m=0.040000, source=joint_states_fallback, stalled=False, reached_goal=True
+[pick_and_place_server-9] [INFO] [1785203324.689529080] [strawberry_pick_and_place]: MoveIt stage APPROACH
+[pick_and_place_server-9] [INFO] [1785203324.726854013] [strawberry_pick_and_place]: MoveIt guarded approach phase: vertical lift
+[gazebo-1] [INFO] [1785203324.731772086] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203324.731835594] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203330.622565948] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203330.885023330] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203330.910473375] [strawberry_pick_and_place]: MoveIt guarded approach phase: in-place reorientation
+[pick_and_place_server-9] [ERROR] [1785203330.990616969] [strawberry_pick_and_place]: MoveIt rejected interpolated collision state at Cartesian waypoint 6/18, sample 4/16
+[pick_and_place_server-9] [INFO] [1785203330.990754348] [moveit_3085523162.moveit.core.moveit_collision_detection_fcl]: Found a contact between 'collection_bin' (type 'Object') and 'panda_link4' (type 'Robot link'), which constitutes a collision. Contact information is not stored.
+[pick_and_place_server-9] [INFO] [1785203330.990796055] [moveit_3085523162.moveit.core.moveit_collision_detection_fcl]: Collision checking is considered complete (collision was found and 0 contacts are stored)
+[pick_and_place_server-9] [INFO] [1785203331.068482356] [strawberry_pick_and_place]: MoveIt stage APPROACH_RETRY
+[pick_and_place_server-9] [INFO] [1785203331.122290306] [strawberry_pick_and_place]: MoveIt guarded approach phase: vertical lift
+[gazebo-1] [INFO] [1785203331.124056431] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203331.124103335] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203332.851629125] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203333.140769565] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203333.161225698] [strawberry_pick_and_place]: MoveIt guarded approach phase: in-place reorientation
+[gazebo-1] [INFO] [1785203333.168115408] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203333.168167980] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203344.439504316] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203344.696255515] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203344.725350516] [strawberry_pick_and_place]: MoveIt guarded approach phase: move to clear corridor
+[gazebo-1] [INFO] [1785203344.728758911] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203344.728805733] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203351.735037560] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203351.964038091] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203351.989344699] [strawberry_pick_and_place]: MoveIt guarded approach phase: corridor translation
+[gazebo-1] [INFO] [1785203351.993822391] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203351.993873600] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203365.421254395] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203365.718326538] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203365.754977734] [strawberry_pick_and_place]: MoveIt guarded approach phase: align over target
+[gazebo-1] [INFO] [1785203365.756831864] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203365.756870222] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203369.050427837] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203369.290263102] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203369.344777160] [strawberry_pick_and_place]: MoveIt guarded approach phase: pre-grasp descent
+[gazebo-1] [INFO] [1785203369.347185477] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203369.347221264] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203373.190173838] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203373.381717346] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203373.434568445] [strawberry_pick_and_place]: MoveIt target obstacle strawberry_fruit_1 removed for grasp contact
+[pick_and_place_server-9] [INFO] [1785203373.467619024] [strawberry_pick_and_place]: MoveIt stage GRASP_POSE
+[gazebo-1] [INFO] [1785203373.477865962] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203373.477920201] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203389.621192322] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203389.868225676] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[gazebo-1] [INFO] [1785203389.869047783] [panda_gripper_controller]: Received & accepted new action goal
+[pick_and_place_server-9] [INFO] [1785203392.831380826] [strawberry_pick_and_place]: gripper result: target_m=0.022000, observed_m=0.025889, source=joint_states_fallback, stalled=True, reached_goal=False
+[pick_and_place_server-9] [INFO] [1785203392.950099598] [strawberry_pick_and_place]: MoveIt stage RETREAT
+[gazebo-1] [INFO] [1785203392.954090809] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203392.954145193] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203398.598194723] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203398.883358307] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203398.937212259] [strawberry_pick_and_place]: MoveIt stage PLACE
+[pick_and_place_server-9] [INFO] [1785203398.974363686] [strawberry_pick_and_place]: MoveIt guarded place phase: vertical lift
+[gazebo-1] [INFO] [1785203398.975831758] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203398.975914476] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203400.766754651] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203401.063472553] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203401.121684958] [strawberry_pick_and_place]: MoveIt guarded place phase: in-place reorientation
+[gazebo-1] [INFO] [1785203401.124285609] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203401.124329662] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203401.736818511] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203401.964643787] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203401.995887214] [strawberry_pick_and_place]: MoveIt guarded place phase: align above bin
+[gazebo-1] [INFO] [1785203402.017777720] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203402.017843493] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203430.426115957] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203430.635697516] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[pick_and_place_server-9] [INFO] [1785203430.656318797] [strawberry_pick_and_place]: MoveIt guarded place phase: vertical descent
+[gazebo-1] [INFO] [1785203430.660781658] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203430.660821051] [panda_arm_controller]: Accepted new action goal
+[gazebo-1] [INFO] [1785203443.632997204] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203443.849347854] [strawberry_pick_and_place]: executed Cartesian endpoint pose error: 0.0000 m, 0.00 deg
+[gazebo-1] [INFO] [1785203443.850271044] [panda_gripper_controller]: Received & accepted new action goal
+[pick_and_place_server-9] [INFO] [1785203444.094699096] [strawberry_pick_and_place]: gripper result: target_m=0.040000, observed_m=0.040000, source=joint_states_fallback, stalled=False, reached_goal=True
+[pick_and_place_server-9] [INFO] [1785203444.284750492] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'ResolveConstraintFrames'
+[pick_and_place_server-9] [INFO] [1785203444.285293431] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'ValidateWorkspaceBounds'
+[pick_and_place_server-9] [WARN] [1785203444.285314993] [moveit_3085523162.moveit.ros.validate_workspace_bounds]: It looks like the planning volume was not specified. Using default values.
+[pick_and_place_server-9] [INFO] [1785203444.285361393] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'CheckStartStateBounds'
+[pick_and_place_server-9] [INFO] [1785203444.285400795] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'CheckStartStateCollision'
+[pick_and_place_server-9] [INFO] [1785203444.286501097] [moveit_3085523162.moveit.planners.ompl.model_based_planning_context]: Planner configuration 'panda_arm[RRTConnectkConfigDefault]' will use planner 'geometric::RRTConnect'. Additional configuration parameters will be set when the planner is constructed.
+[pick_and_place_server-9] [INFO] [1785203444.286743396] [strawberry_moveit_py]: Calling Planner 'OMPL'
+[pick_and_place_server-9] [INFO] [1785203444.302826118] [strawberry_moveit_py]: Calling PlanningResponseAdapter 'AddTimeOptimalParameterization'
+[pick_and_place_server-9] [INFO] [1785203444.305794994] [strawberry_moveit_py]: Calling PlanningResponseAdapter 'ValidateSolution'
+[pick_and_place_server-9] [INFO] [1785203444.307534789] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203444.307588623] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203444.307640650] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203444.307653882] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203444.307740153] [moveit_3085523162.moveit.ros.trajectory_execution_manager]: Validating trajectory with allowed_start_tolerance 0.01
+[pick_and_place_server-9] [INFO] [1785203444.317590893] [moveit_3085523162.moveit.ros.trajectory_execution_manager]: Starting trajectory execution ...
+[pick_and_place_server-9] [INFO] [1785203444.317668698] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203444.317683265] [moveit_3085523162.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[pick_and_place_server-9] [INFO] [1785203444.318174227] [moveit.simple_controller_manager.follow_joint_trajectory_controller_handle]: sending trajectory to panda_arm_controller
+[gazebo-1] [INFO] [1785203444.318648719] [panda_arm_controller]: Received new action goal
+[gazebo-1] [INFO] [1785203444.318689273] [panda_arm_controller]: Accepted new action goal
+[pick_and_place_server-9] [INFO] [1785203444.319043757] [moveit.simple_controller_manager.follow_joint_trajectory_controller_handle]: panda_arm_controller started execution
+[pick_and_place_server-9] [INFO] [1785203444.319067862] [moveit.simple_controller_manager.follow_joint_trajectory_controller_handle]: Goal request accepted!
+[gazebo-1] [INFO] [1785203454.743536471] [panda_arm_controller]: Goal reached, success!
+[pick_and_place_server-9] [INFO] [1785203454.756775739] [moveit.simple_controller_manager.follow_joint_trajectory_controller_handle]: Controller 'panda_arm_controller' successfully finished
+[pick_and_place_server-9] [INFO] [1785203454.806434046] [moveit_3085523162.moveit.ros.trajectory_execution_manager]: Completed trajectory execution with status SUCCEEDED ...
+[pick_and_place_server-9] [INFO] [1785203454.859532123] [strawberry_pick_and_place]: MoveIt target obstacle strawberry_fruit_1 restored from live truth

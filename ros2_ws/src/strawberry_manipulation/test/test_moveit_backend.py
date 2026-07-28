@@ -1,6 +1,7 @@
 import math
 import pathlib
 import sys
+import threading
 import unittest
 from types import MappingProxyType
 from types import SimpleNamespace
@@ -90,6 +91,77 @@ class MoveItBackendStaticTests(unittest.TestCase):
                 reached_goal=False,
             )
         )
+
+    def test_close_accepts_reached_goal_within_controller_tolerance(self):
+        self.assertTrue(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.02476,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=False,
+                reached_goal=True,
+            )
+        )
+
+    def test_close_rejects_reached_goal_outside_controller_tolerance(self):
+        self.assertFalse(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.0251,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=False,
+                reached_goal=True,
+            )
+        )
+
+    def test_gripper_command_uses_live_joint_fallback_for_empty_result_state(self):
+        class Goal:
+            def __init__(self):
+                self.command = SimpleNamespace(name=[], position=[], effort=[])
+
+        result = SimpleNamespace(
+            state=SimpleNamespace(name=[], position=[]),
+            stalled=False,
+            reached_goal=True,
+        )
+        wrapped = SimpleNamespace(result=result)
+        handle = SimpleNamespace(
+            accepted=True,
+            get_result_async=lambda: FakeFuture(wrapped),
+        )
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._ParallelGripperCommand = SimpleNamespace(Goal=Goal)
+        backend._gripper = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: True,
+            send_goal_async=lambda goal: FakeFuture(handle),
+        )
+        backend.request_timeout_sec = 1.0
+        backend.gripper_joint = "panda_finger_joint1"
+        backend.max_effort_n = 40.0
+        backend.open_width_m = 0.04
+        backend.closed_width_m = 0.022
+        backend._gripper_state_lock = threading.Lock()
+        backend._latest_gripper_position_m = 0.04
+
+        self.assertTrue(backend._gripper_command(0.04))
+
+    def test_gripper_joint_callback_tracks_only_commanded_joint(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.gripper_joint = "panda_finger_joint1"
+        backend._gripper_state_lock = threading.Lock()
+        backend._latest_gripper_position_m = None
+
+        backend._on_gripper_joint_state(
+            SimpleNamespace(
+                name=["panda_joint1", "panda_finger_joint1"],
+                position=[0.5, 0.031],
+            )
+        )
+
+        self.assertEqual(backend._latest_gripper_position_m, 0.031)
 
     def test_prepare_rejects_unknown_target_before_scene_update(self):
         backend = self.lifecycle_backend()

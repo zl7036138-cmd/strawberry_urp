@@ -26,7 +26,8 @@ def gripper_result_allows_command(
     closed_position_m: float,
     stalled: bool,
     reached_goal: bool,
-    position_tolerance_m: float = 0.002,
+    position_tolerance_m: float = 0.003,
+    minimum_close_travel_m: float = 0.002,
 ) -> bool:
     """Reject a false gripper stall that occurred without meaningful travel."""
 
@@ -36,6 +37,7 @@ def gripper_result_allows_command(
         open_position_m,
         closed_position_m,
         position_tolerance_m,
+        minimum_close_travel_m,
     )
     if not all(math.isfinite(value) for value in values):
         raise ValueError("gripper result positions must be finite")
@@ -43,6 +45,8 @@ def gripper_result_allows_command(
         raise ValueError("gripper result limits are invalid")
     if position_tolerance_m <= 0.0:
         raise ValueError("gripper result tolerance must be positive")
+    if minimum_close_travel_m <= 0.0:
+        raise ValueError("minimum close travel must be positive")
     closing = target_position_m <= closed_position_m + 1.0e-6
     if not closing:
         return reached_goal and (
@@ -56,7 +60,7 @@ def gripper_result_allows_command(
         return True
     return stalled and (
         observed_position_m
-        <= open_position_m - position_tolerance_m
+        <= open_position_m - minimum_close_travel_m
     )
 
 
@@ -116,6 +120,8 @@ class MoveItBackend:
             from rclpy.action import ActionClient
             from rclpy.callback_groups import ReentrantCallbackGroup
             from rclpy.duration import Duration
+            from rclpy.qos import qos_profile_sensor_data
+            from sensor_msgs.msg import JointState
             from std_srvs.srv import Trigger
             from trajectory_msgs.msg import JointTrajectoryPoint
         except ImportError as exc:  # pragma: no cover - ROS integration only
@@ -240,6 +246,15 @@ class MoveItBackend:
             gripper_action,
             callback_group=self._callback_group,
         )
+        self._gripper_state_lock = threading.Lock()
+        self._latest_gripper_position_m = None
+        self._gripper_state_subscription = node.create_subscription(
+            JointState,
+            "/joint_states",
+            self._on_gripper_joint_state,
+            qos_profile_sensor_data,
+            callback_group=self._callback_group,
+        )
         self._service_clients: dict[tuple[int, str], object] = {}
         self._wait_until_runtime_ready()
         self.static_collision_ids = apply_static_collision_scene(
@@ -266,6 +281,15 @@ class MoveItBackend:
                 "MoveIt fruit collision scene loaded: "
                 + ", ".join(self.fruit_collision_ids)
             )
+
+    def _on_gripper_joint_state(self, message) -> None:
+        for name, position in zip(
+            message.name, message.position, strict=False
+        ):
+            if str(name) == self.gripper_joint:
+                with self._gripper_state_lock:
+                    self._latest_gripper_position_m = float(position)
+                return
 
     @staticmethod
     def _build_fruit_manifest(fruit_obstacles) -> MappingProxyType:
@@ -1153,14 +1177,21 @@ class MoveItBackend:
             zip(result.state.name, result.state.position, strict=False)
         )
         observed_position = state_positions.get(self.gripper_joint)
+        observed_source = "controller_result"
+        if observed_position is None:
+            with self._gripper_state_lock:
+                observed_position = self._latest_gripper_position_m
+            observed_source = "joint_states_fallback"
         if observed_position is None:
             self.node.get_logger().error(
-                "gripper result omitted the commanded joint state"
+                "gripper position is absent from both the controller result "
+                "and live joint states"
             )
             return False
         self.node.get_logger().info(
             "gripper result: target_m="
             f"{position:.6f}, observed_m={float(observed_position):.6f}, "
+            f"source={observed_source}, "
             f"stalled={bool(result.stalled)}, "
             f"reached_goal={bool(result.reached_goal)}"
         )

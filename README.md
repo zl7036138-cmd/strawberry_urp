@@ -12,6 +12,14 @@ For a structured Chinese learning path covering ROS 2, Gazebo, TF, RGB-D,
 YOLO, MoveIt, testing, and the matching source modules, see
 [`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md).
 
+The final hand-in candidate is assembled as a submission-v2 supplement rather
+than overwriting the frozen P5/P6 baseline. Its authoritative narrative and
+gate checklist are
+[`docs/submission-report.md`](docs/submission-report.md) and
+[`docs/submission-checklist.md`](docs/submission-checklist.md). The supplement
+adds the field-v3 fixed-scene perception pick while preserving the failed
+YOLO/P3/P4 numeric results and their original evidence.
+
 ## Project baseline
 
 - Platform: Ubuntu 24.04 on WSL2

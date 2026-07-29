@@ -266,6 +266,11 @@
   <gazebo>
     <plugin filename="gz_ros2_control-system"
             name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <robot_param>robot_description</robot_param>
+      <robot_param_node>panda_robot_state_publisher</robot_param_node>
+      <ros>
+        <remapping>/robot_description:=/strawberry/sim/robot_description</remapping>
+      </ros>
       <parameters>$(find strawberry_sim)/config/panda_controllers.yaml</parameters>
       <!-- The upstream 0.1 default leaves the simulated arm several centimetres
            behind short Cartesian trajectories near the edge of its workspace. -->

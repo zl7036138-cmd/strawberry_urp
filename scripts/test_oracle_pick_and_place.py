@@ -29,6 +29,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--stability-samples", type=int, default=10)
     parser.add_argument("--stability-tolerance-m", type=float, default=0.001)
     parser.add_argument(
+        "--status-topic",
+        default="",
+        help="optionally publish live JSON stage/outcome updates",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help="optionally write the JSON report to this path",
@@ -88,6 +93,36 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         "strawberry_oracle_pick_test",
         parameter_overrides=[Parameter("use_sim_time", value=True)],
     )
+    status_publisher = (
+        node.create_publisher(String, arguments.status_topic, 10)
+        if arguments.status_topic
+        else None
+    )
+
+    def publish_status(
+        state: str,
+        *,
+        outcome: str = "",
+        progress: float = 0.0,
+        message: str = "",
+    ) -> None:
+        if status_publisher is None:
+            return
+        value = String()
+        value.data = json.dumps(
+            {
+                "state": state,
+                "outcome": outcome,
+                "progress": round(float(progress), 3),
+                "message": message,
+                "target_id": arguments.target_id,
+                "target_topic": target_topic,
+                "elapsed_sec": elapsed_action_time(),
+            },
+            sort_keys=True,
+        )
+        status_publisher.publish(value)
+
     tf_buffer = Buffer()
     tf_listener = TransformListener(tf_buffer, node, spin_thread=False)
     target_samples = deque(maxlen=arguments.stability_samples)
@@ -606,6 +641,11 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 arguments.place_z,
             ],
         }
+        publish_status(
+            "TARGET_READY",
+            progress=0.0,
+            message="stable perception-derived target acquired",
+        )
 
         def on_feedback(message):
             nonlocal current_stage
@@ -616,6 +656,11 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                     "progress": round(float(message.feedback.progress), 3),
                     "elapsed_sec": elapsed_action_time(),
                 }
+            )
+            publish_status(
+                current_stage,
+                progress=float(message.feedback.progress),
+                message="pick-and-place action feedback",
             )
 
         action_started_at = time.monotonic()
@@ -653,9 +698,23 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 "diagnostics": diagnostic_report(),
             }
         )
+        publish_status(
+            "DONE" if action_succeeded else "FAILED",
+            outcome="SUCCESS" if action_succeeded else "FAILURE",
+            progress=1.0,
+            message=result.message,
+        )
+        status_deadline = time.monotonic() + 0.2
+        while rclpy.ok() and time.monotonic() < status_deadline:
+            rclpy.spin_once(node, timeout_sec=0.02)
         _emit_report(report, arguments.output)
         return 0 if action_succeeded else 1
     except Exception as exc:
+        publish_status(
+            "FAILED",
+            outcome="ERROR",
+            message=str(exc),
+        )
         _emit_report(
             {
                 "target_id": arguments.target_id,
@@ -674,6 +733,8 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         diagnostic_subscriptions.clear()
         del tf_listener
         client.destroy()
+        if status_publisher is not None:
+            node.destroy_publisher(status_publisher)
         node.destroy_node()
         rclpy.try_shutdown()
 

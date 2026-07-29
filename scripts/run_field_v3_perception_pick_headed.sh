@@ -8,9 +8,11 @@ model_path="${2:-${repo_root}/outputs/perception/yolo11s_640_train_audit_v1/weig
 domain_id="${3:-230}"
 post_demo_hold_sec="${4:-60}"
 show_windows="${5:-true}"
+record_video="${6:-false}"
 expected_model_sha="e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70"
 target_topic="/strawberry/field_demo/target_pose"
 detections_topic="/strawberry/field_demo/detections"
+status_topic="/strawberry/field_demo/trial_status"
 
 [[ -f "${artifact_root}/install/setup.bash" ]] || {
   echo "Workspace is not built: ${artifact_root}" >&2
@@ -36,6 +38,10 @@ detections_topic="/strawberry/field_demo/detections"
   echo "show_windows must be true or false" >&2
   exit 2
 }
+[[ "${record_video}" == "true" || "${record_video}" == "false" ]] || {
+  echo "record_video must be true or false" >&2
+  exit 2
+}
 headless="false"
 if [[ "${show_windows}" == "false" ]]; then
   headless="true"
@@ -52,7 +58,15 @@ mkdir -p "${output_dir}"
 simulation_share="$(ros2 pkg prefix strawberry_sim)/share/strawberry_sim"
 world_file="${simulation_share}/worlds/strawberry_field_v3.sdf"
 scene_config="${simulation_share}/config/scene_field_v3.yaml"
-initial_positions="${simulation_share}/config/panda_initial_positions_field_v3.yaml"
+initial_positions_source="${repo_root}/ros2_ws/src/strawberry_sim/config/panda_initial_positions_field_v3.yaml"
+runtime_config_dir="${HOME}/.cache/strawberry_urp/runtime"
+mkdir -p "${runtime_config_dir}"
+initial_positions="${runtime_config_dir}/panda_initial_positions_field_v3.yaml"
+cp "${initial_positions_source}" "${initial_positions}"
+grep -Fq "panda_joint1: 1.310378291" "${initial_positions}" || {
+  echo "Runtime field observation pose copy is invalid" >&2
+  exit 5
+}
 perception_config="$(
   ros2 pkg prefix strawberry_perception
 )/share/strawberry_perception/config/perception.yaml"
@@ -153,6 +167,44 @@ if [[ "${show_windows}" == "true" ]]; then
   pipeline_pids+=("$!")
 fi
 
+if [[ "${record_video}" == "true" ]]; then
+  setsid python "${repo_root}/scripts/record_field_v3_submission_demo.py" \
+    --output "${output_dir}/field_v3_live_demo.avi" \
+    --receipt "${output_dir}/field_v3_live_demo.receipt.json" \
+    --detections-topic "${detections_topic}" \
+    --target-topic "${target_topic}" \
+    --status-topic "${status_topic}" \
+    --fps 4 \
+    --maximum-duration-sec 600 \
+    >"${output_dir}/recorder.log" 2>&1 &
+  pipeline_pids+=("$!")
+fi
+
+initial_pose_ready="false"
+for _ in $(seq 1 180); do
+  if grep -Fq "found initial value: 1.310378" "${output_dir}/launch.log" &&
+    grep -Fq "found initial value: -1.599778" "${output_dir}/launch.log"; then
+    initial_pose_ready="true"
+    break
+  fi
+  loaded_joint_count="$(
+    grep -Fc "found initial value:" "${output_dir}/launch.log" || true
+  )"
+  if (( loaded_joint_count >= 9 )); then
+    echo "Gazebo loaded the default pose instead of the field observation pose" >&2
+    exit 5
+  fi
+  if ! kill -0 "${launch_pid}" 2>/dev/null; then
+    echo "Simulation launch exited before the field observation pose was ready" >&2
+    exit 5
+  fi
+  sleep 0.5
+done
+if [[ "${initial_pose_ready}" != "true" ]]; then
+  echo "Field observation pose was not applied; refusing to record a misleading run" >&2
+  exit 5
+fi
+
 timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   handoff_shadow_probe \
   --output-json "${output_dir}/handoff_shadow.json" \
@@ -204,6 +256,7 @@ run_pick_client() {
     --action-timeout-sec 480 \
     --stability-samples 10 \
     --stability-tolerance-m 0.001 \
+    --status-topic "${status_topic}" \
     --output "${output_dir}/trial_01.json" \
     >"${output_dir}/client.log" 2>&1
 }

@@ -1,5 +1,7 @@
 # Strawberry URP
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Reproducible ROS 2 simulation for strawberry maturity detection, 3D localization,
 and Panda pick-and-place evaluation.
 

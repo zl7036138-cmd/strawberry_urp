@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import zipfile
 from typing import Any
 
@@ -33,6 +34,7 @@ REPEAT_TRIALS = {
 }
 KEY_FILES = (
     "README.md",
+    "README.zh-CN.md",
     ".gitignore",
     ".cache/wheels/wheelhouse-manifest.json",
     MODEL,
@@ -139,6 +141,29 @@ def _validate() -> dict[str, Any]:
         "skipped": 0,
     }:
         raise ValueError("submission test receipt differs")
+    current_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    current_dirty = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    if current_dirty:
+        raise ValueError("current Git working tree is dirty")
+    test_source = tests.get("source_tree", {})
+    if test_source.get("dirty_at_capture") is not False:
+        raise ValueError("submission test receipt was captured from a dirty tree")
+    if test_source.get("git_head") != current_head:
+        raise ValueError(
+            "submission test receipt is not bound to the current Git commit"
+        )
     metrics = _json("artifacts/p5/release_v1/final_metrics_v1.json")
     if metrics["formal_p3"]["positive_successes"] != 39:
         raise ValueError("formal P3 result differs")

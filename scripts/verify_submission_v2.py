@@ -21,6 +21,7 @@ DEFAULT_ARCHIVE = (
 )
 REQUIRED = {
     "README.md",
+    "README.zh-CN.md",
     "docs/submission-report.md",
     "docs/submission-checklist.md",
     "artifacts/submission_v2/report/草莓采摘URP项目总结报告.docx",

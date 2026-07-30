@@ -12,7 +12,7 @@ import sys
 import time
 from typing import Mapping, Sequence
 
-from .scene_geometry import STATIC_COLLISION_OBJECTS, fruit_collision_id
+from .scene_geometry import fruit_collision_id, static_collision_objects
 
 
 ARM_JOINT_NAMES = tuple(f"panda_joint{index}" for index in range(1, 8))
@@ -30,17 +30,22 @@ def target_clock_is_coherent(
     receipt_stamp_sec: float,
     acquisition_stamp_sec: float,
     maximum_startup_skew_sec: float,
+    maximum_future_skew_sec: float = 0.05,
 ) -> bool:
     """Reject samples received before a simulation clock becomes coherent."""
 
-    if maximum_startup_skew_sec <= 0.0:
-        raise ValueError("maximum_startup_skew_sec must be positive")
+    if maximum_startup_skew_sec <= 0.0 or maximum_future_skew_sec <= 0.0:
+        raise ValueError("clock skew limits must be positive")
+    if maximum_future_skew_sec > maximum_startup_skew_sec:
+        raise ValueError(
+            "future clock skew cannot exceed the startup skew bound"
+        )
     if not _all_finite((receipt_stamp_sec, acquisition_stamp_sec)):
         return False
     return (
         receipt_stamp_sec > 0.0
         and acquisition_stamp_sec - receipt_stamp_sec
-        <= maximum_startup_skew_sec
+        <= maximum_future_skew_sec
     )
 
 
@@ -274,6 +279,11 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument("--expected-target-id", type=int, required=True)
     parser.add_argument(
+        "--scene-config",
+        type=Path,
+        help="Scene manifest that selects fruit and static collision geometry.",
+    )
+    parser.add_argument(
         "--target-topic", default="/strawberry/shadow/target_pose"
     )
     parser.add_argument("--camera-mount", choices=("fixed", "wrist", "dual"), default="dual")
@@ -307,16 +317,22 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
         apply_static_collision_scene,
     )
 
-    scene_path = (
-        Path(get_package_share_directory("strawberry_sim"))
-        / "config"
-        / "scene.yaml"
-    )
+    scene_path = options.scene_config
+    if scene_path is None:
+        scene_path = (
+            Path(get_package_share_directory("strawberry_sim"))
+            / "config"
+            / "scene.yaml"
+        )
+    scene_path = scene_path.resolve(strict=True)
     scene = load_scene_config(scene_path)
+    static_objects = static_collision_objects(
+        scene.static_collision_profile
+    )
     expected_frame_id = scene.base_frame
     fruit_ids = tuple(fruit.target_id for fruit in scene.ordered_fruits)
     expected_collision_ids = [
-        specification.object_id for specification in STATIC_COLLISION_OBJECTS
+        specification.object_id for specification in static_objects
     ] + [fruit_collision_id(target_id) for target_id in fruit_ids]
 
     class HandoffShadowNode(Node):
@@ -499,12 +515,15 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
             if len(initial_positions) != len(ARM_JOINT_NAMES):
                 raise RuntimeError("MoveIt did not receive a complete arm state")
             apply_static_collision_scene(
-                planning_scene_monitor, expected_frame_id
+                planning_scene_monitor,
+                expected_frame_id,
+                static_objects,
             )
             apply_fruit_collision_scene(
                 planning_scene_monitor,
                 expected_frame_id,
                 truth_centers,
+                scene.fruit_collision_radius_m,
             )
             time.sleep(0.5)
             with planning_scene_monitor.read_only() as planning_scene:

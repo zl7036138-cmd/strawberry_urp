@@ -10,8 +10,12 @@
 *.xacro text eol=lf
 *.sdf text eol=lf
 *.srdf text eol=lf
+*.obj text eol=lf
+*.mtl text eol=lf
 *.msg text eol=lf
 *.action text eol=lf
+# Decision records may be content-hash-bound by experiment contracts.
+docs/decisions/*.md text eol=lf
 
 # Binary project assets.
 *.blend binary
@@ -20,3 +24,9 @@
 *.jpeg binary
 *.pt binary
 *.zip binary
+
+# Preserve this hash-bound mixed-platform experiment exactly as generated.
+results/development/blender_v2_perception_handoff_pregrasp_v3/** binary
+results/development/blender_v2_perception_pick_once_v3/** binary
+results/development/blender_v2_grasp_pose_gripper_diagnostic_v4/** binary
+results/development/blender_v2_perception_pick_once_v4/** binary

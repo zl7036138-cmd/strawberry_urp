@@ -1,0 +1,76 @@
+{
+  "collision_geometry_changed": false,
+  "decision": {
+    "path": "docs/decisions/0040-record-v2-localization-failure-and-repair-mesh-winding.md",
+    "sha256": "5aeab4c8d6fa54102f7eeb719fdc34b20773231811414e610d03cb79bcffe411",
+    "size_bytes": 2913
+  },
+  "formal_acceptance": false,
+  "generated_at_utc": "2026-07-27T00:41:07.032532+00:00",
+  "kind": "blender_v2_body_winding_repair_receipt",
+  "material_assignments_changed": false,
+  "meshes": [
+    {
+      "after": {
+        "sha256": "25237e08bd74558a124d8dd33d5e5accce845cea5e97fe05cd1a81b4ec121452",
+        "size_bytes": 1377293,
+        "winding": {
+          "degenerate_triangles": 0,
+          "inward_triangles": 0,
+          "object_name": "strawberry_ripe_body_v5",
+          "outward_triangles": 11796,
+          "signed_sum": 0.0002840459274122285,
+          "triangle_count": 11796
+        }
+      },
+      "before": {
+        "sha256": "f8cbe53a61ee46b1de6ff1aa6f203291fe1b4f946084ed0617ca8f929dc5b347",
+        "size_bytes": 1377293,
+        "winding": {
+          "degenerate_triangles": 0,
+          "inward_triangles": 11796,
+          "object_name": "strawberry_ripe_body_v5",
+          "outward_triangles": 0,
+          "signed_sum": -0.0002840459274122285,
+          "triangle_count": 11796
+        }
+      },
+      "path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe/meshes/strawberry_ripe_visual_v2.obj",
+      "reversed_face_records": 11796
+    },
+    {
+      "after": {
+        "sha256": "88e6ea10b3629e3dab5a87cb19103ed8cc299543585624b8790b84e36acfd81f",
+        "size_bytes": 1377295,
+        "winding": {
+          "degenerate_triangles": 0,
+          "inward_triangles": 0,
+          "object_name": "strawberry_ripe_body_v5",
+          "outward_triangles": 11796,
+          "signed_sum": 0.0002840459274122285,
+          "triangle_count": 11796
+        }
+      },
+      "before": {
+        "sha256": "c8f213bed108c277bedbe910d3215bf73cf25780a90efd99e03cea9a33db0068",
+        "size_bytes": 1377295,
+        "winding": {
+          "degenerate_triangles": 0,
+          "inward_triangles": 11796,
+          "object_name": "strawberry_ripe_body_v5",
+          "outward_triangles": 0,
+          "signed_sum": -0.0002840459274122285,
+          "triangle_count": 11796
+        }
+      },
+      "path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe/meshes/strawberry_unripe_visual_v2.obj",
+      "reversed_face_records": 11796
+    }
+  ],
+  "object_name": "strawberry_ripe_body_v5",
+  "robot_motion_started": false,
+  "schema_version": 1,
+  "scope": "ADR_0040_BOUNDED_ASSET_DEFECT_CORRECTION",
+  "vertex_coordinates_changed": false,
+  "vertex_normals_changed": false
+}

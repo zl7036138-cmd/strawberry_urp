@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -30,14 +31,73 @@ def summarize_observation_repeats(
     per_run = []
     candidate_ids = set()
     presets = set()
+    readiness_status_counts: Counter[str] = Counter()
+    readiness_reset_reason_counts: Counter[str] = Counter()
+    readiness_reset_count = 0
+    readiness_delay_count = 0
+    readiness_delay_weighted_sum = 0.0
+    readiness_delay_minima = []
+    readiness_delay_maxima = []
+    readiness_maximum_streaks = []
     for index, run in enumerate(runs, start=1):
         label = str(run.get("run_label", f"run_{index}"))
         matching_frames = int(
             run.get("wrist_matching_target_pose_frames", 0)
         )
+        required_streak = int(
+            run.get("wrist_readiness_consecutive_frames", 0)
+        )
+        maximum_streak = int(
+            run.get("wrist_readiness_maximum_consecutive_frames", 0)
+        )
+        status_counts = run.get("wrist_readiness_status_counts", {})
+        reset_reason_counts = run.get(
+            "wrist_readiness_streak_reset_reason_counts", {}
+        )
+        delay_summary = run.get(
+            "wrist_readiness_target_pose_delay_sec", {}
+        )
+        if not isinstance(status_counts, Mapping):
+            status_counts = {}
+        if not isinstance(reset_reason_counts, Mapping):
+            reset_reason_counts = {}
+        if not isinstance(delay_summary, Mapping):
+            delay_summary = {}
+        run_reset_count = int(
+            run.get("wrist_readiness_streak_reset_count", 0)
+        )
+        delay_count = int(delay_summary.get("count", 0))
+        delay_mean = delay_summary.get("mean")
+        delay_minimum = delay_summary.get("minimum")
+        delay_maximum = delay_summary.get("maximum")
+
         target_pose_frames.append(matching_frames)
         candidate_ids.add(int(run.get("candidate_target_id", 0)))
         presets.add(str(run.get("selected_preset", "")))
+        readiness_maximum_streaks.append(maximum_streak)
+        readiness_reset_count += run_reset_count
+        readiness_status_counts.update(
+            {
+                str(name): int(count)
+                for name, count in status_counts.items()
+            }
+        )
+        readiness_reset_reason_counts.update(
+            {
+                str(name): int(count)
+                for name, count in reset_reason_counts.items()
+            }
+        )
+        if delay_count and delay_mean is not None:
+            readiness_delay_count += delay_count
+            readiness_delay_weighted_sum += (
+                delay_count * float(delay_mean)
+            )
+        if delay_minimum is not None:
+            readiness_delay_minima.append(float(delay_minimum))
+        if delay_maximum is not None:
+            readiness_delay_maxima.append(float(delay_maximum))
+
         run_violations = []
         if run.get("sequence_passed") is not True:
             run_violations.append("sequence did not pass")
@@ -51,8 +111,15 @@ def summarize_observation_repeats(
             run_violations.append("target identity was not localized in all frames")
         if run.get("wrist_readiness_satisfied") is not True:
             run_violations.append("readiness gate was not satisfied")
-        if int(run.get("wrist_readiness_consecutive_frames", 0)) < 15:
+        if required_streak < 15:
             run_violations.append("readiness proof was shorter than 15 frames")
+        if (
+            int(run.get("schema_version", 1)) >= 3
+            and maximum_streak < required_streak
+        ):
+            run_violations.append(
+                "readiness telemetry did not prove the required streak"
+            )
         if int(run.get("wrist_unripe_detection_count", 0)) != 0:
             run_violations.append("unripe detections were unexpectedly published")
         if run_violations:
@@ -82,6 +149,23 @@ def summarize_observation_repeats(
                 "deferred_recovery_count": int(
                     run.get("deferred_recovery_count", 0)
                 ),
+                "wrist_readiness_maximum_consecutive_frames": maximum_streak,
+                "wrist_readiness_streak_reset_count": run_reset_count,
+                "wrist_readiness_streak_reset_reason_counts": dict(
+                    sorted(
+                        (str(name), int(count))
+                        for name, count in reset_reason_counts.items()
+                    )
+                ),
+                "wrist_readiness_status_counts": dict(
+                    sorted(
+                        (str(name), int(count))
+                        for name, count in status_counts.items()
+                    )
+                ),
+                "wrist_readiness_target_pose_delay_sec": dict(
+                    delay_summary
+                ),
                 "clean_shutdown": run.get("clean_shutdown") is True,
                 "violations": run_violations,
             }
@@ -93,7 +177,7 @@ def summarize_observation_repeats(
         violations.append("repetitions did not all select the lower wrist preset")
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "scope": "NON_ACCEPTANCE_DUAL_CAMERA_OBSERVATION_REPEAT",
         "formal_acceptance": False,
         "held_out_test_consumed": False,
@@ -106,6 +190,35 @@ def summarize_observation_repeats(
             "mean": statistics.fmean(target_pose_frames),
             "maximum": max(target_pose_frames),
             "total": sum(target_pose_frames),
+        },
+        "wrist_readiness": {
+            "maximum_consecutive_ready_frames": {
+                "minimum": min(readiness_maximum_streaks),
+                "maximum": max(readiness_maximum_streaks),
+            },
+            "streak_reset_count": readiness_reset_count,
+            "streak_reset_reason_counts": dict(
+                sorted(readiness_reset_reason_counts.items())
+            ),
+            "status_counts": dict(sorted(readiness_status_counts.items())),
+            "target_pose_delay_sec": {
+                "count": readiness_delay_count,
+                "minimum": (
+                    min(readiness_delay_minima)
+                    if readiness_delay_minima
+                    else None
+                ),
+                "mean": (
+                    readiness_delay_weighted_sum / readiness_delay_count
+                    if readiness_delay_count
+                    else None
+                ),
+                "maximum": (
+                    max(readiness_delay_maxima)
+                    if readiness_delay_maxima
+                    else None
+                ),
+            },
         },
         "candidate_target_ids": sorted(candidate_ids),
         "selected_presets": sorted(presets),

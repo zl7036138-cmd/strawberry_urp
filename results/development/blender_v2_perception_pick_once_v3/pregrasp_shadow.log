@@ -1,0 +1,52 @@
+WARNING:root:[33;21mCannot infer URDF from `/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation`. -- using config/panda.urdf[0m
+WARNING:root:[33;21mCannot infer SRDF from `/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation`. -- using config/panda.srdf[0m
+[INFO] [1785145281.844756313] [moveit_28633336.moveit.py.cpp_initializer]: Initialize rclcpp
+[INFO] [1785145281.845256231] [moveit_28633336.moveit.py.cpp_initializer]: Initialize node parameters
+[INFO] [1785145281.845503389] [moveit_28633336.moveit.py.cpp_initializer]: Initialize node and executor
+[INFO] [1785145281.855970805] [moveit_28633336.moveit.py.cpp_initializer]: Spin separate thread
+[INFO] [1785145281.860280769] [moveit_28633336.moveit.ros.rdf_loader]: Loaded robot model in 0 seconds
+[INFO] [1785145281.860714980] [moveit_28633336.moveit.core.robot_model]: Loading robot model 'panda'...
+[INFO] [1785145281.861059556] [moveit_28633336.moveit.core.robot_model]: No root/virtual joint specified in SRDF. Assuming fixed joint
+[INFO] [1785145281.866063803] [moveit_28633336.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda_arm': 1 1 1 1 1 1 1
+[INFO] [1785145281.888650324] [moveit_28633336.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[INFO] [1785145281.889720614] [moveit_28633336.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[INFO] [1785145281.891007690] [moveit_28633336.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[INFO] [1785145281.892017776] [moveit_28633336.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[INFO] [1785145281.892536626] [moveit_28633336.moveit.ros.planning_scene_monitor]: Stopping existing planning scene publisher.
+[INFO] [1785145281.892935766] [moveit_28633336.moveit.ros.planning_scene_monitor]: Stopped publishing maintained planning scene.
+[INFO] [1785145281.894215574] [moveit_28633336.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[INFO] [1785145281.895348816] [moveit_28633336.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[INFO] [1785145281.896094954] [moveit_28633336.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[INFO] [1785145281.896411192] [moveit_28633336.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[INFO] [1785145281.897423696] [moveit_28633336.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[INFO] [1785145281.898336685] [moveit_28633336.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[WARN] [1785145281.898854723] [moveit_28633336.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[ERROR] [1785145281.899346437] [moveit_28633336.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[INFO] [1785145281.906931534] [moveit_28633336.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[INFO] [1785145281.907928230] [strawberry_pregrasp_shadow_moveit]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[INFO] [1785145281.909593821] [strawberry_pregrasp_shadow_moveit]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[INFO] [1785145281.910040415] [strawberry_pregrasp_shadow_moveit]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[INFO] [1785145281.910741662] [strawberry_pregrasp_shadow_moveit]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[INFO] [1785145281.911163787] [strawberry_pregrasp_shadow_moveit]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[INFO] [1785145281.911707851] [strawberry_pregrasp_shadow_moveit]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[INFO] [1785145281.912204697] [strawberry_pregrasp_shadow_moveit]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[INFO] [1785145281.912928495] [strawberry_pregrasp_shadow_moveit]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[INFO] [1785145281.913927079] [strawberry_pregrasp_shadow_moveit]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[INFO] [1785145281.916922189] [strawberry_pregrasp_shadow_moveit]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[INFO] [1785145281.917544084] [strawberry_pregrasp_shadow_moveit]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[INFO] [1785145281.920007787] [strawberry_pregrasp_shadow_moveit]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[WARN] [1785145281.921422588] [moveit_28633336.moveit.ros.trajectory_execution_manager]: Parameter '~moveit_controller_manager' is not specified but only one matching plugin was found: 'moveit_simple_controller_manager/MoveItSimpleControllerManager'. Using that one.
+[ERROR] [1785145281.938184406] [moveit_28633336.moveit.plugins.simple_controller_manager]: No controller_names specified.
+[INFO] [1785145281.938693717] [moveit_28633336.moveit.plugins.simple_controller_manager]: Returned 0 controllers in list
+[INFO] [1785145281.938973487] [moveit_28633336.moveit.plugins.simple_controller_manager]: Returned 0 controllers in list
+[INFO] [1785145281.939993273] [moveit_28633336.moveit.ros.trajectory_execution_manager]: Trajectory execution is not managing controllers
+[INFO] [1785145287.874237664] [strawberry_pregrasp_shadow_moveit]: Calling PlanningRequestAdapter 'ResolveConstraintFrames'
+[INFO] [1785145287.874723992] [strawberry_pregrasp_shadow_moveit]: Calling PlanningRequestAdapter 'ValidateWorkspaceBounds'
+[WARN] [1785145287.876502682] [moveit_28633336.moveit.ros.validate_workspace_bounds]: It looks like the planning volume was not specified. Using default values.
+[INFO] [1785145287.877199376] [strawberry_pregrasp_shadow_moveit]: Calling PlanningRequestAdapter 'CheckStartStateBounds'
+[INFO] [1785145287.877476577] [strawberry_pregrasp_shadow_moveit]: Calling PlanningRequestAdapter 'CheckStartStateCollision'
+[INFO] [1785145287.878958342] [moveit_28633336.moveit.planners.ompl.model_based_planning_context]: Planner configuration 'panda_arm[RRTConnectkConfigDefault]' will use planner 'geometric::RRTConnect'. Additional configuration parameters will be set when the planner is constructed.
+[INFO] [1785145287.879833660] [strawberry_pregrasp_shadow_moveit]: Calling Planner 'OMPL'
+[INFO] [1785145287.909698589] [strawberry_pregrasp_shadow_moveit]: Calling PlanningResponseAdapter 'AddTimeOptimalParameterization'
+[INFO] [1785145287.913363206] [strawberry_pregrasp_shadow_moveit]: Calling PlanningResponseAdapter 'ValidateSolution'
+{"camera_mount": "dual", "clock_unsynchronized_target_samples_ignored": 14, "collision_scene": {"after_ids": ["collection_bin", "strawberry_fruit_1", "strawberry_fruit_2", "strawberry_fruit_3", "strawberry_plant_crown", "strawberry_planter", "work_table"], "before_ids": ["collection_bin", "strawberry_fruit_1", "strawberry_fruit_2", "strawberry_fruit_3", "strawberry_plant_crown", "strawberry_planter", "work_table"], "expected_ids": ["collection_bin", "strawberry_fruit_1", "strawberry_fruit_2", "strawberry_fruit_3", "strawberry_plant_crown", "strawberry_planter", "work_table"], "missing_after": [], "missing_before": [], "selected_fruit_collision_retained": true}, "control_command_count": 0, "control_interface_created": false, "controller_configuration_keys": [], "expected_target_id": 1, "formal_acceptance": false, "generated_at_utc": "2026-07-27T09:41:27.933171+00:00", "grasp_geometry_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation/config/grasp_geometry.yaml", "grasp_geometry_profile": "blender_v2_26mm", "gripper_command_sent": false, "handoff_input": {"bytes": 2915, "path": "results/development/blender_v2_perception_pick_once_v3/handoff_shadow.json", "sha256": "c765f2313ae98a152dea68aa98fe5b0d1de6c2ff463299e8320fe31119bfc69f"}, "held_out_test_consumed": false, "joint_sample_count": 10, "minimum_target_samples": 15, "moveit_state_delta_rad": 0.0, "observed_joint_delta_rad": 0.0, "observed_target_ids": [1], "pick_action_called": false, "pick_authorized": false, "planning_attempt_count": 1, "planning_attempts": [{"attempt": 1, "endpoint_orientation_error_rad": 0.013351928704850831, "endpoint_position_error_m": 0.0006741527397355294, "planning_time_sec": 0.04051407600127277, "success": true, "trajectory_waypoint_count": 60}], "planning_passed": true, "pregrasp_pose": {"frame_id": "panda_link0", "orientation_xyzw": [1.0, 0.0, 0.0, 0.0], "position_xyz_m": [0.41586261443329753, -0.05537905848329585, 0.7966943966316054], "pregrasp_offset_m": 0.15, "tool_center_offset_m": 0.0964}, "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml", "schema_version": 1, "scope": "NON_ACCEPTANCE_PREGRASP_PLANNING_SHADOW", "state_history": ["HANDOFF_RECEIPT_VALIDATED", "READ_ONLY_MOVEIT_READY", "PLANNING_COLLISION_SCENE_VALIDATED", "PLANNING_TARGET_FROZEN", "PREGRASP_GOAL_CONSTRUCTED", "PREGRASP_PLAN_REQUESTED", "TRAJECTORY_DISCARDED", "STOP_BEFORE_TRAJECTORY_EXECUTION"], "target_age_sec": {"at_plan_completion": 0.08099999999999952, "maximum": 0.07600000000000051, "minimum": 0.03200000000000003}, "target_sample_count": 15, "target_topic": "/strawberry/perception/target_pose", "trajectory_discarded": true, "trajectory_executed": false, "trajectory_execution_requested": false, "trajectory_execution_time_sec": 0.0, "trajectory_generated": true, "violations": []}

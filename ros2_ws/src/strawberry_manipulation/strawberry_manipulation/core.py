@@ -109,14 +109,16 @@ def offset_along_local_z(pose: Pose, distance_m: float) -> Pose:
     )
 
 
-def alternate_approach(pose: Pose) -> Pose:
-    """Rotate the tool 90 degrees about base Z for the one allowed retry."""
+def rotate_about_base_z(pose: Pose, angle_rad: float) -> Pose:
+    """Rotate a pose orientation about base-frame Z."""
 
     pose = pose.normalized()
-    half = math.pi / 4.0
+    if not math.isfinite(angle_rad):
+        raise ValueError("base-Z rotation must be finite")
+    half = angle_rad / 2.0
     rz = math.sin(half)
     rw = math.cos(half)
-    # q_retry = q_z90 * q_original
+    # q_rotated = q_z * q_original
     return replace(
         pose,
         qx=rw * pose.qx - rz * pose.qy,
@@ -124,6 +126,12 @@ def alternate_approach(pose: Pose) -> Pose:
         qz=rw * pose.qz + rz * pose.qw,
         qw=rw * pose.qw - rz * pose.qz,
     ).normalized()
+
+
+def alternate_approach(pose: Pose) -> Pose:
+    """Rotate the tool 90 degrees about base Z for the approach retry."""
+
+    return rotate_about_base_z(pose, math.pi / 2.0)
 
 
 DEFAULT_GRASP_QUATERNION = (1.0, 0.0, 0.0, 0.0)
@@ -187,6 +195,7 @@ class PickAndPlaceExecutor:
             0.0,
             0.0,
         ),
+        target_pose_refiner: Callable[[int, Pose], Pose] | None = None,
     ) -> None:
         if pregrasp_offset_m <= 0.0 or retreat_distance_m <= 0.0:
             raise ValueError("motion offsets must be positive")
@@ -201,6 +210,7 @@ class PickAndPlaceExecutor:
         self.tool_center_offset_m = tool_center_offset_m
         self.grasp_quaternion = tuple(float(value) for value in grasp_quaternion)
         self.place_quaternion = tuple(float(value) for value in place_quaternion)
+        self.target_pose_refiner = target_pose_refiner
 
     def _hand_pose_for_fruit_center(
         self,
@@ -314,7 +324,8 @@ class PickAndPlaceExecutor:
             if not detached:
                 message = f"{message}; attachment release failed, recovery motion withheld"
             elif recover_home:
-                self.backend.move_home()
+                if not self.backend.move_home():
+                    message = f"{message}; recovery home motion failed"
             return ExecutionResult(
                 False,
                 code,
@@ -363,6 +374,19 @@ class PickAndPlaceExecutor:
                 )
 
         mark("APPROACH", 0.25)
+        if self.target_pose_refiner is not None:
+            try:
+                target_pose = self.target_pose_refiner(
+                    target_id, target_pose
+                ).normalized()
+            except Exception as exc:
+                return fail(
+                    FailureCode.STALE_DATA,
+                    f"target pose refinement failed: {exc}",
+                )
+            grasp_pose = self._hand_pose_for_fruit_center(
+                target_pose, self.grasp_quaternion
+            )
         if not self.backend.allow_target_contact(target_id):
             return fail(
                 FailureCode.PLANNING_FAILED,
@@ -371,9 +395,47 @@ class PickAndPlaceExecutor:
         grasp_motion = self.backend.move_to(grasp_pose, "GRASP_POSE")
         planning_time += grasp_motion.planning_time_sec
         execution_time += grasp_motion.execution_time_sec
+        if not grasp_motion.success and grasp_motion.collision:
+            # A moving fruit can shift the final Cartesian descent onto a
+            # low-elbow IK branch even though the reviewed pre-grasp remains
+            # valid. Keep the same vertical tool axis and inspect the three
+            # remaining quarter-turn finger orientations. Every reorientation
+            # and descent remains collision checked, and the search is bounded.
+            for quarter_turn in (1, 2, 3):
+                alternate_grasp_pose = rotate_about_base_z(
+                    grasp_pose, quarter_turn * math.pi / 2.0
+                )
+                alternate_pregrasp_pose = rotate_about_base_z(
+                    offset_along_local_z(
+                        grasp_pose, -self.pregrasp_offset_m
+                    ),
+                    quarter_turn * math.pi / 2.0,
+                )
+                suffix = "" if quarter_turn == 1 else f"_{quarter_turn}"
+                retry_preparation = self.backend.move_to(
+                    alternate_pregrasp_pose,
+                    f"GRASP_RETRY_PREP{suffix}",
+                )
+                planning_time += retry_preparation.planning_time_sec
+                execution_time += retry_preparation.execution_time_sec
+                grasp_motion = retry_preparation
+                if not retry_preparation.success:
+                    continue
+                grasp_motion = self.backend.move_to(
+                    alternate_grasp_pose,
+                    f"GRASP_POSE_RETRY{suffix}",
+                )
+                planning_time += grasp_motion.planning_time_sec
+                execution_time += grasp_motion.execution_time_sec
+                if grasp_motion.success:
+                    grasp_pose = alternate_grasp_pose
+                    break
         if not grasp_motion.success:
             code = FailureCode.COLLISION if grasp_motion.collision else FailureCode.PLANNING_FAILED
-            return fail(code, "failed to reach grasp pose")
+            return fail(
+                code,
+                "failed to reach grasp pose after three alternate orientations",
+            )
 
         mark("GRASP", 0.40)
         if not self.backend.close_gripper() or not self.backend.attach(target_id):
@@ -408,7 +470,15 @@ class PickAndPlaceExecutor:
         if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):
             return fail(FailureCode.PLACE_FAILED, "fruit did not remain in bin")
 
-        self.backend.move_home()
+        if not self.backend.move_home():
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "pick-and-place completed but final home motion failed",
+                planning_time,
+                execution_time,
+                tuple(stages),
+            )
         return ExecutionResult(
             True,
             FailureCode.NONE,

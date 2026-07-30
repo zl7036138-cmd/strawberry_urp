@@ -107,7 +107,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("attachment_backend_enabled", False)
             self.declare_parameter("contact_freshness_sec", 0.25)
             self.declare_parameter("geometric_contact_fallback", True)
-            self.declare_parameter("fruit_collision_radius_m", 0.026)
             self.declare_parameter("geometric_contact_margin_m", 0.003)
             self.declare_parameter("confirmation_timeout_wall_sec", 0.75)
             self.declare_parameter("verification_timeout_wall_sec", 3.0)
@@ -153,9 +152,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._geometric_contact_fallback = bool(
                 self.get_parameter("geometric_contact_fallback").value
             )
-            fruit_radius = float(
-                self.get_parameter("fruit_collision_radius_m").value
-            )
+            fruit_radius = self._scene.fruit_collision_radius_m
             geometric_margin = float(
                 self.get_parameter("geometric_contact_margin_m").value
             )

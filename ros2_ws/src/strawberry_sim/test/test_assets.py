@@ -7,11 +7,19 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+from strawberry_sim.core import load_scene_config
+from strawberry_sim.obj_winding import winding_stats
+
 
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class SimulationAssetTests(unittest.TestCase):
+    def test_package_data_excludes_transient_python_bytecode(self):
+        setup_text = (PACKAGE_ROOT / "setup.py").read_text(encoding="utf-8")
+        self.assertIn('dirname != "__pycache__"', setup_text)
+        self.assertIn('filename.endswith((".pyc", ".pyo"))', setup_text)
+
     def test_camera_tf_uses_ros_optical_axis_conversion(self):
         launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
             encoding="utf-8"
@@ -41,6 +49,32 @@ class SimulationAssetTests(unittest.TestCase):
         )
         self.assertIn('LaunchConfiguration("world_file").perform(context)', launch_text)
         self.assertIn("if not os.path.isfile(world_file):", launch_text)
+
+    def test_initial_joint_override_is_explicit_and_v2_default_is_preserved(self):
+        launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertRegex(
+            launch_text,
+            r'DeclareLaunchArgument\(\s*"initial_positions_file",\s*default_value=""',
+        )
+        self.assertIn(
+            'LaunchConfiguration("initial_positions_file").perform(context)',
+            launch_text,
+        )
+        field_launch = (
+            PACKAGE_ROOT / "launch" / "field_v3.launch.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("panda_initial_positions_field_v3.yaml", field_launch)
+        field_positions = yaml.safe_load(
+            (
+                PACKAGE_ROOT
+                / "config"
+                / "panda_initial_positions_field_v3.yaml"
+            ).read_text(encoding="utf-8")
+        )["initial_positions"]
+        self.assertEqual(len(field_positions), 7)
+        self.assertAlmostEqual(field_positions["panda_joint1"], 1.310378291)
 
     def test_simulation_seed_is_explicit_opt_in_and_reaches_gazebo(self):
         launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
@@ -93,6 +127,163 @@ class SimulationAssetTests(unittest.TestCase):
             )
             self.assertTrue(mesh_path.is_file())
             self.assertGreater(mesh_path.stat().st_size, 100_000)
+
+    def test_field_v3_preserves_instancing_and_simple_collisions(self):
+        model_root = PACKAGE_ROOT / "models" / "strawberry_field_v3"
+        manifest = yaml.safe_load(
+            (model_root / "export_manifest.json").read_text(encoding="utf-8")
+        )["field"]
+        self.assertEqual(manifest["source_plant_instances"], 103)
+        self.assertEqual(manifest["exported_plant_instances"], 101)
+        self.assertEqual(manifest["unique_plant_variants"], 24)
+        self.assertEqual(
+            manifest["omitted_source_plants"],
+            ["草莓植株_010", "草莓植株_026"],
+        )
+        self.assertEqual(manifest["plant_decimation_ratio"], 0.45)
+        self.assertEqual(
+            manifest["collisions"][1]["adjustments"],
+            {
+                "minimum_x_m": 0.2,
+                "reason": "fixed Panda pedestal clearance",
+            },
+        )
+
+        variants = manifest["variants"]
+        self.assertEqual(len(variants), 24)
+        self.assertTrue(all(variant["triangles"] > 0 for variant in variants))
+        for variant in variants:
+            self.assertTrue(
+                (model_root / "meshes" / variant["mesh_file"]).is_file()
+            )
+
+        model = ET.parse(model_root / "model.sdf").getroot()
+        self.assertEqual(model.find("./model").attrib["name"], "strawberry_field_v3")
+        self.assertEqual(model.findtext("./model/static"), "true")
+        collisions = model.findall("./model/link/collision")
+        visuals = model.findall("./model/link/visual")
+        self.assertEqual(len(collisions), 4)
+        ridge_pose = tuple(
+            float(value) for value in collisions[1].findtext("pose").split()
+        )
+        ridge_size = tuple(
+            float(value)
+            for value in collisions[1].findtext("./geometry/box/size").split()
+        )
+        self.assertAlmostEqual(
+            ridge_pose[0] - ridge_size[0] / 2.0,
+            0.2,
+            places=7,
+        )
+        self.assertEqual(len(visuals), 102)
+        self.assertTrue(
+            all(collision.find("./geometry/box") is not None for collision in collisions)
+        )
+        mesh_uris = {
+            visual.findtext("./geometry/mesh/uri")
+            for visual in visuals
+        }
+        self.assertEqual(len(mesh_uris), 25)
+        self.assertTrue(
+            all(uri.startswith("model://strawberry_field_v3/meshes/") for uri in mesh_uris)
+        )
+
+    def test_field_v3_world_is_opt_in_and_matches_its_manifest(self):
+        world = ET.parse(
+            PACKAGE_ROOT / "worlds" / "strawberry_field_v3.sdf"
+        ).getroot()
+        includes = {
+            include.findtext("name"): include
+            for include in world.findall("./world/include")
+        }
+        self.assertEqual(
+            includes["strawberry_field_environment"].findtext("uri"),
+            "model://strawberry_field_v3",
+        )
+        self.assertIn("strawberry_rgbd_camera", includes)
+        self.assertIn("strawberry_plant", includes)
+        self.assertEqual(
+            tuple(
+                float(value)
+                for value in includes["collection_bin"].findtext("pose").split()
+            ),
+            (-0.90, 0.80, 0.0, 0.0, 0.0, 0.0),
+        )
+
+        scene = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "scene_field_v3.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        qualification = scene["qualification"]
+        self.assertTrue(qualification["motion_authorized"])
+        self.assertEqual(
+            qualification["profile_id"],
+            "field_v3_perception_pick_repeat_v1",
+        )
+        self.assertEqual(
+            qualification["authorization_scope"],
+            "exact_bounded_perception_pick_runner",
+        )
+        self.assertFalse(qualification["formal_acceptance"])
+        self.assertEqual(scene["camera"]["default_mount"], "dual")
+        self.assertEqual(
+            scene["planning_scene"]["static_collision_profile"],
+            "field_v3",
+        )
+        self.assertEqual(scene["bin"]["place_pose_m"], [-0.45, 0.25, 0.45])
+        self.assertAlmostEqual(
+            scene["bin"]["place_transit_clearance_m"], 0.12
+        )
+        place_x, place_y, place_z = scene["bin"]["place_pose_m"]
+        bounds = scene["bin"]["interior_bounds_m"]
+        self.assertGreaterEqual(place_x, bounds["min_x"])
+        self.assertLessEqual(place_x, bounds["max_x"])
+        self.assertGreaterEqual(place_y, bounds["min_y"])
+        self.assertLessEqual(place_y, bounds["max_y"])
+        self.assertGreaterEqual(place_z, bounds["min_z"])
+        self.assertLessEqual(place_z, bounds["max_z"])
+        self.assertEqual(
+            scene["camera"]["wrist_target_1_selection_roi_xyxy_px"],
+            [320, 240, 640, 480],
+        )
+        self.assertEqual(scene["field"]["background_plant_count"], 101)
+        world_fruit_poses = {
+            name: tuple(
+                float(value)
+                for value in includes[name].findtext("pose").split()[:3]
+            )
+            for name in ("strawberry_1", "strawberry_2", "strawberry_3")
+        }
+        manifest_fruit_poses = {
+            fruit["model_name"]: tuple(fruit["initial_pose_m"])
+            for fruit in scene["fruits"]
+        }
+        self.assertEqual(world_fruit_poses, manifest_fruit_poses)
+
+        launch_text = (
+            PACKAGE_ROOT / "launch" / "field_v3.launch.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('default_value="dual"', launch_text)
+        self.assertIn('"enable_attachment": "false"', launch_text)
+        self.assertIn('"enable_pose_control": "false"', launch_text)
+        self.assertNotIn("strawberry_field_v3.sdf", (
+            PACKAGE_ROOT / "launch" / "sim.launch.py"
+        ).read_text(encoding="utf-8"))
+
+    def test_blender_v2_fruit_body_faces_have_outward_winding(self):
+        for model_name, mesh_name in (
+            ("strawberry_ripe", "strawberry_ripe_visual_v2.obj"),
+            ("strawberry_unripe", "strawberry_unripe_visual_v2.obj"),
+        ):
+            stats = winding_stats(
+                PACKAGE_ROOT / "models" / model_name / "meshes" / mesh_name,
+                "strawberry_ripe_body_v5",
+            )
+            self.assertEqual(stats.triangle_count, 11796)
+            self.assertEqual(stats.outward_triangles, 11796)
+            self.assertEqual(stats.inward_triangles, 0)
+            self.assertEqual(stats.degenerate_triangles, 0)
 
     def test_archived_tabletop_world_uses_archived_sphere_assets(self):
         world = ET.parse(
@@ -242,6 +433,70 @@ class SimulationAssetTests(unittest.TestCase):
             self.assertEqual(constraints[joint_name]["goal"], 0.05)
             self.assertEqual(constraints[joint_name]["trajectory"], 0.50)
 
+    def test_gripper_stall_window_allows_first_measured_motion(self):
+        config = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "panda_controllers.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        controller_joints = {
+            "panda_gripper_controller": "panda_finger_joint1",
+            "panda_gripper_right_controller": "panda_finger_joint2",
+        }
+        for controller_name, joint_name in controller_joints.items():
+            parameters = config[controller_name]["ros__parameters"]
+            self.assertEqual(parameters["joint"], joint_name)
+            self.assertTrue(parameters["allow_stalling"])
+            self.assertEqual(parameters["stall_timeout"], 1.0)
+            self.assertEqual(parameters["goal_tolerance"], 0.003)
+            self.assertIn(
+                controller_name,
+                config["controller_manager"]["ros__parameters"],
+            )
+        launch_text = (PACKAGE_ROOT / "launch" / "sim.launch.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"panda_gripper_controller"', launch_text)
+        self.assertIn('"panda_gripper_right_controller"', launch_text)
+
+    def test_both_finger_joints_have_explicit_position_command_interfaces(self):
+        root = ET.parse(PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro").getroot()
+        ros2_control = root.find(".//ros2_control")
+        self.assertIsNotNone(ros2_control)
+        finger_joints = {
+            joint.attrib["name"]: joint
+            for joint in ros2_control.findall("joint")
+            if joint.attrib.get("name", "").startswith("panda_finger_joint")
+        }
+        self.assertEqual(
+            set(finger_joints),
+            {"panda_finger_joint1", "panda_finger_joint2"},
+        )
+        for joint in finger_joints.values():
+            self.assertIsNotNone(
+                joint.find("./command_interface[@name='position']")
+            )
+        self.assertEqual(
+            finger_joints["panda_finger_joint2"].attrib.get("mimic"),
+            "false",
+        )
+
+    def test_wrist_depth_bridge_has_bounded_burst_queue(self):
+        bridges = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "bridge.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        wrist_depth = next(
+            item
+            for item in bridges
+            if item.get("ros_topic_name")
+            == "/camera/wrist/depth/image_raw"
+        )
+        self.assertEqual(wrist_depth["direction"], "GZ_TO_ROS")
+        self.assertEqual(wrist_depth["qos_profile"], "SENSOR_DATA")
+        self.assertEqual(wrist_depth["publisher_queue"], 30)
+
     def test_world_fruit_poses_match_scene_manifest(self):
         root = ET.parse(PACKAGE_ROOT / "worlds" / "strawberry_orchard.sdf").getroot()
         world_poses = {
@@ -260,6 +515,26 @@ class SimulationAssetTests(unittest.TestCase):
             for fruit in manifest["fruits"]
         }
         self.assertEqual(world_poses, manifest_poses)
+
+    def test_scene_manifests_split_v1_and_v2_fruit_geometry(self):
+        canonical = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "scene.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        archived = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "scene_tabletop_v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(canonical["fruit_collision_radius_m"], 0.026)
+        self.assertNotIn("fruit_collision_radius_m", archived)
+        self.assertEqual(
+            load_scene_config(
+                PACKAGE_ROOT / "config" / "scene_tabletop_v1.yaml"
+            ).fruit_collision_radius_m,
+            0.035,
+        )
 
     def test_fruits_disable_gravity_but_decay_collision_impulses(self):
         for model_name in ("strawberry_ripe", "strawberry_unripe"):

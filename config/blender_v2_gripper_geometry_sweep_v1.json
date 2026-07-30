@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "gate_id": "blender_v2_gripper_geometry_sweep_v1",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_GRIPPER_GEOMETRY",
+  "status": "FROZEN_EXECUTION_AUTHORIZED",
+  "decision_record": {
+    "path": "docs/decisions/0043-freeze-blender-v2-gripper-geometry-sweep.md",
+    "size_bytes": 3933,
+    "sha256": "5e99f13f59611159e5f03fb119fb38d159cfb4b9f690ed5cedceb3937b212641"
+  },
+  "bindings": {
+    "scene_manifest": {
+      "path": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "size_bytes": 1927,
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093"
+    },
+    "panda_extension_xacro": {
+      "path": "ros2_ws/src/strawberry_sim/urdf/panda_gz.urdf.xacro",
+      "size_bytes": 11855,
+      "sha256": "f1f539d478caa7ba47c031290f342672e1b866249a49c9929f0a62df31ebd43f"
+    },
+    "manipulation_core": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/core.py",
+      "size_bytes": 14382,
+      "sha256": "36ccdb31a8ae42b3d76532e87e59cea9dcf5cdcf9a8b665fc833d1e1bb19db14"
+    },
+    "action_server": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/action_server.py",
+      "size_bytes": 16861,
+      "sha256": "488f95cd5333644b456f40ffd14859b9582f21e807a855315b0e20c754c316d5"
+    },
+    "attachment_manager": {
+      "path": "ros2_ws/src/strawberry_sim/strawberry_sim/attachment_manager.py",
+      "size_bytes": 28483,
+      "sha256": "4f62ad8ec7f9caf8400a622763c67a743b2f2f2c017b64f0bb65cbc687b86ea6"
+    }
+  },
+  "external_bindings": {
+    "upstream_panda_xacro": {
+      "path": "/opt/ros/jazzy/share/moveit_resources_panda_description/urdf/panda.urdf.xacro",
+      "size_bytes": 12867,
+      "sha256": "c8ee3bad4d89ad9bf4af717037418a3e6b046d47df6375a92a912a901d256a34"
+    },
+    "upstream_hand_collision_mesh": {
+      "path": "/opt/ros/jazzy/share/moveit_resources_panda_description/meshes/collision/hand.stl",
+      "size_bytes": 10084,
+      "sha256": "94493e94f30fe940f2c8ca2f155c3bbe67bbff406d3edf5e261670d2f0f6e2ed"
+    },
+    "upstream_finger_collision_mesh": {
+      "path": "/opt/ros/jazzy/share/moveit_resources_panda_description/meshes/collision/finger.stl",
+      "size_bytes": 1684,
+      "sha256": "2d07a740392f3b9b0816f65d64fff9927d3d57c897870fc4b6ff9c56fff3a0c8"
+    }
+  },
+  "candidate_grid": {
+    "tool_center_offsets_m": [
+      0.0944,
+      0.0954,
+      0.0964,
+      0.0974,
+      0.1004,
+      0.1054
+    ],
+    "close_widths_m_per_finger": [
+      0.018,
+      0.020,
+      0.022,
+      0.025
+    ],
+    "order": "tool_offset_then_close_width",
+    "expected_candidate_count": 24
+  },
+  "geometry": {
+    "fruit_radius_m": 0.026,
+    "finger_joint_z_m": 0.0584,
+    "contact_pad_z_from_finger_m": 0.027,
+    "open_width_m_per_finger": 0.04,
+    "geometric_contact_margin_m": 0.003,
+    "pregrasp_offset_m": 0.15,
+    "wrist_housing_center_hand_m": [
+      -0.065,
+      0.0,
+      0.045
+    ],
+    "wrist_housing_size_m": [
+      0.055,
+      0.080,
+      0.040
+    ],
+    "wrist_housing_pitch_rad": -1.5707963268
+  },
+  "thresholds": {
+    "minimum_palm_clearance_m": 0.003,
+    "minimum_wrist_housing_clearance_m": 0.010,
+    "minimum_open_finger_clearance_m": 0.010,
+    "maximum_contact_symmetry_error_m": 0.000001,
+    "minimum_close_overtravel_m": 0.002,
+    "maximum_close_overtravel_m": 0.010,
+    "minimum_fallback_margin_m": 0.0005,
+    "minimum_pregrasp_clearance_m": 0.100,
+    "minimum_feasible_candidates": 1
+  },
+  "current_production_parameters": {
+    "tool_center_offset_m": 0.1054,
+    "close_width_m_per_finger": 0.025
+  },
+  "selection_rule": [
+    "greatest_minimum_normalized_threshold_margin",
+    "least_close_command_overtravel",
+    "greatest_palm_clearance",
+    "lexical_tool_offset_then_close_width"
+  ],
+  "safety": {
+    "formal_acceptance": false,
+    "formal_held_out_test_access_authorized": false,
+    "robot_motion_authorized": false,
+    "gripper_command_authorized": false,
+    "simulated_fruit_motion_authorized": false,
+    "attachment_authorized": false,
+    "planning_authorized": false,
+    "pick_action_authorized": false
+  },
+  "execution": {
+    "maximum_claims": 1,
+    "retry_authorized": false,
+    "output_directory": "results/development/blender_v2_gripper_geometry_sweep_v1"
+  }
+}

@@ -1,6 +1,7 @@
 import math
 import pathlib
 import sys
+import threading
 import unittest
 from types import MappingProxyType
 from types import SimpleNamespace
@@ -10,7 +11,10 @@ from unittest.mock import patch
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from strawberry_manipulation.moveit_backend import MoveItBackend  # noqa: E402
+from strawberry_manipulation.moveit_backend import (  # noqa: E402
+    MoveItBackend,
+    gripper_result_allows_command,
+)
 from strawberry_manipulation.core import MotionOutcome, Pose  # noqa: E402
 
 
@@ -63,6 +67,161 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(manifest[1], (0.4, 0.1, 0.5))
         with self.assertRaises(TypeError):
             manifest[1] = (0.0, 0.0, 0.0)
+
+    def test_close_accepts_real_contact_stall_after_measured_travel(self):
+        self.assertTrue(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.0253,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=True,
+                reached_goal=False,
+            )
+        )
+
+    def test_close_rejects_false_stall_at_fully_open_position(self):
+        self.assertFalse(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.03999,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=True,
+                reached_goal=False,
+            )
+        )
+
+    def test_close_accepts_reached_goal_within_controller_tolerance(self):
+        self.assertTrue(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.02476,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=False,
+                reached_goal=True,
+            )
+        )
+
+    def test_close_rejects_reached_goal_outside_controller_tolerance(self):
+        self.assertFalse(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.0251,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=False,
+                reached_goal=True,
+            )
+        )
+
+    def test_close_accepts_audited_v2_contact_residual(self):
+        self.assertTrue(
+            gripper_result_allows_command(
+                target_position_m=0.022,
+                observed_position_m=0.025692,
+                open_position_m=0.040,
+                closed_position_m=0.022,
+                stalled=False,
+                reached_goal=True,
+                position_tolerance_m=0.0039,
+            )
+        )
+
+    def test_gripper_command_uses_live_joint_fallback_for_empty_result_state(self):
+        class Goal:
+            def __init__(self):
+                self.command = SimpleNamespace(name=[], position=[], effort=[])
+
+        result = SimpleNamespace(
+            state=SimpleNamespace(name=[], position=[]),
+            stalled=False,
+            reached_goal=True,
+        )
+        wrapped = SimpleNamespace(result=result)
+        handle = SimpleNamespace(
+            accepted=True,
+            get_result_async=lambda: FakeFuture(wrapped),
+        )
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._ParallelGripperCommand = SimpleNamespace(Goal=Goal)
+        client = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: True,
+            send_goal_async=lambda goal: FakeFuture(handle),
+        )
+        backend._gripper = client
+        backend._gripper_secondary = client
+        backend.request_timeout_sec = 1.0
+        backend.gripper_joint = "panda_finger_joint1"
+        backend.gripper_secondary_joint = "panda_finger_joint2"
+        backend.gripper_joints = (
+            backend.gripper_joint,
+            backend.gripper_secondary_joint,
+        )
+        backend.max_effort_n = 40.0
+        backend.open_width_m = 0.04
+        backend.closed_width_m = 0.022
+        backend.gripper_position_tolerance_m = 0.0039
+        backend._gripper_state_lock = threading.Lock()
+        backend._latest_gripper_positions_m = {
+            "panda_finger_joint1": 0.04,
+            "panda_finger_joint2": 0.04,
+        }
+
+        self.assertTrue(backend._gripper_command(0.04))
+
+    def test_close_gripper_retries_one_no_travel_result(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.closed_width_m = 0.022
+        backend.open_width_m = 0.04
+        backend.settle_sample_period_sec = 0.05
+        outcomes = iter((False, True, True))
+        commands = []
+        backend._gripper_command = (
+            lambda position: commands.append(position) or next(outcomes)
+        )
+
+        with patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
+            self.assertTrue(backend.close_gripper())
+
+        self.assertEqual(commands, [0.022, 0.04, 0.022])
+        sleep.assert_called_once_with(0.05)
+
+    def test_gripper_joint_callback_tracks_both_commanded_joints(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.gripper_joint = "panda_finger_joint1"
+        backend.gripper_secondary_joint = "panda_finger_joint2"
+        backend.gripper_joints = (
+            backend.gripper_joint,
+            backend.gripper_secondary_joint,
+        )
+        backend._gripper_state_lock = threading.Lock()
+        backend._latest_gripper_positions_m = {
+            "panda_finger_joint1": None,
+            "panda_finger_joint2": None,
+        }
+
+        backend._on_gripper_joint_state(
+            SimpleNamespace(
+                name=[
+                    "panda_joint1",
+                    "panda_finger_joint1",
+                    "panda_finger_joint2",
+                ],
+                position=[0.5, 0.031, 0.032],
+            )
+        )
+
+        self.assertEqual(
+            backend._latest_gripper_positions_m,
+            {
+                "panda_finger_joint1": 0.031,
+                "panda_finger_joint2": 0.032,
+            },
+        )
 
     def test_prepare_rejects_unknown_target_before_scene_update(self):
         backend = self.lifecycle_backend()
@@ -148,6 +307,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
         backend.safe_transit_clearance_m = 0.02
+        backend.place_transit_clearance_m = 0.13
         state = [Pose(0.42, -0.12, 0.70, qx=1.0, qw=0.0)]
         segments = []
 
@@ -165,10 +325,10 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         self.assertTrue(outcome.success)
         self.assertEqual(len(segments), 4)
-        self.assertAlmostEqual(segments[0][0].z, 0.72)
+        self.assertAlmostEqual(segments[0][0].z, 0.83)
         self.assertEqual(
             (segments[2][0].x, segments[2][0].y, segments[2][0].z),
-            (0.35, -0.45, 0.72),
+            (0.35, -0.45, 0.83),
         )
         self.assertEqual(segments[-1], (target, False))
         self.assertTrue(all(intermediate for _, intermediate in segments[:-1]))
@@ -183,6 +343,72 @@ class MoveItBackendStaticTests(unittest.TestCase):
         target = Pose(0.42, -0.12, 0.7054, qx=1.0, qw=0.0)
         self.assertIs(backend.move_to(target, "RETREAT"), expected)
         self.assertEqual(requested, [target])
+
+    def test_grasp_retry_uses_checked_cartesian_segments(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        expected = MotionOutcome(True, 0.1, 0.2)
+        requested = []
+        backend._move_to_segmented = (
+            lambda pose: requested.append(pose) or expected
+        )
+
+        preparation = Pose(0.42, -0.12, 0.7054, qy=1.0, qw=0.0)
+        grasp = Pose(0.42, -0.12, 0.5554, qy=1.0, qw=0.0)
+        self.assertIs(
+            backend.move_to(preparation, "GRASP_RETRY_PREP"), expected
+        )
+        self.assertIs(
+            backend.move_to(grasp, "GRASP_POSE_RETRY"), expected
+        )
+        self.assertEqual(requested, [preparation, grasp])
+
+    def test_wrist_observation_uses_startup_verified_action_path(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        expected = MotionOutcome(True, 0.1, 0.2)
+        requested = []
+        backend._move_to_planned_joint_path = (
+            lambda pose: requested.append(pose) or expected
+        )
+
+        target = Pose(0.28, 0.0, 0.72, qy=0.95, qw=0.31)
+        self.assertIs(
+            backend.move_to(target, "WRIST_OBSERVATION"), expected
+        )
+        self.assertEqual(requested, [target])
+
+    def test_home_uses_bounded_direct_action_path(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.home_configuration = "ready"
+        requested = []
+        backend._move_to_named_configuration_direct = (
+            lambda configuration: requested.append(configuration)
+            or MotionOutcome(True, 0.1, 0.2)
+        )
+
+        self.assertTrue(backend.move_home())
+        self.assertEqual(requested, ["ready"])
+
+    def test_direct_joint_path_waits_for_action_server_before_goal(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.request_timeout_sec = 5.0
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: False
+        )
+
+        succeeded, execution_time = backend._execute_joint_path(
+            (0.0,), ((0.1,),)
+        )
+
+        self.assertFalse(succeeded)
+        self.assertEqual(execution_time, 0.0)
+        self.assertIn(
+            "Panda arm trajectory action server became unavailable",
+            logger.errors,
+        )
 
     def test_cartesian_endpoint_miss_gets_exactly_one_measured_correction(self):
         backend = MoveItBackend.__new__(MoveItBackend)

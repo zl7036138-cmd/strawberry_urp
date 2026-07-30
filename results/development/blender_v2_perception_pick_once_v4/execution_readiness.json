@@ -1,0 +1,69 @@
+{
+  "actual_center_in_commanded_hand_xyz_m": [
+    -0.00031839688323154203,
+    -0.002573348801222973,
+    0.10059794106009579
+  ],
+  "estimated_center_xyz_m": [
+    0.41938314988323155,
+    -0.056053161801222974,
+    0.5503097790600957
+  ],
+  "estimated_minus_truth_xyz_m": [
+    0.00031839688323154203,
+    -0.002573348801222973,
+    0.0041979410600957445
+  ],
+  "euclidean_error_m": 0.004934187853339702,
+  "execution_readiness_passed": true,
+  "formal_acceptance": false,
+  "fruit_radius_m": 0.026,
+  "generated_at_utc": "2026-07-28T01:48:35.895940+00:00",
+  "grasp_geometry": {
+    "close_width_m_per_finger": 0.022,
+    "finger_axial_range_hand_z_m": [
+      0.0585316962443525,
+      0.11224903401136399
+    ],
+    "first_contact_width_m_per_finger": 0.025857178634063095,
+    "maximum_cross_jaw_error_m": 0.0038571786340630965,
+    "tool_center_offset_m": 0.0964
+  },
+  "held_out_test_accessed": false,
+  "inputs": {
+    "geometry_gate": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_gripper_geometry_sweep_v1/summary.json",
+      "sha256": "70dd93e29aa72bad8b5b0c5be50596fe35f60f565946fb71270ca45747ba5781",
+      "size_bytes": 77616
+    },
+    "handoff": {
+      "path": "results/development/blender_v2_perception_pick_once_v4/handoff_shadow.json",
+      "sha256": "d60756a29876609ec29b84b68d61a8722d472b8f1861d7220b5693d07c0388c9",
+      "size_bytes": 2920
+    },
+    "no_motion_gate": {
+      "path": "results/development/blender_v2_perception_pick_once_v4/pregrasp_shadow.json",
+      "sha256": "ac0922724a01d79186c8870c7dcfedb5a82021a87aa5387d0265b3a9a626246f",
+      "size_bytes": 3362
+    },
+    "scene": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    }
+  },
+  "observed_cross_jaw_error_m": 0.002573348801222973,
+  "observed_hand_axial_position_m": 0.10059794106009579,
+  "perception_execution_authorized": false,
+  "pick_authorized": false,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_EXECUTION_READINESS",
+  "target_id": 1,
+  "truth_center_xyz_m": [
+    0.419064753,
+    -0.053479813,
+    0.546111838
+  ],
+  "truth_use": "SIMULATION_EXECUTION_SAFETY_VERIFICATION_ONLY",
+  "violations": []
+}

@@ -42,6 +42,28 @@ def _distance(left: Sequence[float], right: Sequence[float]) -> float:
     )
 
 
+def normalized_orientation_xyzw(
+    value: object,
+) -> tuple[float, float, float, float]:
+    """Validate and normalize one manifest quaternion."""
+
+    if value is None:
+        return (0.0, 0.0, 0.0, 1.0)
+    if (
+        not isinstance(value, Sequence)
+        or isinstance(value, (str, bytes))
+        or len(value) != 4
+    ):
+        raise ValueError("orientation_xyzw must contain four values")
+    orientation = tuple(float(component) for component in value)
+    if not all(math.isfinite(component) for component in orientation):
+        raise ValueError("orientation_xyzw must be finite")
+    norm = math.sqrt(sum(component * component for component in orientation))
+    if norm <= 1.0e-12:
+        raise ValueError("orientation_xyzw must be non-zero")
+    return tuple(component / norm for component in orientation)
+
+
 def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
     try:
         import cv2
@@ -202,7 +224,10 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
                 raise RuntimeError(f"timed out waiting for {description}")
 
         def set_model_pose(
-            self, model_name: str, position: Sequence[float]
+            self,
+            model_name: str,
+            position: Sequence[float],
+            orientation_xyzw: Sequence[float] = (0.0, 0.0, 0.0, 1.0),
         ) -> int:
             if not self.pose_client.wait_for_service(timeout_sec=5.0):
                 raise RuntimeError("Gazebo set_pose service is unavailable")
@@ -213,7 +238,10 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
                 request.pose.position.x = float(position[0])
                 request.pose.position.y = float(position[1])
                 request.pose.position.z = float(position[2])
-                request.pose.orientation.w = 1.0
+                request.pose.orientation.x = float(orientation_xyzw[0])
+                request.pose.orientation.y = float(orientation_xyzw[1])
+                request.pose.orientation.z = float(orientation_xyzw[2])
+                request.pose.orientation.w = float(orientation_xyzw[3])
                 future = self.pose_client.call_async(request)
                 try:
                     self.wait_for(
@@ -303,12 +331,24 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             target_position = tuple(
                 float(value) for value in position_entry["position_m"]
             )
-            desired = dict(parked)
-            desired[target_model] = target_position
+            target_orientation = normalized_orientation_xyzw(
+                position_entry.get("orientation_xyzw")
+            )
+            desired_positions = dict(parked)
+            desired_positions[target_model] = target_position
+            desired_orientations = {
+                model_name: (0.0, 0.0, 0.0, 1.0)
+                for model_name in parked
+            }
+            desired_orientations[target_model] = target_orientation
             start_sequence = node.image_sequence
             pose_attempts = []
             for model_name in ("strawberry_1", "strawberry_2", "strawberry_3"):
-                attempts = node.set_model_pose(model_name, desired[model_name])
+                attempts = node.set_model_pose(
+                    model_name,
+                    desired_positions[model_name],
+                    desired_orientations[model_name],
+                )
                 pose_attempts.append(
                     {"model_name": model_name, "attempts": attempts}
                 )
@@ -325,7 +365,10 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             node.wait_for(
                 lambda: all(
                     identity in node.truth
-                    and _distance(node.truth_xyz(identity), desired[model_name])
+                    and _distance(
+                        node.truth_xyz(identity),
+                        desired_positions[model_name],
+                    )
                     <= 0.001
                     for model_name, identity in fruit_id_by_model.items()
                 ),
@@ -382,6 +425,7 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
                     "target_model_name": target_model,
                     "position_id": position_id,
                     "target_position_m": list(target_position),
+                    "target_orientation_xyzw": list(target_orientation),
                     "lighting": condition["lighting"],
                     "occlusion": condition["occlusion"],
                     "condition_id": options.condition_id,

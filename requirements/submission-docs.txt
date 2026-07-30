@@ -1,0 +1,5 @@
+# Reproducible submission-v2 report and video generation on Windows.
+python-docx==1.2.0
+reportlab==4.4.9
+pypdf==6.10.0
+Pillow==12.2.0

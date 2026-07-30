@@ -22,6 +22,7 @@ def scene_mapping():
     return {
         "schema_version": 1,
         "world_name": "test_world",
+        "fruit_collision_radius_m": 0.026,
         "frames": {"robot_base": "panda_link0", "camera_optical": "camera_optical"},
         "fruits": [
             {"target_id": 1, "model_name": "fruit_1", "maturity": "RIPE", "initial_pose_m": [0.4, 0.0, 0.5]},
@@ -37,6 +38,8 @@ def scene_mapping():
 class SimulationCoreTests(unittest.TestCase):
     def test_scene_contract(self):
         scene = scene_config_from_mapping(scene_mapping())
+        self.assertEqual(scene.fruit_collision_radius_m, 0.026)
+        self.assertEqual(scene.static_collision_profile, "blender_v2")
         self.assertEqual([item.target_id for item in scene.ordered_fruits], [1, 2])
         self.assertEqual(scene.fruit(1).maturity, "RIPE")
         self.assertEqual(
@@ -52,6 +55,28 @@ class SimulationCoreTests(unittest.TestCase):
             scene.fruit(1).ground_truth_pose_topic,
         ):
             self.assertTrue(all(not token[:1].isdigit() for token in topic.split("/")))
+
+    def test_scene_requires_positive_fruit_collision_radius(self):
+        mapping = scene_mapping()
+        mapping["fruit_collision_radius_m"] = 0.0
+        with self.assertRaisesRegex(
+            ValueError, "fruit collision radius must be positive"
+        ):
+            scene_config_from_mapping(mapping)
+
+    def test_legacy_schema_v1_scene_defaults_to_35_mm_radius(self):
+        mapping = scene_mapping()
+        del mapping["fruit_collision_radius_m"]
+        scene = scene_config_from_mapping(mapping)
+        self.assertEqual(scene.fruit_collision_radius_m, 0.035)
+
+    def test_scene_accepts_explicit_static_collision_profile(self):
+        mapping = scene_mapping()
+        mapping["planning_scene"] = {
+            "static_collision_profile": "field_v3",
+        }
+        scene = scene_config_from_mapping(mapping)
+        self.assertEqual(scene.static_collision_profile, "field_v3")
 
     def test_bin_stability_requires_uninterrupted_time(self):
         bounds = BinBounds(0, 1, -1, 0, 0, 1)

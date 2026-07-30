@@ -1,5 +1,7 @@
 # Strawberry URP
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Reproducible ROS 2 simulation for strawberry maturity detection, 3D localization,
 and Panda pick-and-place evaluation.
 
@@ -11,6 +13,14 @@ next steps and unresolved boundaries.
 For a structured Chinese learning path covering ROS 2, Gazebo, TF, RGB-D,
 YOLO, MoveIt, testing, and the matching source modules, see
 [`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md).
+
+The final hand-in candidate is assembled as a submission-v2 supplement rather
+than overwriting the frozen P5/P6 baseline. Its authoritative narrative and
+gate checklist are
+[`docs/submission-report.md`](docs/submission-report.md) and
+[`docs/submission-checklist.md`](docs/submission-checklist.md). The supplement
+adds the field-v3 fixed-scene perception pick while preserving the failed
+YOLO/P3/P4 numeric results and their original evidence.
 
 ## Project baseline
 
@@ -61,8 +71,124 @@ pre-grasp Shadow is also complete for three worlds that reached handoff: 3/3
 plans accepted, all trajectories discarded, all target collisions retained,
 and zero control commands. One of four attempted worlds failed earlier at the
 wrist readiness gate, so full end-to-end repeatability is not accepted. The
-next work is readiness instrumentation/stabilization and audited perception
+readiness gate now records identity-aware per-frame status, streak-reset causes,
+and callback receipt delay, including a structured receipt on timeout. This
+isolated a one-frame depth transport hole in a 299/300 baseline. A bounded
+30-sample wrist-depth bridge/subscription queue then produced 300/300 final
+TargetPose frames across five complete fresh worlds, with 5/5 no-motion
+handoffs, 5/5 discarded pre-grasp plans, and zero control commands. This remains
+development evidence; the next work is longer monitoring and audited perception
 improvement, not trajectory execution.
+
+The v1/v2 fruit geometry is now resolved consistently end to end. The
+hash-frozen tabletop-v1 manifest retains its schema-v1 35 mm default, while
+Blender plant v2 explicitly uses 26 mm. Bringup derives localization and
+collision geometry from the selected scene contract and rejects mismatched
+overrides. A fresh isolated, no-motion v2
+diagnostic records ripe detection/TargetPose rates of 60/60 and 60/60 for
+`strawberry_1`, 60/60 and 58/60 for `strawberry_3`, and 0/60 for the unripe
+`strawberry_2`. This confirms an unripe appearance-domain gap after separating
+the ripe occlusion/viewpoint issue.
+
+ADR 0037 then consumed one bounded non-formal research claim using 72 new
+Blender-v2 training renders, 24 disjoint synthetic held-out renders, and the
+501 consensus-corrected real training images. The fixed `last.pt@0.58` reaches
+synthetic ripe/unripe F1 `0.857143/0.000000`, so ADR 0038 rejects it before
+audited real validation or live qualification. The previous engineering
+checkpoint remains active; no retry, threshold change, control test, or
+held-out real-test access occurred.
+
+The independent Blender-v2 100-position localization gate then exposed inward
+face winding on both canonical fruit-body meshes: all 100 measurements were
+present, but the pre-repair median/P95 error was `44.062873/44.537073 mm`.
+ADR 0040 authorizes only a mechanical face-order correction. With identical
+positions, camera, 26 mm offset, crop, retries, and thresholds, the post-repair
+gate passes `100/100` with median/P95 error `4.503614/5.045998 mm` and maximum
+error `5.196535 mm`. Ripe detection remains `60/60` for both isolated ripe
+fruits; the unripe limitation remains `0/60`.
+
+The Blender-v2 manipulation geometry is now scene-bound instead of reusing the
+archived 35 mm-fruit constants. A frozen 24-candidate exact-mesh sweep rejects
+the legacy `0.1054/0.025 m` tool/close pair and selects a `0.0964 m`
+tool-centre offset with a `0.022 m` per-finger close command. A gripper-only
+runtime round trip confirms raw and processed bilateral target contact,
+attach/detach, fruit restore, and reopen recovery without arm motion. The
+follow-on controller-free pre-grasp gate succeeds on its first planning
+attempt in `0.038638462 s`, produces 24 waypoints with `0.832448 mm` endpoint
+error, retains all seven collision objects, and discards the trajectory with
+zero control commands.
+
+The subsequent Oracle execution qualification preserves one mechanically
+successful but evidence-incomplete v1 run, then passes the measurement-repaired
+single gate and all five independent fresh-world repetitions. Every repeat
+completes `PLAN, APPROACH, GRASP, RETREAT, PLACE, VERIFY, DONE`, confirms raw
+and processed bilateral contact plus attach/detach, reports no unexpected
+fruit contact, returns home within `9.52e-11 rad`, and shuts down cleanly.
+Planning spans `0.0357-0.0777 s`. These remain non-acceptance development
+gates: `pick_authorized=false`; perception-derived execution, pose variation,
+occlusion/contact robustness, formal acceptance, and physical hardware remain
+unqualified.
+
+The natural-plant dual-camera v3 gate now completes the base-camera selection,
+MoveIt-planned wrist observation move, wrist-camera 60/60 target window,
+stationary same-world handoff, and controller-free pre-grasp plan. Its
+38-waypoint trajectory ends within `0.795461 mm / 0.005676 rad` and is
+discarded with zero control commands. A new geometry-aware readiness check
+then blocks execution: the perceived fruit centre is `29.177346 mm` from
+truth, the `5.484708 mm` cross-jaw error exceeds the qualified
+`3.857179 mm` bilateral-contact margin, and the fruit lies beyond the
+qualified finger axial section. This is a useful no-motion system pass, not a
+pick authorization; the next bounded task is depth-region/fruit-mask
+diagnosis for the natural plant view.
+
+The mainline follow-up found that the earlier 29 mm result was primarily a
+runtime parameter-routing defect, not a failed depth estimator: renaming the
+dual-camera localization nodes prevented the profile's 26 mm
+surface-to-centre offset from matching the YAML node name. Passing the offset
+explicitly reduces the same natural-plant target error to about 4.85 mm and
+passes the exact grasp-envelope check.
+
+The first perception-derived action then exposed a separate gripper-control
+fault: the `0.25 s` controller stall window could expire at the fully open
+`0.040 m` position before Gazebo produced the first measured finger motion.
+The repair extends that bounded window to `1.0 s`, reads live joint state when
+the controller returns an empty result state, aligns reached-goal validation
+with the controller's `3 mm` tolerance, and still rejects any stalled close
+with less than `2 mm` measured travel. An isolated same-pose diagnostic then
+records `14.138 mm` measured close travel, raw and processed bilateral target
+contact, `1.909 mm` fruit displacement, no non-target contact, reopen,
+collision restoration, and final home recovery.
+
+One subsequent, exactly-once perception-derived development action completes
+`PLAN, APPROACH, GRASP, RETREAT, PLACE, VERIFY, DONE`. Its wrist estimate is
+`4.934 mm` from truth; cross-jaw error is `2.573 mm` inside the qualified
+`3.857 mm` margin, and axial position is `100.598 mm` inside the qualified
+finger section. Both fingers make raw and processed target contact, the
+attachment transitions to attached and back to detached, the fruit remains in
+the collection bin, the gripper reopens, and the arm returns to `ready`.
+This closes the current single-scene development mainline. It is not a formal
+repeatability, varied-pose, hardware, or fruit-damage qualification. See
+[`ADR 0057`](docs/decisions/0057-accept-natural-plant-perception-pick.md) and
+[`docs/natural-plant-perception-pick-v1.md`](docs/natural-plant-perception-pick-v1.md).
+
+The user-supplied `st1.blend` field is now an opt-in `field-v3` scene rather
+than a replacement for Blender-v2. It retains 101 instanced background plants,
+places the qualified v2 workcell in one outer-row bay, and uses a base overview
+camera plus wrist RGB-D camera. After passing its no-motion localization and
+collision-planning gates, the exact fixed-scene runner completed three
+consecutive perception-derived pick/place cycles. Every cycle records
+bilateral raw and processed fruit contact, `attached -> detached`, all seven
+action stages, open-gripper recovery, and return to `ready`.
+
+Field-v3 uses two explicit single-joint gripper controllers because DART does
+not enforce the Panda right-finger mimic constraint. The backend sends both
+goals together and independently validates both measured finger positions.
+This is fixed-target, fixed-seed, non-formal simulator evidence; it does not
+qualify varied plants/poses, arbitrary fruit coverage, fruit damage, hardware,
+sim-to-real transfer, or the detector's failed numeric gate. Reproduction and
+evidence hashes are in
+[`docs/field-v3-integration.md`](docs/field-v3-integration.md) and
+[`ADR 0060`](docs/decisions/0060-accept-field-v3-perception-pick-repeat.md).
 
 ## Stage status
 
@@ -79,9 +205,10 @@ improvement, not trajectory execution.
 Architecture and interface contracts are authoritative in
 [`docs/architecture.md`](docs/architecture.md).
 
-Latest verified clean baseline (2026-07-24): all seven packages build and all
-246 colcon tests pass with no errors, failures, or skips in the separate
-`Ubuntu-24.04-URP-Repro` distribution. The dependency-light
+Latest verified local baseline (2026-07-28): all seven packages build and all
+396 colcon tests pass with no errors, failures, or skips in
+`Ubuntu-24.04-URP`. The earlier release reproduction in
+`Ubuntu-24.04-URP-Repro` remains unchanged. The dependency-light
 WSL suite separately reports 337 passes and one conditional skip. The isolated
 truth-target manipulation gate passes at 90%, and the T40 localization gate
 passes all 100 positions with 1.345 mm median and 1.897 mm p95 error. See

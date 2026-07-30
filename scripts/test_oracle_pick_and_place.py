@@ -15,6 +15,12 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target-id", type=int, default=1)
     parser.add_argument("--target-topic", default="")
+    parser.add_argument(
+        "--target-message-type",
+        choices=("pose_stamped", "target_pose"),
+        default="pose_stamped",
+        help="ROS message type published by --target-topic",
+    )
     parser.add_argument("--place-x", type=float, default=0.35)
     parser.add_argument("--place-y", type=float, default=-0.45)
     parser.add_argument("--place-z", type=float, default=0.45)
@@ -22,6 +28,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--action-timeout-sec", type=float, default=180.0)
     parser.add_argument("--stability-samples", type=int, default=10)
     parser.add_argument("--stability-tolerance-m", type=float, default=0.001)
+    parser.add_argument(
+        "--status-topic",
+        default="",
+        help="optionally publish live JSON stage/outcome updates",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -72,8 +83,9 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
     from rclpy.time import Time
     from ros_gz_interfaces.msg import Contacts
     from sensor_msgs.msg import JointState
-    from std_msgs.msg import Bool
+    from std_msgs.msg import Bool, String
     from strawberry_interfaces.action import PickAndPlace
+    from strawberry_interfaces.msg import TargetPose
     from tf2_ros import Buffer, TransformException, TransformListener
 
     rclpy.init()
@@ -81,6 +93,36 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         "strawberry_oracle_pick_test",
         parameter_overrides=[Parameter("use_sim_time", value=True)],
     )
+    status_publisher = (
+        node.create_publisher(String, arguments.status_topic, 10)
+        if arguments.status_topic
+        else None
+    )
+
+    def publish_status(
+        state: str,
+        *,
+        outcome: str = "",
+        progress: float = 0.0,
+        message: str = "",
+    ) -> None:
+        if status_publisher is None:
+            return
+        value = String()
+        value.data = json.dumps(
+            {
+                "state": state,
+                "outcome": outcome,
+                "progress": round(float(progress), 3),
+                "message": message,
+                "target_id": arguments.target_id,
+                "target_topic": target_topic,
+                "elapsed_sec": elapsed_action_time(),
+            },
+            sort_keys=True,
+        )
+        status_publisher.publish(value)
+
     tf_buffer = Buffer()
     tf_listener = TransformListener(tf_buffer, node, spin_thread=False)
     target_samples = deque(maxlen=arguments.stability_samples)
@@ -145,11 +187,25 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         "max_pad_separation_m": None,
     }
     latest_arm_joint_positions = {}
+    arm_joint_sample_count = 0
+    initial_arm_joint_positions = None
+    initial_finger_positions = None
+    latest_attachment_state = None
+    initial_attachment_state = None
+    attachment_state_events = []
 
     def on_target(message):
-        target_samples.append(message)
+        if arguments.target_message_type == "target_pose":
+            if int(message.target_id) != arguments.target_id:
+                return
+            target = PoseStamped()
+            target.header = message.header
+            target.pose = message.pose
+        else:
+            target = message
+        target_samples.append(target)
         if sent_target_xyz is not None and action_started_at is not None:
-            position = message.pose.position
+            position = target.pose.position
             displacement = math.dist(
                 (position.x, position.y, position.z), sent_target_xyz
             )
@@ -331,11 +387,16 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             known_pairs.add(pair)
 
     def on_joint_state(message: JointState) -> None:
+        nonlocal arm_joint_sample_count
         positions = dict(zip(message.name, message.position, strict=False))
+        observed_arm_joint = False
         for index in range(1, 8):
             name = f"panda_joint{index}"
             if name in positions:
+                observed_arm_joint = True
                 latest_arm_joint_positions[name] = float(positions[name])
+        if observed_arm_joint:
+            arm_joint_sample_count += 1
         for name, diagnostics in finger_diagnostics.items():
             if name not in positions:
                 continue
@@ -355,8 +416,39 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 else max(diagnostics["max_m"], position)
             )
 
+    def on_attachment_state(message: String) -> None:
+        nonlocal latest_attachment_state
+        state = str(message.data).strip().lower()
+        if state not in {"attached", "detached"}:
+            attachment_state_events.append(
+                {
+                    "state": state,
+                    "attached": None,
+                    "stage": current_stage,
+                    "elapsed_sec": elapsed_action_time(),
+                }
+            )
+            return
+        attached = state == "attached"
+        if latest_attachment_state is attached:
+            return
+        latest_attachment_state = attached
+        attachment_state_events.append(
+            {
+                "state": state,
+                "attached": attached,
+                "stage": current_stage,
+                "elapsed_sec": elapsed_action_time(),
+            }
+        )
+
+    target_ros_type = (
+        TargetPose
+        if arguments.target_message_type == "target_pose"
+        else PoseStamped
+    )
     subscription = node.create_subscription(
-        PoseStamped, target_topic, on_target, qos_profile_sensor_data
+        target_ros_type, target_topic, on_target, qos_profile_sensor_data
     )
     diagnostic_subscriptions = [
         node.create_subscription(
@@ -392,6 +484,14 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             qos_profile_sensor_data,
         )
     )
+    diagnostic_subscriptions.append(
+        node.create_subscription(
+            String,
+            f"/strawberry/sim/fruit_{arguments.target_id}/attached_state",
+            on_attachment_state,
+            qos_profile_sensor_data,
+        )
+    )
     client = ActionClient(node, PickAndPlace, "/strawberry/pick_and_place")
     feedback_log = []
 
@@ -413,6 +513,23 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             displacement_by_stage[stage] = max(
                 displacement_by_stage.get(stage, 0.0), value
             )
+        initial_arm = initial_arm_joint_positions or {}
+        final_arm = dict(latest_arm_joint_positions)
+        shared_arm_names = sorted(set(initial_arm) & set(final_arm))
+        arm_joint_delta = (
+            max(
+                abs(final_arm[name] - initial_arm[name])
+                for name in shared_arm_names
+            )
+            if shared_arm_names
+            else None
+        )
+        initial_fingers = initial_finger_positions or {}
+        final_fingers = {
+            name: diagnostics["latest_m"]
+            for name, diagnostics in finger_diagnostics.items()
+        }
+        final_target = target_samples[-1].pose.position if target_samples else None
         return {
             "contacts": contact_report,
             "fruit_contacts": {
@@ -436,6 +553,30 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             ),
             "target_max_displacement_by_stage_m": displacement_by_stage,
             "target_displacement_events": displacement_events,
+            "target_final_position_m": (
+                [
+                    float(final_target.x),
+                    float(final_target.y),
+                    float(final_target.z),
+                ]
+                if final_target is not None
+                else None
+            ),
+            "arm_recovery": {
+                "joint_sample_count": arm_joint_sample_count,
+                "initial_positions_rad": initial_arm,
+                "final_positions_rad": final_arm,
+                "maximum_initial_final_delta_rad": arm_joint_delta,
+            },
+            "gripper_recovery": {
+                "initial_positions_m": initial_fingers,
+                "final_positions_m": final_fingers,
+            },
+            "attachment_state": {
+                "initial_attached": initial_attachment_state,
+                "final_attached": latest_attachment_state,
+                "events": attachment_state_events,
+            },
         }
 
     try:
@@ -462,6 +603,12 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         remaining = max(0.0, deadline - time.monotonic())
         if not client.wait_for_server(timeout_sec=remaining):
             raise RuntimeError("pick-and-place action server is unavailable")
+        initial_arm_joint_positions = dict(latest_arm_joint_positions)
+        initial_finger_positions = {
+            name: diagnostics["latest_m"]
+            for name, diagnostics in finger_diagnostics.items()
+        }
+        initial_attachment_state = latest_attachment_state
 
         goal = PickAndPlace.Goal()
         goal.target_id = arguments.target_id
@@ -482,6 +629,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         report = {
             "target_id": arguments.target_id,
             "target_topic": target_topic,
+            "target_message_type": arguments.target_message_type,
             "target_position_m": [
                 target_position.x,
                 target_position.y,
@@ -493,6 +641,11 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 arguments.place_z,
             ],
         }
+        publish_status(
+            "TARGET_READY",
+            progress=0.0,
+            message="stable perception-derived target acquired",
+        )
 
         def on_feedback(message):
             nonlocal current_stage
@@ -503,6 +656,11 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                     "progress": round(float(message.feedback.progress), 3),
                     "elapsed_sec": elapsed_action_time(),
                 }
+            )
+            publish_status(
+                current_stage,
+                progress=float(message.feedback.progress),
+                message="pick-and-place action feedback",
             )
 
         action_started_at = time.monotonic()
@@ -520,6 +678,9 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             raise RuntimeError("pick-and-place action exceeded its timeout")
         wrapped_result = result_future.result()
         result = wrapped_result.result
+        diagnostic_deadline = time.monotonic() + 0.5
+        while rclpy.ok() and time.monotonic() < diagnostic_deadline:
+            rclpy.spin_once(node, timeout_sec=0.05)
         action_succeeded = (
             wrapped_result.status == GoalStatus.STATUS_SUCCEEDED
             and bool(result.success)
@@ -537,13 +698,28 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 "diagnostics": diagnostic_report(),
             }
         )
+        publish_status(
+            "DONE" if action_succeeded else "FAILED",
+            outcome="SUCCESS" if action_succeeded else "FAILURE",
+            progress=1.0,
+            message=result.message,
+        )
+        status_deadline = time.monotonic() + 0.2
+        while rclpy.ok() and time.monotonic() < status_deadline:
+            rclpy.spin_once(node, timeout_sec=0.02)
         _emit_report(report, arguments.output)
         return 0 if action_succeeded else 1
     except Exception as exc:
+        publish_status(
+            "FAILED",
+            outcome="ERROR",
+            message=str(exc),
+        )
         _emit_report(
             {
                 "target_id": arguments.target_id,
                 "target_topic": target_topic,
+                "target_message_type": arguments.target_message_type,
                 "success": False,
                 "error": str(exc),
                 "feedback": feedback_log,
@@ -557,6 +733,8 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         diagnostic_subscriptions.clear()
         del tf_listener
         client.destroy()
+        if status_publisher is not None:
+            node.destroy_publisher(status_publisher)
         node.destroy_node()
         rclpy.try_shutdown()
 

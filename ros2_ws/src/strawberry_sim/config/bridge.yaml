@@ -62,6 +62,9 @@
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
   qos_profile: SENSOR_DATA
+  # Preserve short Gazebo depth bursts for the opt-in stationary wrist
+  # localization queue. Temporal matching and freshness remain fail-closed.
+  publisher_queue: 30
 
 - ros_topic_name: /camera/wrist/camera_info
   gz_topic_name: /camera/wrist/camera_info

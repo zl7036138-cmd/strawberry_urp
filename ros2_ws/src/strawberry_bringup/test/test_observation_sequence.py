@@ -114,6 +114,52 @@ class ObservationSequenceTests(unittest.TestCase):
             result["violations"],
         )
 
+    def test_schema_two_readiness_telemetry_is_preserved(self):
+        selection, motion, wrist = self.inputs()
+        wrist["schema_version"] = 2
+        wrist["completed"] = True
+        wrist["readiness_gate"]["telemetry"] = {
+            "maximum_consecutive_ready_frames": 15,
+            "streak_reset_count": 2,
+            "streak_reset_reason_counts": {
+                "TARGET_POSE_MISSING": 2,
+            },
+            "status_counts": {
+                "READY": 20,
+                "TARGET_POSE_MISSING": 2,
+            },
+            "matched_target_pose_delay_sec": {
+                "count": 20,
+                "minimum": 0.01,
+                "mean": 0.02,
+                "maximum": 0.04,
+            },
+        }
+        result = summarize_observation_sequence(selection, motion, wrist)
+        self.assertTrue(result["sequence_passed"])
+        self.assertEqual(
+            15, result["wrist_readiness_maximum_consecutive_frames"]
+        )
+        self.assertEqual(2, result["wrist_readiness_streak_reset_count"])
+        self.assertEqual(
+            {"TARGET_POSE_MISSING": 2},
+            result["wrist_readiness_streak_reset_reason_counts"],
+        )
+
+    def test_schema_two_readiness_without_required_streak_fails_closed(self):
+        selection, motion, wrist = self.inputs()
+        wrist["schema_version"] = 2
+        wrist["completed"] = True
+        wrist["readiness_gate"]["telemetry"] = {
+            "maximum_consecutive_ready_frames": 14,
+        }
+        result = summarize_observation_sequence(selection, motion, wrist)
+        self.assertFalse(result["sequence_passed"])
+        self.assertIn(
+            "wrist readiness telemetry does not prove the required streak",
+            result["violations"],
+        )
+
     def test_missing_obstacle_or_wrong_wrist_identity_fails_closed(self):
         selection, motion, wrist = self.inputs()
         motion["fruit_collision_obstacle_ids"] = [1, 3]

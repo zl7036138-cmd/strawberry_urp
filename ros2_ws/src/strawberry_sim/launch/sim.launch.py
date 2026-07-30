@@ -8,6 +8,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 import xacro
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
@@ -47,6 +48,40 @@ def _world_without_fixed_camera(source: str) -> str:
     return str(output)
 
 
+def _enforce_initial_positions(robot_description_xml: str, source: str) -> str:
+    with open(source, encoding="utf-8") as stream:
+        document = yaml.safe_load(stream)
+    positions = (document or {}).get("initial_positions")
+    if not isinstance(positions, dict) or not positions:
+        raise RuntimeError(f"Initial positions YAML is invalid: {source}")
+    root = ET.fromstring(robot_description_xml)
+    updated: set[str] = set()
+    for joint in root.findall(".//ros2_control/joint"):
+        name = joint.get("name")
+        if name not in positions:
+            continue
+        initial = next(
+            (
+                value
+                for value in joint.findall(".//param")
+                if value.get("name") == "initial_value"
+            ),
+            None,
+        )
+        if initial is None:
+            raise RuntimeError(
+                f"ros2_control joint has no initial_value parameter: {name}"
+            )
+        initial.text = str(float(positions[name]))
+        updated.add(name)
+    missing = sorted(set(positions) - updated)
+    if missing:
+        raise RuntimeError(
+            f"Initial positions were not applied to ros2_control joints: {missing}"
+        )
+    return ET.tostring(root, encoding="unicode")
+
+
 def _launch_nodes(context):
     package_share = get_package_share_directory("strawberry_sim")
     requested_world = LaunchConfiguration("world_file").perform(context).strip()
@@ -73,8 +108,21 @@ def _launch_nodes(context):
     if not os.path.isfile(scene_config):
         raise RuntimeError(f"scene config file does not exist: {scene_config}")
     panda_xacro = os.path.join(package_share, "urdf", "panda_gz.urdf.xacro")
-    initial_positions = os.path.join(
+    requested_initial_positions = (
+        LaunchConfiguration("initial_positions_file").perform(context).strip()
+    )
+    initial_positions = requested_initial_positions or os.path.join(
         package_share, "config", "panda_initial_positions.yaml"
+    )
+    initial_positions = os.path.abspath(os.path.expanduser(initial_positions))
+    if not os.path.isfile(initial_positions):
+        raise RuntimeError(
+            f"Panda initial positions file does not exist: {initial_positions}"
+        )
+    print(
+        "[strawberry_sim] resolved Panda initial positions file: "
+        f"{initial_positions}",
+        flush=True,
     )
     model_path = os.path.join(package_share, "models")
     headless = LaunchConfiguration("headless").perform(context).lower() in {
@@ -129,10 +177,25 @@ def _launch_nodes(context):
             "camera_mount": camera_mount,
         },
     ).toxml()
+    robot_description_xml = _enforce_initial_positions(
+        robot_description_xml,
+        initial_positions,
+    )
+    description_root = ET.fromstring(robot_description_xml)
+    applied_joint1 = description_root.find(
+        ".//ros2_control/joint[@name='panda_joint1']/"
+        "state_interface/param[@name='initial_value']"
+    )
+    print(
+        "[strawberry_sim] enforced panda_joint1 initial value: "
+        f"{None if applied_joint1 is None else applied_joint1.text}",
+        flush=True,
+    )
     robot_description = ParameterValue(
         robot_description_xml,
         value_type=str,
     )
+    spawn_description_topic = "/strawberry/sim/robot_description"
 
     nodes = [
         SetEnvironmentVariable(
@@ -163,6 +226,9 @@ def _launch_nodes(context):
             parameters=[
                 {"robot_description": robot_description, "use_sim_time": True}
             ],
+            remappings=[
+                ("robot_description", spawn_description_topic),
+            ],
         ),
         Node(
             package="ros_gz_sim",
@@ -175,7 +241,7 @@ def _launch_nodes(context):
                 "-name",
                 "panda",
                 "-topic",
-                "robot_description",
+                spawn_description_topic,
                 "-allow_renaming",
                 "false",
             ],
@@ -208,6 +274,16 @@ def _launch_nodes(context):
                     executable="spawner",
                     arguments=[
                         "panda_gripper_controller",
+                        "--controller-manager-timeout",
+                        "30",
+                    ],
+                    output="screen",
+                ),
+                Node(
+                    package="controller_manager",
+                    executable="spawner",
+                    arguments=[
+                        "panda_gripper_right_controller",
                         "--controller-manager-timeout",
                         "30",
                     ],
@@ -334,6 +410,14 @@ def generate_launch_description():
                 description=(
                     "Optional Gazebo RNG seed. Formal benchmark runners must "
                     "set this explicitly; an empty value preserves normal launches."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "initial_positions_file",
+                default_value="",
+                description=(
+                    "Optional absolute Panda initial-joint YAML. Empty keeps "
+                    "the accepted v2 ready configuration."
                 ),
             ),
             DeclareLaunchArgument(

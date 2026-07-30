@@ -1,18 +1,20 @@
 # 草莓成熟度识别与机械臂抓取项目：新项目总控交接
 
-> 状态日期：2026-07-25  
+> 状态日期：2026-07-28
 > 原工作目录：`C:\Users\12753\Documents\New project\strawberry_urp`  
 > 硬截止日期：2027-03-01  
 > 用途：供新的 Codex 任务、VS Code 工作区或后续研究阶段直接接续。
 
 ## 1. 一句话结论
 
-项目的 ROS 2、Gazebo、MoveIt、深度定位、状态机、抓取搬运、评测和
-复现发布链路已经完成。球形草莓 v1 基线完成了正式 P3/P4/P5/P6，
-但 P3 和 P4 的数值门失败；之后默认场景升级为 Blender 植株 v2，
-新场景已完成一次成功的 Oracle 抓放，但当前 YOLO 只能稳定识别三颗
-果实中的一颗成熟果。下一步不是重新搭架构，而是先做三颗果实的
-隔离视觉诊断，并修正 v2 场景仍沿用 v1 定位半径的配置。
+项目的 ROS 2、Gazebo、MoveIt、深度定位、双相机顺序协作、状态机、
+抓取搬运、评测和复现链路已经完成。球形草莓 v1 的正式 P3/P4 数值门
+仍失败；Blender 植株 v2 是默认回归场景，并已完成一次感知驱动抓放；
+用户提供的 `st1.blend` 已成为可选 field-v3 大田场景。field-v3 在
+固定目标、固定种子下连续三次完成视觉定位、双指真实接触、附着、
+搬运、料框释放、验证和回安全位。当前主线应停止临时优化，先保留
+这套可工作基线并进入项目知识学习；任何新动作研究都要另行冻结
+变位姿/变植株合同。
 
 ## 2. 必须先区分的两个仿真基线
 
@@ -41,6 +43,22 @@
 - v2 是 2026-07-25 新增的基线，尚未运行新的正式 P3/P4 矩阵。
 - 禁止把 v1 的 39/135 正式结果写成 v2 的结果。
 
+### 2.3 field-v3：可选的大田植株场景
+
+- 来源：用户提供的 `st1.blend`，仓库归档为
+  `assets/blender_sources/strawberry_field_v3.blend`。
+- 场景：三条种植垄、101 株静态背景植株、一个替换为已验证 v2
+  植株/三果实的作业位、Panda、底座概览相机和夹爪附近腕部 RGB-D。
+- 世界：
+  `ros2_ws/src/strawberry_sim/worlds/strawberry_field_v3.sdf`
+- 清单：
+  `ros2_ws/src/strawberry_sim/config/scene_field_v3.yaml`
+- 普通 `field_v3.launch.py` 默认不动作；完整执行使用哈希校验且
+  fail-closed 的专用 runner。
+- 2026-07-28 连续三次固定场景感知抓放成功；状态是非正式仿真开发
+  证据，不是变位姿、硬件、损伤或 sim-to-real 资格。
+- 详见 `docs/field-v3-integration.md` 和 ADR 0058-0060。
+
 ## 3. 固定范围与技术栈
 
 - Windows 11 + WSL2。
@@ -48,7 +66,8 @@
   `Ubuntu-24.04-URP-Repro`。
 - Ubuntu 24.04、ROS 2 Jazzy、Gazebo Harmonic、MoveIt 2。
 - 机械臂：Franka Emika Panda。
-- 固定式眼在手外 RGB-D 相机。
+- 默认场景保留固定式眼在手外 RGB-D；可选双相机模式使用底座概览
+  相机加夹爪附近腕部 RGB-D，二者顺序协作而非图像级融合。
 - 感知：YOLO11s，类别仅为 `RIPE` 和 `UNRIPE`。
 - GPU：RTX 4060 Laptop，8 GB。
 - 距离单位：米；角度：弧度；统一使用仿真时钟。
@@ -91,6 +110,16 @@
     v2，并保留 v1 兼容场景。
 12. v2 完成一次完整 Oracle 抓放；60 帧 Shadow 诊断显示只稳定识别
     `strawberry_1`，另一个成熟果和未成熟果未被识别。
+13. v2 完成场景几何分层、100 位置定位、双指接触、五次 Oracle
+    重复以及一次自然植株感知驱动抓放。
+14. `st1.blend` 被导出为可选 field-v3；无运动传感器、三维定位、
+    碰撞一致性和预抓取门先后通过。
+15. field-v3 执行暴露并修复料框可达性、home 超时边界、备用抓取
+    朝向和 DDS 首订阅发现问题。
+16. DART 不执行右夹指 mimic 约束，因此仿真改为左右两个显式单关节
+    控制器，并分别验证实测位置。
+17. field-v3 最终连续三次完成感知抓取—放置—释放—恢复；主线在此
+    冻结并准备提交。
 
 ## 5. 当前代码架构
 
@@ -378,44 +407,25 @@ results/development/blender_scene_v2_shadow_60f_v1/shadow_window.json
 
 ## 9. 当前已知的不一致和风险
 
-### 9.1 v2 定位偏移仍使用 v1 半径
+### 9.1 场景几何参数已分层，但禁止重新混用
 
-当前文件：
+- v1 保留 35 mm 果实半径。
+- Blender-v2 和 field-v3 显式使用 26 mm。
+- 重命名的定位节点必须在 launch 边界显式收到场景半径，不能依赖
+  YAML 节点名隐式匹配。
+- v2 修复后 100 位置定位门通过；field-v3 无运动定位误差约
+  4.856 mm，并在每次执行前通过抓取包络检查。
+- 仍禁止用 v1 的 1.345/1.897 mm 指标替代 v2/field-v3 指标。
 
-```text
-ros2_ws/src/strawberry_localization/config/localization.yaml
-```
+### 9.2 Git 已形成可迁移基线
 
-仍配置：
-
-```yaml
-surface_to_center_offset_m: 0.035
-```
-
-而 v2 果实碰撞半径已经是 `0.026`。`localization_gate.py` 和部分测试
-也仍冻结为 `0.035`。这不会影响“是否发布 TargetPose”的 Shadow
-统计，但会给 v2 三维中心估计引入约 9 mm 的系统差异。
-
-新项目在做任何 v2 定位精度或正式矩阵前必须：
-
-1. 保留 v1 专用的 35 mm 配置；
-2. 新建 v2 专用 26 mm 配置或显式 launch 参数；
-3. 对 v2 重新运行至少 100 个真值位置的定位门；
-4. 不得用旧 v1 的 1.345/1.897 mm 指标代替 v2 指标。
-
-### 9.2 Git 尚未形成可迁移基线
-
-- 当前目录是 Git worktree，但 `HEAD` 尚不存在。
-- 几乎所有项目文件仍显示为未跟踪。
-- VS Code 的“活动更改过多”提示来自这个状态。
-- 新项目不能依赖 commit SHA 恢复当前成果。
-
-迁移前应先：
-
-1. 排除 `build/`、`log/`、`results/`、缓存和临时 Blender；
-2. 检查大文件策略；
-3. 创建首次有意义的 Git 提交；
-4. 为 v2 打标签或生成独立交付包。
+- 仓库已有可用提交历史和 GitHub 远端：
+  `https://github.com/zl7036138-cmd/strawberry_urp.git`。
+- `build/`、`install/`、`log/`、`results/`、模型输出和缓存均由
+  `.gitignore` 排除。
+- Blender 源、导出脚本、SDF/网格、配置、测试和 ADR 进入 Git；
+  训练权重与生成结果仍需按文档路径和 SHA-256 在本地恢复。
+- 发布 field-v3 版本时，应使用 ADR 0060 中的结果哈希核对本地证据。
 
 ### 9.3 旧 P6 压缩包不包含 Blender v2
 
@@ -442,13 +452,14 @@ artifacts/p6/strawberry_urp_release_v1.zip
 若新项目要继续 v2，必须复制当前工作目录的源文件和必要工件，或先
 生成新的 v2 交付包；不能只解压旧 P6。
 
-### 9.4 视觉仍是当前主要瓶颈
+### 9.4 视觉覆盖仍是主要科学边界
 
 - `strawberry_1` 稳定识别；
 - `strawberry_3` 未识别；
 - `strawberry_2` 未识别；
-- 尚不能区分是自然叶片遮挡、果实尺度/朝向、绿色未成熟果与叶片
-  混淆，还是模型域差异。
+- field-v3 通过 ROI 稳定选择并抓取目标 1，但这不代表能覆盖其他
+  果实或任意植株。
+- 未成熟类别、自然遮挡和跨植株泛化仍受模型域差异限制。
 
 ### 9.5 科学边界
 
@@ -457,6 +468,7 @@ artifacts/p6/strawberry_urp_release_v1.zip
 - v1 P3 正式失败；
 - v1 P4 干预失败；
 - v2 尚无正式 P3/P4；
+- field-v3 三次成功仅是固定场景非正式开发重复；
 - 不允许实体机器人或 sim-to-real 声明；
 - 不允许把工程豁免写成算法达标。
 
@@ -546,7 +558,30 @@ bash scripts/build_and_test.sh
 bash scripts/show_canonical_scene.sh
 ```
 
-### 11.3 启动基础仿真
+### 11.3 查看 field-v3 场景
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /opt/strawberry_venv/bin/activate
+source ros2_ws/install/setup.bash
+ros2 launch strawberry_sim field_v3.launch.py headless:=false
+```
+
+### 11.4 复现 field-v3 完整抓放
+
+每次必须使用新的输出目录和未占用的 ROS domain ID：
+
+```bash
+bash scripts/run_field_v3_perception_pick_headed.sh \
+  "$PWD/results/development/field_v3_perception_pick_next" \
+  "$PWD/outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt" \
+  230 0 true
+```
+
+最后一个参数设为 `false` 可进行无窗口验证。脚本会校验模型哈希，
+先运行视觉交接、预抓取和执行就绪门，再启动一次有界动作。
+
+### 11.5 启动基础仿真
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -555,7 +590,7 @@ source ros2_ws/install/setup.bash
 ros2 launch strawberry_sim sim.launch.py headless:=false
 ```
 
-### 11.4 v2 60 帧无运动 Shadow
+### 11.6 v2 60 帧无运动 Shadow
 
 默认输出路径只能使用一次。再次运行时必须传入新目录：
 
@@ -574,7 +609,7 @@ bash scripts/run_blender_scene_v2_shadow_window.sh \
 - 无 MoveIt；
 - 无机械臂运动。
 
-### 11.5 Oracle 抓放
+### 11.7 Oracle 抓放
 
 ```bash
 export STRAWBERRY_COLCON_ROOT="$PWD/ros2_ws"
@@ -583,7 +618,7 @@ bash scripts/run_oracle_pick_gate.sh \
   "$PWD/results/development/blender_scene_v2_oracle_smoke_next"
 ```
 
-### 11.6 重导出 Blender 资产
+### 11.8 重导出 Blender 资产
 
 说明：
 `tools/blender/README.md`
@@ -597,65 +632,39 @@ tools/blender/export_gazebo_assets.py
 需要 Blender 5.2.0 LTS 或兼容版本。不要直接导出整个植株场景，
 否则会重新引入模板果实和重复长茎。
 
-## 12. 建议的新项目任务顺序
+## 12. 建议的后续任务顺序
 
-### 第一步：建立可迁移的 v2 基线
+### 第一步：保留当前可工作版本
 
-1. 从当前工作目录复制源代码、v2 Blender 源、生成网格、当前模型和
-   必要证据。
-2. 不使用旧 P6 压缩包作为 v2 唯一来源。
-3. 建立干净 Git 首次提交。
-4. 记录环境版本和当前文件哈希。
+1. 以 ADR 0060、field-v3 清单和专用 runner 为权威。
+2. 不再临时调整相机、抓取姿态、阈值或料框位置。
+3. GitHub 只同步源代码、配置、网格、测试和文档；本地模型与生成
+   结果按 SHA-256 核对。
+4. 需要展示时使用 headed runner；需要回归时使用 headless runner。
 
-### 第二步：修复 v1/v2 几何参数分层
+### 第二步：学习项目知识
 
-1. 保留 v1 `0.035 m` 定位配置。
-2. 新建 v2 `0.026 m` 定位配置。
-3. 让 launch 根据场景显式选择配置，禁止隐式混用。
-4. 更新架构文档中只描述 35 mm 球形果实的段落。
-5. 运行新的 v2 100 位置定位门。
+按 `docs/learning-roadmap-zh.md` 学习：
 
-### 第三步：三果实隔离视觉诊断
+1. ROS 2 节点、topic、service、action 和 QoS；
+2. Gazebo 世界、SDF/URDF、ros2_control 与接触/附着抽象；
+3. TF、相机模型、深度图和三维定位；
+4. YOLO 检测、阈值、验证集与工程豁免；
+5. MoveIt 规划场景、IK、碰撞检查和状态机；
+6. 本项目如何通过分层门、JSON 收据、ADR 和测试防止误判成功。
 
-保持相机、模型、阈值和光照不变，机械臂不动，分别生成：
+### 第三步：如需继续研究，先冻结新合同
 
-1. 只显示 `strawberry_1`；
-2. 只显示 `strawberry_3`；
-3. 只显示 `strawberry_2`。
+优先级建议：
 
-每个场景预热 10 帧后采 60 帧，记录：
+1. 固定场景回归，不改变当前通过条件；
+2. 变果实位置/姿态的小规模无运动可达性与抓取包络矩阵；
+3. 通过前置门后再做有界动作重复；
+4. 其他成熟果与未成熟果的视觉覆盖；
+5. 最后才考虑实体相机标定、硬件控制和安全评审。
 
-- 成熟/未成熟检测帧率；
-- 每帧框数；
-- 置信度；
-- 关联目标 ID；
-- TargetPose 可用率。
-
-判定逻辑：
-
-- 隔离后 3号或2号能识别：主因是叶片遮挡、相机角度或相邻目标；
-  优先调整场景/相机，不重训。
-- 隔离后3号成熟果仍不识别：检查尺度、朝向、萼片遮挡和材质域差异。
-- 隔离后2号未成熟果仍不识别：确认是未成熟类别/绿色叶片混淆，
-  再冻结有限合成数据方案。
-
-### 第四步：只处理已定位的瓶颈
-
-- 若为遮挡：调整叶片姿态、果实挂点或固定相机，使任务可见但仍保留
-  合理自然遮挡。
-- 若为材质：增加有限颜色、光照和纹理变化。
-- 若确实需要微调：先冻结新 ADR、训练集、验证集、真实数据非退化
-  规则和一次性训练预算；不要盲目反复重训。
-
-### 第五步：重新进入 v2 集成门
-
-依次执行：
-
-1. v2 定位 100 点；
-2. v2 Oracle 抓放至少 10 次，要求 ≥90%；
-3. v2 感知控制的简单场景冒烟；
-4. v2 多位置、自然遮挡无运动诊断；
-5. 满足前置门后，另行冻结新的 v2 正式 P3/P4 定义。
+任何新合同都必须写清目标、场景变量、次数、通过门、失败归因和
+停止条件，不能把当前三次固定场景结果外推为泛化能力。
 
 ## 13. 新项目中禁止直接做的事
 
@@ -665,8 +674,9 @@ tools/blender/export_gazebo_assets.py
 - 不要重新运行已经消费的一次性 P4 干预并称为同一正式试验。
 - 不要把被拒绝的 simulator-adaptation 模型设成默认权重。
 - 不要删除 v1 兼容场景；它仍是历史证据的复现基础。
-- 不要在未修正 26/35 mm 参数边界前宣称 v2 定位精度通过。
-- 不要因为单次 v2 Oracle 抓放成功就宣称视觉端到端完成。
+- 不要重新依赖 DART 的右夹指 mimic；仿真必须显式控制并核验双指。
+- 不要把 field-v3 固定目标三次成功写成任意植株/任意果实鲁棒性。
+- 不要把仿真附着约束写成果柄剪切或果实无损抓取证据。
 
 ## 14. 新 Codex 任务可直接粘贴的首条消息
 
@@ -674,22 +684,22 @@ tools/blender/export_gazebo_assets.py
 请先阅读：
 1. NEW_PROJECT_HANDOFF.md
 2. docs/architecture.md
-3. docs/decisions/0036-adopt-blender-plant-scene-v2.md
-4. docs/blender-scene-v2-shadow-diagnostic-v1.md
+3. docs/field-v3-integration.md
+4. docs/decisions/0060-accept-field-v3-perception-pick-repeat.md
 
 当前默认基线是 Blender 植株 v2，不是旧球形 v1。旧 P3/P4 正式结果
-只能作为 v1 历史证据。当前工程模型是
+只能作为 v1 历史证据。field-v3 是来自 st1.blend 的可选大田场景，
+已经在固定目标、固定种子下连续三次完成感知抓取、双指接触、附着、
+搬运、料框释放、验证和回 ready。当前工程模型是
 outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt，
 SHA-256 为
 e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70，
-阈值 0.58。它在 v2 固定场景中 60/60 帧识别 strawberry_1，但没有
-识别 strawberry_3 和 strawberry_2。
+audited macro F1 仍只有 0.800675，真实 held-out test 继续封存。
 
-下一任务先不要训练模型，也不要运行正式测试。请先：
-1. 将 v1 的35 mm和v2的26 mm定位偏移拆成显式场景配置；
-2. 为三颗果实分别建立隔离、无运动、10帧预热+60帧测量诊断；
-3. 根据隔离结果判断是遮挡/相机问题还是模型域问题；
-4. 保留所有旧证据和正式测试封存边界。
+当前先不要继续调参、训练或扩大动作范围。请先帮助我按
+docs/learning-roadmap-zh.md 学会 ROS 2、Gazebo、TF/RGB-D、YOLO、
+MoveIt、状态机和本项目的测试/证据方法；需要修改项目时必须保留
+ADR 0060 的固定场景回归和所有科学边界。
 ```
 
 ## 15. 权威文件索引
@@ -702,6 +712,9 @@ e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70，
 - v2 资产溯源：`docs/assets/blender-asset-provenance-v2.md`
 - v2 Shadow 结果：
   `docs/blender-scene-v2-shadow-diagnostic-v1.md`
+- field-v3 集成与复现：`docs/field-v3-integration.md`
+- field-v3 三次连续结果决策：
+  `docs/decisions/0060-accept-field-v3-perception-pick-repeat.md`
 - 当前工程模型授权：
   `config/p3_perception_control_waiver_v1.json`
 - v1 P3 结果：
@@ -710,4 +723,3 @@ e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70，
   `artifacts/p4/p4_sim_adapt_qualification_outcome_handoff_v1.json`
 - P5：`artifacts/p5/p5_final_release_handoff_v1.json`
 - P6：`artifacts/p6/p6_delivery_handoff_v1.json`
-

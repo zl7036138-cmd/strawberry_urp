@@ -1,0 +1,50 @@
+# Generated from reviewed Blender assets for Strawberry URP.
+# Colours are intentionally embedded; the source files use no image textures.
+
+newmtl field_material_05
+Ka 0.028000 0.108500 0.012250
+Kd 0.080000 0.310000 0.035000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl field_material_23
+Ka 0.012250 0.108500 0.014000
+Kd 0.035000 0.310000 0.040000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl field_material_17
+Ka 0.006300 0.063000 0.008750
+Kd 0.018000 0.180000 0.025000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl field_material_07
+Ka 0.035000 0.147000 0.019250
+Kd 0.100000 0.420000 0.055000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl field_material_13
+Ka 0.217000 0.241500 0.119000
+Kd 0.620000 0.690000 0.340000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2
+
+newmtl field_material_03
+Ka 0.273000 0.042000 0.031500
+Kd 0.780000 0.120000 0.090000
+Ks 0.080000 0.080000 0.080000
+Ns 24.000000
+d 1.000000
+illum 2

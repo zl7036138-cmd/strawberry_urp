@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "gate_id": "blender_v2_localization_accuracy_100_post_winding_v1",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_LOCALIZATION_GEOMETRY",
+  "status": "FROZEN_EXECUTION_AUTHORIZED",
+  "decision_record": {
+    "path": "docs/decisions/0041-freeze-post-winding-v2-localization-requalification.md",
+    "size_bytes": 2468,
+    "sha256": "f9af3f6fee7922826441fbf05722165327b6f66a1f2a76916e75557a11a66f44"
+  },
+  "bindings": {
+    "base_world": {
+      "path": "ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sdf",
+      "size_bytes": 4710,
+      "sha256": "aeb61d02ee7fe79cccd97bba34e43b9a9319cd66cfb45c91a6e6cd8929c8b487"
+    },
+    "scene_manifest": {
+      "path": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "size_bytes": 1927,
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093"
+    },
+    "localization_config": {
+      "path": "ros2_ws/src/strawberry_localization/config/localization_blender_v2.yaml",
+      "size_bytes": 1257,
+      "sha256": "58f6dccb9b305f7e8264ecd6db1fc88afbc10630b4368db9e0cef88815143f4a"
+    },
+    "target_model_sdf": {
+      "path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe/model.sdf",
+      "size_bytes": 2037,
+      "sha256": "bc2db0a87ffa7cb84ee3476ad2bc8aa7b112429cda5f8ff559569464f545af6d"
+    },
+    "target_visual_mesh": {
+      "path": "ros2_ws/src/strawberry_sim/models/strawberry_ripe/meshes/strawberry_ripe_visual_v2.obj",
+      "size_bytes": 1377293,
+      "sha256": "25237e08bd74558a124d8dd33d5e5accce845cea5e97fe05cd1a81b4ec121452"
+    },
+    "unripe_visual_mesh": {
+      "path": "ros2_ws/src/strawberry_sim/models/strawberry_unripe/meshes/strawberry_unripe_visual_v2.obj",
+      "size_bytes": 1377295,
+      "sha256": "88e6ea10b3629e3dab5a87cb19103ed8cc299543585624b8790b84e36acfd81f"
+    },
+    "repair_receipt": {
+      "path": "artifacts/simulation/blender_v2_body_winding_repair_v1.json",
+      "size_bytes": 2665,
+      "sha256": "f6a928b26b90ec716bca55c32fb6a731376a7cb118c3584e8104223ecffbd20e"
+    }
+  },
+  "target": {
+    "target_id": 1,
+    "model_name": "strawberry_1",
+    "maturity": "RIPE",
+    "fruit_radius_m": 0.026,
+    "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]
+  },
+  "scene_materialization": {
+    "plant_model": "strawberry_plant",
+    "plant_park_pose_xyz_rpy": [3.0, 0.0, 0.47, 0.0, 0.0, 0.0],
+    "target_initial_pose_xyz_rpy": [0.44, -0.12, 0.51, 0.0, 0.0, 0.0],
+    "parked_fruit_poses_xyz_rpy": {
+      "strawberry_2": [0.0, -2.0, 1.0, 0.0, 0.0, 0.0],
+      "strawberry_3": [0.2, -2.0, 1.0, 0.0, 0.0, 0.0]
+    },
+    "canonical_restore_positions_m": {
+      "strawberry_1": [0.419064753, -0.053479813, 0.546111838],
+      "strawberry_2": [0.550333202, 0.118588343, 0.532157422],
+      "strawberry_3": [0.578895651, 0.068192676, 0.540231110]
+    }
+  },
+  "position_grid": {
+    "order": "z_then_y_then_x",
+    "x_m": [0.44, 0.47, 0.50, 0.53, 0.56],
+    "y_m": [-0.12, -0.075, -0.03, 0.015, 0.06],
+    "z_m": [0.51, 0.53, 0.55, 0.57],
+    "expected_position_count": 100
+  },
+  "runtime": {
+    "attempts_per_position": 3,
+    "settled_depth_frames": 3,
+    "sensor_timeout_sec": 5.0,
+    "runner_timeout_sec": 360.0,
+    "headless": true
+  },
+  "thresholds": {
+    "minimum_positions": 100,
+    "median_error_mm_max": 15.0,
+    "p95_error_mm_max": 30.0,
+    "require_all_measurements": true
+  },
+  "safety": {
+    "formal_acceptance": false,
+    "formal_real_test_access_authorized": false,
+    "formal_simulator_matrix_authorized": false,
+    "perception_model_started": false,
+    "robot_motion_authorized": false,
+    "gripper_command_authorized": false,
+    "attachment_authorized": false,
+    "planning_authorized": false,
+    "pick_action_authorized": false,
+    "simulated_fruit_pose_motion_authorized": true
+  },
+  "execution": {
+    "maximum_claims": 1,
+    "retry_authorized": false,
+    "output_directory": "results/development/blender_v2_localization_accuracy_100_post_winding_v1"
+  }
+}

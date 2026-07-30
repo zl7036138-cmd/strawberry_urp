@@ -1,0 +1,214 @@
+{
+  "attachment_started": false,
+  "base_support_frames": null,
+  "candidate_target_id": null,
+  "contract": {
+    "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\config\\blender_v2_perception_handoff_pregrasp_v2.json",
+    "sha256": "0208a0ed4291a613ce1b83c09fdc5da234902c9f91e316de0d65b92258e08eaa",
+    "size_bytes": 5697
+  },
+  "control_command_count": null,
+  "formal_acceptance": false,
+  "gate": "blender_v2_perception_handoff_pregrasp_v2",
+  "generated_at_utc": "2026-07-27T03:56:29.978525+00:00",
+  "grasp_geometry_profile": null,
+  "handoff_maximum_target_age_sec": null,
+  "handoff_moveit_state_delta_rad": null,
+  "handoff_observed_joint_delta_rad": null,
+  "handoff_target_sample_count": null,
+  "held_out_test_accessed": false,
+  "localization_started": true,
+  "manipulation_started": false,
+  "observation_motion": {
+    "camera_mount": "dual",
+    "execution_time_sec": 23.756146126999738,
+    "fruit_collision_obstacle_ids": [
+      1,
+      2,
+      3
+    ],
+    "fruit_manipulation_started": false,
+    "planning_attempt_count": 1,
+    "planning_attempt_limit": 3,
+    "planning_attempts": [
+      {
+        "attempt": 1,
+        "collision": false,
+        "execution_time_sec": 23.756146126999738,
+        "planning_time_sec": 0.04138830699957907,
+        "success": true
+      }
+    ],
+    "planning_time_sec": 0.04138830699957907,
+    "requested_hand_pose": {
+      "frame_id": "panda_link0",
+      "orientation_xyzw": [
+        0.0,
+        0.9537169507450916,
+        0.0,
+        0.30070579951421733
+      ],
+      "position_m": [
+        0.28,
+        0.0,
+        0.72
+      ]
+    },
+    "robot_motion_started": true,
+    "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml",
+    "schema_version": 1,
+    "scope": "NON_ACCEPTANCE_WRIST_CAMERA_OBSERVATION_POSE",
+    "success": true
+  },
+  "observation_pose_motion_started": true,
+  "oracle_target_started": false,
+  "orchestrator_started": false,
+  "passed": false,
+  "perception_started": true,
+  "pick_action_started": false,
+  "pick_authorized": false,
+  "planning_attempts": null,
+  "pregrasp_pose": null,
+  "resolved_inputs": {
+    "decision_record": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\docs\\decisions\\0054-preserve-v1-handoff-failure-and-freeze-v2.md",
+      "sha256": "7f9bd5e02dbf3cb53310ca8cb1eb6cc130259a320d44dca4e354a2d470c5843e",
+      "size_bytes": 2768
+    },
+    "failed_v1_observation_log": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v1\\observation_motion.log",
+      "sha256": "b22fd89c2eb91428bedc99b79cc92ca4691cef140f4775ff555f06c1286b011d",
+      "size_bytes": 8854
+    },
+    "failed_v1_summary": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v1\\summary.json",
+      "sha256": "e5e62f7c2c8e213d107c6516ee27b9b5f1ded316eedbc23fcbf0fb8f7f716346",
+      "size_bytes": 7520
+    },
+    "grasp_geometry_config": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\config\\grasp_geometry.yaml",
+      "sha256": "e23678ec96679625059ed88f262ddf5c6051abdff948e30e26743d9a67e96b5c",
+      "size_bytes": 668
+    },
+    "grasp_geometry_loader": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\grasp_geometry.py",
+      "sha256": "6ccc8495bc21f35803bf41bdd833237bf9f9a4793c73b809dd1be64ffc3a861b",
+      "size_bytes": 4259
+    },
+    "handoff_shadow": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\handoff_shadow.py",
+      "sha256": "244f3715c5a0555b18f2a2f940159e4874d159fb7e69424e6ee68828868b1419",
+      "size_bytes": 24156
+    },
+    "localization_node": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_localization\\strawberry_localization\\node.py",
+      "sha256": "43ee5c55f2dd4fc1e56ba253b0a83413ce0dd7e321d891292e72e20feab63d64",
+      "size_bytes": 36654
+    },
+    "model": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\outputs\\perception\\yolo11s_640_train_audit_v1\\weights\\best.pt",
+      "sha256": "e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70",
+      "size_bytes": 19162586
+    },
+    "moveit_backend": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\moveit_backend.py",
+      "sha256": "e29b5d68345ee35712649267391968678371ca7bc6f0a125402d52fc0ed90178",
+      "size_bytes": 48241
+    },
+    "observation_motion": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\scripts\\move_wrist_observation_pose.py",
+      "sha256": "dcf26058722b850c6419d22e5497f97f5567d7834246bfbc6c70eca65ad07085",
+      "size_bytes": 6465
+    },
+    "observation_selector": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_bringup\\strawberry_bringup\\observation_selection.py",
+      "sha256": "a6cb47c099e47dee247c21697d635a703bc21b4e6b5a17bd4e3fce7a5ccefa91",
+      "size_bytes": 4330
+    },
+    "perception_node": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_perception\\strawberry_perception\\perception_node.py",
+      "sha256": "9fbecb4495828b147f0e8555f15b7328ea96efb56c084f333bb44c3bbaeb3476",
+      "size_bytes": 7797
+    },
+    "perception_waiver": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\config\\p3_perception_control_waiver_v1.json",
+      "sha256": "59b071bd6b867a5f794b1bf3ee15ffcf8101a4d6545346a4fe869da6378981b5",
+      "size_bytes": 2948
+    },
+    "pregrasp_shadow": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\pregrasp_shadow.py",
+      "sha256": "0a1fbf6ae3619c106f06c279c1de364d5de4e1909be6133b240bdbbe0385fdb8",
+      "size_bytes": 28876
+    },
+    "runner": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\scripts\\run_dual_sequential_observation.sh",
+      "sha256": "41ed8c4b1a76b0437015b522857f5d6ce3941576d7273b736fe03a9d9deccdfa",
+      "size_bytes": 10857
+    },
+    "scene_config": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_sim\\config\\scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    },
+    "sequence_summary": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_bringup\\strawberry_bringup\\observation_sequence.py",
+      "sha256": "c93a1baa8ba79069e0d076c9a21752dbc17cbf25d02ab01826c0d93453996a64",
+      "size_bytes": 16114
+    },
+    "validator": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\scripts\\validate_blender_v2_perception_handoff_pregrasp.py",
+      "sha256": "a2913060ff11916296e18b2f902b4d2b34732df94f9358a709c4f1cce340465e",
+      "size_bytes": 19144
+    }
+  },
+  "run_inputs": {
+    "observation_motion": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v2\\observation_motion.json",
+      "sha256": "1c125e800357a52994f3ac00c277a821a99cadb4680e511d042e21a302b08a78",
+      "size_bytes": 970
+    },
+    "runtime_nodes": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v2\\wrist_runtime_nodes.txt",
+      "sha256": "422310ffa1ffc69dd6e3ba27c02581eefcc5e069d9cbb9a7ca6f27fe8e371263",
+      "size_bytes": 312
+    },
+    "runtime_topics": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v2\\wrist_runtime_topics.txt",
+      "sha256": "c8928278e29c56d0a1cce86ee942b2641b1f22a33b4819701e9951c1515c0620",
+      "size_bytes": 93
+    }
+  },
+  "runtime_nodes": [
+    "/attachment_manager",
+    "/controller_manager",
+    "/ground_truth_publisher",
+    "/gz_ros_control",
+    "/joint_state_broadcaster",
+    "/panda_arm_controller",
+    "/panda_gripper_controller",
+    "/panda_robot_state_publisher",
+    "/strawberry_contact_monitor",
+    "/strawberry_gz_bridge",
+    "/strawberry_wrist_attention_localization",
+    "/strawberry_wrist_attention_perception"
+  ],
+  "runtime_topics": [
+    "/camera/wrist/color/image_raw",
+    "/clock",
+    "/parameter_events",
+    "/rosout",
+    "/strawberry/shadow/detections"
+  ],
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_HANDOFF_PREGRASP",
+  "selected_preset": null,
+  "trajectory_discarded": null,
+  "trajectory_execution_started": false,
+  "trajectory_generated": null,
+  "violations": [
+    "missing sequence: results\\development\\blender_v2_perception_handoff_pregrasp_v2\\sequence_summary.json",
+    "missing handoff: results\\development\\blender_v2_perception_handoff_pregrasp_v2\\handoff_shadow.json",
+    "missing pregrasp: results\\development\\blender_v2_perception_handoff_pregrasp_v2\\pregrasp_shadow.json"
+  ],
+  "wrist_matching_target_pose_frames": null
+}

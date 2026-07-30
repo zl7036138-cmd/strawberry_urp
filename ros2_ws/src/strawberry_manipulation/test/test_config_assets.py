@@ -83,3 +83,47 @@ def test_dual_sequence_stops_base_pipeline_before_wrist_motion():
     assert "pregrasp_planning_shadow" in source
     assert "--pregrasp-shadow-json" in source
     assert "--planning-attempts 3" in source
+    assert "localization_blender_v2.yaml" in source
+
+
+def test_runtime_collision_users_take_radius_from_scene_manifest():
+    for relative_path in (
+        "strawberry_manipulation/action_server.py",
+        "strawberry_manipulation/handoff_shadow.py",
+        "strawberry_manipulation/pregrasp_shadow.py",
+    ):
+        source = (PACKAGE_ROOT / relative_path).read_text(encoding="utf-8")
+        assert "scene.fruit_collision_radius_m" in source
+
+
+def test_runtime_collision_users_take_static_profile_from_scene_manifest():
+    for relative_path in (
+        "strawberry_manipulation/action_server.py",
+        "strawberry_manipulation/handoff_shadow.py",
+        "strawberry_manipulation/pregrasp_shadow.py",
+    ):
+        source = (PACKAGE_ROOT / relative_path).read_text(encoding="utf-8")
+        assert "static_collision_objects" in source
+        assert "scene.static_collision_profile" in source
+
+    observation_source = (
+        REPOSITORY_ROOT / "scripts" / "move_wrist_observation_pose.py"
+    ).read_text(encoding="utf-8")
+    assert "static_collision_objects" in observation_source
+    assert "scene.static_collision_profile" in observation_source
+
+
+def test_execution_and_planning_shadow_share_scene_bound_grasp_geometry():
+    action_source = (
+        PACKAGE_ROOT / "strawberry_manipulation" / "action_server.py"
+    ).read_text(encoding="utf-8")
+    shadow_source = (
+        PACKAGE_ROOT / "strawberry_manipulation" / "pregrasp_shadow.py"
+    ).read_text(encoding="utf-8")
+    for source in (action_source, shadow_source):
+        assert "load_grasp_geometry" in source
+        assert "scene.world_name" in source
+        assert "scene.fruit_collision_radius_m" in source
+        assert "grasp_geometry.tool_center_offset_m" in source
+    assert "grasp_geometry.gripper_closed_width_m_per_finger" in action_source
+    assert '"tool_center_offset_m": 0.1054' not in shadow_source

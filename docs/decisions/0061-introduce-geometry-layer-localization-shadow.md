@@ -79,3 +79,7 @@ no-motion matrix across varied fruit poses, scales, and controlled occlusions,
 with both estimators evaluated on identical recorded frames. Until that gate
 exists and passes, `geometry_layer` is not an accepted field-v3 runtime setting
 and must not be used to claim improved grasp success.
+
+ADR 0062 subsequently resolves one support-blind false ambiguity found by an
+identical-frame recorded-depth matrix. That repair remains opt-in and does not
+change this ADR's no-motion promotion boundary.

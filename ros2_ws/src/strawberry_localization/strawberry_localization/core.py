@@ -442,6 +442,7 @@ def robust_geometry_layer_depth(
     layer_gap_m: float = 0.015,
     expected_depth_tolerance_m: float = 0.08,
     ambiguity_margin_m: float = 0.01,
+    ambiguity_min_support_ratio: float = 0.50,
 ) -> DepthEstimate:
     """Select a depth layer consistent with the detected fruit geometry.
 
@@ -459,6 +460,7 @@ def robust_geometry_layer_depth(
         layer_gap_m,
         expected_depth_tolerance_m,
         ambiguity_margin_m,
+        ambiguity_min_support_ratio,
         min_layer_fraction,
         min_depth_m,
         max_depth_m,
@@ -471,6 +473,8 @@ def robust_geometry_layer_depth(
         raise ValueError("layer gap and expected-depth tolerance must be positive")
     if ambiguity_margin_m < 0.0:
         raise ValueError("ambiguity margin must be non-negative")
+    if not 0.0 <= ambiguity_min_support_ratio <= 1.0:
+        raise ValueError("ambiguity support ratio must be in [0, 1]")
     if min_depth_m <= 0.0 or max_depth_m <= min_depth_m:
         raise ValueError("depth limits must satisfy 0 < min_depth < max_depth")
     if isinstance(min_layer_pixels, bool) or min_layer_pixels <= 0:
@@ -535,14 +539,19 @@ def robust_geometry_layer_depth(
             "nearest depth layer is inconsistent with detected fruit size: "
             f"error={best[0]:.3f} m, limit={expected_depth_tolerance_m:.3f} m"
         )
+    second_support_ratio = (
+        (-candidates[1][1]) / (-best[1]) if len(candidates) > 1 else 0.0
+    )
     if (
         len(candidates) > 1
         and candidates[1][0] - best[0] < ambiguity_margin_m
+        and second_support_ratio >= ambiguity_min_support_ratio
     ):
         raise LocalizationError(
             "multiple depth layers are geometrically ambiguous: "
             f"best_error={best[0]:.3f} m, "
-            f"second_error={candidates[1][0]:.3f} m"
+            f"second_error={candidates[1][0]:.3f} m, "
+            f"second_support_ratio={second_support_ratio:.3f}"
         )
 
     selected_indices = best[3]
@@ -584,6 +593,7 @@ def localize_bbox(
     geometry_min_layer_fraction: float = 0.03,
     geometry_expected_depth_tolerance_m: float = 0.08,
     geometry_ambiguity_margin_m: float = 0.01,
+    geometry_ambiguity_min_support_ratio: float = 0.50,
 ) -> tuple[np.ndarray, DepthEstimate]:
     """Localize a box and optionally shift a rigid surface hit to its centre.
 
@@ -620,6 +630,9 @@ def localize_bbox(
             layer_gap_m=geometry_layer_gap_m,
             expected_depth_tolerance_m=geometry_expected_depth_tolerance_m,
             ambiguity_margin_m=geometry_ambiguity_margin_m,
+            ambiguity_min_support_ratio=(
+                geometry_ambiguity_min_support_ratio
+            ),
         )
     else:
         raise ValueError(

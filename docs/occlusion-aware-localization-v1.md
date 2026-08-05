@@ -47,12 +47,18 @@ point is reconstructed; it is never used to select a depth layer.
 | `geometry_min_layer_fraction` | `0.03` | Minimum box-area support for a candidate layer |
 | `geometry_expected_depth_tolerance_m` | `0.08` | Maximum difference from the size-derived surface depth |
 | `geometry_ambiguity_margin_m` | `0.01` | Minimum advantage over the second candidate layer |
+| `geometry_ambiguity_min_support_ratio` | `0.50` | Runner-up support required before a near tie is rejected |
 | `min_valid_pixels` | `9` | Minimum samples in the selected layer |
 
 The frozen Blender-v2 and legacy YAML files remain byte-for-byte unchanged and
 therefore use the node default `center_median`. The separate
 `localization_geometry_layer_v1.yaml` file opts into the new estimator. A
 future ROS test must use that development config and a new output directory.
+
+ADR 0062 adds a support-aware ambiguity rule after the first identical-frame
+matrix exposed a false rejection under 10% detection-box shrinkage. Geometric
+near ties still reject when the runner-up has at least half the selected
+layer's support; equal-support ambiguity remains fail-closed.
 
 ## Offline diagnostic
 
@@ -117,3 +123,7 @@ Only after that study passes may a separate decision consider enabling
 `geometry_layer` for field-v3 planning. Motion still requires explicit
 authorization. The frozen P3/P4 artifacts and the sealed real test remain
 untouched.
+
+The paired 40-frame matrix, preserved failure, repaired result, and remaining
+promotion blockers are documented in
+[`paired-depth-estimator-matrix-v3.md`](paired-depth-estimator-matrix-v3.md).

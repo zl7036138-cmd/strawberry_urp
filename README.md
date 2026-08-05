@@ -217,12 +217,22 @@ passes all 100 positions with 1.345 mm median and 1.897 mm p95 error. See
 
 Post-submission development (2026-08-05) adds an opt-in, geometry-guided
 depth-layer estimator for occluded detections. The current source builds and
-passes 403/403 colcon tests. A 60-frame field-v3 no-motion Shadow produced
+passes 410/410 colcon tests. A 60-frame field-v3 no-motion Shadow produced
 60/60 target poses at 3.148 mm median error with zero joint or control activity.
 Its 28.1 mm median uncertainty remains too conservative for runtime promotion;
 the frozen submission-v2 receipt remains 396/396 and is not regenerated. See
 [`docs/occlusion-aware-localization-v1.md`](docs/occlusion-aware-localization-v1.md)
 and [`ADR 0061`](docs/decisions/0061-introduce-geometry-layer-localization-shadow.md).
+
+A separate 40-frame identical-input matrix then exposed and preserved a false
+ambiguity under 10% detector-box shrinkage. The support-aware repair passes all
+eight offline checks: it accepts 40/40 smaller boxes, keeps 45%-centre-occlusion
+P95 error at 5.886 mm versus 47.116 mm for the old estimator, and rejects all
+40 fruit-absent observations. Runtime promotion is still blocked by limited
+viewpoint coverage, synthetic rather than rendered occlusion, and conservative
+sigma. See
+[`docs/paired-depth-estimator-matrix-v3.md`](docs/paired-depth-estimator-matrix-v3.md)
+and [`ADR 0062`](docs/decisions/0062-use-layer-support-to-resolve-depth-ambiguity.md).
 
 The T60 oracle integration subgate passes 10/10 with planning p95 0.058841 s;
 one 11.6 mm controller endpoint miss was recovered by the single bounded

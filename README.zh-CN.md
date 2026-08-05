@@ -184,12 +184,20 @@ Blender-v2 草莓网格曾存在面朝向错误。机械修正三角面顺序后
 
 提交后开发进展（2026-08-05）：新增了一个默认关闭的几何深度分层定位器，
 用于避免检测框中心深度落在前景叶片或遮挡物上。当前开发源码构建成功，
-`403/403` 项 colcon 测试通过；field-v3 的 60 帧无动作 Shadow 验证得到
+`410/410` 项 colcon 测试通过；field-v3 的 60 帧无动作 Shadow 验证得到
 `60/60` 目标位姿，中位定位误差为 `3.148 mm`，机械臂关节与控制命令均为零。
 但该定位器报告的中位不确定度仍为 `28.1 mm`，因此尚未获准用于运动抓取。
 冻结的 submission-v2 交付包及其 `396/396` 测试收据保持不变。详见
 [`docs/occlusion-aware-localization-v1.md`](docs/occlusion-aware-localization-v1.md)
 和 [`ADR 0061`](docs/decisions/0061-introduce-geometry-layer-localization-shadow.md)。
+
+随后完成的 40 帧同输入对比矩阵保留了一次失败：检测框缩小 10% 时，旧版
+几何判据把高像素支持的果实层误判为歧义。加入深度层支持度判据后，8 项离线
+检查全部通过：缩小框 `40/40` 接受，中心遮挡 45% 时新算法 P95 误差为
+`5.886 mm`（旧算法为 `47.116 mm`），果实深度缺失时 `40/40` 安全拒绝。
+由于视角覆盖有限、遮挡仍为离线注入且 sigma 偏保守，运行抓取资格仍未开放。
+详见 [`docs/paired-depth-estimator-matrix-v3.md`](docs/paired-depth-estimator-matrix-v3.md)
+和 [`ADR 0062`](docs/decisions/0062-use-layer-support-to-resolve-depth-ambiguity.md)。
 
 其他已冻结工程结果：
 

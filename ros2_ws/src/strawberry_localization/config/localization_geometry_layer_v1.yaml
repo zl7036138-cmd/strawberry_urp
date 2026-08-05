@@ -27,6 +27,7 @@ strawberry_localization:
     geometry_min_layer_fraction: 0.03
     geometry_expected_depth_tolerance_m: 0.08
     geometry_ambiguity_margin_m: 0.01
+    geometry_ambiguity_min_support_ratio: 0.50
     ground_truth_association_enabled: true
     association_max_distance_m: 0.08
     allow_stationary_latest_tf_fallback: false

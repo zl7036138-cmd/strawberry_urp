@@ -88,6 +88,24 @@ class LocalizationCoreTests(unittest.TestCase):
                 ambiguity_margin_m=0.01,
             )
 
+    def test_geometry_layer_accepts_a_dominant_near_tied_layer(self) -> None:
+        depth = np.full((100, 100), 1.8, dtype=np.float32)
+        depth[20:80, 20:75] = 0.481
+        depth[20:80, 75:80] = 0.509
+
+        estimate = robust_geometry_layer_depth(
+            depth,
+            BoundingBox(20, 20, 60, 60),
+            CameraIntrinsics(600.0, 600.0, 50.0, 50.0),
+            target_radius_m=0.026,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.01,
+            ambiguity_min_support_ratio=0.50,
+        )
+
+        self.assertAlmostEqual(estimate.depth_m, 0.481, places=5)
+        self.assertEqual(estimate.valid_pixels, 3300)
+
     def test_geometry_layer_localize_mode_uses_selected_pixel_centroid(self) -> None:
         depth = np.full((100, 100), 1.8, dtype=np.float32)
         depth[35:65, 25:45] = 0.50

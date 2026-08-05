@@ -258,6 +258,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "geometry_expected_depth_tolerance_m", 0.08
             )
             self.declare_parameter("geometry_ambiguity_margin_m", 0.01)
+            self.declare_parameter(
+                "geometry_ambiguity_min_support_ratio", 0.50
+            )
             self.declare_parameter("ground_truth_association_enabled", True)
             self.declare_parameter("association_max_distance_m", 0.08)
             self.declare_parameter("camera_info_topic", "/camera/camera_info")
@@ -713,6 +716,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     ),
                     geometry_ambiguity_margin_m=float(
                         self.get_parameter("geometry_ambiguity_margin_m").value
+                    ),
+                    geometry_ambiguity_min_support_ratio=float(
+                        self.get_parameter(
+                            "geometry_ambiguity_min_support_ratio"
+                        ).value
                     ),
                 )
             except (LocalizationError, TypeError, ValueError) as exc:

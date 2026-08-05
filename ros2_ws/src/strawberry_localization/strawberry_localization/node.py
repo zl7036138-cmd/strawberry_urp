@@ -250,6 +250,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("max_depth_m", 5.0)
             self.declare_parameter("min_valid_pixels", 9)
             self.declare_parameter("surface_to_center_offset_m", 0.0)
+            self.declare_parameter("depth_estimator_mode", "center_median")
+            self.declare_parameter("geometry_search_fraction", 1.0)
+            self.declare_parameter("geometry_layer_gap_m", 0.015)
+            self.declare_parameter("geometry_min_layer_fraction", 0.03)
+            self.declare_parameter(
+                "geometry_expected_depth_tolerance_m", 0.08
+            )
+            self.declare_parameter("geometry_ambiguity_margin_m", 0.01)
             self.declare_parameter("ground_truth_association_enabled", True)
             self.declare_parameter("association_max_distance_m", 0.08)
             self.declare_parameter("camera_info_topic", "/camera/camera_info")
@@ -685,6 +693,26 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     ),
                     surface_to_center_offset_m=float(
                         self.get_parameter("surface_to_center_offset_m").value
+                    ),
+                    depth_estimator_mode=str(
+                        self.get_parameter("depth_estimator_mode").value
+                    ),
+                    geometry_search_fraction=float(
+                        self.get_parameter("geometry_search_fraction").value
+                    ),
+                    geometry_layer_gap_m=float(
+                        self.get_parameter("geometry_layer_gap_m").value
+                    ),
+                    geometry_min_layer_fraction=float(
+                        self.get_parameter("geometry_min_layer_fraction").value
+                    ),
+                    geometry_expected_depth_tolerance_m=float(
+                        self.get_parameter(
+                            "geometry_expected_depth_tolerance_m"
+                        ).value
+                    ),
+                    geometry_ambiguity_margin_m=float(
+                        self.get_parameter("geometry_ambiguity_margin_m").value
                     ),
                 )
             except (LocalizationError, TypeError, ValueError) as exc:

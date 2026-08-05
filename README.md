@@ -215,6 +215,15 @@ passes all 100 positions with 1.345 mm median and 1.897 mm p95 error. See
 [`results/p2/oracle_gate/summary.json`](results/p2/oracle_gate/summary.json) and
 [`results/p2/localization_gate_v6/summary.json`](results/p2/localization_gate_v6/summary.json).
 
+Post-submission development (2026-08-05) adds an opt-in, geometry-guided
+depth-layer estimator for occluded detections. The current source builds and
+passes 403/403 colcon tests. A 60-frame field-v3 no-motion Shadow produced
+60/60 target poses at 3.148 mm median error with zero joint or control activity.
+Its 28.1 mm median uncertainty remains too conservative for runtime promotion;
+the frozen submission-v2 receipt remains 396/396 and is not regenerated. See
+[`docs/occlusion-aware-localization-v1.md`](docs/occlusion-aware-localization-v1.md)
+and [`ADR 0061`](docs/decisions/0061-introduce-geometry-layer-localization-shadow.md).
+
 The T60 oracle integration subgate passes 10/10 with planning p95 0.058841 s;
 one 11.6 mm controller endpoint miss was recovered by the single bounded
 correction while retaining the 10 mm final tolerance. The original YOLO shadow

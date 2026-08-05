@@ -428,6 +428,136 @@ def robust_center_depth(
     )
 
 
+def robust_geometry_layer_depth(
+    depth_image_m: np.ndarray,
+    box: BoundingBox,
+    intrinsics: CameraIntrinsics,
+    *,
+    target_radius_m: float,
+    search_fraction: float = 1.0,
+    min_depth_m: float = 0.05,
+    max_depth_m: float = 5.0,
+    min_layer_pixels: int = 9,
+    min_layer_fraction: float = 0.03,
+    layer_gap_m: float = 0.015,
+    expected_depth_tolerance_m: float = 0.08,
+    ambiguity_margin_m: float = 0.01,
+) -> DepthEstimate:
+    """Select a depth layer consistent with the detected fruit geometry.
+
+    A foreground leaf can occupy the centre of a detection while visible fruit
+    pixels remain near its edges.  This estimator searches a larger crop,
+    splits valid pixels at bounded depth discontinuities, and selects only the
+    layer whose median agrees with the apparent size of a spherical target.
+    Ambiguous or geometrically implausible inputs fail closed.
+    """
+
+    if depth_image_m.ndim != 2:
+        raise LocalizationError("depth image must be a two-dimensional array")
+    numeric_values = (
+        target_radius_m,
+        layer_gap_m,
+        expected_depth_tolerance_m,
+        ambiguity_margin_m,
+        min_layer_fraction,
+        min_depth_m,
+        max_depth_m,
+    )
+    if not all(math.isfinite(value) for value in numeric_values):
+        raise ValueError("geometry-layer depth parameters must be finite")
+    if target_radius_m <= 0.0:
+        raise ValueError("target radius must be positive")
+    if layer_gap_m <= 0.0 or expected_depth_tolerance_m <= 0.0:
+        raise ValueError("layer gap and expected-depth tolerance must be positive")
+    if ambiguity_margin_m < 0.0:
+        raise ValueError("ambiguity margin must be non-negative")
+    if min_depth_m <= 0.0 or max_depth_m <= min_depth_m:
+        raise ValueError("depth limits must satisfy 0 < min_depth < max_depth")
+    if isinstance(min_layer_pixels, bool) or min_layer_pixels <= 0:
+        raise ValueError("minimum layer-pixel count must be positive")
+    if not 0.0 <= min_layer_fraction <= 1.0:
+        raise ValueError("minimum layer fraction must be in [0, 1]")
+
+    height, width = depth_image_m.shape
+    x0, y0, x1, y1 = _central_crop(box, search_fraction)
+    x0, y0 = max(0, x0), max(0, y0)
+    x1, y1 = min(width, x1), min(height, y1)
+    if x0 >= x1 or y0 >= y1:
+        raise LocalizationError("bounding box does not overlap the depth image")
+
+    crop = np.asarray(depth_image_m[y0:y1, x0:x1], dtype=np.float64)
+    valid_mask = np.isfinite(crop) & (crop >= min_depth_m) & (crop <= max_depth_m)
+    valid_y, valid_x = np.nonzero(valid_mask)
+    values = crop[valid_mask]
+    if values.size < min_layer_pixels:
+        raise LocalizationError(
+            f"only {values.size} valid depth pixels; need at least "
+            f"{min_layer_pixels}"
+        )
+
+    apparent_radius_px = 0.5 * math.sqrt(float(box.width * box.height))
+    effective_focal_px = math.sqrt(intrinsics.fx * intrinsics.fy)
+    expected_center_depth_m = target_radius_m * math.sqrt(
+        1.0 + (effective_focal_px / apparent_radius_px) ** 2
+    )
+    expected_surface_depth_m = expected_center_depth_m - target_radius_m
+
+    order = np.argsort(values, kind="stable")
+    sorted_values = values[order]
+    boundaries = np.flatnonzero(np.diff(sorted_values) > layer_gap_m) + 1
+    groups = np.split(order, boundaries)
+    required_layer_pixels = max(
+        min_layer_pixels,
+        int(math.ceil(float(crop.size) * min_layer_fraction)),
+    )
+    candidates = []
+    for indices in groups:
+        if indices.size < required_layer_pixels:
+            continue
+        layer_values = values[indices]
+        median = float(np.median(layer_values))
+        candidates.append(
+            (
+                abs(median - expected_surface_depth_m),
+                -int(indices.size),
+                median,
+                indices,
+            )
+        )
+    if not candidates:
+        raise LocalizationError(
+            "no depth layer contains the minimum number of valid pixels"
+        )
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+    best = candidates[0]
+    if best[0] > expected_depth_tolerance_m:
+        raise LocalizationError(
+            "nearest depth layer is inconsistent with detected fruit size: "
+            f"error={best[0]:.3f} m, limit={expected_depth_tolerance_m:.3f} m"
+        )
+    if (
+        len(candidates) > 1
+        and candidates[1][0] - best[0] < ambiguity_margin_m
+    ):
+        raise LocalizationError(
+            "multiple depth layers are geometrically ambiguous: "
+            f"best_error={best[0]:.3f} m, "
+            f"second_error={candidates[1][0]:.3f} m"
+        )
+
+    selected_indices = best[3]
+    selected_values = values[selected_indices]
+    median = best[2]
+    mad = float(np.median(np.abs(selected_values - median)))
+    return DepthEstimate(
+        depth_m=median,
+        sigma_m=max(1.4826 * mad, best[0]),
+        valid_pixels=int(selected_values.size),
+        center_u=float(x0 + np.mean(valid_x[selected_indices])),
+        center_v=float(y0 + np.mean(valid_y[selected_indices])),
+    )
+
+
 def project_pixel_to_camera(
     u: float, v: float, depth_m: float, intrinsics: CameraIntrinsics
 ) -> np.ndarray:
@@ -448,6 +578,12 @@ def localize_bbox(
     max_depth_m: float = 5.0,
     min_valid_pixels: int = 9,
     surface_to_center_offset_m: float = 0.0,
+    depth_estimator_mode: str = "center_median",
+    geometry_search_fraction: float = 1.0,
+    geometry_layer_gap_m: float = 0.015,
+    geometry_min_layer_fraction: float = 0.03,
+    geometry_expected_depth_tolerance_m: float = 0.08,
+    geometry_ambiguity_margin_m: float = 0.01,
 ) -> tuple[np.ndarray, DepthEstimate]:
     """Localize a box and optionally shift a rigid surface hit to its centre.
 
@@ -461,14 +597,34 @@ def localize_bbox(
         or surface_to_center_offset_m < 0.0
     ):
         raise ValueError("surface-to-center offset must be finite and non-negative")
-    estimate = robust_center_depth(
-        depth_image_m,
-        box,
-        center_fraction=center_fraction,
-        min_depth_m=min_depth_m,
-        max_depth_m=max_depth_m,
-        min_valid_pixels=min_valid_pixels,
-    )
+    if depth_estimator_mode == "center_median":
+        estimate = robust_center_depth(
+            depth_image_m,
+            box,
+            center_fraction=center_fraction,
+            min_depth_m=min_depth_m,
+            max_depth_m=max_depth_m,
+            min_valid_pixels=min_valid_pixels,
+        )
+    elif depth_estimator_mode == "geometry_layer":
+        estimate = robust_geometry_layer_depth(
+            depth_image_m,
+            box,
+            intrinsics,
+            target_radius_m=surface_to_center_offset_m,
+            search_fraction=geometry_search_fraction,
+            min_depth_m=min_depth_m,
+            max_depth_m=max_depth_m,
+            min_layer_pixels=min_valid_pixels,
+            min_layer_fraction=geometry_min_layer_fraction,
+            layer_gap_m=geometry_layer_gap_m,
+            expected_depth_tolerance_m=geometry_expected_depth_tolerance_m,
+            ambiguity_margin_m=geometry_ambiguity_margin_m,
+        )
+    else:
+        raise ValueError(
+            "depth estimator mode must be 'center_median' or 'geometry_layer'"
+        )
     point = project_pixel_to_camera(
         estimate.center_u, estimate.center_v, estimate.depth_m, intrinsics
     )

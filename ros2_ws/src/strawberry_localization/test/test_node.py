@@ -243,6 +243,35 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_selection_roi((320, 240, 320, 480))
 
+    def test_geometry_layer_estimator_is_explicitly_opt_in(self) -> None:
+        source = (
+            PACKAGE_ROOT / "strawberry_localization" / "node.py"
+        ).read_text(encoding="utf-8")
+        development_config = (
+            PACKAGE_ROOT / "config" / "localization_geometry_layer_v1.yaml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'self.declare_parameter("depth_estimator_mode", "center_median")',
+            source,
+        )
+        self.assertIn("geometry_expected_depth_tolerance_m", source)
+        self.assertIn("depth_estimator_mode: geometry_layer", development_config)
+
+    def test_geometry_layer_runtime_runner_is_no_motion_only(self) -> None:
+        runner = (
+            PACKAGE_ROOT.parents[2]
+            / "scripts"
+            / "run_field_v3_geometry_layer_shadow.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("localization_geometry_layer_v1.yaml", runner)
+        self.assertIn("start_manipulation:=false", runner)
+        self.assertIn("start_orchestrator:=false", runner)
+        self.assertIn("enable_attachment:=false", runner)
+        self.assertIn("enable_pose_control:=false", runner)
+        self.assertNotIn("pick_and_place_server", runner)
+
     def test_runtime_drains_executor_before_context_shutdown(self):
         source = (
             PACKAGE_ROOT

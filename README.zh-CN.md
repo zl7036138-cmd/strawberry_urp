@@ -182,6 +182,15 @@ Blender-v2 草莓网格曾存在面朝向错误。机械修正三角面顺序后
 - 附着事件顺序为 `[true, false]`；
 - 最终 H.264 视频时长为 270 秒。
 
+提交后开发进展（2026-08-05）：新增了一个默认关闭的几何深度分层定位器，
+用于避免检测框中心深度落在前景叶片或遮挡物上。当前开发源码构建成功，
+`403/403` 项 colcon 测试通过；field-v3 的 60 帧无动作 Shadow 验证得到
+`60/60` 目标位姿，中位定位误差为 `3.148 mm`，机械臂关节与控制命令均为零。
+但该定位器报告的中位不确定度仍为 `28.1 mm`，因此尚未获准用于运动抓取。
+冻结的 submission-v2 交付包及其 `396/396` 测试收据保持不变。详见
+[`docs/occlusion-aware-localization-v1.md`](docs/occlusion-aware-localization-v1.md)
+和 [`ADR 0061`](docs/decisions/0061-introduce-geometry-layer-localization-shadow.md)。
+
 其他已冻结工程结果：
 
 - T40 定位门：100/100，通过；中位误差 `1.345 mm`，P95 `1.897 mm`。

@@ -217,7 +217,7 @@ passes all 100 positions with 1.345 mm median and 1.897 mm p95 error. See
 
 Post-submission development (2026-08-05) adds an opt-in, geometry-guided
 depth-layer estimator for occluded detections. The current source builds and
-passes 410/410 colcon tests. A 60-frame field-v3 no-motion Shadow produced
+passes 417/417 colcon tests. A 60-frame field-v3 no-motion Shadow produced
 60/60 target poses at 3.148 mm median error with zero joint or control activity.
 Its 28.1 mm median uncertainty remains too conservative for runtime promotion;
 the frozen submission-v2 receipt remains 396/396 and is not regenerated. See
@@ -233,6 +233,16 @@ viewpoint coverage, synthetic rather than rendered occlusion, and conservative
 sigma. See
 [`docs/paired-depth-estimator-matrix-v3.md`](docs/paired-depth-estimator-matrix-v3.md)
 and [`ADR 0062`](docs/decisions/0062-use-layer-support-to-resolve-depth-ambiguity.md).
+
+The next single-run rendered matrix completed 15/15 Gazebo scenes and 300/300
+paired frames with zero robot or control motion. Geometry-layer P95 error
+passed at 15.432/18.755/26.962 mm for none/partial/heavy occlusion, while the
+legacy heavy result was 361.727 mm. The overall diagnostic is nevertheless
+`FAIL`: one no-occluder ROI contaminated the blue-colour binding, and one clear
+position produced 18/20 geometry poses instead of 19/20. Runtime promotion
+remains `BLOCKED`; the result is preserved without rerun. See
+[`docs/rendered-occlusion-localization-matrix-v1.md`](docs/rendered-occlusion-localization-matrix-v1.md)
+and [`ADR 0064`](docs/decisions/0064-preserve-rendered-occlusion-localization-failure.md).
 
 The T60 oracle integration subgate passes 10/10 with planning p95 0.058841 s;
 one 11.6 mm controller endpoint miss was recovered by the single bounded

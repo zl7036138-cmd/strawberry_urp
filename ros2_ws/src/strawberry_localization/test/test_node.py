@@ -257,6 +257,7 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         )
         self.assertIn("geometry_expected_depth_tolerance_m", source)
         self.assertIn("geometry_ambiguity_min_support_ratio", source)
+        self.assertIn("geometry_bbox_quantization_margin_px", source)
         self.assertIn("depth_estimator_mode: geometry_layer", development_config)
 
     def test_geometry_layer_runtime_runner_is_no_motion_only(self) -> None:

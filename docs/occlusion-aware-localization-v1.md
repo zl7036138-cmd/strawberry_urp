@@ -48,6 +48,7 @@ point is reconstructed; it is never used to select a depth layer.
 | `geometry_expected_depth_tolerance_m` | `0.08` | Maximum difference from the size-derived surface depth |
 | `geometry_ambiguity_margin_m` | `0.01` | Minimum advantage over the second candidate layer |
 | `geometry_ambiguity_min_support_ratio` | `0.50` | Runner-up support required before a near tie is rejected |
+| `geometry_bbox_quantization_margin_px` | `0.0` | Optional integer-box interval; the rendered oracle-only config uses `2.0` |
 | `min_valid_pixels` | `9` | Minimum samples in the selected layer |
 
 The frozen Blender-v2 and legacy YAML files remain byte-for-byte unchanged and
@@ -127,3 +128,12 @@ untouched.
 The paired 40-frame matrix, preserved failure, repaired result, and remaining
 promotion blockers are documented in
 [`paired-depth-estimator-matrix-v3.md`](paired-depth-estimator-matrix-v3.md).
+
+The subsequent five-position rendered matrix completed all 300 paired frames
+but failed its frozen diagnostic because one no-occluder ROI contaminated the
+blue colour metric and one clear position produced only 18/20 geometry poses.
+All three geometry P95 error checks passed, including `26.962 mm` under heavy
+occlusion versus `361.727 mm` for the centre median, but sigma and broader
+viewpoint/detector gates still block promotion. See
+[`rendered-occlusion-localization-matrix-v1.md`](rendered-occlusion-localization-matrix-v1.md)
+and ADR 0064.

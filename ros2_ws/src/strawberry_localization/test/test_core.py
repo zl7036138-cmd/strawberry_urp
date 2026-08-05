@@ -88,6 +88,22 @@ class LocalizationCoreTests(unittest.TestCase):
                 ambiguity_margin_m=0.01,
             )
 
+    def test_geometry_layer_does_not_count_box_quantization_as_sigma(self) -> None:
+        depth = np.full((40, 40), 2.0, dtype=np.float32)
+        depth[7:33, 7:34] = 1.14
+
+        estimate = robust_geometry_layer_depth(
+            depth,
+            BoundingBox(7, 7, 27, 26),
+            CameraIntrinsics(554.0, 554.0, 20.0, 20.0),
+            target_radius_m=0.026,
+            expected_depth_tolerance_m=0.08,
+            bbox_quantization_margin_px=2.0,
+        )
+
+        self.assertAlmostEqual(estimate.depth_m, 1.14, places=5)
+        self.assertAlmostEqual(estimate.sigma_m, 0.0, places=5)
+
     def test_geometry_layer_accepts_a_dominant_near_tied_layer(self) -> None:
         depth = np.full((100, 100), 1.8, dtype=np.float32)
         depth[20:80, 20:75] = 0.481

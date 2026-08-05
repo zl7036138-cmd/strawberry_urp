@@ -1,0 +1,157 @@
+{
+  "configured_models": [
+    {
+      "model_name": "strawberry_1",
+      "position_m": [
+        0.47,
+        -0.025,
+        0.48
+      ],
+      "target_id": 1
+    },
+    {
+      "model_name": "strawberry_2",
+      "position_m": [
+        0.2,
+        -2.0,
+        1.0
+      ],
+      "target_id": 2
+    },
+    {
+      "model_name": "strawberry_3",
+      "position_m": [
+        0.4,
+        -2.0,
+        1.0
+      ],
+      "target_id": 3
+    }
+  ],
+  "formal_acceptance": false,
+  "frames": [
+    {
+      "blue_coverage_ratio": 0.5872,
+      "encoding": "rgb8",
+      "frame_index": 1,
+      "height": 480,
+      "image_sha256": "570ceb2aabfd1a30500fa1a2f85957483de3042b233170e7bb968b5f5df7c584",
+      "luminance_mean_8bit": 172.12705993652344,
+      "stamp_nanosec": 90000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 52.159488677978516,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.5872,
+      "encoding": "rgb8",
+      "frame_index": 2,
+      "height": 480,
+      "image_sha256": "f86f43ab63e9de3ef937b1c8e6683fee445dd39f236d476ebf38357599f885d6",
+      "luminance_mean_8bit": 172.12713623046875,
+      "stamp_nanosec": 123000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 52.188838958740234,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.5872,
+      "encoding": "rgb8",
+      "frame_index": 3,
+      "height": 480,
+      "image_sha256": "0e93edfc0f15083140586fe7fde039f66f08812eb98113b66de2a4ef74322689",
+      "luminance_mean_8bit": 172.1266632080078,
+      "stamp_nanosec": 156000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 51.93062973022461,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.5872,
+      "encoding": "rgb8",
+      "frame_index": 4,
+      "height": 480,
+      "image_sha256": "a6124cc92cc8eb89bed987e024b198ee806333783eed394548f0579ee53825dd",
+      "luminance_mean_8bit": 172.12673950195312,
+      "stamp_nanosec": 189000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 51.95508575439453,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.5872,
+      "encoding": "rgb8",
+      "frame_index": 5,
+      "height": 480,
+      "image_sha256": "8725a92c6b3ccdf22485134d93de852d47742ba2d2c7120ed3288e33a33198d8",
+      "luminance_mean_8bit": 172.12673950195312,
+      "stamp_nanosec": 222000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 51.95590591430664,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    }
+  ],
+  "gate": "SCENE_CONDITION_PROBE",
+  "generated_at_utc": "2026-08-05T04:16:42.755557+00:00",
+  "held_out_test_consumed": false,
+  "lighting_level": "nominal",
+  "materialized_world_sha256": "1e11a85daf9635de45b99aea04eaad1d4ff7ffdc5884789f7ad3c522bc1fa4cb",
+  "occlusion_level": "heavy",
+  "pose_configuration_attempts": [
+    {
+      "attempts": 1,
+      "model_name": "strawberry_1"
+    },
+    {
+      "attempts": 1,
+      "model_name": "strawberry_2"
+    },
+    {
+      "attempts": 1,
+      "model_name": "strawberry_3"
+    }
+  ],
+  "receipt": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/rendered_occlusion_localization_matrix_v1/rendered__far_right__heavy/condition_receipt.json",
+    "sha256": "aa0b1cd5019f416bc4779f90f95a1e112ed7a42f3ce10ca22805521e80860ec2",
+    "size_bytes": 2837
+  },
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_MULTIPOSITION_SCENE_DIAGNOSTIC",
+  "seed": 20260805
+}

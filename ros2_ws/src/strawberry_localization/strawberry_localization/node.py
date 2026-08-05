@@ -261,6 +261,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter(
                 "geometry_ambiguity_min_support_ratio", 0.50
             )
+            self.declare_parameter(
+                "geometry_bbox_quantization_margin_px", 0.0
+            )
             self.declare_parameter("ground_truth_association_enabled", True)
             self.declare_parameter("association_max_distance_m", 0.08)
             self.declare_parameter("camera_info_topic", "/camera/camera_info")
@@ -720,6 +723,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     geometry_ambiguity_min_support_ratio=float(
                         self.get_parameter(
                             "geometry_ambiguity_min_support_ratio"
+                        ).value
+                    ),
+                    geometry_bbox_quantization_margin_px=float(
+                        self.get_parameter(
+                            "geometry_bbox_quantization_margin_px"
                         ).value
                     ),
                 )

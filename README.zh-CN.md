@@ -184,7 +184,7 @@ Blender-v2 草莓网格曾存在面朝向错误。机械修正三角面顺序后
 
 提交后开发进展（2026-08-05）：新增了一个默认关闭的几何深度分层定位器，
 用于避免检测框中心深度落在前景叶片或遮挡物上。当前开发源码构建成功，
-`410/410` 项 colcon 测试通过；field-v3 的 60 帧无动作 Shadow 验证得到
+`417/417` 项 colcon 测试通过；field-v3 的 60 帧无动作 Shadow 验证得到
 `60/60` 目标位姿，中位定位误差为 `3.148 mm`，机械臂关节与控制命令均为零。
 但该定位器报告的中位不确定度仍为 `28.1 mm`，因此尚未获准用于运动抓取。
 冻结的 submission-v2 交付包及其 `396/396` 测试收据保持不变。详见
@@ -198,6 +198,15 @@ Blender-v2 草莓网格曾存在面朝向错误。机械修正三角面顺序后
 由于视角覆盖有限、遮挡仍为离线注入且 sigma 偏保守，运行抓取资格仍未开放。
 详见 [`docs/paired-depth-estimator-matrix-v3.md`](docs/paired-depth-estimator-matrix-v3.md)
 和 [`ADR 0062`](docs/decisions/0062-use-layer-support-to-resolve-depth-ambiguity.md)。
+
+随后的一次性渲染遮挡矩阵完成了 `15/15` 个 Gazebo 场景和 `300/300` 个
+成对深度帧，全程没有机械臂或控制运动。几何层在无挡、部分遮挡和重遮挡下的
+P95 误差分别为 `15.432/18.755/26.962 mm`，而旧算法在重遮挡下为
+`361.727 mm`。但整体诊断仍为 `FAIL`：一个无挡位置的蓝色背景污染了遮挡
+覆盖率指标，另一个无挡位置只有 `18/20` 帧输出几何位姿，低于 `19/20`
+门槛。结果已原样保留且不重跑，运行抓取资格继续为 `BLOCKED`。详见
+[`docs/rendered-occlusion-localization-matrix-v1.md`](docs/rendered-occlusion-localization-matrix-v1.md)
+和 [`ADR 0064`](docs/decisions/0064-preserve-rendered-occlusion-localization-failure.md)。
 
 其他已冻结工程结果：
 

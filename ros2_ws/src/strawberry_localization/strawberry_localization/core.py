@@ -443,6 +443,7 @@ def robust_geometry_layer_depth(
     expected_depth_tolerance_m: float = 0.08,
     ambiguity_margin_m: float = 0.01,
     ambiguity_min_support_ratio: float = 0.50,
+    bbox_quantization_margin_px: float = 0.0,
 ) -> DepthEstimate:
     """Select a depth layer consistent with the detected fruit geometry.
 
@@ -461,6 +462,7 @@ def robust_geometry_layer_depth(
         expected_depth_tolerance_m,
         ambiguity_margin_m,
         ambiguity_min_support_ratio,
+        bbox_quantization_margin_px,
         min_layer_fraction,
         min_depth_m,
         max_depth_m,
@@ -475,6 +477,8 @@ def robust_geometry_layer_depth(
         raise ValueError("ambiguity margin must be non-negative")
     if not 0.0 <= ambiguity_min_support_ratio <= 1.0:
         raise ValueError("ambiguity support ratio must be in [0, 1]")
+    if not 0.0 <= bbox_quantization_margin_px <= 2.0:
+        raise ValueError("bounding-box quantization margin must be in [0, 2]")
     if min_depth_m <= 0.0 or max_depth_m <= min_depth_m:
         raise ValueError("depth limits must satisfy 0 < min_depth < max_depth")
     if isinstance(min_layer_pixels, bool) or min_layer_pixels <= 0:
@@ -499,12 +503,29 @@ def robust_geometry_layer_depth(
             f"{min_layer_pixels}"
         )
 
-    apparent_radius_px = 0.5 * math.sqrt(float(box.width * box.height))
     effective_focal_px = math.sqrt(intrinsics.fx * intrinsics.fy)
-    expected_center_depth_m = target_radius_m * math.sqrt(
-        1.0 + (effective_focal_px / apparent_radius_px) ** 2
+
+    # A known integer detector box made with floor(left/top) and
+    # ceil(right/bottom) can be up to two pixels wider or taller than the
+    # continuous projection.  When explicitly configured, treat that
+    # quantization as an expected-depth interval instead of charging it to
+    # uncertainty.  The default zero margin preserves detector-box behavior.
+    apparent_radius_max_px = 0.5 * math.sqrt(
+        float(box.width * box.height)
     )
-    expected_surface_depth_m = expected_center_depth_m - target_radius_m
+    apparent_radius_min_px = 0.5 * math.sqrt(
+        max(float(box.width) - bbox_quantization_margin_px, 1e-6)
+        * max(float(box.height) - bbox_quantization_margin_px, 1e-6)
+    )
+
+    def expected_surface_depth(apparent_radius_px: float) -> float:
+        expected_center_depth_m = target_radius_m * math.sqrt(
+            1.0 + (effective_focal_px / apparent_radius_px) ** 2
+        )
+        return expected_center_depth_m - target_radius_m
+
+    expected_surface_min_m = expected_surface_depth(apparent_radius_max_px)
+    expected_surface_max_m = expected_surface_depth(apparent_radius_min_px)
 
     order = np.argsort(values, kind="stable")
     sorted_values = values[order]
@@ -520,9 +541,14 @@ def robust_geometry_layer_depth(
             continue
         layer_values = values[indices]
         median = float(np.median(layer_values))
+        expected_depth_error = max(
+            expected_surface_min_m - median,
+            median - expected_surface_max_m,
+            0.0,
+        )
         candidates.append(
             (
-                abs(median - expected_surface_depth_m),
+                expected_depth_error,
                 -int(indices.size),
                 median,
                 indices,
@@ -594,6 +620,7 @@ def localize_bbox(
     geometry_expected_depth_tolerance_m: float = 0.08,
     geometry_ambiguity_margin_m: float = 0.01,
     geometry_ambiguity_min_support_ratio: float = 0.50,
+    geometry_bbox_quantization_margin_px: float = 0.0,
 ) -> tuple[np.ndarray, DepthEstimate]:
     """Localize a box and optionally shift a rigid surface hit to its centre.
 
@@ -632,6 +659,9 @@ def localize_bbox(
             ambiguity_margin_m=geometry_ambiguity_margin_m,
             ambiguity_min_support_ratio=(
                 geometry_ambiguity_min_support_ratio
+            ),
+            bbox_quantization_margin_px=(
+                geometry_bbox_quantization_margin_px
             ),
         )
     else:

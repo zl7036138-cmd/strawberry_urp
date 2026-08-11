@@ -115,6 +115,8 @@ class MoveItBackend:
             [], Mapping[int, tuple[float, float, float]]
         ]
         | None = None,
+        dynamic_fruit_manifest: bool = False,
+        entity_id_resolver: Callable[[int, Pose], int] | None = None,
         config_dict: dict | None = None,
     ) -> None:
         try:
@@ -258,6 +260,8 @@ class MoveItBackend:
         # before every goal so dynamic scenes cannot leave ghost obstacles.
         self.fruit_obstacle_centers_m = fruit_manifest
         self.fruit_pose_provider = fruit_pose_provider
+        self.dynamic_fruit_manifest = bool(dynamic_fruit_manifest)
+        self.entity_id_resolver = entity_id_resolver
         self._PoseStamped = PoseStamped
         self._FollowJointTrajectory = FollowJointTrajectory
         self._ParallelGripperCommand = ParallelGripperCommand
@@ -321,7 +325,9 @@ class MoveItBackend:
             },
             self.fruit_collision_radius_m,
         )
+        self._dynamic_collision_target_ids = set(self.fruit_obstacle_centers_m)
         self._prepared_target_id = None
+        self._prepared_entity_id = None
         self._target_contact_open = False
         self._prepared_scene_centers_m = None
         if self.fruit_collision_ids:
@@ -363,8 +369,11 @@ class MoveItBackend:
             for target_id, center in dict(raw).items()
         }
         expected_ids = set(self.fruit_obstacle_centers_m)
-        if set(centers) != expected_ids:
+        dynamic_manifest = bool(getattr(self, "dynamic_fruit_manifest", False))
+        if not dynamic_manifest and set(centers) != expected_ids:
             raise ValueError("live fruit pose IDs differ from the scene manifest")
+        if dynamic_manifest and any(target_id <= 0 for target_id in centers):
+            raise ValueError("dynamic tracked fruit IDs must be positive")
         if any(
             len(center) != 3 or not all(math.isfinite(value) for value in center)
             for center in centers.values()
@@ -372,14 +381,74 @@ class MoveItBackend:
             raise ValueError("live fruit poses must contain three finite coordinates")
         return MappingProxyType(centers)
 
+    def _synchronize_fruit_collision_scene(self, centers) -> None:
+        current_ids = set(int(target_id) for target_id in centers)
+        if bool(getattr(self, "dynamic_fruit_manifest", False)):
+            previous_ids = set(
+                getattr(self, "_dynamic_collision_target_ids", self.fruit_obstacle_centers_m)
+            )
+            for target_id in sorted(previous_ids - current_ids):
+                set_target_fruit_collision(
+                    self._planning_scene_monitor,
+                    self.base_frame,
+                    target_id,
+                )
+        apply_fruit_collision_scene(
+            self._planning_scene_monitor,
+            self.base_frame,
+            centers,
+            self.fruit_collision_radius_m,
+        )
+        self._dynamic_collision_target_ids = current_ids
+
+    def evaluate_pose_sequence(
+        self, poses: tuple[Pose, ...]
+    ) -> tuple[bool, bool, float, float]:
+        """Check seeded IK and interpolated joint collisions without execution."""
+
+        if not poses:
+            raise ValueError("pose feasibility sequence cannot be empty")
+        started = time.perf_counter()
+        joint_travel = 0.0
+        with self._planning_scene_monitor.read_only() as scene:
+            state = copy.deepcopy(scene.current_state)
+            previous = tuple(
+                float(value)
+                for value in state.get_joint_group_positions(self.planning_group)
+            )
+            for pose in poses:
+                solved = state.set_from_ik(
+                    self.planning_group,
+                    self._pose_message(pose.normalized()).pose,
+                    self.pose_link,
+                    0.2,
+                )
+                if not solved:
+                    return False, False, time.perf_counter() - started, joint_travel
+                state.update()
+                current = tuple(
+                    float(value)
+                    for value in state.get_joint_group_positions(self.planning_group)
+                )
+                maximum_delta = max(abs(right - left) for left, right in zip(previous, current))
+                joint_travel += sum(abs(right - left) for left, right in zip(previous, current))
+                sample_count = max(1, math.ceil(maximum_delta / self.max_collision_joint_step_rad))
+                for sample_index in range(1, sample_count + 1):
+                    fraction = sample_index / sample_count
+                    sample = tuple(
+                        left + fraction * (right - left)
+                        for left, right in zip(previous, current)
+                    )
+                    state.set_joint_group_positions(self.planning_group, sample)
+                    state.update()
+                    if not scene.is_state_valid(state, self.planning_group, False):
+                        return False, True, time.perf_counter() - started, joint_travel
+                previous = current
+        return True, False, time.perf_counter() - started, joint_travel
+
     def prepare_pick(self, target_id: int, target_pose: Pose) -> bool:
         """Keep the selected fruit solid while planning the transit motion."""
 
-        if target_id not in self.fruit_obstacle_centers_m:
-            self.node.get_logger().error(
-                f"unknown target fruit ID {target_id}; refusing collision update"
-            )
-            return False
         if self._prepared_target_id is not None:
             self.node.get_logger().error(
                 "cannot prepare a target while another collision lifecycle is active"
@@ -387,13 +456,10 @@ class MoveItBackend:
             return False
         try:
             scene_centers = self._fruit_centers_for_planning()
+            if target_id not in scene_centers:
+                raise ValueError(f"target {target_id} is absent from the live fruit scene")
             if getattr(self, "fruit_pose_provider", None) is not None:
-                apply_fruit_collision_scene(
-                    self._planning_scene_monitor,
-                    self.base_frame,
-                    scene_centers,
-                    self.fruit_collision_radius_m,
-                )
+                self._synchronize_fruit_collision_scene(scene_centers)
         except Exception as exc:  # pragma: no cover - ROS integration only
             self.node.get_logger().error(
                 f"failed to synchronize live fruit collision scene: {exc}"
@@ -417,11 +483,44 @@ class MoveItBackend:
             )
             return False
         self._prepared_target_id = target_id
+        try:
+            resolver = getattr(self, "entity_id_resolver", None)
+            self._prepared_entity_id = (
+                int(resolver(target_id, target_pose))
+                if resolver is not None
+                else target_id
+            )
+        except Exception as exc:
+            self.node.get_logger().error(f"failed to resolve simulated fruit entity: {exc}")
+            try:
+                set_target_fruit_collision(
+                    self._planning_scene_monitor, self.base_frame, target_id
+                )
+            except Exception as cleanup_exc:  # pragma: no cover - ROS integration only
+                self.node.get_logger().error(
+                    f"failed to remove unresolved target obstacle: {cleanup_exc}"
+                )
+            self._prepared_target_id = None
+            return False
+        if self._prepared_entity_id <= 0:
+            self.node.get_logger().error("resolved simulated fruit entity ID must be positive")
+            try:
+                set_target_fruit_collision(
+                    self._planning_scene_monitor, self.base_frame, target_id
+                )
+            except Exception as cleanup_exc:  # pragma: no cover - ROS integration only
+                self.node.get_logger().error(
+                    f"failed to remove invalid target obstacle: {cleanup_exc}"
+                )
+            self._prepared_target_id = None
+            self._prepared_entity_id = None
+            return False
         self._target_contact_open = False
         self._prepared_scene_centers_m = scene_centers
         self.node.get_logger().info(
             f"MoveIt live fruit scene synchronized; target obstacle {object_id} "
-            "enabled for transit"
+            f"enabled for transit; perception target {target_id} maps to "
+            f"simulation entity {self._prepared_entity_id}"
         )
         return True
 
@@ -453,23 +552,40 @@ class MoveItBackend:
     def restore_target_collision(self, target_id: int) -> bool:
         """Restore the selected fruit sphere at its latest live position."""
 
-        if target_id not in self.fruit_obstacle_centers_m:
-            self.node.get_logger().error(
-                f"unknown target fruit ID {target_id}; cannot restore collision object"
-            )
-            return False
         if self._prepared_target_id != target_id:
             self.node.get_logger().error(
                 "target collision restoration requested without a matching lifecycle"
             )
             return False
         try:
-            restore_centers = self._fruit_centers_for_planning()
+            try:
+                restore_centers = self._fruit_centers_for_planning()
+            except Exception as live_exc:
+                self.node.get_logger().warning(
+                    "live fruit scene unavailable during collision restore; "
+                    f"using the prepared fail-closed snapshot: {live_exc}"
+                )
+                restore_centers = {}
+            if target_id in restore_centers:
+                restore_center = restore_centers[target_id]
+            elif (
+                self._prepared_scene_centers_m is not None
+                and target_id in self._prepared_scene_centers_m
+            ):
+                # The overview tracker can lose the fruit while the arm or
+                # gripper occludes it.  That is not evidence that the physical
+                # fruit disappeared, so restore the fail-closed obstacle at
+                # the position captured when this collision lifecycle began.
+                restore_center = self._prepared_scene_centers_m[target_id]
+            else:
+                raise ValueError(
+                    f"target {target_id} has no live or prepared restore pose"
+                )
             object_id = set_target_fruit_collision(
                 self._planning_scene_monitor,
                 self.base_frame,
                 target_id,
-                center_m=restore_centers[target_id],
+                center_m=restore_center,
                 radius_m=self.fruit_collision_radius_m,
             )
         except Exception as exc:  # pragma: no cover - ROS integration only
@@ -478,10 +594,11 @@ class MoveItBackend:
             )
             return False
         self._prepared_target_id = None
+        self._prepared_entity_id = None
         self._target_contact_open = False
         self._prepared_scene_centers_m = None
         self.node.get_logger().info(
-            f"MoveIt target obstacle {object_id} restored from live truth"
+            f"MoveIt target obstacle {object_id} restored from the live scene"
         )
         return True
 
@@ -1407,14 +1524,20 @@ class MoveItBackend:
         return True
 
     def attach(self, target_id: int) -> bool:
-        return self._trigger(target_id, "attach")
+        entity_id = getattr(self, "_prepared_entity_id", None) if self._prepared_target_id == target_id else target_id
+        entity_id = target_id if entity_id is None else entity_id
+        return self._trigger(entity_id, "attach")
 
     def detach(self, target_id: int) -> bool:
-        return self._trigger(target_id, "detach")
+        entity_id = getattr(self, "_prepared_entity_id", None) if self._prepared_target_id == target_id else target_id
+        entity_id = target_id if entity_id is None else entity_id
+        return self._trigger(entity_id, "detach")
 
     def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool:
         del stable_for_sec  # enforced by strawberry_sim scene configuration
-        return self._trigger(target_id, "verify_in_bin")
+        entity_id = getattr(self, "_prepared_entity_id", None) if self._prepared_target_id == target_id else target_id
+        entity_id = target_id if entity_id is None else entity_id
+        return self._trigger(entity_id, "verify_in_bin")
 
     def move_home(self) -> bool:
         return self._move_to_named_configuration_direct(

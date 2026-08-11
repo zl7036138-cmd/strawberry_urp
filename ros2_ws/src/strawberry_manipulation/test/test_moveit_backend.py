@@ -303,6 +303,44 @@ class MoveItBackendStaticTests(unittest.TestCase):
             (0.35, -0.45, 0.45), scene_update.call_args.kwargs["center_m"]
         )
 
+    def test_restore_uses_prepared_pose_when_target_is_temporarily_occluded(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend.fruit_pose_provider = lambda: {}
+        backend._prepared_target_id = 1
+        backend._target_contact_open = True
+        backend._prepared_scene_centers_m = MappingProxyType(
+            {1: (0.38, -0.26, 0.55)}
+        )
+        with patch(
+            "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
+            return_value="strawberry_fruit_1",
+        ) as scene_update:
+            self.assertTrue(backend.restore_target_collision(1))
+        self.assertEqual(
+            (0.38, -0.26, 0.55), scene_update.call_args.kwargs["center_m"]
+        )
+
+    def test_restore_uses_prepared_pose_when_live_provider_is_stale(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend.fruit_pose_provider = lambda: (_ for _ in ()).throw(
+            RuntimeError("tracked fruit collision scene is stale")
+        )
+        backend._prepared_target_id = 1
+        backend._target_contact_open = True
+        backend._prepared_scene_centers_m = MappingProxyType(
+            {1: (0.38, -0.26, 0.55)}
+        )
+        with patch(
+            "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
+            return_value="strawberry_fruit_1",
+        ) as scene_update:
+            self.assertTrue(backend.restore_target_collision(1))
+        self.assertEqual(
+            (0.38, -0.26, 0.55), scene_update.call_args.kwargs["center_m"]
+        )
+
     def test_guarded_place_aligns_above_bin_before_vertical_descent(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())

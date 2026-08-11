@@ -1,0 +1,49 @@
+/**:
+  ros__parameters:
+    use_sim_time: true
+    target_frame: panda_link0
+    confidence_threshold: 0.60
+    detections_topic: /strawberry/detections
+    # The localizer's compatibility winner is kept separate; generalized
+    # control accepts only the safety-ranked selector output.
+    target_pose_topic: /strawberry/localization_best_pose
+    tracked_targets_topic: /strawberry/tracked_targets
+    camera_info_topic: /camera/base/camera_info
+    depth_topic: /camera/base/depth/image_raw
+    # Generalized control never uses a fixed attention rectangle.
+    selection_roi_min_x_px: -1
+    selection_roi_min_y_px: -1
+    selection_roi_max_x_px: -1
+    selection_roi_max_y_px: -1
+    stale_after_sec: 0.50
+    sync_tolerance_sec: 0.05
+    sensor_cache_capacity: 60
+    sensor_cache_retention_sec: 2.0
+    sensor_qos_depth: 30
+    center_fraction: 0.30
+    min_depth_m: 0.05
+    max_depth_m: 5.0
+    min_valid_pixels: 9
+    surface_to_center_offset_m: 0.026
+    depth_estimator_mode: geometry_layer
+    geometry_search_fraction: 1.0
+    geometry_layer_gap_m: 0.015
+    geometry_min_layer_fraction: 0.03
+    geometry_expected_depth_tolerance_m: 0.08
+    geometry_ambiguity_margin_m: 0.01
+    geometry_ambiguity_min_support_ratio: 0.50
+    geometry_bbox_quantization_margin_px: 2.0
+    # Reject planter/table layers well behind a supported fruit/leaf surface.
+    geometry_foreground_band_m: 0.06
+    # YOLO boxes under-fit the rendered fruit silhouette by about one pixel.
+    geometry_bbox_padding_px: 1
+    # Base overview apparent radius; wrist launch overrides this independently.
+    geometry_target_radius_m: 0.026
+    # Truth remains available to benchmark scorers only, never to control.
+    ground_truth_association_enabled: false
+    tracking_association_distance_m: 0.06
+    tracking_max_age_sec: 0.75
+    tracking_minimum_observations: 3
+    tracking_smoothing_alpha: 0.35
+    allow_stationary_latest_tf_fallback: false
+    allow_stationary_sensor_sync_fallback: false

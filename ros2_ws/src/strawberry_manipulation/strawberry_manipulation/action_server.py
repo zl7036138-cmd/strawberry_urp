@@ -9,7 +9,13 @@ import sys
 import threading
 import time
 
-from .core import PickAndPlaceExecutor, Pose
+from .core import (
+    PickAndPlaceExecutor,
+    Pose,
+    hand_pose_for_fruit_center,
+    offset_pose,
+    pregrasp_pose_for_fruit_center,
+)
 from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
 
@@ -38,7 +44,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from rclpy.qos import qos_profile_sensor_data
         from geometry_msgs.msg import PoseArray
         from strawberry_interfaces.action import PickAndPlace
-        from strawberry_interfaces.msg import TargetPose
+        from strawberry_interfaces.msg import TargetPose, TrackedTargetArray
+        from strawberry_interfaces.srv import EvaluateTarget, MoveToObservation
         from strawberry_sim.core import load_scene_config
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
@@ -138,6 +145,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("place_transit_clearance_m", 0.02)
             self.declare_parameter("safe_transit_corridor_y_m", -0.10)
             self.declare_parameter("ground_truth_pose_timeout_sec", 2.0)
+            self.declare_parameter("fruit_pose_source", "ground_truth")
+            self.declare_parameter("tracked_targets_topic", "/strawberry/tracked_targets")
+            self.declare_parameter("tracked_pose_timeout_sec", 0.75)
+            self.declare_parameter("sim_entity_resolution_max_distance_m", 0.08)
             self.declare_parameter("target_refinement_topic", "")
             self.declare_parameter("target_refinement_timeout_sec", 3.0)
             self.declare_parameter(
@@ -169,6 +180,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 for fruit in scene.ordered_fruits
             }
+            fruit_pose_source = str(self.get_parameter("fruit_pose_source").value).strip().lower()
+            if fruit_pose_source not in {"ground_truth", "tracked"}:
+                raise ValueError("fruit_pose_source must be ground_truth or tracked")
+            self._fruit_pose_source = fruit_pose_source
             self._fruit_target_ids = tuple(
                 fruit.target_id for fruit in scene.ordered_fruits
             )
@@ -184,6 +199,23 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 PoseArray,
                 "/strawberry/ground_truth/poses",
                 self._on_ground_truth_poses,
+                qos_profile_sensor_data,
+            )
+            self._tracked_pose_lock = threading.Lock()
+            self._tracked_pose_centers = None
+            self._tracked_pose_received_monotonic = None
+            self._tracked_pose_timeout_sec = float(
+                self.get_parameter("tracked_pose_timeout_sec").value
+            )
+            self._sim_entity_resolution_max_distance_m = float(
+                self.get_parameter("sim_entity_resolution_max_distance_m").value
+            )
+            if self._tracked_pose_timeout_sec <= 0.0 or self._sim_entity_resolution_max_distance_m <= 0.0:
+                raise ValueError("tracked pose and entity resolution bounds must be positive")
+            self._tracked_pose_subscription = self.create_subscription(
+                TrackedTargetArray,
+                str(self.get_parameter("tracked_targets_topic").value),
+                self._on_tracked_targets,
                 qos_profile_sensor_data,
             )
             target_refinement_topic = str(
@@ -320,16 +352,27 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 safe_transit_corridor_y_m=float(
                     self.get_parameter("safe_transit_corridor_y_m").value
                 ),
-                fruit_obstacles=fruit_obstacles,
+                fruit_obstacles=(fruit_obstacles if fruit_pose_source == "ground_truth" else {}),
                 fruit_collision_radius_m=scene.fruit_collision_radius_m,
                 static_collision_objects=static_collision_objects(
                     scene.static_collision_profile
                 ),
-                fruit_pose_provider=self._fruit_pose_snapshot,
+                fruit_pose_provider=(
+                    self._fruit_pose_snapshot
+                    if fruit_pose_source == "ground_truth"
+                    else self._tracked_pose_snapshot
+                ),
+                dynamic_fruit_manifest=(fruit_pose_source == "tracked"),
+                entity_id_resolver=(
+                    self._resolve_sim_entity
+                    if fruit_pose_source == "tracked"
+                    else None
+                ),
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)
                 ),
             )
+            self._backend = backend
             self._executor_core = PickAndPlaceExecutor(
                 backend,
                 pregrasp_offset_m=float(
@@ -347,6 +390,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 target_pose_refiner=target_pose_refiner,
             )
             self._goal_gate = ExclusiveGoalGate()
+            self._callback_group = ReentrantCallbackGroup()
+            self._observation_service = self.create_service(
+                MoveToObservation,
+                "/strawberry/move_to_observation",
+                self._move_to_observation,
+                callback_group=self._callback_group,
+            )
+            self._evaluation_service = self.create_service(
+                EvaluateTarget,
+                "/strawberry/evaluate_target",
+                self._evaluate_target,
+                callback_group=self._callback_group,
+            )
             self.shutdown_timeout_sec = float(
                 self.get_parameter("shutdown_timeout_sec").value
             )
@@ -355,7 +411,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             if self.shutdown_timeout_sec <= 0.0:
                 raise ValueError("shutdown_timeout_sec must be positive")
-            self._callback_group = ReentrantCallbackGroup()
             self._server = ActionServer(
                 self,
                 PickAndPlace,
@@ -364,6 +419,108 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 goal_callback=self._goal_callback,
                 callback_group=self._callback_group,
             )
+
+        def _move_to_observation(self, request, response):
+            base_frame = str(self.get_parameter("base_frame").value)
+            if int(request.target_id) <= 0:
+                response.success = False
+                response.message = "target_id must be positive"
+                return response
+            if request.observation_pose.header.frame_id != base_frame:
+                response.success = False
+                response.message = "observation pose is not in the manipulation base frame"
+                return response
+            if not self._goal_gate.try_acquire():
+                response.success = False
+                response.message = "motion backend is busy"
+                return response
+            try:
+                try:
+                    pose = _to_pose(request.observation_pose.pose).normalized()
+                except (TypeError, ValueError) as exc:
+                    response.success = False
+                    response.message = f"invalid observation pose: {exc}"
+                    return response
+                outcome = self._backend.move_to(pose, "WRIST_OBSERVATION")
+                response.success = bool(outcome.success)
+                response.planning_time_sec = float(outcome.planning_time_sec)
+                response.execution_time_sec = float(outcome.execution_time_sec)
+                response.message = (
+                    "wrist observation pose reached"
+                    if outcome.success
+                    else "collision-checked wrist observation motion failed"
+                )
+                return response
+            finally:
+                self._goal_gate.release()
+
+        def _evaluate_target(self, request, response):
+            base_frame = str(self.get_parameter("base_frame").value)
+            if int(request.target_id) <= 0 or request.target_pose.header.frame_id != base_frame:
+                response.feasible = False
+                response.message = "target evaluation request is invalid"
+                return response
+            if not self._goal_gate.try_acquire():
+                response.feasible = False
+                response.message = "motion backend is busy"
+                return response
+            target_id = int(request.target_id)
+            prepared = False
+            try:
+                target = _to_pose(request.target_pose.pose).normalized()
+                prepared = self._backend.prepare_pick(target_id, target)
+                if not prepared:
+                    response.feasible = False
+                    response.message = "failed to synchronize perception collision scene"
+                    return response
+                executor = self._executor_core
+                pregrasp = pregrasp_pose_for_fruit_center(
+                    target,
+                    quaternion=executor.grasp_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                    pregrasp_offset_m=executor.pregrasp_offset_m,
+                )
+                grasp = hand_pose_for_fruit_center(
+                    target,
+                    quaternion=executor.grasp_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                )
+                retreat = offset_pose(grasp, dz=executor.retreat_distance_m)
+                first = self._backend.evaluate_pose_sequence((pregrasp,))
+                if not first[0]:
+                    response.feasible = False
+                    response.collision = bool(first[1])
+                    response.planning_time_sec = float(first[2])
+                    response.joint_travel_rad = float(first[3])
+                    response.message = "pregrasp IK or collision check failed"
+                    return response
+                if not self._backend.allow_target_contact(target_id):
+                    response.feasible = False
+                    response.message = "failed to open target contact corridor for evaluation"
+                    return response
+                second = self._backend.evaluate_pose_sequence((pregrasp, grasp, retreat))
+                response.feasible = bool(second[0])
+                response.collision = bool(second[1])
+                response.planning_time_sec = float(first[2] + second[2])
+                response.joint_travel_rad = float(second[3])
+                response.message = (
+                    "pregrasp, grasp, and retreat are feasible"
+                    if second[0]
+                    else "grasp or retreat IK/collision check failed"
+                )
+                return response
+            except Exception as exc:
+                response.feasible = False
+                response.message = f"target feasibility evaluation failed: {exc}"
+                return response
+            finally:
+                if prepared:
+                    if not self._backend.restore_target_collision(target_id):
+                        response.feasible = False
+                        response.message = (
+                            f"{response.message}; " if response.message else ""
+                        ) + "failed to restore the target collision object"
+                self._goal_gate.release()
 
         def _on_ground_truth_poses(self, message) -> None:
             if message.header.frame_id != str(self.get_parameter("base_frame").value):
@@ -400,6 +557,53 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         f"live fruit ground truth is stale by {age:.3f} seconds"
                     )
                 return dict(centers)
+
+        def _on_tracked_targets(self, message) -> None:
+            base_frame = str(self.get_parameter("base_frame").value)
+            if message.header.frame_id != base_frame:
+                self.get_logger().error("ignoring tracked targets outside the manipulation base frame")
+                return
+            centers = {
+                int(item.track_id): (
+                    float(item.pose.position.x),
+                    float(item.pose.position.y),
+                    float(item.pose.position.z),
+                )
+                for item in message.targets
+                if int(item.track_id) > 0
+            }
+            with self._tracked_pose_lock:
+                self._tracked_pose_centers = centers
+                self._tracked_pose_received_monotonic = time.monotonic()
+
+        def _tracked_pose_snapshot(self):
+            with self._tracked_pose_lock:
+                centers = self._tracked_pose_centers
+                received = self._tracked_pose_received_monotonic
+                if centers is None or received is None:
+                    raise RuntimeError("tracked fruit collision scene is unavailable")
+                age = time.monotonic() - received
+                if age > self._tracked_pose_timeout_sec:
+                    raise RuntimeError(f"tracked fruit collision scene is stale by {age:.3f} seconds")
+                return dict(centers)
+
+        def _resolve_sim_entity(self, track_id: int, target_pose: Pose) -> int:
+            del track_id  # The physical mapping is geometric, never identity-oracle selection.
+            with self._fruit_pose_lock:
+                centers = dict(self._fruit_pose_centers or {})
+                received = self._fruit_pose_received_monotonic
+            if not centers or received is None:
+                raise RuntimeError("simulator entity poses are unavailable for attachment mechanics")
+            if time.monotonic() - received > self._ground_truth_pose_timeout_sec:
+                raise RuntimeError("simulator entity poses are stale for attachment mechanics")
+            target = (target_pose.x, target_pose.y, target_pose.z)
+            ordered = sorted(
+                ((math.dist(target, center), entity_id) for entity_id, center in centers.items()),
+                key=lambda row: (row[0], row[1]),
+            )
+            if not ordered or ordered[0][0] > self._sim_entity_resolution_max_distance_m:
+                raise RuntimeError("no simulated fruit entity is near the perception-selected pose")
+            return int(ordered[0][1])
 
         def _on_target_refinement(self, message) -> None:
             base_frame = str(self.get_parameter("base_frame").value)

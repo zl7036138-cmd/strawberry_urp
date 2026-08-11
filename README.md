@@ -449,3 +449,21 @@ The waiver and smoke evidence are
 `artifacts/p3/perception_control_waiver_smoke_handoff_v1.json`. The repeated
 development-gate evidence is bound by
 `artifacts/p3/perception_repeated_dev_gate_handoff_v1.json`.
+
+## Generalized multi-plant harvesting
+
+The repository now includes a separate fixed-base generalization path with
+seeded 1–3 plant scene generation, multi-target RGB-D tracking, deterministic
+fruit/static-obstacle safety ranking, dynamic wrist views, MoveIt preflight,
+and a continuous harvest orchestrator. The legacy fixed scene and historical
+evidence remain unchanged.
+
+See [`docs/generalized-harvest-v1.md`](docs/generalized-harvest-v1.md) for the
+runbook, ROS interfaces, truth boundary, and the frozen 30-seed acceptance
+matrix. All 472 regression tests pass. A 120-scene development-only capture,
+training, and qualification route is seed-disjoint from that formal matrix,
+but the current perception model does not yet pass the randomized multi-target
+development gate, so the formal matrix has not been executed. No acceptance is
+claimed until development-only fine-tuning and independent development
+requalification succeed, all 30 one-attempt runtime receipts exist, and the
+aggregate evaluator returns `overall_pass: true`.

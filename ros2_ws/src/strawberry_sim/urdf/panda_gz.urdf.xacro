@@ -3,12 +3,14 @@
   <xacro:arg name="initial_positions_file"
              default="$(find strawberry_sim)/config/panda_initial_positions.yaml"/>
   <xacro:arg name="enable_attachment" default="false"/>
+  <xacro:arg name="fruit_attachment_count" default="3"/>
   <xacro:arg name="camera_mount" default="fixed"/>
   <xacro:property name="initial_positions"
                   value="${xacro.load_yaml('$(arg initial_positions_file)')['initial_positions']}"/>
   <xacro:property name="camera_mount_mode" value="$(arg camera_mount)"/>
 
   <xacro:include filename="$(find moveit_resources_panda_description)/urdf/panda.urdf.xacro"/>
+  <xacro:include filename="$(find strawberry_sim)/urdf/dynamic_attachments.xacro"/>
 
   <xacro:macro name="strawberry_rgbd_mount"
                params="link_name optical_frame joint_name optical_joint_name
@@ -278,6 +280,7 @@
     </plugin>
 
     <xacro:if value="$(arg enable_attachment)">
+      <!-- Preserve the frozen three-fruit baseline literally. -->
       <plugin filename="gz-sim-detachable-joint-system"
               name="gz::sim::systems::DetachableJoint">
         <parent_link>panda_link7</parent_link>
@@ -305,6 +308,12 @@
         <detach_topic>/strawberry/sim/fruit_3/detach</detach_topic>
         <output_topic>/strawberry/sim/fruit_3/attached</output_topic>
       </plugin>
+      <xacro:if value="${int('$(arg fruit_attachment_count)') >= 4}"><xacro:strawberry_attachment target_id="4"/></xacro:if>
+      <xacro:if value="${int('$(arg fruit_attachment_count)') >= 5}"><xacro:strawberry_attachment target_id="5"/></xacro:if>
+      <xacro:if value="${int('$(arg fruit_attachment_count)') >= 6}"><xacro:strawberry_attachment target_id="6"/></xacro:if>
+      <xacro:if value="${int('$(arg fruit_attachment_count)') >= 7}"><xacro:strawberry_attachment target_id="7"/></xacro:if>
+      <xacro:if value="${int('$(arg fruit_attachment_count)') >= 8}"><xacro:strawberry_attachment target_id="8"/></xacro:if>
+      <xacro:if value="${int('$(arg fruit_attachment_count)') >= 9}"><xacro:strawberry_attachment target_id="9"/></xacro:if>
     </xacro:if>
   </gazebo>
 </robot>

@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="strawberry_attachment" params="target_id">
+    <plugin filename="gz-sim-detachable-joint-system"
+            name="gz::sim::systems::DetachableJoint">
+      <parent_link>panda_link7</parent_link>
+      <child_model>strawberry_${target_id}</child_model>
+      <child_link>fruit_link</child_link>
+      <attach_topic>/strawberry/sim/fruit_${target_id}/attach</attach_topic>
+      <detach_topic>/strawberry/sim/fruit_${target_id}/detach</detach_topic>
+      <output_topic>/strawberry/sim/fruit_${target_id}/attached</output_topic>
+    </plugin>
+  </xacro:macro>
+</robot>

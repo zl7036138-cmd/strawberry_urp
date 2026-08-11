@@ -59,6 +59,8 @@ setup(
             "attachment_manager = strawberry_sim.attachment_manager:main",
             "contact_monitor = strawberry_sim.contact_monitor:main",
             "ground_truth_publisher = strawberry_sim.ground_truth_publisher:main",
+            "generalized_development_capture = strawberry_sim.generalized_capture:main",
+            "generate_generalized_scene = strawberry_sim.generalized_scene:main",
             "runtime_health_check = strawberry_sim.runtime_health:main",
             "scene_condition_probe = strawberry_sim.scene_condition_probe:main",
             "synthetic_capture = strawberry_sim.synthetic_capture:main",

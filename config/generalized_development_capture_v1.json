@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "capture_id": "generalized_development_capture_v1",
+  "scope": "DEVELOPMENT_ONLY_RANDOMIZED_MULTI_PLANT_CAPTURE",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_seed_matrix": "config/generalized_harvest_matrix_v1.json",
+  "formal_seed_matrix_sha256": "2f9cc23d04947ab1ec1101010818a59e882d8cf04b6dd18cffb2ddc417493c2d",
+  "base_scene": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+  "base_world": "ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sdf",
+  "capture": {
+    "image_width": 640,
+    "image_height": 480,
+    "image_format": "png",
+    "png_compression": 3,
+    "settled_frames": 15,
+    "sync_tolerance_sec": 0.06,
+    "minimum_visible_pixels": 12,
+    "minimum_visible_fraction": 0.02,
+    "depth_surface_padding_m": 0.012,
+    "class_ids": {
+      "RIPE": 0,
+      "UNRIPE": 1
+    }
+  },
+  "splits": {
+    "train": {
+      "seed_start": 41001,
+      "count": 72,
+      "training_allowed": true
+    },
+    "validation": {
+      "seed_start": 42001,
+      "count": 24,
+      "training_allowed": false
+    },
+    "qualification": {
+      "seed_start": 43001,
+      "count": 24,
+      "training_allowed": false
+    }
+  },
+  "schedule": {
+    "profiles": ["mixed", "mixed", "mixed", "all_unripe"],
+    "plant_counts": [1, 2, 3],
+    "position_bands": ["near", "middle", "far"],
+    "occlusions": ["none", "partial", "heavy"]
+  }
+}

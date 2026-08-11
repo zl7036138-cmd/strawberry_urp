@@ -48,6 +48,60 @@ def _world_without_fixed_camera(source: str) -> str:
     return str(output)
 
 
+def _bridge_for_fruit_count(source: str, fruit_count: int) -> str:
+    """Extend the frozen three-fruit bridge contract for generalized scenes."""
+
+    if fruit_count <= 3:
+        return source
+    with open(source, encoding="utf-8") as stream:
+        document = yaml.safe_load(stream)
+    if not isinstance(document, list):
+        raise RuntimeError("Gazebo bridge configuration must be a YAML list")
+    existing = {str(item.get("ros_topic_name")) for item in document if isinstance(item, dict)}
+    for target_id in range(4, fruit_count + 1):
+        additions = [
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/pose_tf",
+                "gz_topic_name": f"/model/strawberry_{target_id}/pose",
+                "ros_type_name": "tf2_msgs/msg/TFMessage",
+                "gz_type_name": "gz.msgs.Pose_V",
+                "direction": "GZ_TO_ROS",
+                "qos_profile": "SENSOR_DATA",
+            },
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/attach_command",
+                "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/attach",
+                "ros_type_name": "std_msgs/msg/Empty",
+                "gz_type_name": "gz.msgs.Empty",
+                "direction": "ROS_TO_GZ",
+            },
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/detach_command",
+                "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/detach",
+                "ros_type_name": "std_msgs/msg/Empty",
+                "gz_type_name": "gz.msgs.Empty",
+                "direction": "ROS_TO_GZ",
+            },
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/attached_state",
+                "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/attached",
+                "ros_type_name": "std_msgs/msg/String",
+                "gz_type_name": "gz.msgs.StringMsg",
+                "direction": "GZ_TO_ROS",
+            },
+        ]
+        for item in additions:
+            if item["ros_topic_name"] in existing:
+                raise RuntimeError("generalized bridge topic is duplicated")
+            existing.add(item["ros_topic_name"])
+            document.append(item)
+    output_dir = Path(tempfile.gettempdir()) / "strawberry_urp"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"bridge_fruits_{fruit_count}_{os.getpid()}.yaml"
+    output.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return str(output)
+
+
 def _enforce_initial_positions(robot_description_xml: str, source: str) -> str:
     with open(source, encoding="utf-8") as stream:
         document = yaml.safe_load(stream)
@@ -107,6 +161,17 @@ def _launch_nodes(context):
     scene_config = os.path.abspath(os.path.expanduser(scene_config))
     if not os.path.isfile(scene_config):
         raise RuntimeError(f"scene config file does not exist: {scene_config}")
+    with open(scene_config, encoding="utf-8") as stream:
+        scene_document = yaml.safe_load(stream) or {}
+    fruits = scene_document.get("fruits")
+    if not isinstance(fruits, list) or not 1 <= len(fruits) <= 9:
+        raise RuntimeError("scene config must contain between 1 and 9 fruits")
+    fruit_attachment_count = len(fruits)
+    bridge_file = _bridge_for_fruit_count(bridge_file, fruit_attachment_count)
+    generalized_scene = isinstance(scene_document.get("generator"), dict)
+    attachment_initialization_attempts = (
+        150 if generalized_scene or fruit_attachment_count > 3 else 10
+    )
     panda_xacro = os.path.join(package_share, "urdf", "panda_gz.urdf.xacro")
     requested_initial_positions = (
         LaunchConfiguration("initial_positions_file").perform(context).strip()
@@ -174,6 +239,7 @@ def _launch_nodes(context):
         mappings={
             "initial_positions_file": initial_positions,
             "enable_attachment": enable_attachment,
+            "fruit_attachment_count": str(fruit_attachment_count),
             "camera_mount": camera_mount,
         },
     ).toxml()
@@ -315,6 +381,7 @@ def _launch_nodes(context):
                 {
                     "scene_config_file": scene_config,
                     "attachment_backend_enabled": attachment_enabled,
+                    "backend_initialization_attempts": attachment_initialization_attempts,
                     "resume_world_after_initialization": attachment_enabled,
                 },
             ],

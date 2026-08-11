@@ -395,3 +395,34 @@ trial starts a fresh world and ROS domain, runs one ground-truth pick, verifies
 raw dual-finger contact and the five-second planning bound, checks that no
 unexpected fruit collision occurred, then requires a clean launch shutdown.
 The aggregate gate passes at a success rate of at least 90 percent.
+
+## Generalized fixed-base harvest path
+
+The v2 extension adds `/strawberry/tracked_targets` as the multi-target data
+plane. Detection IDs remain acquisition-local; the localization tracker owns a
+run-stable `track_id`. A safety selector publishes the chosen legacy-compatible
+`TargetPose` plus a stamp-matched, deterministically ordered bank of dynamic
+wrist hand poses. Its fail-closed clearance gate includes both tracked fruit
+and the configured collection-bin outer envelope. The continuous orchestrator
+calls `/strawberry/evaluate_target`,
+asks MoveIt to test the finite view bank until the first zero-motion-safe plan succeeds,
+requires a bounded wrist refinement, and then invokes the unchanged
+`PickAndPlace` action. Completed or exhausted track IDs are broadcast once so
+the tracker, selector, collision scene, and batch queue all suppress them.
+
+Base and wrist localization estimates are fused by inverse variance with a
+non-zero wrist systematic-error floor. A failed target may reserve one
+re-observation; if it cannot be reacquired before scan timeout, the batch state
+machine records it as skipped and resumes scanning instead of ending the run.
+
+In generalized mode, MoveIt fruit obstacles are synchronized from tracked
+poses rather than the ground-truth catalog. Ground truth is retained only in a
+simulation adapter that resolves a perception-selected physical contact to the
+matching detachable Gazebo entity; it cannot select, rank, correct, or plan a
+target. The fixed v1/field-v3 paths retain their original routing contracts.
+
+The separate generalized development-capture executable may use Gazebo truth
+only to produce offline YOLO labels. Its train, validation, and qualification
+seed ranges are disjoint from the formal 30-seed matrix; projected labels need
+rendered-depth support, and the qualification split is absent from the training
+configuration. This executable is never launched by the harvest runtime.

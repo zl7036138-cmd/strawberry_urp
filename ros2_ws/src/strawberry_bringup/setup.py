@@ -24,6 +24,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
+            "target_selector = strawberry_bringup.target_selector:main",
+            "harvest_orchestrator = strawberry_bringup.harvest_orchestrator:main",
             "dual_observation_repeat_summary = strawberry_bringup.observation_repeat:main",
             "dual_observation_summary = strawberry_bringup.observation_sequence:main",
             "dual_observation_selector = strawberry_bringup.observation_selection:main",

@@ -23,6 +23,10 @@ from strawberry_localization.node import (  # noqa: E402
     validate_sensor_qos_depth,
     validate_selection_roi,
 )
+from strawberry_localization.generalized_node import (  # noqa: E402
+    newest_pending_detection,
+    select_candidate_detections,
+)
 
 
 class LocalizationNodeInputSelectionTests(unittest.TestCase):
@@ -39,6 +43,7 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
             confidence=confidence,
             maturity=maturity,
             RIPE=1,
+            UNRIPE=2,
             bbox=SimpleNamespace(
                 x_offset=x - 5,
                 y_offset=y - 5,
@@ -242,6 +247,23 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             validate_selection_roi((320, 240, 320, 480))
+
+    def test_multi_target_selection_keeps_ripe_and_unripe_candidates(self):
+        detections = [
+            self.detection(3, 0.81, (500, 390), maturity=2),
+            self.detection(1, 0.92, (180, 80), maturity=1),
+            self.detection(2, 0.40, (320, 220), maturity=1),
+        ]
+        selected = select_candidate_detections(
+            detections,
+            confidence_threshold=0.60,
+        )
+        self.assertEqual([item.target_id for item in selected], [1, 3])
+
+    def test_generalized_retry_keeps_only_the_newest_deferred_frame(self):
+        values = {(1, 10): ("old", 2), (2, 0): ("new", 0)}
+        self.assertEqual(newest_pending_detection(values), ("new", 0))
+        self.assertIsNone(newest_pending_detection({}))
 
     def test_geometry_layer_estimator_is_explicitly_opt_in(self) -> None:
         source = (

@@ -24,6 +24,7 @@ setup(
     entry_points={
         "console_scripts": [
             "localization_node = strawberry_localization.node:main",
+            "generalized_localization_node = strawberry_localization.generalized_node:main",
             "localization_gate = strawberry_localization.localization_gate:main",
         ],
     },

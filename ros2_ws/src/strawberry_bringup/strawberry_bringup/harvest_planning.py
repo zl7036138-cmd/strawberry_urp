@@ -41,7 +41,13 @@ class HarvestCandidate:
         if self.maturity not in {0, 1, 2}:
             raise ValueError("maturity is invalid")
         object.__setattr__(self, "position", _point(self.position, "position"))
-        for name in ("confidence", "sigma_m", "last_seen_sec", "clearance_m", "joint_travel_rad"):
+        for name in (
+            "confidence",
+            "sigma_m",
+            "last_seen_sec",
+            "clearance_m",
+            "joint_travel_rad",
+        ):
             object.__setattr__(self, name, _finite(getattr(self, name), name))
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be in [0, 1]")
@@ -69,7 +75,12 @@ def rank_safe_targets(
     """Filter fail-closed and rank by safety, quality, then motion cost."""
 
     now = _finite(now_sec, "now_sec")
-    values = (confidence_threshold, maximum_sigma_m, maximum_age_sec, minimum_clearance_m)
+    values = (
+        confidence_threshold,
+        maximum_sigma_m,
+        maximum_age_sec,
+        minimum_clearance_m,
+    )
     if not all(math.isfinite(value) for value in values):
         raise ValueError("selection limits must be finite")
     if not 0.0 <= confidence_threshold <= 1.0:
@@ -103,6 +114,42 @@ def rank_safe_targets(
             ),
         )
     )
+
+
+def target_rejection_reasons(
+    candidate: HarvestCandidate,
+    *,
+    now_sec: float,
+    confidence_threshold: float = 0.60,
+    maximum_sigma_m: float = 0.015,
+    minimum_observations: int = 3,
+    maximum_age_sec: float = 0.50,
+    minimum_clearance_m: float = 0.02,
+    excluded_track_ids: Iterable[int] = (),
+) -> tuple[str, ...]:
+    """Explain every fail-closed target gate with stable reason codes."""
+
+    now = _finite(now_sec, "now_sec")
+    excluded = {int(value) for value in excluded_track_ids}
+    age_sec = now - candidate.last_seen_sec
+    reasons = []
+    if candidate.track_id in excluded:
+        reasons.append("EXCLUDED")
+    if candidate.maturity != 1:
+        reasons.append("NOT_RIPE")
+    if candidate.confidence < confidence_threshold:
+        reasons.append("LOW_CONFIDENCE")
+    if candidate.sigma_m > maximum_sigma_m:
+        reasons.append("HIGH_UNCERTAINTY")
+    if candidate.observation_count < minimum_observations:
+        reasons.append("INSUFFICIENT_OBSERVATIONS")
+    if not 0.0 <= age_sec <= maximum_age_sec:
+        reasons.append("STALE_OR_FUTURE_DATA")
+    if candidate.clearance_m < minimum_clearance_m:
+        reasons.append("LOW_CLEARANCE")
+    if not candidate.path_feasible:
+        reasons.append("OUTSIDE_CONSERVATIVE_REACH")
+    return tuple(reasons)
 
 
 def fuse_position_estimates(
@@ -257,7 +304,9 @@ def hand_pose_for_optical_view(
     norm = math.sqrt(sum(value * value for value in hand_quaternion))
     hand_quaternion = tuple(value / norm for value in hand_quaternion)
     translated = _rotate_vector(hand_quaternion, translation)
-    hand_position = tuple(view.position[index] - translated[index] for index in range(3))
+    hand_position = tuple(
+        view.position[index] - translated[index] for index in range(3)
+    )
     return HandObservationPose(view.target_id, hand_position, hand_quaternion)
 
 
@@ -289,7 +338,9 @@ def generate_dynamic_views(
                     target[1] - horizontal * math.sin(azimuth),
                     target[2] + distance * math.sin(elevation),
                 )
-                forward = _normalize(tuple(target[index] - position[index] for index in range(3)))
+                forward = _normalize(
+                    tuple(target[index] - position[index] for index in range(3))
+                )
                 right = _normalize(_cross(forward, (0.0, 0.0, 1.0)))
                 down = _normalize(_cross(forward, right))
                 result.append(
@@ -327,14 +378,18 @@ def rank_dynamic_views(
     """
 
     assessed = [(view, evaluator(view)) for view in views]
-    feasible = [(view, assessment) for view, assessment in assessed if assessment.feasible]
-    return tuple(sorted(
-        feasible,
-        key=lambda pair: (
-            -pair[1].clearance_m,
-            pair[1].joint_travel_rad,
-            pair[0].distance_m,
-            abs(pair[0].azimuth_rad),
-            pair[0].elevation_rad,
-        ),
-    ))
+    feasible = [
+        (view, assessment) for view, assessment in assessed if assessment.feasible
+    ]
+    return tuple(
+        sorted(
+            feasible,
+            key=lambda pair: (
+                -pair[1].clearance_m,
+                pair[1].joint_travel_rad,
+                pair[0].distance_m,
+                abs(pair[0].azimuth_rad),
+                pair[0].elevation_rad,
+            ),
+        )
+    )

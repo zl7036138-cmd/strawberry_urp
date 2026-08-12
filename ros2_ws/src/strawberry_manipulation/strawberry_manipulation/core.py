@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import IntEnum
 import math
-import time
 from typing import Callable, Protocol
 
 
@@ -86,7 +85,9 @@ class MotionBackend(Protocol):
     def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool: ...
 
 
-def offset_pose(pose: Pose, *, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0) -> Pose:
+def offset_pose(
+    pose: Pose, *, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0
+) -> Pose:
     """Apply a base-frame translation while preserving orientation."""
 
     return replace(pose.normalized(), x=pose.x + dx, y=pose.y + dy, z=pose.z + dz)
@@ -152,9 +153,7 @@ def hand_pose_for_fruit_center(
     if not math.isfinite(tool_center_offset_m) or tool_center_offset_m <= 0.0:
         raise ValueError("tool center offset must be positive and finite")
     qx, qy, qz, qw = (float(value) for value in quaternion)
-    oriented_center = replace(
-        center, qx=qx, qy=qy, qz=qz, qw=qw
-    ).normalized()
+    oriented_center = replace(center, qx=qx, qy=qy, qz=qz, qw=qw).normalized()
     return offset_along_local_z(oriented_center, -tool_center_offset_m)
 
 
@@ -175,6 +174,24 @@ def pregrasp_pose_for_fruit_center(
         tool_center_offset_m=tool_center_offset_m,
     )
     return offset_along_local_z(hand_pose, -pregrasp_offset_m)
+
+
+def bounded_pregrasp_candidates_for_fruit_center(
+    center: Pose,
+    *,
+    quaternion: tuple[float, float, float, float] = DEFAULT_GRASP_QUATERNION,
+    tool_center_offset_m: float = DEFAULT_TOOL_CENTER_OFFSET_M,
+    pregrasp_offset_m: float = DEFAULT_PREGRASP_OFFSET_M,
+) -> tuple[Pose, Pose]:
+    """Return the exact bounded pregrasp orientations used by execution."""
+
+    primary = pregrasp_pose_for_fruit_center(
+        center,
+        quaternion=quaternion,
+        tool_center_offset_m=tool_center_offset_m,
+        pregrasp_offset_m=pregrasp_offset_m,
+    )
+    return primary, alternate_approach(primary)
 
 
 class PickAndPlaceExecutor:
@@ -282,9 +299,7 @@ class PickAndPlaceExecutor:
             result,
             success=False,
             failure_code=(
-                FailureCode.PLANNING_FAILED
-                if result.success
-                else result.failure_code
+                FailureCode.PLANNING_FAILED if result.success else result.failure_code
             ),
             message=message,
         )
@@ -322,7 +337,9 @@ class PickAndPlaceExecutor:
                 attached = not detached
             self.backend.open_gripper()
             if not detached:
-                message = f"{message}; attachment release failed, recovery motion withheld"
+                message = (
+                    f"{message}; attachment release failed, recovery motion withheld"
+                )
             elif recover_home:
                 if not self.backend.move_home():
                     message = f"{message}; recovery home motion failed"
@@ -351,22 +368,27 @@ class PickAndPlaceExecutor:
         grasp_pose = self._hand_pose_for_fruit_center(
             target_pose, self.grasp_quaternion
         )
-        pregrasp = pregrasp_pose_for_fruit_center(
+        pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
             target_pose,
             quaternion=self.grasp_quaternion,
             tool_center_offset_m=self.tool_center_offset_m,
             pregrasp_offset_m=self.pregrasp_offset_m,
         )
+        pregrasp = pregrasp_candidates[0]
         approach = self.backend.move_to(pregrasp, "APPROACH")
         planning_time += approach.planning_time_sec
         execution_time += approach.execution_time_sec
         if not approach.success:
-            retry_pose = alternate_approach(pregrasp)
+            retry_pose = pregrasp_candidates[1]
             retry = self.backend.move_to(retry_pose, "APPROACH_RETRY")
             planning_time += retry.planning_time_sec
             execution_time += retry.execution_time_sec
             if not retry.success:
-                code = FailureCode.COLLISION if retry.collision else FailureCode.PLANNING_FAILED
+                code = (
+                    FailureCode.COLLISION
+                    if retry.collision
+                    else FailureCode.PLANNING_FAILED
+                )
                 return fail(
                     code,
                     "approach planning failed after one alternate orientation",
@@ -406,9 +428,7 @@ class PickAndPlaceExecutor:
                     grasp_pose, quarter_turn * math.pi / 2.0
                 )
                 alternate_pregrasp_pose = rotate_about_base_z(
-                    offset_along_local_z(
-                        grasp_pose, -self.pregrasp_offset_m
-                    ),
+                    offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
                     quarter_turn * math.pi / 2.0,
                 )
                 suffix = "" if quarter_turn == 1 else f"_{quarter_turn}"
@@ -431,7 +451,11 @@ class PickAndPlaceExecutor:
                     grasp_pose = alternate_grasp_pose
                     break
         if not grasp_motion.success:
-            code = FailureCode.COLLISION if grasp_motion.collision else FailureCode.PLANNING_FAILED
+            code = (
+                FailureCode.COLLISION
+                if grasp_motion.collision
+                else FailureCode.PLANNING_FAILED
+            )
             return fail(
                 code,
                 "failed to reach grasp pose after three alternate orientations",
@@ -439,7 +463,10 @@ class PickAndPlaceExecutor:
 
         mark("GRASP", 0.40)
         if not self.backend.close_gripper() or not self.backend.attach(target_id):
-            return fail(FailureCode.GRASP_FAILED, "gripper contact or simulated attachment failed")
+            return fail(
+                FailureCode.GRASP_FAILED,
+                "gripper contact or simulated attachment failed",
+            )
         attached = True
 
         mark("RETREAT", 0.55)

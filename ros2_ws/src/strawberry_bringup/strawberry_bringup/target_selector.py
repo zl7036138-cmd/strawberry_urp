@@ -12,6 +12,7 @@ from .harvest_planning import (
     hand_pose_for_optical_view,
     rank_dynamic_views,
     rank_safe_targets,
+    target_rejection_reasons,
 )
 
 
@@ -20,7 +21,10 @@ OBSERVATION_REACH_BOUNDS = (0.12, 0.78, -0.55, 0.55, 0.30, 0.90)
 
 
 def geometric_clearance(position, neighbours, fruit_radius_m: float) -> float:
-    distances = [math.dist(position, neighbour) - 2.0 * fruit_radius_m for neighbour in neighbours]
+    distances = [
+        math.dist(position, neighbour) - 2.0 * fruit_radius_m
+        for neighbour in neighbours
+    ]
     return max(0.0, min(distances)) if distances else 1.0
 
 
@@ -29,9 +33,7 @@ def axis_aligned_box_clearance(position, bounds) -> float:
 
     if len(position) != 3 or len(bounds) != 6:
         raise ValueError("position and bounds must contain three and six values")
-    min_x, max_x, min_y, max_y, min_z, max_z = (
-        float(value) for value in bounds
-    )
+    min_x, max_x, min_y, max_y, min_z, max_z = (float(value) for value in bounds)
     if min_x >= max_x or min_y >= max_y or min_z >= max_z:
         raise ValueError("axis-aligned bounds are invalid")
     x, y, z = (float(value) for value in position)
@@ -86,7 +88,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from geometry_msgs.msg import Pose, PoseStamped
         from rclpy.node import Node
         from std_msgs.msg import String, UInt32
-        from strawberry_interfaces.msg import ObservationPlan, TargetPose, TrackedTargetArray
+        from strawberry_interfaces.msg import (
+            ObservationPlan,
+            TargetPose,
+            TrackedTargetArray,
+        )
         from strawberry_sim.core import load_scene_config
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
@@ -94,10 +100,16 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
     class TargetSelector(Node):
         def __init__(self) -> None:
             super().__init__("strawberry_target_selector")
-            self.declare_parameter("tracked_targets_topic", "/strawberry/tracked_targets")
+            self.declare_parameter(
+                "tracked_targets_topic", "/strawberry/tracked_targets"
+            )
             self.declare_parameter("selected_target_topic", "/strawberry/target_pose")
-            self.declare_parameter("observation_pose_topic", "/strawberry/wrist_observation_pose")
-            self.declare_parameter("observation_plan_topic", "/strawberry/wrist_observation_plan")
+            self.declare_parameter(
+                "observation_pose_topic", "/strawberry/wrist_observation_pose"
+            )
+            self.declare_parameter(
+                "observation_plan_topic", "/strawberry/wrist_observation_plan"
+            )
             self.declare_parameter("status_topic", "/strawberry/selection_status")
             self.declare_parameter("confidence_threshold", 0.60)
             self.declare_parameter("maximum_sigma_m", 0.015)
@@ -132,7 +144,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 PoseStamped, str(self.get_parameter("observation_pose_topic").value), 10
             )
             self._view_plan_publisher = self.create_publisher(
-                ObservationPlan, str(self.get_parameter("observation_plan_topic").value), 10
+                ObservationPlan,
+                str(self.get_parameter("observation_plan_topic").value),
+                10,
             )
             self._status_publisher = self.create_publisher(
                 String, str(self.get_parameter("status_topic").value), 10
@@ -173,20 +187,18 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             for item in message.targets:
                 track_id = int(item.track_id)
                 position = positions[track_id]
-                neighbours = [value for other_id, value in positions.items() if other_id != track_id]
+                neighbours = [
+                    value
+                    for other_id, value in positions.items()
+                    if other_id != track_id
+                ]
                 reachable = inside_conservative_reach(position)
                 clearance = min(
                     geometric_clearance(position, neighbours, radius),
                     max(
                         0.0,
-                        axis_aligned_box_clearance(
-                            position, self._bin_bounds
-                        )
-                        - float(
-                            self.get_parameter(
-                                "static_obstacle_margin_m"
-                            ).value
-                        ),
+                        axis_aligned_box_clearance(position, self._bin_bounds)
+                        - float(self.get_parameter("static_obstacle_margin_m").value),
                     ),
                 )
                 candidates.append(
@@ -205,19 +217,53 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         retreat_feasible=reachable,
                     )
                 )
+            selection_limits = {
+                "confidence_threshold": float(
+                    self.get_parameter("confidence_threshold").value
+                ),
+                "maximum_sigma_m": float(self.get_parameter("maximum_sigma_m").value),
+                "minimum_observations": int(
+                    self.get_parameter("minimum_observations").value
+                ),
+                "maximum_age_sec": float(self.get_parameter("maximum_age_sec").value),
+                "minimum_clearance_m": float(
+                    self.get_parameter("minimum_clearance_m").value
+                ),
+                "excluded_track_ids": self._excluded,
+            }
             ranked = rank_safe_targets(
                 candidates,
                 now_sec=now_sec,
-                confidence_threshold=float(self.get_parameter("confidence_threshold").value),
-                maximum_sigma_m=float(self.get_parameter("maximum_sigma_m").value),
-                minimum_observations=int(self.get_parameter("minimum_observations").value),
-                maximum_age_sec=float(self.get_parameter("maximum_age_sec").value),
-                minimum_clearance_m=float(self.get_parameter("minimum_clearance_m").value),
-                excluded_track_ids=self._excluded,
+                **selection_limits,
             )
             status = String()
             if not ranked:
-                status.data = json.dumps({"schema_version": 1, "outcome": "NO_PICK", "candidate_count": len(candidates)})
+                status.data = json.dumps(
+                    {
+                        "schema_version": 1,
+                        "outcome": "NO_PICK",
+                        "candidate_count": len(candidates),
+                        "rejections": [
+                            {
+                                "track_id": candidate.track_id,
+                                "reasons": list(
+                                    target_rejection_reasons(
+                                        candidate,
+                                        now_sec=now_sec,
+                                        **selection_limits,
+                                    )
+                                ),
+                                "confidence": candidate.confidence,
+                                "sigma_m": candidate.sigma_m,
+                                "observation_count": candidate.observation_count,
+                                "age_sec": now_sec - candidate.last_seen_sec,
+                                "clearance_m": candidate.clearance_m,
+                            }
+                            for candidate in candidates
+                        ],
+                    },
+                    separators=(",", ":"),
+                )
                 self._status_publisher.publish(status)
                 return
             selected = ranked[0]
@@ -237,22 +283,37 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 assess_view,
             )
             if not ranked_views:
-                status.data = json.dumps({"schema_version": 1, "outcome": "NO_PICK", "reason": "NO_SAFE_WRIST_VIEW"})
+                status.data = json.dumps(
+                    {
+                        "schema_version": 1,
+                        "outcome": "NO_PICK",
+                        "reason": "NO_SAFE_WRIST_VIEW",
+                    }
+                )
                 self._status_publisher.publish(status)
                 return
             view, assessment = ranked_views[0]
-            hand_views = tuple(hand_pose_for_optical_view(candidate_view) for candidate_view, _ in ranked_views)
+            hand_views = tuple(
+                hand_pose_for_optical_view(candidate_view)
+                for candidate_view, _ in ranked_views
+            )
             hand_view = hand_views[0]
             target = TargetPose()
             target.header = message.header
             target.target_id = selected.track_id
-            target.pose.position.x, target.pose.position.y, target.pose.position.z = selected.position
+            target.pose.position.x, target.pose.position.y, target.pose.position.z = (
+                selected.position
+            )
             target.pose.orientation.w = 1.0
             target.detection_confidence = selected.confidence
             target.position_sigma_m = selected.sigma_m
             view_message = PoseStamped()
             view_message.header = message.header
-            view_message.pose.position.x, view_message.pose.position.y, view_message.pose.position.z = hand_view.position
+            (
+                view_message.pose.position.x,
+                view_message.pose.position.y,
+                view_message.pose.position.z,
+            ) = hand_view.position
             (
                 view_message.pose.orientation.x,
                 view_message.pose.orientation.y,

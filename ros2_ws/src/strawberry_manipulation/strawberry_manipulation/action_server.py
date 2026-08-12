@@ -12,9 +12,9 @@ import time
 from .core import (
     PickAndPlaceExecutor,
     Pose,
+    bounded_pregrasp_candidates_for_fruit_center,
     hand_pose_for_fruit_center,
     offset_pose,
-    pregrasp_pose_for_fruit_center,
 )
 from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
@@ -68,9 +68,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "grasp_geometry.yaml",
             )
             self.declare_parameter("scene_config_file", default_scene_config)
-            self.declare_parameter(
-                "grasp_geometry_config_file", default_grasp_geometry
-            )
+            self.declare_parameter("grasp_geometry_config_file", default_grasp_geometry)
             scene = load_scene_config(
                 str(self.get_parameter("scene_config_file").value)
             )
@@ -102,9 +100,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "arm_action", "/panda_arm_controller/follow_joint_trajectory"
             )
             self.declare_parameter("gripper_joint", "panda_finger_joint1")
-            self.declare_parameter(
-                "gripper_secondary_joint", "panda_finger_joint2"
-            )
+            self.declare_parameter("gripper_secondary_joint", "panda_finger_joint2")
             # DART does not enforce the Panda mimic constraint. Two
             # single-joint actions therefore receive the same per-finger
             # target; 0.04 m each is the 0.08 m total opening.
@@ -135,9 +131,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("pose_position_tolerance_m", 0.01)
             self.declare_parameter("pose_orientation_tolerance_rad", 0.0872665)
             self.declare_parameter("intermediate_position_tolerance_m", 0.02)
-            self.declare_parameter(
-                "intermediate_orientation_tolerance_rad", 0.139626
-            )
+            self.declare_parameter("intermediate_orientation_tolerance_rad", 0.139626)
             self.declare_parameter("max_grasp_segment_m", 0.01)
             self.declare_parameter("max_orientation_segment_rad", 0.174533)
             self.declare_parameter("max_collision_joint_step_rad", 0.01)
@@ -146,17 +140,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("safe_transit_corridor_y_m", -0.10)
             self.declare_parameter("ground_truth_pose_timeout_sec", 2.0)
             self.declare_parameter("fruit_pose_source", "ground_truth")
-            self.declare_parameter("tracked_targets_topic", "/strawberry/tracked_targets")
+            self.declare_parameter(
+                "tracked_targets_topic", "/strawberry/tracked_targets"
+            )
             self.declare_parameter("tracked_pose_timeout_sec", 0.75)
             self.declare_parameter("sim_entity_resolution_max_distance_m", 0.08)
             self.declare_parameter("target_refinement_topic", "")
             self.declare_parameter("target_refinement_timeout_sec", 3.0)
-            self.declare_parameter(
-                "target_refinement_max_correction_m", 0.05
-            )
-            self.declare_parameter(
-                "target_refinement_min_confidence", 0.31
-            )
+            self.declare_parameter("target_refinement_max_correction_m", 0.05)
+            self.declare_parameter("target_refinement_min_confidence", 0.31)
             self.declare_parameter("target_refinement_max_sigma_m", 0.015)
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
@@ -180,7 +172,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 for fruit in scene.ordered_fruits
             }
-            fruit_pose_source = str(self.get_parameter("fruit_pose_source").value).strip().lower()
+            fruit_pose_source = (
+                str(self.get_parameter("fruit_pose_source").value).strip().lower()
+            )
             if fruit_pose_source not in {"ground_truth", "tracked"}:
                 raise ValueError("fruit_pose_source must be ground_truth or tracked")
             self._fruit_pose_source = fruit_pose_source
@@ -210,8 +204,13 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._sim_entity_resolution_max_distance_m = float(
                 self.get_parameter("sim_entity_resolution_max_distance_m").value
             )
-            if self._tracked_pose_timeout_sec <= 0.0 or self._sim_entity_resolution_max_distance_m <= 0.0:
-                raise ValueError("tracked pose and entity resolution bounds must be positive")
+            if (
+                self._tracked_pose_timeout_sec <= 0.0
+                or self._sim_entity_resolution_max_distance_m <= 0.0
+            ):
+                raise ValueError(
+                    "tracked pose and entity resolution bounds must be positive"
+                )
             self._tracked_pose_subscription = self.create_subscription(
                 TrackedTargetArray,
                 str(self.get_parameter("tracked_targets_topic").value),
@@ -227,14 +226,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self.get_parameter("target_refinement_timeout_sec").value
             )
             self._target_refinement_max_correction_m = float(
-                self.get_parameter(
-                    "target_refinement_max_correction_m"
-                ).value
+                self.get_parameter("target_refinement_max_correction_m").value
             )
             self._target_refinement_min_confidence = float(
-                self.get_parameter(
-                    "target_refinement_min_confidence"
-                ).value
+                self.get_parameter("target_refinement_min_confidence").value
             )
             self._target_refinement_max_sigma_m = float(
                 self.get_parameter("target_refinement_max_sigma_m").value
@@ -242,36 +237,29 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 self._target_refinement_timeout_sec <= 0.0
                 or self._target_refinement_max_correction_m <= 0.0
-                or not 0.0
-                <= self._target_refinement_min_confidence
-                <= 1.0
+                or not 0.0 <= self._target_refinement_min_confidence <= 1.0
                 or self._target_refinement_max_sigma_m <= 0.0
             ):
                 raise ValueError("target refinement limits are invalid")
             self._target_refinement_subscription = None
             target_pose_refiner = None
             if target_refinement_topic:
-                self._target_refinement_subscription = (
-                    self.create_subscription(
-                        TargetPose,
-                        target_refinement_topic,
-                        self._on_target_refinement,
-                        qos_profile_sensor_data,
-                    )
+                self._target_refinement_subscription = self.create_subscription(
+                    TargetPose,
+                    target_refinement_topic,
+                    self._on_target_refinement,
+                    qos_profile_sensor_data,
                 )
                 target_pose_refiner = self._refine_target_pose
                 self.get_logger().info(
-                    "Near-grasp visual refinement enabled on "
-                    f"{target_refinement_topic}"
+                    f"Near-grasp visual refinement enabled on {target_refinement_topic}"
                 )
             backend = MoveItBackend(
                 self,
                 planning_group=str(self.get_parameter("planning_group").value),
                 pose_link=str(self.get_parameter("pose_link").value),
                 base_frame=base_frame,
-                home_configuration=str(
-                    self.get_parameter("home_configuration").value
-                ),
+                home_configuration=str(self.get_parameter("home_configuration").value),
                 gripper_action=str(self.get_parameter("gripper_action").value),
                 gripper_secondary_action=str(
                     self.get_parameter("gripper_secondary_action").value
@@ -281,20 +269,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 gripper_secondary_joint=str(
                     self.get_parameter("gripper_secondary_joint").value
                 ),
-                open_width_m=float(
-                    self.get_parameter("gripper_open_width_m").value
-                ),
+                open_width_m=float(self.get_parameter("gripper_open_width_m").value),
                 closed_width_m=float(
                     self.get_parameter("gripper_closed_width_m").value
                 ),
                 gripper_position_tolerance_m=float(
-                    self.get_parameter(
-                        "gripper_position_tolerance_m"
-                    ).value
+                    self.get_parameter("gripper_position_tolerance_m").value
                 ),
-                max_effort_n=float(
-                    self.get_parameter("gripper_max_effort_n").value
-                ),
+                max_effort_n=float(self.get_parameter("gripper_max_effort_n").value),
                 request_timeout_sec=float(
                     self.get_parameter("request_timeout_sec").value
                 ),
@@ -310,9 +292,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 settle_sample_period_sec=float(
                     self.get_parameter("settle_sample_period_sec").value
                 ),
-                settle_delta_rad=float(
-                    self.get_parameter("settle_delta_rad").value
-                ),
+                settle_delta_rad=float(self.get_parameter("settle_delta_rad").value),
                 settle_stable_samples=int(
                     self.get_parameter("settle_stable_samples").value
                 ),
@@ -323,14 +303,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("pose_orientation_tolerance_rad").value
                 ),
                 intermediate_position_tolerance_m=float(
-                    self.get_parameter(
-                        "intermediate_position_tolerance_m"
-                    ).value
+                    self.get_parameter("intermediate_position_tolerance_m").value
                 ),
                 intermediate_orientation_tolerance_rad=float(
-                    self.get_parameter(
-                        "intermediate_orientation_tolerance_rad"
-                    ).value
+                    self.get_parameter("intermediate_orientation_tolerance_rad").value
                 ),
                 max_grasp_segment_m=float(
                     self.get_parameter("max_grasp_segment_m").value
@@ -345,14 +321,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("safe_transit_clearance_m").value
                 ),
                 place_transit_clearance_m=float(
-                    self.get_parameter(
-                        "place_transit_clearance_m"
-                    ).value
+                    self.get_parameter("place_transit_clearance_m").value
                 ),
                 safe_transit_corridor_y_m=float(
                     self.get_parameter("safe_transit_corridor_y_m").value
                 ),
-                fruit_obstacles=(fruit_obstacles if fruit_pose_source == "ground_truth" else {}),
+                fruit_obstacles=(
+                    fruit_obstacles if fruit_pose_source == "ground_truth" else {}
+                ),
                 fruit_collision_radius_m=scene.fruit_collision_radius_m,
                 static_collision_objects=static_collision_objects(
                     scene.static_collision_profile
@@ -364,9 +340,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 dynamic_fruit_manifest=(fruit_pose_source == "tracked"),
                 entity_id_resolver=(
-                    self._resolve_sim_entity
-                    if fruit_pose_source == "tracked"
-                    else None
+                    self._resolve_sim_entity if fruit_pose_source == "tracked" else None
                 ),
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)
@@ -375,15 +349,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._backend = backend
             self._executor_core = PickAndPlaceExecutor(
                 backend,
-                pregrasp_offset_m=float(
-                    self.get_parameter("pregrasp_offset_m").value
-                ),
+                pregrasp_offset_m=float(self.get_parameter("pregrasp_offset_m").value),
                 retreat_distance_m=float(
                     self.get_parameter("retreat_distance_m").value
                 ),
-                bin_stability_sec=float(
-                    self.get_parameter("bin_stability_sec").value
-                ),
+                bin_stability_sec=float(self.get_parameter("bin_stability_sec").value),
                 tool_center_offset_m=float(
                     self.get_parameter("tool_center_offset_m").value
                 ),
@@ -428,7 +398,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 return response
             if request.observation_pose.header.frame_id != base_frame:
                 response.success = False
-                response.message = "observation pose is not in the manipulation base frame"
+                response.message = (
+                    "observation pose is not in the manipulation base frame"
+                )
                 return response
             if not self._goal_gate.try_acquire():
                 response.success = False
@@ -456,7 +428,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
 
         def _evaluate_target(self, request, response):
             base_frame = str(self.get_parameter("base_frame").value)
-            if int(request.target_id) <= 0 or request.target_pose.header.frame_id != base_frame:
+            if (
+                int(request.target_id) <= 0
+                or request.target_pose.header.frame_id != base_frame
+            ):
                 response.feasible = False
                 response.message = "target evaluation request is invalid"
                 return response
@@ -471,10 +446,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 prepared = self._backend.prepare_pick(target_id, target)
                 if not prepared:
                     response.feasible = False
-                    response.message = "failed to synchronize perception collision scene"
+                    response.message = (
+                        "failed to synchronize perception collision scene"
+                    )
                     return response
                 executor = self._executor_core
-                pregrasp = pregrasp_pose_for_fruit_center(
+                pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
                     target,
                     quaternion=executor.grasp_quaternion,
                     tool_center_offset_m=executor.tool_center_offset_m,
@@ -486,22 +463,41 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     tool_center_offset_m=executor.tool_center_offset_m,
                 )
                 retreat = offset_pose(grasp, dz=executor.retreat_distance_m)
-                first = self._backend.evaluate_pose_sequence((pregrasp,))
-                if not first[0]:
+                first = None
+                pregrasp = None
+                first_planning_time = 0.0
+                first_collision = False
+                first_joint_travel = 0.0
+                for candidate in pregrasp_candidates:
+                    assessment = self._backend.evaluate_pose_sequence((candidate,))
+                    first_planning_time += float(assessment[2])
+                    first_collision = first_collision or bool(assessment[1])
+                    first_joint_travel = float(assessment[3])
+                    if assessment[0]:
+                        first = assessment
+                        pregrasp = candidate
+                        break
+                if first is None or pregrasp is None:
                     response.feasible = False
-                    response.collision = bool(first[1])
-                    response.planning_time_sec = float(first[2])
-                    response.joint_travel_rad = float(first[3])
-                    response.message = "pregrasp IK or collision check failed"
+                    response.collision = first_collision
+                    response.planning_time_sec = first_planning_time
+                    response.joint_travel_rad = first_joint_travel
+                    response.message = (
+                        "all bounded pregrasp IK or collision checks failed"
+                    )
                     return response
                 if not self._backend.allow_target_contact(target_id):
                     response.feasible = False
-                    response.message = "failed to open target contact corridor for evaluation"
+                    response.message = (
+                        "failed to open target contact corridor for evaluation"
+                    )
                     return response
-                second = self._backend.evaluate_pose_sequence((pregrasp, grasp, retreat))
+                second = self._backend.evaluate_pose_sequence(
+                    (pregrasp, grasp, retreat)
+                )
                 response.feasible = bool(second[0])
                 response.collision = bool(second[1])
-                response.planning_time_sec = float(first[2] + second[2])
+                response.planning_time_sec = float(first_planning_time + second[2])
                 response.joint_travel_rad = float(second[3])
                 response.message = (
                     "pregrasp, grasp, and retreat are feasible"
@@ -561,7 +557,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         def _on_tracked_targets(self, message) -> None:
             base_frame = str(self.get_parameter("base_frame").value)
             if message.header.frame_id != base_frame:
-                self.get_logger().error("ignoring tracked targets outside the manipulation base frame")
+                self.get_logger().error(
+                    "ignoring tracked targets outside the manipulation base frame"
+                )
                 return
             centers = {
                 int(item.track_id): (
@@ -584,25 +582,41 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     raise RuntimeError("tracked fruit collision scene is unavailable")
                 age = time.monotonic() - received
                 if age > self._tracked_pose_timeout_sec:
-                    raise RuntimeError(f"tracked fruit collision scene is stale by {age:.3f} seconds")
+                    raise RuntimeError(
+                        f"tracked fruit collision scene is stale by {age:.3f} seconds"
+                    )
                 return dict(centers)
 
         def _resolve_sim_entity(self, track_id: int, target_pose: Pose) -> int:
-            del track_id  # The physical mapping is geometric, never identity-oracle selection.
+            del (
+                track_id
+            )  # The physical mapping is geometric, never identity-oracle selection.
             with self._fruit_pose_lock:
                 centers = dict(self._fruit_pose_centers or {})
                 received = self._fruit_pose_received_monotonic
             if not centers or received is None:
-                raise RuntimeError("simulator entity poses are unavailable for attachment mechanics")
+                raise RuntimeError(
+                    "simulator entity poses are unavailable for attachment mechanics"
+                )
             if time.monotonic() - received > self._ground_truth_pose_timeout_sec:
-                raise RuntimeError("simulator entity poses are stale for attachment mechanics")
+                raise RuntimeError(
+                    "simulator entity poses are stale for attachment mechanics"
+                )
             target = (target_pose.x, target_pose.y, target_pose.z)
             ordered = sorted(
-                ((math.dist(target, center), entity_id) for entity_id, center in centers.items()),
+                (
+                    (math.dist(target, center), entity_id)
+                    for entity_id, center in centers.items()
+                ),
                 key=lambda row: (row[0], row[1]),
             )
-            if not ordered or ordered[0][0] > self._sim_entity_resolution_max_distance_m:
-                raise RuntimeError("no simulated fruit entity is near the perception-selected pose")
+            if (
+                not ordered
+                or ordered[0][0] > self._sim_entity_resolution_max_distance_m
+            ):
+                raise RuntimeError(
+                    "no simulated fruit entity is near the perception-selected pose"
+                )
             return int(ordered[0][1])
 
         def _on_target_refinement(self, message) -> None:
@@ -628,9 +642,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 or not math.isfinite(confidence)
                 or not math.isfinite(sigma_m)
             ):
-                self.get_logger().error(
-                    "ignoring non-finite visual target refinement"
-                )
+                self.get_logger().error("ignoring non-finite visual target refinement")
                 return
             with self._target_refinement_lock:
                 self._target_refinement_samples[target_id] = (
@@ -640,9 +652,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     time.monotonic(),
                 )
 
-        def _refine_target_pose(
-            self, target_id: int, initial_pose: Pose
-        ) -> Pose:
+        def _refine_target_pose(self, target_id: int, initial_pose: Pose) -> Pose:
             with self._target_refinement_lock:
                 sample = self._target_refinement_samples.get(target_id)
             if sample is None:
@@ -652,9 +662,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             center, confidence, sigma_m, received = sample
             age = time.monotonic() - received
             if age > self._target_refinement_timeout_sec:
-                raise RuntimeError(
-                    f"visual refinement is stale by {age:.3f} seconds"
-                )
+                raise RuntimeError(f"visual refinement is stale by {age:.3f} seconds")
             if confidence < self._target_refinement_min_confidence:
                 raise RuntimeError(
                     "visual refinement confidence "
@@ -701,6 +709,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
 
         def _execute(self, goal_handle):
             try:
+
                 def feedback(stage: str, progress: float) -> None:
                     message = PickAndPlace.Feedback()
                     message.stage = stage

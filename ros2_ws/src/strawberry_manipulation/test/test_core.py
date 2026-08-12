@@ -14,10 +14,21 @@ from strawberry_manipulation.core import (  # noqa: E402
     PickAndPlaceExecutor,
     Pose,
     alternate_approach,
+    bounded_pregrasp_candidates_for_fruit_center,
     offset_along_local_z,
     pregrasp_pose_for_fruit_center,
     rotate_about_base_z,
 )
+
+
+class BoundedPregraspCandidateTests(unittest.TestCase):
+    def test_matches_primary_and_execution_retry_orientation(self):
+        center = Pose(0.48, -0.12, 0.54)
+
+        primary, retry = bounded_pregrasp_candidates_for_fruit_center(center)
+
+        self.assertEqual(primary, pregrasp_pose_for_fruit_center(center))
+        self.assertEqual(retry, alternate_approach(primary))
 
 
 class FakeBackend:
@@ -63,12 +74,29 @@ class FakeBackend:
             return self.outcomes.pop(0)
         return MotionOutcome(True, 0.1, 0.2)
 
-    def close_gripper(self): self.calls.append("close"); return True
-    def open_gripper(self): self.calls.append("open"); return True
-    def attach(self, target_id): self.calls.append("attach"); return self.attach_ok
-    def detach(self, target_id): self.calls.append("detach"); return self.detach_ok
-    def move_home(self): self.calls.append("home"); return self.home_ok
-    def fruit_in_bin(self, target_id, stable_for_sec): self.calls.append("verify"); return self.in_bin_ok
+    def close_gripper(self):
+        self.calls.append("close")
+        return True
+
+    def open_gripper(self):
+        self.calls.append("open")
+        return True
+
+    def attach(self, target_id):
+        self.calls.append("attach")
+        return self.attach_ok
+
+    def detach(self, target_id):
+        self.calls.append("detach")
+        return self.detach_ok
+
+    def move_home(self):
+        self.calls.append("home")
+        return self.home_ok
+
+    def fruit_in_bin(self, target_id, stable_for_sec):
+        self.calls.append("verify")
+        return self.in_bin_ok
 
 
 class PickAndPlaceTests(unittest.TestCase):
@@ -84,9 +112,7 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.stages[-1], "DONE")
         self.assertIn("attach", backend.calls)
         self.assertIn("detach", backend.calls)
-        self.assertLess(
-            backend.calls.index("prepare"), backend.calls.index("APPROACH")
-        )
+        self.assertLess(backend.calls.index("prepare"), backend.calls.index("APPROACH"))
         self.assertLess(
             backend.calls.index("allow_contact"),
             backend.calls.index("GRASP_POSE"),
@@ -111,7 +137,13 @@ class PickAndPlaceTests(unittest.TestCase):
 
     def test_one_approach_retry_then_success(self):
         backend = FakeBackend(
-            [MotionOutcome(False), MotionOutcome(True), MotionOutcome(True), MotionOutcome(True), MotionOutcome(True)]
+            [
+                MotionOutcome(False),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+            ]
         )
         result = PickAndPlaceExecutor(backend).execute(2, self.target, self.bin)
         self.assertTrue(result.success)
@@ -142,17 +174,13 @@ class PickAndPlaceTests(unittest.TestCase):
                 MotionOutcome(True),
             ]
         )
-        result = PickAndPlaceExecutor(backend).execute(
-            4, self.target, self.bin
-        )
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
 
         self.assertTrue(result.success)
         self.assertEqual(backend.calls.count("GRASP_RETRY_PREP"), 1)
         self.assertEqual(backend.calls.count("GRASP_POSE_RETRY"), 1)
         poses = dict(backend.poses)
-        expected_grasp = alternate_approach(
-            poses["GRASP_POSE"]
-        )
+        expected_grasp = alternate_approach(poses["GRASP_POSE"])
         self.assertEqual(poses["GRASP_POSE_RETRY"], expected_grasp)
         self.assertEqual(
             poses["RETREAT"].qx,
@@ -164,12 +192,8 @@ class PickAndPlaceTests(unittest.TestCase):
         )
 
     def test_noncollision_grasp_failure_does_not_retry(self):
-        backend = FakeBackend(
-            [MotionOutcome(True), MotionOutcome(False)]
-        )
-        result = PickAndPlaceExecutor(backend).execute(
-            4, self.target, self.bin
-        )
+        backend = FakeBackend([MotionOutcome(True), MotionOutcome(False)])
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
 
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
@@ -189,19 +213,13 @@ class PickAndPlaceTests(unittest.TestCase):
                 MotionOutcome(False, collision=True),
             ]
         )
-        result = PickAndPlaceExecutor(backend).execute(
-            4, self.target, self.bin
-        )
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
 
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.COLLISION)
         self.assertIn("three alternate orientations", result.message)
         self.assertEqual(
-            [
-                stage
-                for stage in backend.calls
-                if stage.startswith("GRASP_RETRY_PREP")
-            ],
+            [stage for stage in backend.calls if stage.startswith("GRASP_RETRY_PREP")],
             [
                 "GRASP_RETRY_PREP",
                 "GRASP_RETRY_PREP_2",
@@ -222,9 +240,7 @@ class PickAndPlaceTests(unittest.TestCase):
         result = PickAndPlaceExecutor(backend).execute(5, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
-        self.assertEqual(
-            backend.calls[-4:], ["detach", "open", "home", "restore"]
-        )
+        self.assertEqual(backend.calls[-4:], ["detach", "open", "home", "restore"])
 
     def test_failed_recovery_detach_withholds_home_motion(self):
         backend = FakeBackend(
@@ -265,9 +281,7 @@ class PickAndPlaceTests(unittest.TestCase):
 
     def test_final_home_failure_converts_success_to_planning_failure(self):
         backend = FakeBackend(home=False)
-        result = PickAndPlaceExecutor(backend).execute(
-            1, self.target, self.bin
-        )
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
         self.assertIn("final home motion failed", result.message)
@@ -279,9 +293,7 @@ class PickAndPlaceTests(unittest.TestCase):
             [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False)],
             home=False,
         )
-        result = PickAndPlaceExecutor(backend).execute(
-            1, self.target, self.bin
-        )
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertIn("recovery home motion failed", result.message)
         self.assertEqual(backend.calls.count("home"), 1)
@@ -344,9 +356,7 @@ class PickAndPlaceTests(unittest.TestCase):
 
     def test_planning_shadow_pregrasp_matches_executor_geometry(self):
         backend = FakeBackend()
-        result = PickAndPlaceExecutor(backend).execute(
-            7, self.target, self.bin
-        )
+        result = PickAndPlaceExecutor(backend).execute(7, self.target, self.bin)
         self.assertTrue(result.success)
         executor_pregrasp = dict(backend.poses)["APPROACH"]
         shared_pregrasp = pregrasp_pose_for_fruit_center(self.target)

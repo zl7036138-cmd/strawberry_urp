@@ -16,6 +16,7 @@ from strawberry_bringup.harvest_planning import (  # noqa: E402
     rank_dynamic_views,
     rank_safe_targets,
     select_dynamic_view,
+    target_rejection_reasons,
 )
 
 
@@ -59,24 +60,67 @@ class HarvestPlanningTests(unittest.TestCase):
             candidate(3, clearance_m=0.06, sigma_m=0.008, confidence=0.80),
             candidate(4, clearance_m=0.06, sigma_m=0.008, confidence=0.95),
         ]
-        self.assertEqual([row.track_id for row in rank_safe_targets(rows, now_sec=10.1)], [4, 3, 2, 1])
+        self.assertEqual(
+            [row.track_id for row in rank_safe_targets(rows, now_sec=10.1)],
+            [4, 3, 2, 1],
+        )
+
+    def test_rejection_reasons_report_every_failed_gate(self):
+        row = candidate(
+            3,
+            maturity=2,
+            confidence=0.40,
+            sigma_m=0.020,
+            observation_count=2,
+            last_seen_sec=9.0,
+            clearance_m=0.01,
+            grasp_feasible=False,
+        )
+
+        self.assertEqual(
+            target_rejection_reasons(
+                row,
+                now_sec=10.1,
+                excluded_track_ids={3},
+            ),
+            (
+                "EXCLUDED",
+                "NOT_RIPE",
+                "LOW_CONFIDENCE",
+                "HIGH_UNCERTAINTY",
+                "INSUFFICIENT_OBSERVATIONS",
+                "STALE_OR_FUTURE_DATA",
+                "LOW_CLEARANCE",
+                "OUTSIDE_CONSERVATIVE_REACH",
+            ),
+        )
 
     def test_dynamic_view_bank_is_finite_normalized_and_points_at_target(self):
         views = generate_dynamic_views(4, (0.50, 0.0, 0.55))
         self.assertEqual(len(views), 12)
         for view in views:
-            self.assertAlmostEqual(math.sqrt(sum(value * value for value in view.quaternion_xyzw)), 1.0)
+            self.assertAlmostEqual(
+                math.sqrt(sum(value * value for value in view.quaternion_xyzw)), 1.0
+            )
             self.assertGreater(view.position[2], 0.55)
 
     def test_optical_view_is_converted_to_the_urdf_hand_frame(self):
         view = generate_dynamic_views(4, (0.50, 0.0, 0.55))[0]
         hand = hand_pose_for_optical_view(view)
         self.assertEqual(hand.target_id, view.target_id)
-        self.assertAlmostEqual(math.sqrt(sum(value * value for value in hand.quaternion_xyzw)), 1.0)
+        self.assertAlmostEqual(
+            math.sqrt(sum(value * value for value in hand.quaternion_xyzw)), 1.0
+        )
         self.assertNotEqual(hand.position, view.position)
 
     def test_view_selection_rejects_unsafe_and_is_deterministic(self):
-        views = generate_dynamic_views(1, (0.50, 0.0, 0.55), distances_m=(0.22,), elevations_deg=(15,), azimuths_deg=(-35, 0, 35))
+        views = generate_dynamic_views(
+            1,
+            (0.50, 0.0, 0.55),
+            distances_m=(0.22,),
+            elevations_deg=(15,),
+            azimuths_deg=(-35, 0, 35),
+        )
 
         def evaluator(view):
             feasible = view.azimuth_rad >= 0.0

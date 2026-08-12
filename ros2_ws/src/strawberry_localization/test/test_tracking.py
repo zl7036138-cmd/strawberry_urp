@@ -83,6 +83,19 @@ class MultiTargetTrackerTests(unittest.TestCase):
                 completed_suppression_distance_m=0.06,
             )
 
+    def test_reset_requires_fresh_stable_observations(self):
+        tracker = MultiTargetTracker(minimum_observations=2)
+        tracker.update([observation(1, 0.4)], stamp_sec=1.0)
+        tracker.update([observation(2, 0.4)], stamp_sec=1.1)
+        self.assertEqual(len(tracker.snapshot(stamp_sec=1.1, stable_only=True)), 1)
+
+        tracker.reset()
+
+        self.assertEqual(tracker.snapshot(stamp_sec=1.1, stable_only=True), ())
+        tracks = tracker.update([observation(9, 0.6)], stamp_sec=1.2)
+        self.assertEqual([item.track_id for item in tracks], [1])
+        self.assertEqual(tracker.snapshot(stamp_sec=1.2, stable_only=True), ())
+
     def test_invalid_observation_fails_closed(self):
         with self.assertRaises(ValueError):
             observation(0, 0.4)

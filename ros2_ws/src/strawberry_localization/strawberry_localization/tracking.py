@@ -241,6 +241,15 @@ class MultiTargetTracker:
             raise KeyError(track_id)
         self._harvested.add(track_id)
 
+    def reset(self) -> None:
+        """Forget camera-local tracks when the bounded attention target changes."""
+
+        self._tracks.clear()
+        self._next_track_id = 1
+        self._harvested.clear()
+        self.identity_switches = 0
+        self.association_count = 0
+
     @property
     def identity_switch_rate(self) -> float:
         return self.identity_switches / self.association_count if self.association_count else 0.0

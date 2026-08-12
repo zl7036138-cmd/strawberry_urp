@@ -16,6 +16,13 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('"/camera/wrist/color/image_raw"', self.source)
         self.assertIn('"/strawberry/tracked_targets"', self.source)
         self.assertIn('"/strawberry/wrist/target_pose"', self.source)
+        self.assertIn(
+            '"target_hint_topic": "/strawberry/wrist/target_hint"', self.source
+        )
+        self.assertIn('"require_target_hint": True', self.source)
+        self.assertIn(
+            '"geometry_size_residual_sigma_weight": 0.5', self.source
+        )
         self.assertIn('"completed_track_topic": ""', self.source)
 
     def test_generalized_control_disables_truth_association(self):

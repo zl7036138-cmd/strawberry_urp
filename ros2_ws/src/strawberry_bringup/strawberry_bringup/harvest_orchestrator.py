@@ -6,7 +6,10 @@ import json
 import math
 import time
 
-from .harvest_planning import fuse_position_estimates
+from .harvest_planning import (
+    fuse_position_estimates,
+    wrist_refinement_rejection_reason,
+)
 from .harvest_sequence import HarvestSequence, HarvestState
 
 
@@ -53,8 +56,12 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_views = []
             self._current_view_index = 0
             self._last_candidate_ids = set()
+            self._last_wrist_rejection_reason = None
             self._status = self.create_publisher(String, "/strawberry/harvest_status", 10)
             self._completed = self.create_publisher(UInt32, "/strawberry/completed_track_id", 10)
+            self._wrist_target_hint = self.create_publisher(
+                TargetPose, "/strawberry/wrist/target_hint", 10
+            )
             self._pick_client = ActionClient(self, PickAndPlace, "/strawberry/pick_and_place", callback_group=self._group)
             self._observation_client = self.create_client(
                 MoveToObservation, "/strawberry/move_to_observation", callback_group=self._group
@@ -127,6 +134,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_view = None
             self._current_views = []
             self._current_view_index = 0
+            self._last_wrist_rejection_reason = None
             self._arm_scan_timer()
             self._publish("STARTED")
             response.success = True
@@ -213,6 +221,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._after_attempt_failure()
                 return
             self._current_view = self._current_views[self._current_view_index]
+            self._wrist_target_hint.publish(self._current_target)
             request = MoveToObservation.Request()
             request.target_id = int(self._current_target.target_id)
             request.observation_pose = self._current_view
@@ -244,6 +253,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._sequence.confirmation_result(True, "wrist confirmation disabled")
                 self._send_pick()
                 return
+            self._wrist_target_hint.publish(self._current_target)
             self._confirmation_timer = self.create_timer(
                 float(self.get_parameter("wrist_confirmation_timeout_sec").value),
                 self._confirmation_timeout,
@@ -257,12 +267,30 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             current = self._current_target.pose.position
             refined = refinement.pose.position
             correction = math.dist((current.x, current.y, current.z), (refined.x, refined.y, refined.z))
-            if correction > float(self.get_parameter("wrist_max_correction_m").value):
+            rejection_reason = wrist_refinement_rejection_reason(
+                expected_target_id=int(self._current_target.target_id),
+                observed_target_id=int(refinement.target_id),
+                correction_m=correction,
+                confidence=float(refinement.detection_confidence),
+                sigma_m=float(refinement.position_sigma_m),
+                maximum_correction_m=float(
+                    self.get_parameter("wrist_max_correction_m").value
+                ),
+                minimum_confidence=float(
+                    self.get_parameter("wrist_min_confidence").value
+                ),
+                maximum_sigma_m=float(
+                    self.get_parameter("wrist_max_sigma_m").value
+                ),
+            )
+            if rejection_reason is not None:
+                if rejection_reason != self._last_wrist_rejection_reason:
+                    self._last_wrist_rejection_reason = rejection_reason
+                    self._publish(
+                        f"WRIST_CONFIRMATION_REJECTED_{rejection_reason}"
+                    )
                 return
-            if float(refinement.detection_confidence) < float(self.get_parameter("wrist_min_confidence").value):
-                return
-            if float(refinement.position_sigma_m) > float(self.get_parameter("wrist_max_sigma_m").value):
-                return
+            self._last_wrist_rejection_reason = None
             fused_position, fused_sigma = fuse_position_estimates(
                 (current.x, current.y, current.z),
                 (refined.x, refined.y, refined.z),

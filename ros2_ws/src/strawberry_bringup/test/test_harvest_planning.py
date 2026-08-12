@@ -17,6 +17,7 @@ from strawberry_bringup.harvest_planning import (  # noqa: E402
     rank_safe_targets,
     select_dynamic_view,
     target_rejection_reasons,
+    wrist_refinement_rejection_reason,
 )
 
 
@@ -144,6 +145,24 @@ class HarvestPlanningTests(unittest.TestCase):
         )
         self.assertLess(math.dist(fused, (0.38, -0.26, 0.55)), 0.003)
         self.assertLess(sigma, 0.010)
+
+    def test_wrist_confirmation_requires_matching_base_track_identity(self):
+        common = {
+            "expected_target_id": 2,
+            "correction_m": 0.008,
+            "confidence": 0.90,
+            "sigma_m": 0.007,
+            "maximum_correction_m": 0.05,
+            "minimum_confidence": 0.60,
+            "maximum_sigma_m": 0.015,
+        }
+        self.assertEqual(
+            "TARGET_ID_MISMATCH",
+            wrist_refinement_rejection_reason(observed_target_id=5, **common),
+        )
+        self.assertIsNone(
+            wrist_refinement_rejection_reason(observed_target_id=2, **common)
+        )
 
 
 if __name__ == "__main__":

@@ -152,6 +152,44 @@ def target_rejection_reasons(
     return tuple(reasons)
 
 
+def wrist_refinement_rejection_reason(
+    *,
+    expected_target_id: int,
+    observed_target_id: int,
+    correction_m: float,
+    confidence: float,
+    sigma_m: float,
+    maximum_correction_m: float,
+    minimum_confidence: float,
+    maximum_sigma_m: float,
+) -> str | None:
+    """Return one stable fail-closed reason for a wrist confirmation."""
+
+    values = (
+        correction_m,
+        confidence,
+        sigma_m,
+        maximum_correction_m,
+        minimum_confidence,
+        maximum_sigma_m,
+    )
+    if not all(math.isfinite(float(value)) for value in values):
+        return "NONFINITE_MEASUREMENT"
+    if int(expected_target_id) <= 0 or int(observed_target_id) <= 0:
+        return "INVALID_TARGET_ID"
+    if int(observed_target_id) != int(expected_target_id):
+        return "TARGET_ID_MISMATCH"
+    if correction_m < 0.0 or sigma_m < 0.0:
+        return "INVALID_QUALITY"
+    if correction_m > maximum_correction_m:
+        return "CORRECTION_TOO_LARGE"
+    if confidence < minimum_confidence:
+        return "LOW_CONFIDENCE"
+    if sigma_m > maximum_sigma_m:
+        return "HIGH_UNCERTAINTY"
+    return None
+
+
 def fuse_position_estimates(
     base_position: Sequence[float],
     wrist_position: Sequence[float],

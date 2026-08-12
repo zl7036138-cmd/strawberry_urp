@@ -37,9 +37,11 @@ from strawberry_localization.core import (  # noqa: E402
 )
 from strawberry_localization.generalized_depth import (  # noqa: E402
     adjust_point_along_optical_ray,
+    calibrate_runtime_geometry_uncertainty,
     expand_bounding_box,
     point_on_pixel_bearing,
     retain_foreground_depth_band,
+    retain_support_ranked_geometry_layer,
 )
 
 
@@ -192,6 +194,7 @@ def _load_parameters(path: Path) -> dict[str, Any]:
         "geometry_ambiguity_margin_m",
         "geometry_ambiguity_min_support_ratio",
         "geometry_bbox_quantization_margin_px",
+        "geometry_size_residual_sigma_weight",
         "geometry_foreground_band_m",
         "geometry_bbox_padding_px",
         "geometry_target_radius_m",
@@ -202,6 +205,9 @@ def _load_parameters(path: Path) -> dict[str, Any]:
     # it explicitly.  Preserve the base behavior when the YAML omits it.
     result["use_bbox_center_bearing"] = bool(
         source.get("use_bbox_center_bearing", False)
+    )
+    result["geometry_size_residual_sigma_weight"] = float(
+        source.get("geometry_size_residual_sigma_weight", 1.0)
     )
     return result
 
@@ -425,6 +431,33 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                         parameters["geometry_foreground_band_m"]
                     ),
                 )
+                filtered = retain_support_ranked_geometry_layer(
+                    filtered,
+                    box,
+                    fx=intrinsics.fx,
+                    fy=intrinsics.fy,
+                    target_radius_m=float(parameters["geometry_target_radius_m"]),
+                    search_fraction=float(parameters["geometry_search_fraction"]),
+                    min_depth_m=float(parameters["min_depth_m"]),
+                    max_depth_m=float(parameters["max_depth_m"]),
+                    min_layer_pixels=int(parameters["min_valid_pixels"]),
+                    min_layer_fraction=float(
+                        parameters["geometry_min_layer_fraction"]
+                    ),
+                    layer_gap_m=float(parameters["geometry_layer_gap_m"]),
+                    expected_depth_tolerance_m=float(
+                        parameters["geometry_expected_depth_tolerance_m"]
+                    ),
+                    ambiguity_margin_m=float(
+                        parameters["geometry_ambiguity_margin_m"]
+                    ),
+                    ambiguity_min_support_ratio=float(
+                        parameters["geometry_ambiguity_min_support_ratio"]
+                    ),
+                    bbox_quantization_margin_px=float(
+                        parameters["geometry_bbox_quantization_margin_px"]
+                    ),
+                )
                 report["filtered_depth_layers"] = _layer_summary(
                     filtered, box, intrinsics, parameters
                 )
@@ -457,6 +490,12 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                     ),
                     geometry_bbox_quantization_margin_px=float(
                         parameters["geometry_bbox_quantization_margin_px"]
+                    ),
+                )
+                estimate = calibrate_runtime_geometry_uncertainty(
+                    estimate,
+                    weight=float(
+                        parameters["geometry_size_residual_sigma_weight"]
                     ),
                 )
                 point = adjust_point_along_optical_ray(

@@ -8,16 +8,109 @@ import numpy as np
 PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
-from strawberry_localization.core import BoundingBox  # noqa: E402
+from strawberry_localization.core import (  # noqa: E402
+    BoundingBox,
+    CameraIntrinsics,
+    DepthEstimate,
+    robust_geometry_layer_depth,
+)
 from strawberry_localization.generalized_depth import (  # noqa: E402
     adjust_point_along_optical_ray,
+    calibrate_runtime_geometry_uncertainty,
     expand_bounding_box,
     point_on_pixel_bearing,
     retain_foreground_depth_band,
+    retain_support_ranked_geometry_layer,
 )
 
 
 class GeneralizedDepthBandTests(unittest.TestCase):
+    def test_support_ranker_prefers_dominant_near_tie(self):
+        depth = np.full((21, 23), 0.765, dtype=np.float32)
+        flattened = depth.reshape(-1)
+        flattened[:280] = 0.627
+        flattened[280:297] = 0.682
+
+        filtered = retain_support_ranked_geometry_layer(
+            depth,
+            BoundingBox(0, 0, 23, 21),
+            fx=277.128,
+            fy=277.128,
+            target_radius_m=0.026,
+            search_fraction=1.0,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            min_layer_fraction=0.03,
+            layer_gap_m=0.015,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.01,
+            ambiguity_min_support_ratio=0.50,
+            bbox_quantization_margin_px=2.0,
+        )
+        estimate = robust_geometry_layer_depth(
+            filtered,
+            BoundingBox(0, 0, 23, 21),
+            CameraIntrinsics(277.128, 277.128, 11.5, 10.5),
+            target_radius_m=0.026,
+            min_layer_fraction=0.03,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.01,
+            ambiguity_min_support_ratio=0.50,
+            bbox_quantization_margin_px=2.0,
+        )
+
+        self.assertAlmostEqual(estimate.depth_m, 0.627, places=5)
+        self.assertEqual(estimate.valid_pixels, 280)
+
+    def test_support_ranker_leaves_zero_margin_input_unchanged(self):
+        depth = np.full((21, 23), 0.627, dtype=np.float32)
+        depth.reshape(-1)[:17] = 0.682
+
+        filtered = retain_support_ranked_geometry_layer(
+            depth,
+            BoundingBox(0, 0, 23, 21),
+            fx=277.128,
+            fy=277.128,
+            target_radius_m=0.026,
+            search_fraction=1.0,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            min_layer_fraction=0.03,
+            layer_gap_m=0.015,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.0,
+            ambiguity_min_support_ratio=0.50,
+            bbox_quantization_margin_px=2.0,
+        )
+
+        np.testing.assert_array_equal(filtered, depth)
+
+    def test_runtime_uncertainty_calibration_preserves_estimate_metadata(self):
+        estimate = DepthEstimate(0.55, 0.024, 123, 40.5, 60.5)
+
+        result = calibrate_runtime_geometry_uncertainty(
+            estimate,
+            weight=0.5,
+            minimum_sigma_m=0.005,
+        )
+
+        self.assertEqual(result, DepthEstimate(0.55, 0.012, 123, 40.5, 60.5))
+
+    def test_runtime_uncertainty_calibration_is_bounded(self):
+        estimate = DepthEstimate(0.55, 0.002, 123, 40.5, 60.5)
+
+        result = calibrate_runtime_geometry_uncertainty(
+            estimate,
+            weight=0.5,
+            minimum_sigma_m=0.005,
+        )
+
+        self.assertEqual(result.sigma_m, 0.005)
+        with self.assertRaises(ValueError):
+            calibrate_runtime_geometry_uncertainty(estimate, weight=0.0)
+
     def test_distant_background_is_masked_after_supported_foreground(self):
         depth = np.full((20, 20), 0.84, dtype=np.float32)
         depth[4:16, 4:16] = 0.67

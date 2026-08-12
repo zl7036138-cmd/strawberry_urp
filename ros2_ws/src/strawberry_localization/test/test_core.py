@@ -122,45 +122,6 @@ class LocalizationCoreTests(unittest.TestCase):
         self.assertAlmostEqual(estimate.depth_m, 0.481, places=5)
         self.assertEqual(estimate.valid_pixels, 3300)
 
-    def test_geometry_layer_prefers_dominant_near_tie_over_weak_best_fit(
-        self,
-    ) -> None:
-        depth = np.full((21, 23), 0.765, dtype=np.float32)
-        flattened = depth.reshape(-1)
-        flattened[:280] = 0.627
-        flattened[280:297] = 0.682
-
-        estimate = robust_geometry_layer_depth(
-            depth,
-            BoundingBox(0, 0, 23, 21),
-            CameraIntrinsics(277.128, 277.128, 11.5, 10.5),
-            target_radius_m=0.026,
-            min_layer_fraction=0.03,
-            expected_depth_tolerance_m=0.08,
-            ambiguity_margin_m=0.01,
-            ambiguity_min_support_ratio=0.50,
-            bbox_quantization_margin_px=2.0,
-        )
-
-        self.assertAlmostEqual(estimate.depth_m, 0.627, places=5)
-        self.assertEqual(estimate.valid_pixels, 280)
-
-    def test_geometry_layer_zero_ambiguity_margin_keeps_best_fit(self) -> None:
-        depth = np.full((21, 23), 0.627, dtype=np.float32)
-        depth.reshape(-1)[:17] = 0.682
-
-        estimate = robust_geometry_layer_depth(
-            depth,
-            BoundingBox(0, 0, 23, 21),
-            CameraIntrinsics(277.128, 277.128, 11.5, 10.5),
-            target_radius_m=0.026,
-            ambiguity_margin_m=0.0,
-            bbox_quantization_margin_px=2.0,
-        )
-
-        self.assertAlmostEqual(estimate.depth_m, 0.682, places=5)
-        self.assertEqual(estimate.valid_pixels, 17)
-
     def test_geometry_layer_localize_mode_uses_selected_pixel_centroid(self) -> None:
         depth = np.full((100, 100), 1.8, dtype=np.float32)
         depth[35:65, 25:45] = 0.50

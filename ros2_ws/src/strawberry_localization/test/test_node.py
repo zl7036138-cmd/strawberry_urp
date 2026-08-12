@@ -26,6 +26,7 @@ from strawberry_localization.node import (  # noqa: E402
 from strawberry_localization.generalized_node import (  # noqa: E402
     newest_pending_detection,
     select_candidate_detections,
+    select_stable_ripe_track,
 )
 
 
@@ -264,6 +265,51 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         values = {(1, 10): ("old", 2), (2, 0): ("new", 0)}
         self.assertEqual(newest_pending_detection(values), ("new", 0))
         self.assertIsNone(newest_pending_detection({}))
+
+    def test_wrist_hint_selects_current_fruit_instead_of_lowest_sigma_neighbour(self):
+        current = SimpleNamespace(
+            track_id=4,
+            maturity=1,
+            position=(0.308, 0.165, 0.549),
+            confidence=0.91,
+            sigma_m=0.024,
+        )
+        neighbour = SimpleNamespace(
+            track_id=3,
+            maturity=1,
+            position=(0.487, 0.258, 0.540),
+            confidence=0.93,
+            sigma_m=0.021,
+        )
+
+        selected = select_stable_ripe_track(
+            (current, neighbour),
+            target_hint_position=(0.308, 0.165, 0.549),
+            target_hint_max_distance_m=0.05,
+            require_target_hint=True,
+        )
+
+        self.assertIs(selected, current)
+
+    def test_required_wrist_hint_fails_closed_when_missing_or_inconsistent(self):
+        track = SimpleNamespace(
+            track_id=1,
+            maturity=1,
+            position=(0.45, -0.10, 0.55),
+            confidence=0.90,
+            sigma_m=0.006,
+        )
+        self.assertIsNone(
+            select_stable_ripe_track((track,), require_target_hint=True)
+        )
+        self.assertIsNone(
+            select_stable_ripe_track(
+                (track,),
+                target_hint_position=(0.60, 0.20, 0.55),
+                target_hint_max_distance_m=0.05,
+                require_target_hint=True,
+            )
+        )
 
     def test_geometry_layer_estimator_is_explicitly_opt_in(self) -> None:
         source = (

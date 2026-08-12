@@ -559,44 +559,26 @@ def robust_geometry_layer_depth(
             "no depth layer contains the minimum number of valid pixels"
         )
     candidates.sort(key=lambda item: (item[0], item[1], item[2]))
-    minimum_error = candidates[0][0]
-    if minimum_error > expected_depth_tolerance_m:
+    best = candidates[0]
+    if best[0] > expected_depth_tolerance_m:
         raise LocalizationError(
             "nearest depth layer is inconsistent with detected fruit size: "
-            f"error={minimum_error:.3f} m, "
-            f"limit={expected_depth_tolerance_m:.3f} m"
+            f"error={best[0]:.3f} m, limit={expected_depth_tolerance_m:.3f} m"
         )
-
-    # Geometry errors inside the ambiguity margin are indistinguishable at the
-    # configured depth resolution.  Rank that tied set by pixel support before
-    # deciding whether it is ambiguous.  Previously a tiny layer with a 1--3
-    # mm better analytic fit could become ``best`` and force rejection even
-    # when another equally plausible layer occupied nearly the whole fruit
-    # silhouette.  The support test was already used when the dominant layer
-    # happened to have the smallest error; applying it symmetrically removes
-    # that sort-order accident without accepting similarly supported layers.
-    near_tied = [candidates[0]] + [
-        candidate
-        for candidate in candidates[1:]
-        if candidate[0] <= expected_depth_tolerance_m
-        and candidate[0] - minimum_error < ambiguity_margin_m
-    ]
-    support_ranked = sorted(
-        near_tied,
-        key=lambda item: (item[1], item[0], item[2]),
+    second_support_ratio = (
+        (-candidates[1][1]) / (-best[1]) if len(candidates) > 1 else 0.0
     )
-    best = support_ranked[0]
-    if len(support_ranked) > 1:
-        runner_up = support_ranked[1]
-        runner_up_support_ratio = (-runner_up[1]) / (-best[1])
-        if runner_up_support_ratio >= ambiguity_min_support_ratio:
-            raise LocalizationError(
-                "multiple depth layers are geometrically ambiguous: "
-                f"best_error={best[0]:.3f} m, "
-                f"second_error={runner_up[0]:.3f} m, "
-                "second_support_ratio="
-                f"{runner_up_support_ratio:.3f}"
-            )
+    if (
+        len(candidates) > 1
+        and candidates[1][0] - best[0] < ambiguity_margin_m
+        and second_support_ratio >= ambiguity_min_support_ratio
+    ):
+        raise LocalizationError(
+            "multiple depth layers are geometrically ambiguous: "
+            f"best_error={best[0]:.3f} m, "
+            f"second_error={candidates[1][0]:.3f} m, "
+            f"second_support_ratio={second_support_ratio:.3f}"
+        )
 
     selected_indices = best[3]
     selected_values = values[selected_indices]

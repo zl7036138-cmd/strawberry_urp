@@ -26,9 +26,11 @@ from .core import (
 )
 from .generalized_depth import (
     adjust_point_along_optical_ray,
+    calibrate_runtime_geometry_uncertainty,
     expand_bounding_box,
     point_on_pixel_bearing,
     retain_foreground_depth_band,
+    retain_support_ranked_geometry_layer,
 )
 from .tracking import LocalizedObservation, MultiTargetTracker
 
@@ -240,6 +242,59 @@ def select_candidate_detections(
     return tuple(sorted(candidates, key=lambda item: int(item.target_id)))
 
 
+def select_stable_ripe_track(
+    tracks,
+    *,
+    target_hint_position: Sequence[float] | None = None,
+    target_hint_max_distance_m: float = 0.05,
+    require_target_hint: bool = False,
+):
+    """Select a stable ripe track, optionally constrained by a 3-D hint.
+
+    The base camera owns global identity. An eye-in-hand camera may see more
+    than one fruit, so uncertainty alone cannot identify the fruit currently
+    being confirmed. The bounded hint is perception-derived and introduces no
+    simulator truth, fixed ROI, or fixed target ID dependency.
+    """
+
+    maximum_distance = float(target_hint_max_distance_m)
+    if not math.isfinite(maximum_distance) or maximum_distance <= 0.0:
+        raise ValueError("target hint distance must be positive and finite")
+    candidates = [track for track in tracks if int(track.maturity) == 1]
+    if target_hint_position is None:
+        if require_target_hint or not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda track: (
+                float(track.sigma_m),
+                -float(track.confidence),
+                int(track.track_id),
+            ),
+        )
+    if len(target_hint_position) != 3:
+        raise ValueError("target hint position must contain three values")
+    hint = tuple(float(value) for value in target_hint_position)
+    if not all(math.isfinite(value) for value in hint):
+        raise ValueError("target hint position must be finite")
+    compatible = []
+    for track in candidates:
+        distance = math.dist(hint, tuple(float(value) for value in track.position))
+        if distance <= maximum_distance:
+            compatible.append((distance, track))
+    if not compatible:
+        return None
+    return min(
+        compatible,
+        key=lambda pair: (
+            pair[0],
+            float(pair[1].sigma_m),
+            -float(pair[1].confidence),
+            int(pair[1].track_id),
+        ),
+    )[1]
+
+
 def newest_pending_detection(pending):
     """Select one newest deferred frame so startup cannot create retry storms."""
 
@@ -310,6 +365,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter(
                 "geometry_bbox_quantization_margin_px", 0.0
             )
+            self.declare_parameter("geometry_size_residual_sigma_weight", 1.0)
             self.declare_parameter("geometry_foreground_band_m", 0.06)
             self.declare_parameter("geometry_bbox_padding_px", 1)
             self.declare_parameter("geometry_target_radius_m", 0.026)
@@ -335,6 +391,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("target_pose_topic", "/strawberry/target_pose")
             self.declare_parameter("tracked_targets_topic", "/strawberry/tracked_targets")
             self.declare_parameter("completed_track_topic", "/strawberry/completed_track_id")
+            self.declare_parameter("target_hint_topic", "")
+            self.declare_parameter("target_hint_max_distance_m", 0.05)
+            self.declare_parameter("target_hint_wall_timeout_sec", 60.0)
+            self.declare_parameter("require_target_hint", False)
             self.declare_parameter("tracking_association_distance_m", 0.06)
             self.declare_parameter(
                 "tracking_completed_suppression_distance_m", 0.04
@@ -353,6 +413,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._truth_lock = threading.RLock()
             self._pending_lock = threading.RLock()
             self._pending_detections = {}
+            self._target_hint_lock = threading.RLock()
+            self._target_hint = None
             self._sensor_cache = SensorFrameCache(
                 capacity=int(self.get_parameter("sensor_cache_capacity").value),
                 retention_sec=float(
@@ -433,6 +495,36 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 10,
                 callback_group=self._localization_callback_group,
             )
+            target_hint_topic = str(
+                self.get_parameter("target_hint_topic").value
+            ).strip()
+            target_hint_max_distance_m = float(
+                self.get_parameter("target_hint_max_distance_m").value
+            )
+            target_hint_wall_timeout_sec = float(
+                self.get_parameter("target_hint_wall_timeout_sec").value
+            )
+            require_target_hint = bool(
+                self.get_parameter("require_target_hint").value
+            )
+            if (
+                target_hint_max_distance_m <= 0.0
+                or target_hint_wall_timeout_sec <= 0.0
+            ):
+                raise RuntimeError("target hint bounds must be positive")
+            if require_target_hint and not target_hint_topic:
+                raise RuntimeError(
+                    "require_target_hint needs a non-empty target_hint_topic"
+                )
+            self._target_hint_subscription = None
+            if target_hint_topic:
+                self._target_hint_subscription = self.create_subscription(
+                    TargetPose,
+                    target_hint_topic,
+                    self._on_target_hint,
+                    10,
+                    callback_group=self._localization_callback_group,
+                )
             catalog_qos = QoSProfile(depth=1)
             catalog_qos.reliability = ReliabilityPolicy.RELIABLE
             catalog_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
@@ -560,6 +652,44 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 if self._last_joint_state_wall_sec is None:
                     return None
                 return time.monotonic() - self._last_joint_state_wall_sec
+
+        def _on_target_hint(self, message) -> None:
+            target_frame = str(self.get_parameter("target_frame").value)
+            position = (
+                float(message.pose.position.x),
+                float(message.pose.position.y),
+                float(message.pose.position.z),
+            )
+            if (
+                int(message.target_id) <= 0
+                or message.header.frame_id != target_frame
+                or not all(math.isfinite(value) for value in position)
+            ):
+                self.get_logger().warning("ignoring invalid spatial target hint")
+                return
+            with self._target_hint_lock:
+                self._target_hint = (
+                    int(message.target_id),
+                    position,
+                    time.monotonic(),
+                )
+            # The orchestrator republishes the hint after observation motion
+            # succeeds. Resetting here discards detections accumulated while
+            # the camera was moving; confirmation still requires the normal
+            # minimum number of fresh, stationary observations.
+            self._tracker.reset()
+
+        def _target_hint_snapshot(self):
+            with self._target_hint_lock:
+                hint = self._target_hint
+            if hint is None:
+                return None
+            maximum_age = float(
+                self.get_parameter("target_hint_wall_timeout_sec").value
+            )
+            if time.monotonic() - hint[2] > maximum_age:
+                return None
+            return hint
 
         def _on_ground_truth_catalog(self, message) -> None:
             try:
@@ -748,18 +878,27 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 if track.maturity == 1
             ]
-            if stable_ripe:
-                selected = min(
-                    stable_ripe,
-                    key=lambda track: (
-                        float(track.sigma_m),
-                        -float(track.confidence),
-                        int(track.track_id),
-                    ),
-                )
+            target_hint = self._target_hint_snapshot()
+            selected = select_stable_ripe_track(
+                stable_ripe,
+                target_hint_position=(
+                    None if target_hint is None else target_hint[1]
+                ),
+                target_hint_max_distance_m=float(
+                    self.get_parameter("target_hint_max_distance_m").value
+                ),
+                require_target_hint=bool(
+                    self.get_parameter("require_target_hint").value
+                ),
+            )
+            if selected is not None:
                 legacy = TargetPose()
                 legacy.header = tracked_array.header
-                legacy.target_id = int(selected.track_id)
+                legacy.target_id = (
+                    int(selected.track_id)
+                    if target_hint is None
+                    else int(target_hint[0])
+                )
                 legacy.pose.position.x = float(selected.position[0])
                 legacy.pose.position.y = float(selected.position[1])
                 legacy.pose.position.z = float(selected.position[2])
@@ -915,6 +1054,47 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                             self.get_parameter("geometry_foreground_band_m").value
                         ),
                     )
+                    depth = retain_support_ranked_geometry_layer(
+                        depth,
+                        box,
+                        fx=camera_info.intrinsics.fx,
+                        fy=camera_info.intrinsics.fy,
+                        target_radius_m=float(
+                            self.get_parameter("geometry_target_radius_m").value
+                        ),
+                        search_fraction=float(
+                            self.get_parameter("geometry_search_fraction").value
+                        ),
+                        min_depth_m=float(self.get_parameter("min_depth_m").value),
+                        max_depth_m=float(self.get_parameter("max_depth_m").value),
+                        min_layer_pixels=int(
+                            self.get_parameter("min_valid_pixels").value
+                        ),
+                        min_layer_fraction=float(
+                            self.get_parameter("geometry_min_layer_fraction").value
+                        ),
+                        layer_gap_m=float(
+                            self.get_parameter("geometry_layer_gap_m").value
+                        ),
+                        expected_depth_tolerance_m=float(
+                            self.get_parameter(
+                                "geometry_expected_depth_tolerance_m"
+                            ).value
+                        ),
+                        ambiguity_margin_m=float(
+                            self.get_parameter("geometry_ambiguity_margin_m").value
+                        ),
+                        ambiguity_min_support_ratio=float(
+                            self.get_parameter(
+                                "geometry_ambiguity_min_support_ratio"
+                            ).value
+                        ),
+                        bbox_quantization_margin_px=float(
+                            self.get_parameter(
+                                "geometry_bbox_quantization_margin_px"
+                            ).value
+                        ),
+                    )
                 image_height, image_width = depth.shape
                 validate_bbox_within_image(box, image_width, image_height)
                 center_offset_m = float(
@@ -971,6 +1151,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     ),
                 )
                 if depth_estimator_mode == "geometry_layer":
+                    estimate = calibrate_runtime_geometry_uncertainty(
+                        estimate,
+                        weight=float(
+                            self.get_parameter(
+                                "geometry_size_residual_sigma_weight"
+                            ).value
+                        ),
+                    )
                     point = adjust_point_along_optical_ray(
                         point,
                         center_offset_m - geometry_target_radius_m,

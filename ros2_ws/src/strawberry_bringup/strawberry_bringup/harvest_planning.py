@@ -190,6 +190,42 @@ def wrist_refinement_rejection_reason(
     return None
 
 
+def wrist_refinement_diagnostics(
+    *,
+    expected_target_id: int,
+    observed_target_id: int,
+    correction_m: float,
+    confidence: float,
+    sigma_m: float,
+    maximum_correction_m: float,
+    minimum_confidence: float,
+    maximum_sigma_m: float,
+) -> dict[str, int | float | str]:
+    """Return auditable wrist measurements together with the gate result."""
+
+    reason = wrist_refinement_rejection_reason(
+        expected_target_id=expected_target_id,
+        observed_target_id=observed_target_id,
+        correction_m=correction_m,
+        confidence=confidence,
+        sigma_m=sigma_m,
+        maximum_correction_m=maximum_correction_m,
+        minimum_confidence=minimum_confidence,
+        maximum_sigma_m=maximum_sigma_m,
+    )
+    return {
+        "expected_target_id": int(expected_target_id),
+        "observed_target_id": int(observed_target_id),
+        "correction_m": float(correction_m),
+        "maximum_correction_m": float(maximum_correction_m),
+        "confidence": float(confidence),
+        "minimum_confidence": float(minimum_confidence),
+        "sigma_m": float(sigma_m),
+        "maximum_sigma_m": float(maximum_sigma_m),
+        "gate_result": "ACCEPTED" if reason is None else reason,
+    }
+
+
 def fuse_position_estimates(
     base_position: Sequence[float],
     wrist_position: Sequence[float],

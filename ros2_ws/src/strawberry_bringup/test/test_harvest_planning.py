@@ -18,6 +18,7 @@ from strawberry_bringup.harvest_planning import (  # noqa: E402
     select_dynamic_view,
     target_rejection_reasons,
     wrist_refinement_rejection_reason,
+    wrist_refinement_diagnostics,
 )
 
 
@@ -163,6 +164,23 @@ class HarvestPlanningTests(unittest.TestCase):
         self.assertIsNone(
             wrist_refinement_rejection_reason(observed_target_id=2, **common)
         )
+
+    def test_wrist_diagnostics_preserve_measurements_and_thresholds(self):
+        diagnostics = wrist_refinement_diagnostics(
+            expected_target_id=5,
+            observed_target_id=5,
+            correction_m=0.012,
+            confidence=0.91,
+            sigma_m=0.018,
+            maximum_correction_m=0.05,
+            minimum_confidence=0.60,
+            maximum_sigma_m=0.015,
+        )
+
+        self.assertEqual(diagnostics["gate_result"], "HIGH_UNCERTAINTY")
+        self.assertEqual(diagnostics["expected_target_id"], 5)
+        self.assertAlmostEqual(diagnostics["sigma_m"], 0.018)
+        self.assertAlmostEqual(diagnostics["maximum_sigma_m"], 0.015)
 
 
 if __name__ == "__main__":

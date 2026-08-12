@@ -56,6 +56,7 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             self.source.count('"confidence_threshold": confidence_threshold'), 5
         )
         self.assertIn('"wrist_min_confidence": confidence_threshold', self.source)
+        self.assertIn('"wrist_confirmation_timeout_sec": 3.0', self.source)
 
 
 if __name__ == "__main__":

@@ -198,6 +198,7 @@ def generate_launch_description():
                     {
                         "use_sim_time": True,
                         "require_wrist_confirmation": True,
+                        "wrist_confirmation_timeout_sec": 3.0,
                         "wrist_min_confidence": confidence_threshold,
                     }
                 ],

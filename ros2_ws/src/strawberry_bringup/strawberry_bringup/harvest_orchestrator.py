@@ -8,6 +8,7 @@ import time
 
 from .harvest_planning import (
     fuse_position_estimates,
+    wrist_refinement_diagnostics,
     wrist_refinement_rejection_reason,
 )
 from .harvest_sequence import HarvestSequence, HarvestState
@@ -33,7 +34,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
         def __init__(self) -> None:
             super().__init__("strawberry_harvest_orchestrator")
             self.declare_parameter("scan_timeout_sec", 3.0)
-            self.declare_parameter("wrist_confirmation_timeout_sec", 1.5)
+            self.declare_parameter("wrist_confirmation_timeout_sec", 3.0)
             self.declare_parameter("wrist_max_correction_m", 0.05)
             self.declare_parameter("wrist_min_confidence", 0.60)
             self.declare_parameter("wrist_max_sigma_m", 0.015)
@@ -83,7 +84,11 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
         def _elapsed(self) -> float:
             return 0.0 if self._started_monotonic is None else time.monotonic() - self._started_monotonic
 
-        def _publish(self, outcome: str = "") -> None:
+        def _publish(
+            self,
+            outcome: str = "",
+            diagnostics: dict | None = None,
+        ) -> None:
             message = String()
             message.data = json.dumps(
                 {
@@ -97,6 +102,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     "failures": list(self._sequence.failures),
                     "remaining_candidate_count": len(self._last_candidate_ids - self._sequence.completed_ids),
                     "elapsed_sec": self._elapsed(),
+                    "diagnostics": {} if diagnostics is None else diagnostics,
                     "state_history": [event.__dict__ | {"state": event.state.value} for event in self._sequence.history],
                 },
                 separators=(",", ":"),
@@ -283,11 +289,28 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     self.get_parameter("wrist_max_sigma_m").value
                 ),
             )
+            diagnostics = wrist_refinement_diagnostics(
+                expected_target_id=int(self._current_target.target_id),
+                observed_target_id=int(refinement.target_id),
+                correction_m=correction,
+                confidence=float(refinement.detection_confidence),
+                sigma_m=float(refinement.position_sigma_m),
+                maximum_correction_m=float(
+                    self.get_parameter("wrist_max_correction_m").value
+                ),
+                minimum_confidence=float(
+                    self.get_parameter("wrist_min_confidence").value
+                ),
+                maximum_sigma_m=float(
+                    self.get_parameter("wrist_max_sigma_m").value
+                ),
+            )
             if rejection_reason is not None:
                 if rejection_reason != self._last_wrist_rejection_reason:
                     self._last_wrist_rejection_reason = rejection_reason
                     self._publish(
-                        f"WRIST_CONFIRMATION_REJECTED_{rejection_reason}"
+                        f"WRIST_CONFIRMATION_REJECTED_{rejection_reason}",
+                        diagnostics=diagnostics,
                     )
                 return
             self._last_wrist_rejection_reason = None
@@ -320,6 +343,14 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 f"fused_correction={fused_correction:.4f} m; "
                 f"fused_sigma={fused_sigma:.4f} m",
             )
+            self._publish(
+                "WRIST_CONFIRMATION_ACCEPTED",
+                diagnostics=diagnostics
+                | {
+                    "fused_correction_m": fused_correction,
+                    "fused_sigma_m": fused_sigma,
+                },
+            )
             self._send_pick()
 
         def _confirmation_timeout(self) -> None:
@@ -341,9 +372,26 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             goal.place_pose.pose.position.y = float(self.get_parameter("place_y").value)
             goal.place_pose.pose.position.z = float(self.get_parameter("place_z").value)
             goal.place_pose.pose.orientation.w = 1.0
-            future = self._pick_client.send_goal_async(goal)
+            future = self._pick_client.send_goal_async(
+                goal,
+                feedback_callback=self._pick_feedback,
+            )
             future.add_done_callback(self._goal_response)
             self._publish("PICK_SENT")
+
+        def _pick_feedback(self, message) -> None:
+            if self._sequence.state is not HarvestState.PICKING:
+                return
+            feedback = message.feedback
+            stage = str(feedback.stage).strip().upper() or "UNKNOWN"
+            progress = float(feedback.progress)
+            if not math.isfinite(progress):
+                self._publish(f"PICK_STAGE_{stage}")
+                return
+            bounded_progress = min(max(progress, 0.0), 1.0)
+            self._publish(
+                f"PICK_STAGE_{stage}_{bounded_progress:.2f}"
+            )
 
         def _goal_response(self, future) -> None:
             handle = future.result()

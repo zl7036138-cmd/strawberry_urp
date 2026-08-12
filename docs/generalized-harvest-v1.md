@@ -35,7 +35,7 @@ ros2 run strawberry_sim generate_generalized_scene \
 ros2 launch strawberry_bringup generalized_harvest.launch.py \
   world_file:=$PWD/results/generalized/dev_seed_17036/generalized_seed_017036.sdf \
   scene_config_file:=$PWD/results/generalized/dev_seed_17036/generalized_seed_017036.yaml \
-  model_path:=$PWD/outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt \
+  model_path:=$PWD/outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt \
   headless:=false
 ```
 
@@ -61,10 +61,14 @@ ros2 topic echo /strawberry/harvest_status
 
 ## 开发验证状态
 
-完整 ROS 2 回归目前为 `472 tests, 0 errors, 0 failures, 0 skipped`。随机开发场景运行还给出了两项重要结论：
+完整 ROS 2 回归为 `483 tests, 0 errors, 0 failures, 0 skipped`。随机开发场景运行还给出了以下结论：
 
 1. 开发种子 `17036` 已实际经过“底座发现 → 安全选择 → 动态腕部观察 → 腕部确认 → 发起抓取”。精确真值隔离诊断证明抓取失败的直接原因是夹爪右指接触收集箱背板，而不是目标实体映射错误。选择器现已把收集箱外轮廓作为静态障碍；同一风险目标会返回安全 `NO_PICK`。
 2. 现有固定场景视觉模型在额外随机开发种子上的多目标召回不足：`17037`、`17038` 各只形成一个稳定成熟轨迹且均位于收集箱风险区，`17039`、`17042` 没有形成检测。它因此尚未达到进入正式隐藏评测的开发门槛。
+
+此后已完成全部120个开发场景，并以 v2 配置微调广义检测器。冻结运行参数为图像尺寸800、置信阈值0.20524564385414124、NMS IoU 0.50：验证集成熟果精确率96.15%、召回率90.91%；同一参数在只执行一次的独立资格集达到精确率95.65%、召回率97.78%。检测器资格门已经通过。
+
+在线瓶颈仍在 RGB-D 定位与安全运动闭环。开发种子44001形成4条稳定轨迹并安全拒绝风险目标，同时暴露并修复了“失败果实换新ID回流”的问题；开发种子44003的真值仅用于评分，4颗成熟果中在线只形成1条稳定成熟轨迹，批次安全结束为 `NO_PICK`。因此正式30种子继续封存，下一优先级是提高多目标三维定位召回并取得至少一次完整的感知控制连续采摘开发证据。
 
 开发数据工具链已冻结在 `config/generalized_development_capture_v1.json`：72个训练种子、24个验证种子和24个独立资格种子，与正式矩阵零重叠。采集器把同一画面中的所有可见果实写成多行 YOLO 标签，并用深度支持度剔除完全遮挡的真值投影框；资格集不会出现在训练配置中。种子 `41001` 的 Gazebo 冒烟采集已成功生成3个可见标签（2个成熟、1个未成熟）。
 
@@ -78,10 +82,29 @@ bash scripts/run_generalized_development_capture.sh
 
 ```bash
 yolo detect train \
-  cfg=ros2_ws/src/strawberry_perception/config/train_yolo11s_640_generalized_dev_v1.yaml
+  cfg=ros2_ws/src/strawberry_perception/config/train_yolo11s_640_generalized_dev_v2.yaml
 ```
 
-训练完成后必须单独使用 `qualification.yaml` 复核多目标召回和成熟度，不合格就不能运行正式矩阵。`config/generalized_harvest_matrix_v1.json` 中的正式种子不得用于训练、调参或挑选模型。
+训练完成后，先在验证集扫描阈值；只有验证门通过，才能把同一阈值、图像尺寸和 NMS IoU 固定后在资格集执行一次：
+
+```bash
+ros2 run strawberry_benchmark generalized-detector-eval \
+  --model outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt \
+  --dataset-root data/processed/generalized_development_capture_v1 \
+  --split validation \
+  --imgsz 800 --nms-iou 0.50 --iou-threshold 0.50 \
+  --output outputs/perception/yolo11s_640_generalized_dev_v2/validation_gate.json
+
+ros2 run strawberry_benchmark generalized-detector-eval \
+  --model outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt \
+  --dataset-root data/processed/generalized_development_capture_v1 \
+  --split qualification \
+  --threshold 0.20524564385414124 \
+  --imgsz 800 --nms-iou 0.50 --iou-threshold 0.50 \
+  --output outputs/perception/yolo11s_640_generalized_dev_v2/qualification_gate.json
+```
+
+资格集不得重新扫描阈值；`config/generalized_harvest_matrix_v1.json` 中的正式种子不得用于训练、调参或挑选模型。
 
 ## 30 种子正式矩阵
 

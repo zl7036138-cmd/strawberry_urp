@@ -5,6 +5,7 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -16,6 +17,14 @@ def generate_launch_description():
     world_file = LaunchConfiguration("world_file")
     model_path = LaunchConfiguration("model_path")
     device = LaunchConfiguration("device")
+    device_parameter = ParameterValue(device, value_type=str)
+    confidence_threshold = ParameterValue(
+        LaunchConfiguration("confidence_threshold"), value_type=float
+    )
+    image_size = ParameterValue(LaunchConfiguration("image_size"), value_type=int)
+    nms_iou_threshold = ParameterValue(
+        LaunchConfiguration("nms_iou_threshold"), value_type=float
+    )
 
     simulation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -58,6 +67,11 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "model_path", default_value="weights/yolo11s_640_best.pt"
             ),
+            # Frozen from generalized validation, then used once without
+            # retuning on the independent development qualification split.
+            DeclareLaunchArgument("confidence_threshold", default_value="0.20524564385414124"),
+            DeclareLaunchArgument("image_size", default_value="800"),
+            DeclareLaunchArgument("nms_iou_threshold", default_value="0.50"),
             DeclareLaunchArgument("device", default_value="0"),
             simulation,
             Node(
@@ -70,7 +84,10 @@ def generate_launch_description():
                     {
                         "use_sim_time": True,
                         "model_path": model_path,
-                        "device": device,
+                        "device": device_parameter,
+                        "confidence_threshold": confidence_threshold,
+                        "image_size": image_size,
+                        "nms_iou_threshold": nms_iou_threshold,
                         "image_topic": "/camera/base/color/image_raw",
                         "detections_topic": "/strawberry/base/detections",
                     },
@@ -91,6 +108,7 @@ def generate_launch_description():
                         "tracked_targets_topic": "/strawberry/tracked_targets",
                         "target_pose_topic": "/strawberry/localization_best_pose",
                         "ground_truth_association_enabled": False,
+                        "confidence_threshold": confidence_threshold,
                     },
                 ],
             ),
@@ -104,7 +122,10 @@ def generate_launch_description():
                     {
                         "use_sim_time": True,
                         "model_path": model_path,
-                        "device": device,
+                        "device": device_parameter,
+                        "confidence_threshold": confidence_threshold,
+                        "image_size": image_size,
+                        "nms_iou_threshold": nms_iou_threshold,
                         "image_topic": "/camera/wrist/color/image_raw",
                         "detections_topic": "/strawberry/wrist/detections",
                     },
@@ -126,6 +147,7 @@ def generate_launch_description():
                         "target_pose_topic": "/strawberry/wrist/target_pose",
                         "completed_track_topic": "",
                         "ground_truth_association_enabled": False,
+                        "confidence_threshold": confidence_threshold,
                         "allow_stationary_latest_tf_fallback": True,
                         "allow_stationary_sensor_sync_fallback": True,
                         "geometry_target_radius_m": 0.020,
@@ -142,6 +164,7 @@ def generate_launch_description():
                     {
                         "use_sim_time": True,
                         "scene_config_file": scene_config,
+                        "confidence_threshold": confidence_threshold,
                     }
                 ],
             ),
@@ -170,6 +193,7 @@ def generate_launch_description():
                     {
                         "use_sim_time": True,
                         "require_wrist_confirmation": True,
+                        "wrist_min_confidence": confidence_threshold,
                     }
                 ],
             ),

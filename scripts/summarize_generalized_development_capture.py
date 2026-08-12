@@ -34,8 +34,6 @@ def _read_label(path: Path) -> list[tuple[int, tuple[float, ...]]]:
         if class_id not in {0, 1} or not all(0.0 < value <= 1.0 for value in box):
             raise ValueError(f"invalid YOLO values in {path}")
         rows.append((class_id, box))
-    if not rows:
-        raise ValueError(f"empty generalized label: {path}")
     return rows
 
 
@@ -81,6 +79,8 @@ def main() -> int:
         labels = _read_label(label_path)
         if len(labels) != len(receipt.get("visible_labels", [])):
             raise ValueError(f"label count mismatch in {receipt_path}")
+        if bool(receipt.get("negative_image")) != (len(labels) == 0):
+            raise ValueError(f"negative-image flag mismatch in {receipt_path}")
         for class_id, _box in labels:
             class_counts[(split, class_id)] += 1
         source_hash = str(receipt["source_color_sha256"])
@@ -113,11 +113,11 @@ def main() -> int:
         if path.exists():
             raise ValueError(f"refusing to overwrite dataset artifact: {path}")
     dataset_path.write_text(
-        "path: .\ntrain: images/train\nval: images/validation\nnames:\n  0: ripe\n  1: unripe\n",
+        "train: images/train\nval: images/validation\nnames:\n  0: ripe\n  1: unripe\n",
         encoding="utf-8",
     )
     qualification_path.write_text(
-        "path: .\ntrain: images/qualification\nval: images/qualification\nnames:\n  0: ripe\n  1: unripe\n",
+        "train: images/qualification\nval: images/qualification\nnames:\n  0: ripe\n  1: unripe\n",
         encoding="utf-8",
     )
     with inventory_path.open("x", encoding="utf-8", newline="\n") as stream:

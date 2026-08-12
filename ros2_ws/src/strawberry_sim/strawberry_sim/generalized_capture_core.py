@@ -265,3 +265,28 @@ def depth_visible_yolo_labels(
             }
         )
     return tuple(labels), tuple(excluded)
+
+
+def validate_visibility_partition(
+    fruit_rows: Sequence[Mapping[str, Any]],
+    labels: Sequence[Mapping[str, Any]],
+    excluded: Sequence[Mapping[str, Any]],
+) -> bool:
+    """Prove every truth target is labeled or explicitly visibility-excluded.
+
+    Returns ``True`` for a legitimate negative image containing no visible
+    labels. Duplicate, missing, or unexpected identities fail closed.
+    """
+
+    expected = [int(row["target_id"]) for row in fruit_rows]
+    labeled = [int(row["target_id"]) for row in labels]
+    hidden = [int(row["target_id"]) for row in excluded]
+    if len(expected) != len(set(expected)):
+        raise ValueError("truth target IDs are not unique")
+    if len(labeled) != len(set(labeled)) or len(hidden) != len(set(hidden)):
+        raise ValueError("visibility partition contains duplicate target IDs")
+    if set(labeled) & set(hidden):
+        raise ValueError("a target cannot be both visible and excluded")
+    if set(labeled) | set(hidden) != set(expected):
+        raise ValueError("visibility partition does not cover every truth target")
+    return not labeled

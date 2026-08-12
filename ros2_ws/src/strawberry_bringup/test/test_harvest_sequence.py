@@ -68,6 +68,17 @@ class HarvestSequenceTests(unittest.TestCase):
         sequence.pick_result(True)
         self.assertEqual(sequence.finish(), "PARTIAL_SUCCESS")
 
+    def test_repeated_skips_cannot_exceed_batch_target_limit(self):
+        sequence = HarvestSequence(max_targets=2)
+        sequence.start()
+        for target_id in (1, 2):
+            sequence.select(target_id)
+            sequence.observation_result(False, "unsafe")
+            sequence.select(target_id)
+            sequence.observation_result(False, "unsafe")
+        self.assertTrue(sequence.terminal)
+        self.assertEqual(sequence.history[-1].detail, "MAX_TARGETS_REACHED")
+
 
 if __name__ == "__main__":
     unittest.main()

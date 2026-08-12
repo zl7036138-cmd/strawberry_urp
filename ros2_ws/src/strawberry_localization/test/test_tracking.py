@@ -48,6 +48,41 @@ class MultiTargetTrackerTests(unittest.TestCase):
         tracker.update([observation(2, 0.6)], stamp_sec=2.0)
         self.assertEqual([row.track_id for row in tracker.snapshot(stamp_sec=2.0)], [2])
 
+    def test_stale_static_fruit_recovers_its_original_identity(self):
+        tracker = MultiTargetTracker(max_track_age_sec=0.5)
+        tracker.update([observation(1, 0.4)], stamp_sec=1.0)
+        self.assertEqual(tracker.snapshot(stamp_sec=2.0), ())
+        tracks = tracker.update([observation(8, 0.402)], stamp_sec=2.1)
+        self.assertEqual([row.track_id for row in tracks], [1])
+        self.assertEqual(tracker._next_track_id, 2)
+
+    def test_completed_track_is_a_persistent_position_tombstone(self):
+        tracker = MultiTargetTracker(max_track_age_sec=0.5)
+        tracker.update([observation(1, 0.4)], stamp_sec=1.0)
+        tracker.mark_harvested(1)
+        # The same physical fruit remains visible after a safe skip and after
+        # the normal track-age interval.  It must not return under a fresh ID.
+        self.assertEqual(
+            tracker.update([observation(9, 0.402)], stamp_sec=2.0),
+            (),
+        )
+        self.assertEqual(tracker._next_track_id, 2)
+
+    def test_completed_tombstone_does_not_hide_a_distinct_neighbour(self):
+        tracker = MultiTargetTracker(association_distance_m=0.06)
+        tracker.update([observation(1, 0.400)], stamp_sec=1.0)
+        tracker.mark_harvested(1)
+        tracks = tracker.update([observation(20, 0.454)], stamp_sec=1.1)
+        self.assertEqual([row.track_id for row in tracks], [2])
+        self.assertEqual(tracks[0].source_detection_id, 20)
+
+    def test_completed_suppression_gate_must_be_narrower_than_association(self):
+        with self.assertRaises(ValueError):
+            MultiTargetTracker(
+                association_distance_m=0.06,
+                completed_suppression_distance_m=0.06,
+            )
+
     def test_invalid_observation_fails_closed(self):
         with self.assertRaises(ValueError):
             observation(0, 0.4)

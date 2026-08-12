@@ -6,6 +6,7 @@ artifact_root="${STRAWBERRY_COLCON_ROOT:-${HOME}/.cache/strawberry_urp/colcon}"
 output_root="${1:-${repo_root}/data/processed/generalized_development_capture_v1}"
 ros_domain_id="${2:-214}"
 plan_path="${3:-${repo_root}/config/generalized_development_capture_v1.json}"
+resume_mode="${4:-false}"
 formal_matrix="${repo_root}/config/generalized_harvest_matrix_v1.json"
 base_scene="${repo_root}/ros2_ws/src/strawberry_sim/config/scene.yaml"
 base_world="${repo_root}/ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sdf"
@@ -18,10 +19,15 @@ base_world="${repo_root}/ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sd
   echo "ROS domain ID must be in [0,232]." >&2
   exit 2
 }
-if [[ -e "${output_root}" ]] && \
+if [[ "${resume_mode}" != "true" ]] && [[ -e "${output_root}" ]] && \
   [[ -n "$(find "${output_root}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
   echo "Output directory is not empty: ${output_root}" >&2
   exit 4
+fi
+if [[ "${resume_mode}" == "true" ]]; then
+  python3 "${repo_root}/scripts/prepare_generalized_development_capture.py" \
+    --plan "${plan_path}" --formal-matrix "${formal_matrix}" \
+    --validate-resume-root "${output_root}"
 fi
 
 mapfile -t scene_rows < <(
@@ -67,13 +73,35 @@ for row in "${scene_rows[@]}"; do
   receipt_path="${scene_dir}/generalized_seed_$(printf '%06d' "${seed}").receipt.json"
   launch_log="${output_root}/logs/${sample_id}.launch.log"
   capture_log="${output_root}/logs/${sample_id}.capture.log"
+  image_path="${output_root}/images/${split}/${sample_id}.png"
+  label_path="${output_root}/labels/${split}/${sample_id}.txt"
+  sample_receipt="${output_root}/receipts/${split}/${sample_id}.json"
   echo "[$((scene_index + 1))/120] ${sample_id}"
 
-  ros2 run strawberry_sim generate_generalized_scene \
-    --base-scene "${base_scene}" --base-world "${base_world}" \
-    --output-dir "${scene_dir}" --seed "${seed}" --profile "${profile}" \
-    --plant-count "${plant_count}" --position-band "${position_band}" \
-    --occlusion "${occlusion}" >"${output_root}/logs/${sample_id}.generate.log"
+  completed_artifacts=0
+  [[ -f "${image_path}" ]] && completed_artifacts=$((completed_artifacts + 1))
+  [[ -f "${label_path}" ]] && completed_artifacts=$((completed_artifacts + 1))
+  [[ -f "${sample_receipt}" ]] && completed_artifacts=$((completed_artifacts + 1))
+  if ((completed_artifacts == 3)); then
+    if [[ "${resume_mode}" != "true" ]]; then
+      echo "Completed sample unexpectedly exists outside resume mode: ${sample_id}" >&2
+      exit 8
+    fi
+    scene_index=$((scene_index + 1))
+    continue
+  fi
+  if ((completed_artifacts != 0)); then
+    echo "Partial sample artifacts require manual inspection: ${sample_id}" >&2
+    exit 9
+  fi
+
+  if [[ ! -f "${scene_path}" || ! -f "${world_path}" || ! -f "${receipt_path}" ]]; then
+    ros2 run strawberry_sim generate_generalized_scene \
+      --base-scene "${base_scene}" --base-world "${base_world}" \
+      --output-dir "${scene_dir}" --seed "${seed}" --profile "${profile}" \
+      --plant-count "${plant_count}" --position-band "${position_band}" \
+      --occlusion "${occlusion}" >"${output_root}/logs/${sample_id}.generate.log"
+  fi
 
   setsid ros2 launch strawberry_sim sim.launch.py \
     headless:=true world_file:="${world_path}" scene_config_file:="${scene_path}" \

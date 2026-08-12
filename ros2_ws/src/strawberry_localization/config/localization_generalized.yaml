@@ -42,6 +42,9 @@
     # Truth remains available to benchmark scorers only, never to control.
     ground_truth_association_enabled: false
     tracking_association_distance_m: 0.06
+    # Completed/skip tombstones use a narrower gate so the same physical fruit
+    # cannot return with a new ID while a distinct neighbour remains eligible.
+    tracking_completed_suppression_distance_m: 0.04
     tracking_max_age_sec: 0.75
     tracking_minimum_observations: 3
     tracking_smoothing_alpha: 0.35

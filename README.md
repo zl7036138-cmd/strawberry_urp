@@ -460,10 +460,12 @@ evidence remain unchanged.
 
 See [`docs/generalized-harvest-v1.md`](docs/generalized-harvest-v1.md) for the
 runbook, ROS interfaces, truth boundary, and the frozen 30-seed acceptance
-matrix. All 472 regression tests pass. A 120-scene development-only capture,
-training, and qualification route is seed-disjoint from that formal matrix,
-but the current perception model does not yet pass the randomized multi-target
-development gate, so the formal matrix has not been executed. No acceptance is
-claimed until development-only fine-tuning and independent development
-requalification succeed, all 30 one-attempt runtime receipts exist, and the
+matrix. All 483 regression tests pass. A 120-scene development-only capture,
+training, and qualification route is
+seed-disjoint from that formal matrix. Generalized detector candidate v2 now
+passes both the validation gate (ripe P 96.15%, R 90.91%) and the independent
+qualification gate using the same frozen settings (ripe P 95.65%, R 97.78%).
+Fresh runtime probes still fail the end-to-end RGB-D localization/manipulation
+development gate, so the formal matrix has not been executed. No formal
+acceptance is claimed until all 30 one-attempt runtime receipts exist and the
 aggregate evaluator returns `overall_pass: true`.

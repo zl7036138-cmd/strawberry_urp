@@ -32,6 +32,24 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('"scene_config_file": scene_config', self.source)
         self.assertNotIn("oracle_target_provider", self.source)
 
+    def test_qualified_detector_settings_are_shared_end_to_end(self):
+        self.assertIn("device_parameter = ParameterValue(device, value_type=str)", self.source)
+        self.assertEqual(self.source.count('"device": device_parameter'), 2)
+        self.assertIn('DeclareLaunchArgument("image_size", default_value="800")', self.source)
+        self.assertIn(
+            'DeclareLaunchArgument("nms_iou_threshold", default_value="0.50")',
+            self.source,
+        )
+        self.assertIn('default_value="0.20524564385414124"', self.source)
+        self.assertEqual(self.source.count('"image_size": image_size'), 2)
+        self.assertEqual(
+            self.source.count('"nms_iou_threshold": nms_iou_threshold'), 2
+        )
+        self.assertGreaterEqual(
+            self.source.count('"confidence_threshold": confidence_threshold'), 5
+        )
+        self.assertIn('"wrist_min_confidence": confidence_threshold', self.source)
+
 
 if __name__ == "__main__":
     unittest.main()

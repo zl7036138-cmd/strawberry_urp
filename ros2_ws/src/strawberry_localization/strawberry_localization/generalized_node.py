@@ -336,6 +336,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("tracked_targets_topic", "/strawberry/tracked_targets")
             self.declare_parameter("completed_track_topic", "/strawberry/completed_track_id")
             self.declare_parameter("tracking_association_distance_m", 0.06)
+            self.declare_parameter(
+                "tracking_completed_suppression_distance_m", 0.04
+            )
             self.declare_parameter("tracking_max_age_sec", 0.75)
             self.declare_parameter("tracking_minimum_observations", 3)
             self.declare_parameter("tracking_smoothing_alpha", 0.35)
@@ -379,6 +382,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._tracker = MultiTargetTracker(
                 association_distance_m=float(
                     self.get_parameter("tracking_association_distance_m").value
+                ),
+                completed_suppression_distance_m=float(
+                    self.get_parameter(
+                        "tracking_completed_suppression_distance_m"
+                    ).value
                 ),
                 max_track_age_sec=float(
                     self.get_parameter("tracking_max_age_sec").value

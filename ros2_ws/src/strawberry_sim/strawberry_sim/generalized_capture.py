@@ -19,6 +19,7 @@ from .generalized_capture_core import (
     find_capture_spec,
     load_capture_plan,
     sha256_file,
+    validate_visibility_partition,
 )
 from .generalized_scene import validate_generated_scene
 
@@ -267,8 +268,7 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             minimum_visible_fraction=float(capture["minimum_visible_fraction"]),
             depth_surface_padding_m=float(capture["depth_surface_padding_m"]),
         )
-        if not labels:
-            raise RuntimeError("capture contains no depth-supported visible fruit labels")
+        negative_image = validate_visibility_partition(fruit_rows, labels, excluded)
 
         encoded_ok, encoded = cv2.imencode(
             ".png",
@@ -298,6 +298,7 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             "runtime_control_authorized": False,
             "robot_motion_started": False,
             "labels_source": "gazebo_truth_projection_with_depth_visibility_gate",
+            "negative_image": negative_image,
             "image_stamp_sec": int(color_message.header.stamp.sec),
             "image_stamp_nanosec": int(color_message.header.stamp.nanosec),
             "depth_stamp_sec": int(depth_message.header.stamp.sec),

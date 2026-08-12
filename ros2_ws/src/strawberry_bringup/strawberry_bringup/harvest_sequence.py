@@ -118,6 +118,8 @@ class HarvestSequence:
         self.current_target_id = None
         self.state = HarvestState.SCANNING
         self.history.append(HarvestEvent(self.state, target_id, recorded_outcome, detail))
+        if len(self.completed_ids) >= self.max_targets:
+            self.finish("MAX_TARGETS_REACHED")
 
     def retry_unavailable(self, detail: str) -> int:
         """Skip a reserved retry that cannot be re-observed before timeout."""
@@ -136,6 +138,8 @@ class HarvestSequence:
                 detail,
             )
         )
+        if len(self.completed_ids) >= self.max_targets:
+            self.finish("MAX_TARGETS_REACHED")
         return target_id
 
     def finish(self, detail: str = "") -> str:

@@ -89,15 +89,24 @@ class MultiTargetTracker:
         self,
         *,
         association_distance_m: float = 0.06,
+        completed_suppression_distance_m: float = 0.04,
         max_track_age_sec: float = 0.75,
         minimum_observations: int = 3,
         smoothing_alpha: float = 0.35,
     ) -> None:
         self.association_distance_m = _finite(association_distance_m, "association_distance_m")
+        self.completed_suppression_distance_m = _finite(
+            completed_suppression_distance_m,
+            "completed_suppression_distance_m",
+        )
         self.max_track_age_sec = _finite(max_track_age_sec, "max_track_age_sec")
         self.smoothing_alpha = _finite(smoothing_alpha, "smoothing_alpha")
         if self.association_distance_m <= 0.0 or self.max_track_age_sec <= 0.0:
             raise ValueError("tracker distance and age bounds must be positive")
+        if not 0.0 < self.completed_suppression_distance_m < self.association_distance_m:
+            raise ValueError(
+                "completed suppression distance must be positive and below association distance"
+            )
         if isinstance(minimum_observations, bool) or minimum_observations <= 0:
             raise ValueError("minimum_observations must be positive")
         if not 0.0 < self.smoothing_alpha <= 1.0:
@@ -110,13 +119,12 @@ class MultiTargetTracker:
         self.association_count = 0
 
     def _prune(self, stamp_sec: float) -> None:
-        expired = [
-            track_id
-            for track_id, track in self._tracks.items()
-            if stamp_sec - track.last_seen_sec > self.max_track_age_sec
-        ]
-        for track_id in expired:
-            self._tracks.pop(track_id, None)
+        # Fruit are stationary until attachment.  Keep dormant tracks as a
+        # bounded-scene identity archive, but suppress them from snapshots
+        # below once they are stale.  This lets a fruit regain its original ID
+        # after a wrist-motion / GPU-processing gap and lets a late completion
+        # event still create a geometric tombstone.
+        _finite(stamp_sec, "stamp_sec")
 
     def update(
         self,
@@ -136,10 +144,18 @@ class MultiTargetTracker:
         pairs: list[tuple[float, int, int]] = []
         for observation_index, observation in enumerate(incoming):
             for track_id, track in self._tracks.items():
-                if track_id in self._harvested:
-                    continue
+                # Completed tracks remain geometric tombstones.  Continue to
+                # associate observations to them, but suppress them from every
+                # snapshot below.  Otherwise an unpicked-but-skipped fruit is
+                # immediately reborn with a new ID and defeats the one-retry
+                # batch policy.
                 distance = _distance(observation.position, track.position)
-                if distance <= self.association_distance_m:
+                distance_limit = (
+                    self.completed_suppression_distance_m
+                    if track_id in self._harvested
+                    else self.association_distance_m
+                )
+                if distance <= distance_limit:
                     pairs.append((distance, track_id, observation_index))
         pairs.sort(key=lambda row: (row[0], row[1], incoming[row[2]].source_detection_id))
         assigned_tracks: set[int] = set()
@@ -200,6 +216,8 @@ class MultiTargetTracker:
         result = []
         for track in self._tracks.values():
             if track.track_id in self._harvested:
+                continue
+            if stamp - track.last_seen_sec > self.max_track_age_sec:
                 continue
             if stable_only and track.observation_count < self.minimum_observations:
                 continue

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_development_outcome_v2",
+  "scope": "development_only_generalized_detector_and_runtime_qualification",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "dataset": {
+    "scene_count": 120,
+    "split_counts": {"train": 72, "validation": 24, "qualification": 24},
+    "capture_summary_sha256": "57f0192b377f63fbbd9c5015ec5922765dc6b18cb24b78d3e5d59c069686a808",
+    "inventory_sha256": "9128b7e01b85fa3677796b690d67c70d46b14d8ca5517412534838cf0b5153b2",
+    "formal_seed_overlap_count": 0,
+    "cross_split_image_hash_overlap_count": 0
+  },
+  "accepted_detector_candidate": {
+    "training_config": "ros2_ws/src/strawberry_perception/config/train_yolo11s_640_generalized_dev_v2.yaml",
+    "model_runtime_path": "outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt",
+    "model_sha256": "f6c29fb4e1714246078ab25702032c25c24cfa601c7a393807d03747a89fd673",
+    "runtime": {
+      "image_size": 800,
+      "confidence_threshold": 0.20524564385414124,
+      "nms_iou_threshold": 0.5,
+      "matching_iou_threshold": 0.5
+    },
+    "validation": {
+      "ripe_precision": 0.9615384615384616,
+      "ripe_recall": 0.9090909090909091,
+      "gate_pass": true,
+      "receipt_sha256": "1f5e20b4f31f5905597dc5abb08cc3dc7f9e4ac5bb1213d67e9f4d909013e3ec"
+    },
+    "independent_qualification": {
+      "frozen_threshold_reused": true,
+      "behavioral_attempt_count": 1,
+      "ripe_precision": 0.9565217391304348,
+      "ripe_recall": 0.9777777777777777,
+      "gate_pass": true,
+      "receipt_sha256": "b2674342faa65780b57cf1aa2626428e4ad1f13ec9913844920222ae325c9139"
+    }
+  },
+  "runtime_development_probes": {
+    "seed_44001": {
+      "role": "multi_target_tracking_and_failed_target_suppression_probe",
+      "scene_receipt_sha256": "0aa76d3f26ed4f67e10b7289cf5e4874b27fddc76265ae026408858f11f7abd4",
+      "stable_track_count": 4,
+      "stable_ripe_track_count": 3,
+      "unripe_pick_count": 0,
+      "collision_count": 0,
+      "finding": "A skipped fruit initially returned with new IDs; persistent geometric tombstones and a hard batch target limit were added and requalified locally."
+    },
+    "seed_44003": {
+      "role": "fresh_safe_no_pick_runtime_probe",
+      "scene_receipt_sha256": "813cc33c9e5c77bac0cce8496c41a8a566b07508716e0713f26476c7ea367ba9",
+      "runtime_receipt_sha256": "312205673c6a1c5906609351cdb183c30707e484f7dcb84c86e51a4630397293",
+      "truth_ripe_count_for_scoring_only": 4,
+      "stable_ripe_track_count": 1,
+      "outcome": "NO_PICK",
+      "unripe_pick_count": 0,
+      "collision_count": 0
+    }
+  },
+  "regression": {
+    "command": "bash scripts/build_and_test.sh",
+    "test_count": 483,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "decision": {
+    "detector_qualification_passed": true,
+    "runtime_generalization_gate_passed": false,
+    "blocking_layer": "multi_target_rgbd_localization_and_end_to_end_safe_reachability",
+    "next_required_work": [
+      "Evaluate and improve geometry-layer localization recall on the seed-disjoint development qualification scenes.",
+      "Obtain bounded development evidence containing at least one complete perception-controlled pick and a completed multi-fruit batch.",
+      "Run the 30 one-attempt formal scenarios only after the runtime gate passes."
+    ]
+  }
+}

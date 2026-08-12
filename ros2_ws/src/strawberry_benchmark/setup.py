@@ -26,6 +26,7 @@ setup(
         "console_scripts": [
             "strawberry-benchmark = strawberry_benchmark.cli:main",
             "generalized-harvest-acceptance = strawberry_benchmark.generalized_acceptance:main",
+            "generalized-detector-eval = strawberry_benchmark.generalized_detector_eval:main",
             "materialize-generalized-harvest = strawberry_benchmark.materialize_generalized:main",
         ],
     },

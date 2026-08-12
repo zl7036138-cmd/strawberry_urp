@@ -42,7 +42,9 @@ mosaic: 0.5
 mixup: 0.0
 cutmix: 0.0
 copy_paste: 0.0
-project: outputs/perception
+# Ultralytics 8.4 resolves a relative project under runs/detect. Two parent
+# traversals keep the repository-level outputs/perception contract.
+project: ../../outputs/perception
 name: yolo11s_640_generalized_dev_v1
 exist_ok: false
 plots: true

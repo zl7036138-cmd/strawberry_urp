@@ -17,6 +17,7 @@ from strawberry_sim.generalized_capture_core import (  # noqa: E402
     find_capture_spec,
     iter_capture_specs,
     load_capture_plan,
+    validate_visibility_partition,
 )
 
 
@@ -115,6 +116,19 @@ class GeneralizedCaptureVisibilityTests(unittest.TestCase):
                 minimum_visible_fraction=0.1,
                 depth_surface_padding_m=0.01,
             )
+
+    def test_fully_hidden_truth_is_a_complete_negative_partition(self):
+        truth = (
+            {"target_id": 1},
+            {"target_id": 2},
+        )
+        excluded = (
+            {"target_id": 1, "reason": "hidden"},
+            {"target_id": 2, "reason": "hidden"},
+        )
+        self.assertTrue(validate_visibility_partition(truth, (), excluded))
+        with self.assertRaisesRegex(ValueError, "cover"):
+            validate_visibility_partition(truth, (), excluded[:1])
 
 
 if __name__ == "__main__":

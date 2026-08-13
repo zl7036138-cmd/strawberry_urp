@@ -301,6 +301,9 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._wrist_target_hint.publish(self._current_target)
             request = MoveToObservation.Request()
             request.target_id = int(self._current_target.target_id)
+            request.target_pose = PoseStamped()
+            request.target_pose.header = self._current_target.header
+            request.target_pose.pose = self._current_goal_pose
             request.observation_pose = self._current_view
             future = self._observation_client.call_async(request)
             future.add_done_callback(self._observation_result)
@@ -435,7 +438,39 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     "fused_sigma_m": fused_sigma,
                 },
             )
-            self._send_pick()
+            self._request_final_pick_feasibility()
+
+        def _request_final_pick_feasibility(self) -> None:
+            evaluation = EvaluateTarget.Request()
+            evaluation.target_id = int(self._current_target.target_id)
+            evaluation.target_pose = PoseStamped()
+            evaluation.target_pose.header = self._current_target.header
+            evaluation.target_pose.pose = self._current_goal_pose
+            future = self._evaluation_client.call_async(evaluation)
+            future.add_done_callback(self._final_pick_feasibility_result)
+            self._publish("FINAL_PICK_FEASIBILITY")
+
+        def _final_pick_feasibility_result(self, future) -> None:
+            try:
+                result = future.result()
+                feasible = result is not None and bool(result.feasible)
+                detail = (
+                    result.message
+                    if result is not None
+                    else "final target evaluation service failed"
+                )
+                collision = bool(result.collision) if result is not None else False
+            except Exception as exc:
+                feasible, detail, collision = False, str(exc), False
+            if feasible:
+                self._send_pick()
+                return
+            self._sequence.pick_result(
+                False,
+                f"final connected pick feasibility failed: {detail}",
+                7 if collision else 6,
+            )
+            self._after_attempt_failure()
 
         def _confirmation_timeout(self) -> None:
             self._cancel_timer("_confirmation_timer")

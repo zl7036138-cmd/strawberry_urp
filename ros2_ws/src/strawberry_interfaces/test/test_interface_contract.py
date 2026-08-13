@@ -131,6 +131,7 @@ class InterfaceContractTest(unittest.TestCase):
             schema_lines("srv/MoveToObservation.srv"),
             [
                 "uint32 target_id",
+                "geometry_msgs/PoseStamped target_pose",
                 "geometry_msgs/PoseStamped observation_pose",
                 "---",
                 "bool success",

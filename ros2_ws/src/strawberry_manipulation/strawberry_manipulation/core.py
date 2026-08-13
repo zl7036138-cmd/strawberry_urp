@@ -463,11 +463,15 @@ class PickAndPlaceExecutor:
 
         mark("GRASP", 0.40)
         gripper_closed = self.backend.close_gripper()
-        if not gripper_closed:
-            # A single-finger stall is evidence of an off-centre grasp, not a
-            # reason to weaken the dual-contact gate. Re-open, retreat through
-            # a checked pre-grasp, and try one orthogonal finger orientation.
-            # Both moves remain collision checked and the search is bounded.
+        attachment_confirmed = (
+            self.backend.attach(target_id) if gripper_closed else False
+        )
+        if not attachment_confirmed:
+            # A single-finger stall or a strict dual-contact rejection is
+            # evidence of an off-centre grasp, not a reason to weaken the
+            # attachment gate. Re-open, retreat through a checked pre-grasp,
+            # and try one orthogonal finger orientation. Both moves remain
+            # collision checked and the search is bounded.
             if not self.backend.open_gripper():
                 return fail(
                     FailureCode.GRASP_FAILED,
@@ -494,7 +498,12 @@ class PickAndPlaceExecutor:
                 if retry_grasp.success:
                     grasp_pose = alternate_grasp_pose
                     gripper_closed = self.backend.close_gripper()
-        if not gripper_closed or not self.backend.attach(target_id):
+                    attachment_confirmed = (
+                        self.backend.attach(target_id)
+                        if gripper_closed
+                        else False
+                    )
+        if not attachment_confirmed:
             return fail(
                 FailureCode.GRASP_FAILED,
                 "dual-finger contact or simulated attachment failed after one "

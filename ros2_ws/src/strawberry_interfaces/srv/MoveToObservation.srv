@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 uint32 target_id
+geometry_msgs/PoseStamped target_pose
 geometry_msgs/PoseStamped observation_pose
 ---
 bool success

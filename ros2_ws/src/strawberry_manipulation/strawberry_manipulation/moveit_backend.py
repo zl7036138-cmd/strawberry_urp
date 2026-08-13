@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import dataclass
 import math
 import threading
 import time
@@ -16,6 +17,18 @@ from .moveit_scene import (
     set_target_fruit_collision,
 )
 from .scene_geometry import FRUIT_COLLISION_RADIUS_M, STATIC_COLLISION_OBJECTS
+
+
+@dataclass(frozen=True)
+class PathAssessment:
+    """Zero-execution result for one connected, collision-checked path."""
+
+    feasible: bool
+    collision: bool
+    planning_time_sec: float
+    joint_travel_rad: float
+    end_joint_positions: tuple[float, ...] = ()
+    end_pose: Pose | None = None
 
 
 def gripper_result_allows_command(
@@ -93,6 +106,9 @@ class MoveItBackend:
         request_timeout_sec: float = 5.0,
         startup_timeout_sec: float = 30.0,
         trajectory_timeout_margin_sec: float = 25.0,
+        maximum_joint_trajectory_duration_sec: float = 60.0,
+        maximum_joint_trajectory_travel_rad: float = 40.0,
+        maximum_joint_trajectory_points: int = 512,
         settle_timeout_sec: float = 1.5,
         settle_sample_period_sec: float = 0.05,
         settle_delta_rad: float = 0.002,
@@ -161,6 +177,17 @@ class MoveItBackend:
             raise ValueError("startup timeout must be positive")
         if trajectory_timeout_margin_sec <= 0.0:
             raise ValueError("trajectory timeout margin must be positive")
+        if (
+            maximum_joint_trajectory_duration_sec <= 0.0
+            or maximum_joint_trajectory_travel_rad <= 0.0
+        ):
+            raise ValueError("joint trajectory safety limits must be positive")
+        if (
+            isinstance(maximum_joint_trajectory_points, bool)
+            or not isinstance(maximum_joint_trajectory_points, int)
+            or maximum_joint_trajectory_points < 2
+        ):
+            raise ValueError("joint trajectory point limit must be at least two")
         if settle_timeout_sec <= 0.0 or settle_sample_period_sec <= 0.0:
             raise ValueError("settling timeouts must be positive")
         if settle_delta_rad <= 0.0 or settle_stable_samples <= 0:
@@ -217,6 +244,15 @@ class MoveItBackend:
         self.startup_timeout_sec = float(startup_timeout_sec)
         self.trajectory_timeout_margin_sec = float(
             trajectory_timeout_margin_sec
+        )
+        self.maximum_joint_trajectory_duration_sec = float(
+            maximum_joint_trajectory_duration_sec
+        )
+        self.maximum_joint_trajectory_travel_rad = float(
+            maximum_joint_trajectory_travel_rad
+        )
+        self.maximum_joint_trajectory_points = int(
+            maximum_joint_trajectory_points
         )
         self.settle_timeout_sec = float(settle_timeout_sec)
         self.settle_sample_period_sec = float(settle_sample_period_sec)
@@ -726,6 +762,134 @@ class MoveItBackend:
         message.pose.orientation.w = pose.qw
         return message
 
+    @staticmethod
+    def _joint_path_travel(
+        positions: tuple[tuple[float, ...], ...]
+    ) -> float:
+        return sum(
+            sum(abs(current - previous) for current, previous in zip(right, left))
+            for left, right in zip(positions, positions[1:])
+        )
+
+    def _plan_joint_path_to_pose(
+        self, pose: Pose
+    ) -> tuple[tuple[tuple[float, ...], ...], PathAssessment]:
+        """Plan one collision-checked path without executing it."""
+
+        if not self._wait_until_arm_settled():
+            return (), PathAssessment(False, False, 0.0, 0.0)
+        self._arm.set_start_state_to_current_state()
+        self._arm.set_goal_state(
+            pose_stamped_msg=self._pose_message(pose),
+            pose_link=self.pose_link,
+        )
+        planning_started = time.perf_counter()
+        try:
+            plan_result = self._arm.plan()
+        except Exception as exc:
+            self.node.get_logger().error(f"MoveIt planning exception: {exc}")
+            return (), PathAssessment(
+                False, False, time.perf_counter() - planning_started, 0.0
+            )
+        planning_time = time.perf_counter() - planning_started
+        if not plan_result:
+            return (), PathAssessment(False, False, planning_time, 0.0)
+        trajectory = plan_result.trajectory
+        waypoint_count = len(trajectory)
+        if waypoint_count < 2:
+            self.node.get_logger().error(
+                "MoveIt pose plan contains fewer than two waypoints"
+            )
+            return (), PathAssessment(False, False, planning_time, 0.0)
+        planned_endpoint = trajectory[waypoint_count - 1].get_pose(
+            self.pose_link
+        )
+        if not self._pose_is_within_tolerance(
+            pose, planned_endpoint, "planned endpoint"
+        ):
+            return (), PathAssessment(False, False, planning_time, 0.0)
+        positions = tuple(
+            tuple(
+                float(value)
+                for value in trajectory[index].get_joint_group_positions(
+                    self.planning_group
+                )
+            )
+            for index in range(waypoint_count)
+        )
+        if any(
+            len(values) != len(self._arm_joint_names)
+            for values in positions
+        ):
+            self.node.get_logger().error(
+                "MoveIt pose plan has an invalid arm state"
+            )
+            return (), PathAssessment(False, False, planning_time, 0.0)
+        if not self._joint_path_within_safety_limits(positions):
+            return (), PathAssessment(False, False, planning_time, 0.0)
+        return positions, PathAssessment(
+            True,
+            False,
+            planning_time,
+            self._joint_path_travel(positions),
+            positions[-1],
+            Pose(
+                x=float(planned_endpoint.position.x),
+                y=float(planned_endpoint.position.y),
+                z=float(planned_endpoint.position.z),
+                qx=float(planned_endpoint.orientation.x),
+                qy=float(planned_endpoint.orientation.y),
+                qz=float(planned_endpoint.orientation.z),
+                qw=float(planned_endpoint.orientation.w),
+            ).normalized(),
+        )
+
+    def _joint_path_within_safety_limits(
+        self, positions: tuple[tuple[float, ...], ...]
+    ) -> bool:
+        if len(positions) < 2:
+            self.node.get_logger().error(
+                "joint trajectory contains fewer than two waypoints"
+            )
+            return False
+        if len(positions) > self.maximum_joint_trajectory_points:
+            self.node.get_logger().error(
+                "joint trajectory rejected: "
+                f"{len(positions)} points exceed the configured "
+                f"{self.maximum_joint_trajectory_points}-point limit"
+            )
+            return False
+        travel = self._joint_path_travel(positions)
+        if travel > self.maximum_joint_trajectory_travel_rad:
+            self.node.get_logger().error(
+                "joint trajectory rejected: cumulative travel "
+                f"{travel:.3f} rad exceeds the configured "
+                f"{self.maximum_joint_trajectory_travel_rad:.3f} rad limit"
+            )
+            return False
+        duration = self._joint_path_nominal_duration(positions)
+        if duration > self.maximum_joint_trajectory_duration_sec:
+            self.node.get_logger().error(
+                "joint trajectory rejected before execution: nominal "
+                f"duration {duration:.3f} s exceeds the configured "
+                f"{self.maximum_joint_trajectory_duration_sec:.3f} s limit"
+            )
+            return False
+        return True
+
+    @staticmethod
+    def _joint_path_nominal_duration(
+        positions: tuple[tuple[float, ...], ...]
+    ) -> float:
+        return sum(
+            max(
+                0.25,
+                max(abs(current - prior) for current, prior in zip(right, left))
+                / 0.30,
+            )
+            for left, right in zip(positions, positions[1:])
+        )
+
     def _wait_until_arm_settled(self) -> bool:
         """Wait for consecutive low-delta joint samples before replanning."""
 
@@ -828,6 +992,15 @@ class MoveItBackend:
             qw=float(message.orientation.w),
         ).normalized()
 
+    def _current_joint_positions(self) -> tuple[float, ...]:
+        with self._planning_scene_monitor.read_only() as scene:
+            return tuple(
+                float(value)
+                for value in scene.current_state.get_joint_group_positions(
+                    self.planning_group
+                )
+            )
+
     @staticmethod
     def _interpolate_pose(start: Pose, target: Pose, fraction: float) -> Pose:
         """Linearly interpolate position and nlerp the shortest quaternion arc."""
@@ -883,17 +1056,42 @@ class MoveItBackend:
         )
 
     def _solve_cartesian_joint_path(
-        self, waypoints: tuple[Pose, ...]
+        self,
+        waypoints: tuple[Pose, ...],
+        *,
+        start_joint_positions: tuple[float, ...] | None = None,
     ) -> tuple[tuple[float, ...], tuple[tuple[float, ...], ...], bool, float] | None:
         """Use seeded MoveIt IK and scene checks for a dense pose path."""
 
         planning_started = time.perf_counter()
         with self._planning_scene_monitor.read_only() as scene:
             state = copy.deepcopy(scene.current_state)
-            start_positions = tuple(
+            current_positions = tuple(
                 float(value)
                 for value in state.get_joint_group_positions(self.planning_group)
             )
+            if start_joint_positions is None:
+                start_positions = current_positions
+            else:
+                start_positions = tuple(float(value) for value in start_joint_positions)
+                if len(start_positions) != len(current_positions):
+                    raise ValueError(
+                        "Cartesian preview start state has the wrong joint count"
+                    )
+                state.set_joint_group_positions(
+                    self.planning_group, start_positions
+                )
+                state.update()
+                if not scene.is_state_valid(state, self.planning_group, False):
+                    self.node.get_logger().error(
+                        "MoveIt rejected the Cartesian preview start state"
+                    )
+                    return (
+                        start_positions,
+                        (),
+                        True,
+                        time.perf_counter() - planning_started,
+                    )
             joint_path = []
             previous_positions = start_positions
             for index, waypoint in enumerate(waypoints, start=1):
@@ -986,6 +1184,9 @@ class MoveItBackend:
         joint_path: tuple[tuple[float, ...], ...],
     ) -> tuple[bool, float]:
         if not joint_path:
+            return False, 0.0
+        all_positions = (start_positions,) + tuple(joint_path)
+        if not self._joint_path_within_safety_limits(all_positions):
             return False, 0.0
         if not self._arm_action_probe.wait_for_server(
             timeout_sec=self.request_timeout_sec
@@ -1103,12 +1304,13 @@ class MoveItBackend:
     def _move_to_segmented(self, target: Pose) -> MotionOutcome:
         return self._move_segmented_between(self._current_link_pose(), target)
 
-    def _move_guarded_approach(self, target: Pose) -> MotionOutcome:
-        """Lift, reorient over the target, then descend without table sweeps."""
+    def _guarded_approach_waypoints(
+        self, current: Pose, target: Pose
+    ) -> tuple[tuple[str, Pose], ...]:
+        """Build the one authoritative safe-transit route to pre-grasp."""
 
-        current = self._current_link_pose()
         safe_z = max(current.z, target.z) + self.safe_transit_clearance_m
-        waypoints = (
+        return (
             ("vertical lift", Pose(
                 current.x,
                 current.y,
@@ -1156,9 +1358,162 @@ class MoveItBackend:
             )),
             ("pre-grasp descent", target),
         )
+
+    def preview_guarded_approach(
+        self,
+        observation_pose: Pose,
+        observation_joint_positions: tuple[float, ...],
+        pregrasp_pose: Pose,
+    ) -> PathAssessment:
+        """Prove the exact guarded approach from a planned observation state.
+
+        This method never commands a controller.  Every Cartesian waypoint is
+        solved from the prior hypothetical joint state and collision sampled
+        with the same limits used by execution.
+        """
+
+        waypoints = tuple(
+            pose
+            for _label, pose in self._guarded_approach_waypoints(
+                observation_pose.normalized(), pregrasp_pose.normalized()
+            )
+        )
+        return self.preview_cartesian_segments(
+            observation_pose,
+            observation_joint_positions,
+            waypoints,
+        )
+
+    def preview_guarded_approach_from_current(
+        self, pregrasp_pose: Pose
+    ) -> PathAssessment:
+        return self.preview_guarded_approach(
+            self._current_link_pose(),
+            self._current_joint_positions(),
+            pregrasp_pose,
+        )
+
+    def preview_cartesian_segments(
+        self,
+        start_pose: Pose,
+        start_joint_positions: tuple[float, ...],
+        target_poses: tuple[Pose, ...],
+    ) -> PathAssessment:
+        """Preview consecutive segmented motions without controller commands."""
+
+        if not target_poses:
+            raise ValueError("Cartesian preview requires at least one target pose")
+        current_pose = start_pose.normalized()
+        current_joints = tuple(float(value) for value in start_joint_positions)
         planning_time = 0.0
+        joint_travel = 0.0
+        for waypoint in target_poses:
+            waypoint = waypoint.normalized()
+            dense_waypoints = self._dense_pose_waypoints(
+                current_pose, waypoint
+            )
+            solution = self._solve_cartesian_joint_path(
+                dense_waypoints,
+                start_joint_positions=current_joints,
+            )
+            if solution is None:
+                return PathAssessment(
+                    False, False, planning_time, joint_travel, current_joints
+                )
+            start_positions, joint_path, collision, elapsed = solution
+            planning_time += elapsed
+            joint_travel += self._joint_path_travel(
+                (start_positions,) + joint_path
+            )
+            if collision or not joint_path:
+                return PathAssessment(
+                    False,
+                    collision,
+                    planning_time,
+                    joint_travel,
+                    current_joints,
+                )
+            current_joints = joint_path[-1]
+            current_pose = waypoint
+        return PathAssessment(
+            True,
+            False,
+            planning_time,
+            joint_travel,
+            current_joints,
+        )
+
+    def move_to_observation_if_approach_feasible(
+        self, observation_pose: Pose, pregrasp_pose: Pose
+    ) -> MotionOutcome:
+        """Execute an observation plan only after its approach continuation passes."""
+
+        positions, observation = self._plan_joint_path_to_pose(
+            observation_pose.normalized()
+        )
+        if not observation.feasible:
+            return MotionOutcome(
+                False,
+                observation.planning_time_sec,
+                0.0,
+                collision=observation.collision,
+            )
+        continuation = self.preview_guarded_approach(
+            observation.end_pose or observation_pose,
+            observation.end_joint_positions,
+            pregrasp_pose,
+        )
+        planning_time = (
+            observation.planning_time_sec + continuation.planning_time_sec
+        )
+        if not continuation.feasible:
+            self.node.get_logger().warning(
+                "Wrist observation rejected before motion: its planned endpoint "
+                "cannot continue through the guarded pre-grasp route"
+            )
+            return MotionOutcome(
+                False,
+                planning_time,
+                0.0,
+                collision=continuation.collision,
+            )
+        executed, execution_time = self._execute_joint_path(
+            positions[0], positions[1:]
+        )
+        if not executed or not self._wait_until_arm_settled():
+            return MotionOutcome(False, planning_time, execution_time)
+        with self._planning_scene_monitor.read_only() as scene:
+            actual_pose = scene.current_state.get_pose(self.pose_link)
+        executed = self._pose_is_within_tolerance(
+            observation_pose, actual_pose, "executed endpoint"
+        )
+        return MotionOutcome(executed, planning_time, execution_time)
+
+    def _move_guarded_approach(self, target: Pose) -> MotionOutcome:
+        """Lift, reorient over the target, then descend without table sweeps."""
+
+        current = self._current_link_pose()
+        preview = self.preview_guarded_approach(
+            current,
+            self._current_joint_positions(),
+            target,
+        )
+        if not preview.feasible:
+            self.node.get_logger().warning(
+                "Guarded approach rejected before motion because the connected "
+                "Cartesian preview failed"
+            )
+            return MotionOutcome(
+                False,
+                preview.planning_time_sec,
+                0.0,
+                collision=preview.collision,
+            )
+        planning_time = preview.planning_time_sec
         execution_time = 0.0
-        for label, waypoint in waypoints:
+        for label, waypoint in self._guarded_approach_waypoints(
+            current, target
+        ):
             self.node.get_logger().info(
                 f"MoveIt guarded approach phase: {label}"
             )
@@ -1249,60 +1604,21 @@ class MoveItBackend:
         during backend startup.
         """
 
-        if not self._wait_until_arm_settled():
-            return MotionOutcome(False, 0.0, 0.0)
-        self._arm.set_start_state_to_current_state()
-        self._arm.set_goal_state(
-            pose_stamped_msg=self._pose_message(pose),
-            pose_link=self.pose_link,
-        )
-        planning_started = time.perf_counter()
-        try:
-            plan_result = self._arm.plan()
-        except Exception as exc:
-            self.node.get_logger().error(f"MoveIt planning exception: {exc}")
+        positions, assessment = self._plan_joint_path_to_pose(pose)
+        if not assessment.feasible:
             return MotionOutcome(
-                False, time.perf_counter() - planning_started, 0.0
+                False,
+                assessment.planning_time_sec,
+                0.0,
+                collision=assessment.collision,
             )
-        planning_time = time.perf_counter() - planning_started
-        if not plan_result:
-            return MotionOutcome(False, planning_time, 0.0)
-        trajectory = plan_result.trajectory
-        waypoint_count = len(trajectory)
-        if waypoint_count < 2:
-            self.node.get_logger().error(
-                "MoveIt observation plan contains fewer than two waypoints"
-            )
-            return MotionOutcome(False, planning_time, 0.0)
-        planned_endpoint = trajectory[waypoint_count - 1].get_pose(
-            self.pose_link
-        )
-        if not self._pose_is_within_tolerance(
-            pose, planned_endpoint, "planned endpoint"
-        ):
-            return MotionOutcome(False, planning_time, 0.0)
-        positions = tuple(
-            tuple(
-                float(value)
-                for value in trajectory[index].get_joint_group_positions(
-                    self.planning_group
-                )
-            )
-            for index in range(waypoint_count)
-        )
-        if any(
-            len(values) != len(self._arm_joint_names)
-            for values in positions
-        ):
-            self.node.get_logger().error(
-                "MoveIt observation plan has an invalid arm state"
-            )
-            return MotionOutcome(False, planning_time, 0.0)
         executed, execution_time = self._execute_joint_path(
             positions[0], positions[1:]
         )
         if not executed or not self._wait_until_arm_settled():
-            return MotionOutcome(False, planning_time, execution_time)
+            return MotionOutcome(
+                False, assessment.planning_time_sec, execution_time
+            )
         with self._planning_scene_monitor.read_only() as scene:
             actual_pose = scene.current_state.get_pose(self.pose_link)
         executed = self._pose_is_within_tolerance(
@@ -1310,7 +1626,7 @@ class MoveItBackend:
         )
         return MotionOutcome(
             executed,
-            planning_time,
+            assessment.planning_time_sec,
             execution_time,
         )
 

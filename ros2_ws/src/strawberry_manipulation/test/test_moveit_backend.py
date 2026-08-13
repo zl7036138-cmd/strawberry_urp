@@ -13,6 +13,7 @@ sys.path.insert(0, str(PACKAGE_ROOT))
 
 from strawberry_manipulation.moveit_backend import (  # noqa: E402
     MoveItBackend,
+    PathAssessment,
     gripper_result_allows_command,
 )
 from strawberry_manipulation.core import MotionOutcome, Pose  # noqa: E402
@@ -371,6 +372,28 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(segments[-1], (target, False))
         self.assertTrue(all(intermediate for _, intermediate in segments[:-1]))
 
+    def test_guarded_approach_preview_failure_is_zero_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._current_link_pose = lambda: Pose(0.20, 0.0, 0.70)
+        backend._current_joint_positions = lambda: (0.0, 0.1)
+        backend.preview_guarded_approach = lambda *args: PathAssessment(
+            False, True, 0.03, 0.2, (0.1, 0.2)
+        )
+        segments = []
+        backend._move_segmented_between = lambda *args, **kwargs: segments.append(
+            (args, kwargs)
+        )
+
+        outcome = backend._move_guarded_approach(
+            Pose(0.42, 0.0, 0.62, qx=1.0, qw=0.0)
+        )
+
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.collision)
+        self.assertEqual(outcome.execution_time_sec, 0.0)
+        self.assertEqual(segments, [])
+
     def test_retreat_uses_checked_cartesian_segments(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
@@ -416,6 +439,119 @@ class MoveItBackendStaticTests(unittest.TestCase):
         )
         self.assertEqual(requested, [target])
 
+    def test_observation_is_not_executed_when_approach_preview_fails(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        observation_pose = Pose(0.28, 0.0, 0.72, qy=0.95, qw=0.31)
+        pregrasp_pose = Pose(0.42, 0.0, 0.62, qx=1.0, qw=0.0)
+        positions = ((0.0, 0.1), (0.2, 0.3))
+        backend._plan_joint_path_to_pose = lambda pose: (
+            positions,
+            PathAssessment(
+                True,
+                False,
+                0.11,
+                0.4,
+                positions[-1],
+                observation_pose,
+            ),
+        )
+        backend.preview_guarded_approach = lambda *args: PathAssessment(
+            False, True, 0.07, 0.2, positions[-1]
+        )
+        executions = []
+        backend._execute_joint_path = lambda *args: executions.append(args)
+
+        outcome = backend.move_to_observation_if_approach_feasible(
+            observation_pose, pregrasp_pose
+        )
+
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.collision)
+        self.assertAlmostEqual(outcome.planning_time_sec, 0.18)
+        self.assertEqual(outcome.execution_time_sec, 0.0)
+        self.assertEqual(executions, [])
+
+    def test_cartesian_preview_seeds_each_segment_from_prior_endpoint(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        start = Pose(0.20, 0.0, 0.70)
+        middle = Pose(0.25, 0.0, 0.72)
+        target = Pose(0.42, 0.0, 0.62)
+        starts = []
+        endpoint_positions = iter(((0.3, 0.4), (0.5, 0.6)))
+        backend._dense_pose_waypoints = lambda left, right: (right,)
+
+        def solve(_waypoints, *, start_joint_positions):
+            starts.append(start_joint_positions)
+            endpoint = next(endpoint_positions)
+            return start_joint_positions, (endpoint,), False, 0.02
+
+        backend._solve_cartesian_joint_path = solve
+
+        result = backend.preview_cartesian_segments(
+            start, (0.1, 0.2), (middle, target)
+        )
+
+        self.assertTrue(result.feasible)
+        self.assertEqual(starts, [(0.1, 0.2), (0.3, 0.4)])
+        self.assertEqual(result.end_joint_positions, (0.5, 0.6))
+        self.assertAlmostEqual(result.planning_time_sec, 0.04)
+        self.assertAlmostEqual(result.joint_travel_rad, 0.8)
+
+    def test_observation_executes_only_after_connected_preview_passes(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.pose_link = "panda_hand"
+        observation_pose = Pose(0.28, 0.0, 0.72, qy=1.0, qw=0.0)
+        pregrasp_pose = Pose(0.42, 0.0, 0.62, qx=1.0, qw=0.0)
+        positions = ((0.0, 0.1), (0.2, 0.3))
+        endpoint_message = SimpleNamespace(
+            position=SimpleNamespace(x=0.28, y=0.0, z=0.72),
+            orientation=SimpleNamespace(x=0.0, y=1.0, z=0.0, w=0.0),
+        )
+        backend._plan_joint_path_to_pose = lambda pose: (
+            positions,
+            PathAssessment(
+                True,
+                False,
+                0.11,
+                0.4,
+                positions[-1],
+                observation_pose,
+            ),
+        )
+        backend.preview_guarded_approach = lambda *args: PathAssessment(
+            True, False, 0.07, 0.2, (0.4, 0.5)
+        )
+        backend._execute_joint_path = lambda start, path: (True, 0.3)
+        backend._wait_until_arm_settled = lambda: True
+
+        class SceneContext:
+            current_state = SimpleNamespace(
+                get_pose=lambda _link: endpoint_message
+            )
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        backend._planning_scene_monitor = SimpleNamespace(
+            read_only=lambda: SceneContext()
+        )
+        backend._pose_is_within_tolerance = lambda *args, **kwargs: True
+
+        outcome = backend.move_to_observation_if_approach_feasible(
+            observation_pose, pregrasp_pose
+        )
+
+        self.assertTrue(outcome.success)
+        self.assertAlmostEqual(outcome.planning_time_sec, 0.18)
+        self.assertAlmostEqual(outcome.execution_time_sec, 0.3)
+
     def test_home_uses_bounded_direct_action_path(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.home_configuration = "ready"
@@ -433,6 +569,9 @@ class MoveItBackendStaticTests(unittest.TestCase):
         logger = self.Logger()
         backend.node = SimpleNamespace(get_logger=lambda: logger)
         backend.request_timeout_sec = 5.0
+        backend.maximum_joint_trajectory_points = 512
+        backend.maximum_joint_trajectory_travel_rad = 40.0
+        backend.maximum_joint_trajectory_duration_sec = 60.0
         backend._arm_action_probe = SimpleNamespace(
             wait_for_server=lambda timeout_sec: False
         )
@@ -447,6 +586,52 @@ class MoveItBackendStaticTests(unittest.TestCase):
             "Panda arm trajectory action server became unavailable",
             logger.errors,
         )
+
+    def test_joint_path_rejects_excessive_nominal_duration_before_goal(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.maximum_joint_trajectory_points = 512
+        backend.maximum_joint_trajectory_travel_rad = 40.0
+        backend.maximum_joint_trajectory_duration_sec = 1.0
+        backend.request_timeout_sec = 5.0
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: True,
+            send_goal_async=lambda goal: self.fail(
+                "unsafe trajectory reached the controller"
+            ),
+        )
+
+        succeeded, execution_time = backend._execute_joint_path(
+            (0.0,), ((0.3,), (0.6,), (0.9,), (1.2,), (1.5,))
+        )
+
+        self.assertFalse(succeeded)
+        self.assertEqual(execution_time, 0.0)
+        self.assertTrue(any("duration" in message for message in logger.errors))
+
+    def test_joint_path_rejects_excessive_cumulative_travel_before_goal(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.maximum_joint_trajectory_points = 512
+        backend.maximum_joint_trajectory_travel_rad = 1.0
+        backend.maximum_joint_trajectory_duration_sec = 60.0
+        backend.request_timeout_sec = 5.0
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: True,
+            send_goal_async=lambda goal: self.fail(
+                "unsafe trajectory reached the controller"
+            ),
+        )
+
+        succeeded, execution_time = backend._execute_joint_path(
+            (0.0,), ((0.6,), (0.0,), (0.6,))
+        )
+
+        self.assertFalse(succeeded)
+        self.assertEqual(execution_time, 0.0)
+        self.assertTrue(any("travel" in message for message in logger.errors))
 
     def test_cartesian_endpoint_miss_gets_exactly_one_measured_correction(self):
         backend = MoveItBackend.__new__(MoveItBackend)

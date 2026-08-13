@@ -40,6 +40,7 @@ class FakeBackend:
         allow_contact=True,
         restore=True,
         attach=True,
+        attach_results=None,
         detach=True,
         in_bin=True,
         home=True,
@@ -51,6 +52,7 @@ class FakeBackend:
         self.allow_contact_ok = allow_contact
         self.restore_ok = restore
         self.attach_ok = attach
+        self.attach_results = list(attach_results or [])
         self.detach_ok = detach
         self.in_bin_ok = in_bin
         self.home_ok = home
@@ -88,7 +90,7 @@ class FakeBackend:
 
     def attach(self, target_id):
         self.calls.append("attach")
-        return self.attach_ok
+        return self.attach_results.pop(0) if self.attach_results else self.attach_ok
 
     def detach(self, target_id):
         self.calls.append("detach")
@@ -185,6 +187,17 @@ class PickAndPlaceTests(unittest.TestCase):
             poses["RETREAT"].qz,
             poses["CONTACT_RETRY_GRASP"].qz,
         )
+
+    def test_single_side_attachment_rejection_gets_one_orthogonal_retry(self):
+        backend = FakeBackend(attach_results=[False, True])
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertTrue(result.success)
+        self.assertEqual(backend.calls.count("attach"), 2)
+        self.assertEqual(backend.calls.count("CONTACT_RETRY_PREP"), 1)
+        self.assertEqual(backend.calls.count("CONTACT_RETRY_GRASP"), 1)
+        self.assertEqual(backend.calls.count("close"), 2)
 
     def test_contact_retry_fails_closed_when_checked_retreat_is_unavailable(self):
         backend = FakeBackend(

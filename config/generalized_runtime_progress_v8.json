@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v8",
+  "scope": "development_only_connected_observation_and_approach_safety",
+  "extends": "generalized_runtime_progress_v7",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "connected_observation_preview": "A wrist observation is executed only after its planned endpoint joint state can continue through the same collision-sampled lift, reorientation, safe-corridor and pregrasp segments used by execution.",
+    "post_refinement_gate": "The wrist-fused target pose receives a second current-state-to-pregrasp, grasp and retreat evaluation before the PickAndPlace action is sent.",
+    "bounded_orientation_search": "Both bounded pregrasp orientations are tested for connected current-state feasibility before rejecting a target.",
+    "trajectory_limits": "Every direct arm trajectory is rejected before controller submission if it exceeds 512 points, 40 rad cumulative joint travel or 60 s nominal duration.",
+    "single_side_contact_recovery": "A strict attachment rejection after a successful close now triggers the same one-time, collision-checked orthogonal contact retry as an asymmetric close result. Dual-contact attachment remains mandatory."
+  },
+  "development_runtime_probes": {
+    "seed_44008_v13": {
+      "outcome": "FAILED_SAFE",
+      "zero_motion_observation_rejections": 2,
+      "connected_observation_reached": true,
+      "post_refinement_rejection_before_pick": true,
+      "later_target_reached_grasp_contact": true,
+      "grasp_contact_result": "left contact present; right contact absent; strict attachment rejected",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "b241de003b0a544e860f7b19445975aff0a9e7ab84d4b542a84dc7f901e95013",
+      "cleanup_receipt_sha256": "f8847a396e9e7a398b8795c9f3ac50404a49328c290f7866dbc9ffe131ab7153"
+    },
+    "seed_44008_v14": {
+      "outcome": "FAILED_SAFE",
+      "zero_motion_observation_rejections": 5,
+      "connected_observation_reached": true,
+      "terminal_reason": "wrist confirmation timeout after a later connected observation",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "242487ba7f1b7306b7ae0b852e8501d09aec78bae389bede7894b17faf1a1905",
+      "cleanup_receipt_sha256": "fb8dc84ce2988a48e41a8ca53f20c0fc746ba4d2cddd6fef46eb818bb0a1224e"
+    }
+  },
+  "verification": {
+    "full_regression": {
+      "test_count": 525,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "connected_observation_safety_milestone_accepted": true,
+    "continuous_harvest_acceptance_deferred": true,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "next_required_work": [
+      "Requalify the new strict-attachment contact retry in perception-controlled development runtime.",
+      "Reduce conservative approach cycle time without weakening collision sampling or trajectory limits.",
+      "Obtain development batches with at least two successful harvested fruits across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

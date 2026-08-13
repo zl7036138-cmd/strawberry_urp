@@ -124,6 +124,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             # The trajectory controller may spend up to eight seconds after
             # the nominal timestamp waiting for the actual joints to converge.
             self.declare_parameter("trajectory_timeout_margin_sec", 25.0)
+            self.declare_parameter("maximum_joint_trajectory_duration_sec", 60.0)
+            self.declare_parameter("maximum_joint_trajectory_travel_rad", 40.0)
+            self.declare_parameter("maximum_joint_trajectory_points", 512)
             self.declare_parameter("settle_timeout_sec", 1.5)
             self.declare_parameter("settle_sample_period_sec", 0.05)
             self.declare_parameter("settle_delta_rad", 0.002)
@@ -286,6 +289,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 trajectory_timeout_margin_sec=float(
                     self.get_parameter("trajectory_timeout_margin_sec").value
                 ),
+                maximum_joint_trajectory_duration_sec=float(
+                    self.get_parameter(
+                        "maximum_joint_trajectory_duration_sec"
+                    ).value
+                ),
+                maximum_joint_trajectory_travel_rad=float(
+                    self.get_parameter(
+                        "maximum_joint_trajectory_travel_rad"
+                    ).value
+                ),
+                maximum_joint_trajectory_points=int(
+                    self.get_parameter("maximum_joint_trajectory_points").value
+                ),
                 settle_timeout_sec=float(
                     self.get_parameter("settle_timeout_sec").value
                 ),
@@ -396,10 +412,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 response.success = False
                 response.message = "target_id must be positive"
                 return response
-            if request.observation_pose.header.frame_id != base_frame:
+            if (
+                request.target_pose.header.frame_id != base_frame
+                or request.observation_pose.header.frame_id != base_frame
+            ):
                 response.success = False
                 response.message = (
-                    "observation pose is not in the manipulation base frame"
+                    "target and observation poses are not in the manipulation "
+                    "base frame"
                 )
                 return response
             if not self._goal_gate.try_acquire():
@@ -408,19 +428,35 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 return response
             try:
                 try:
+                    target = _to_pose(request.target_pose.pose).normalized()
                     pose = _to_pose(request.observation_pose.pose).normalized()
                 except (TypeError, ValueError) as exc:
                     response.success = False
-                    response.message = f"invalid observation pose: {exc}"
+                    response.message = f"invalid target or observation pose: {exc}"
                     return response
-                outcome = self._backend.move_to(pose, "WRIST_OBSERVATION")
+                executor = self._executor_core
+                pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
+                    target,
+                    quaternion=executor.grasp_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                    pregrasp_offset_m=executor.pregrasp_offset_m,
+                )
+                outcome = None
+                for pregrasp in pregrasp_candidates:
+                    outcome = self._backend.move_to_observation_if_approach_feasible(
+                        pose, pregrasp
+                    )
+                    if outcome.success or outcome.execution_time_sec > 1.0e-6:
+                        break
+                if outcome is None:
+                    raise RuntimeError("bounded pregrasp candidate set is empty")
                 response.success = bool(outcome.success)
                 response.planning_time_sec = float(outcome.planning_time_sec)
                 response.execution_time_sec = float(outcome.execution_time_sec)
                 response.message = (
-                    "wrist observation pose reached"
+                    "wrist observation pose reached with a connected pre-grasp route"
                     if outcome.success
-                    else "collision-checked wrist observation motion failed"
+                    else "wrist observation or connected pre-grasp preview failed"
                 )
                 return response
             finally:
@@ -468,15 +504,28 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 first_planning_time = 0.0
                 first_collision = False
                 first_joint_travel = 0.0
+                first_connected = None
                 for candidate in pregrasp_candidates:
                     assessment = self._backend.evaluate_pose_sequence((candidate,))
                     first_planning_time += float(assessment[2])
                     first_collision = first_collision or bool(assessment[1])
                     first_joint_travel = float(assessment[3])
-                    if assessment[0]:
-                        first = assessment
-                        pregrasp = candidate
-                        break
+                    if not assessment[0]:
+                        continue
+                    connected = self._backend.preview_guarded_approach_from_current(
+                        candidate
+                    )
+                    first_planning_time += connected.planning_time_sec
+                    first_collision = first_collision or bool(connected.collision)
+                    first_joint_travel = (
+                        float(assessment[3]) + connected.joint_travel_rad
+                    )
+                    if not connected.feasible:
+                        continue
+                    first = assessment
+                    first_connected = connected
+                    pregrasp = candidate
+                    break
                 if first is None or pregrasp is None:
                     response.feasible = False
                     response.collision = first_collision
@@ -497,11 +546,16 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 response.feasible = bool(second[0])
                 response.collision = bool(second[1])
-                response.planning_time_sec = float(first_planning_time + second[2])
-                response.joint_travel_rad = float(second[3])
+                response.planning_time_sec = float(
+                    first_planning_time + second[2]
+                )
+                response.joint_travel_rad = float(
+                    second[3]
+                    + (first_connected.joint_travel_rad if first_connected else 0.0)
+                )
                 response.message = (
-                    "pregrasp, grasp, and retreat are feasible"
-                    if second[0]
+                    "current state, pregrasp, grasp, and retreat are connected and feasible"
+                    if response.feasible
                     else "grasp or retreat IK/collision check failed"
                 )
                 return response

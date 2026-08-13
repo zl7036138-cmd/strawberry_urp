@@ -131,12 +131,48 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.stages[-1], "DONE")
         self.assertIn("attach", backend.calls)
         self.assertIn("detach", backend.calls)
+        self.assertLess(backend.calls.index("detach"), backend.calls.index("verify"))
+        release_detach = backend.calls.index("detach")
+        self.assertEqual(backend.calls[release_detach : release_detach + 3], [
+            "detach",
+            "open",
+            "verify",
+        ])
         self.assertLess(backend.calls.index("prepare"), backend.calls.index("APPROACH"))
         self.assertLess(
             backend.calls.index("allow_contact"),
             backend.calls.index("GRASP_POSE"),
         )
         self.assertEqual(backend.calls[-2:], ["home", "restore"])
+
+    def test_release_detach_failure_keeps_recovery_motion_withheld(self):
+        backend = FakeBackend(detach=False)
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
+        self.assertIn("recovery motion withheld", result.message)
+        self.assertNotIn("verify", backend.calls)
+        self.assertNotIn("home", backend.calls)
+        self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
+
+    def test_release_open_failure_occurs_only_after_detach(self):
+        # The first successful open prepares the grasp; the second fails at
+        # the release point after the rigid attachment has been removed.
+        backend = FakeBackend(open_results=[True, False, True])
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
+        self.assertNotIn("verify", backend.calls)
+        release_detach = backend.calls.index("detach")
+        self.assertEqual(
+            backend.calls[release_detach : release_detach + 2],
+            ["detach", "open"],
+        )
+        self.assertIn("home", backend.calls)
 
     def test_target_collision_gate_fails_closed(self):
         backend = FakeBackend(prepare=False)

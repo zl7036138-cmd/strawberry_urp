@@ -663,9 +663,17 @@ class PickAndPlaceExecutor:
         execution_time += place_motion.execution_time_sec
         if not place_motion.success:
             return fail(FailureCode.PLACE_FAILED, "failed to reach collection bin")
-        if not self.backend.open_gripper() or not self.backend.detach(target_id):
-            return fail(FailureCode.PLACE_FAILED, "failed to release fruit")
+        # Remove the rigid simulation constraint before opening the physical
+        # fingers.  Opening while the fruit is still welded to the hand can
+        # preload it against one finger; the later detach then releases that
+        # asymmetric impulse and makes an otherwise central bin drop
+        # nondeterministic.  Closed fingers continue to support the fruit for
+        # the short interval between detach and the symmetric open command.
+        if not self.backend.detach(target_id):
+            return fail(FailureCode.PLACE_FAILED, "failed to detach fruit for release")
         attached = False
+        if not self.backend.open_gripper():
+            return fail(FailureCode.PLACE_FAILED, "failed to open gripper for release")
 
         mark("VERIFY", 0.90)
         if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):

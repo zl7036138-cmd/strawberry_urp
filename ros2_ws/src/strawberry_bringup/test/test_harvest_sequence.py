@@ -7,10 +7,45 @@ PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
 
 from strawberry_bringup.harvest_sequence import HarvestSequence, HarvestState  # noqa: E402
-from strawberry_bringup.harvest_orchestrator import build_scan_diagnostics  # noqa: E402
+from strawberry_bringup.harvest_orchestrator import (  # noqa: E402
+    DROP_SLOT_OFFSETS,
+    build_scan_diagnostics,
+    drop_position_for_harvest_index,
+)
 
 
 class HarvestSequenceTests(unittest.TestCase):
+    def test_drop_slots_are_deterministic_distinct_and_centre_first(self):
+        positions = [
+            drop_position_for_harvest_index(
+                index,
+                center_x=0.35,
+                center_y=-0.45,
+                center_z=0.45,
+                spacing_m=0.08,
+            )
+            for index in range(len(DROP_SLOT_OFFSETS))
+        ]
+
+        self.assertEqual(positions[0], (0.35, -0.45, 0.45))
+        self.assertEqual(len(set(positions)), 9)
+        self.assertTrue(
+            all(0.27 - 1e-9 <= item[0] <= 0.43 + 1e-9 for item in positions)
+        )
+        self.assertTrue(
+            all(-0.53 - 1e-9 <= item[1] <= -0.37 + 1e-9 for item in positions)
+        )
+
+    def test_drop_slot_bank_fails_closed_outside_generalized_scene_capacity(self):
+        with self.assertRaises(ValueError):
+            drop_position_for_harvest_index(
+                len(DROP_SLOT_OFFSETS),
+                center_x=0.35,
+                center_y=-0.45,
+                center_z=0.45,
+                spacing_m=0.08,
+            )
+
     def test_scan_diagnostics_explain_truth_free_no_pick(self):
         diagnostics = build_scan_diagnostics(
             tracks=[

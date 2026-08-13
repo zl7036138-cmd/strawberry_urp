@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v12",
+  "scope": "development_only_release_and_live_joint_recovery",
+  "extends": "generalized_runtime_progress_v11",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "release_order": "Detach the rigid simulated fruit constraint before symmetrically opening both fingers.",
+    "multi_drop_bank": "Successful harvest count selects one of nine bounded deterministic bin drop slots; retries retain their slot.",
+    "fresh_arm_state": "All Panda arm joints are tracked from /joint_states and settling requires consecutive new messages.",
+    "trajectory_start_gate": "Controller goals are withheld when the planned start differs from fresh live joints by more than 0.05 rad.",
+    "segmented_home": "The globally checked named-home path executes in at most four-second controller segments with live endpoint verification."
+  },
+  "development_runtime_probes": {
+    "release_order_v37_v39": {
+      "outcome": "PASS_3_OF_3",
+      "development_oracle_diagnostic_only": true,
+      "physical_bilateral_contact": true,
+      "physical_attachment": true,
+      "detach_before_open": true,
+      "stable_bin_floor_contact_sec": 1.0,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": [
+        "330007e80a95f6087213f732d7882f7c54a375344e5e7a36766fbd713a16e78a",
+        "8614aeb79d7f9e43fe7f96b7783c559f61041d2b208dcd02d87b6303df64cdf7",
+        "540f0bbc9101cf0bd76db0b89951b1bcf8eeaa5547fdde91297a8e2c73b84736"
+      ]
+    },
+    "seed_44008_live_start_gate_v43": {
+      "outcome": "FAILED_SAFE",
+      "dynamic_visual_observation_completed": true,
+      "wrist_confirmation_completed": true,
+      "physical_contact_class": "BILATERAL_SAME_FRUIT",
+      "gripper_result_timeout": "panda_finger_joint1",
+      "recovery_home_segments_completed": 3,
+      "global_scan_home_reached": true,
+      "path_tolerance_violations": 0,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "93b0438f73dc73fc253789997f72a925768cd691c5d5a8a233e3aca062e9b8d2",
+      "cleanup_receipt_sha256": "4b3926f668a039d73d153e7ffda2acee9ff5867f93b1d472611df2b9e9630a88"
+    }
+  },
+  "verification": {
+    "full_regression": {
+      "test_count": 690,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "isolated_physical_release_gate_passed": true,
+    "stale_start_home_failure_resolved": true,
+    "multi_drop_bank_implemented": true,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "current_primary_blocker": "left gripper action result timeout during a physically bilateral grasp",
+    "next_required_work": [
+      "Collect both accepted gripper results concurrently under one bounded deadline.",
+      "Retain per-finger measured-position validation and fail closed when either result remains unverified.",
+      "Obtain a development batch with at least two TARGET_HARVESTED outcomes across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

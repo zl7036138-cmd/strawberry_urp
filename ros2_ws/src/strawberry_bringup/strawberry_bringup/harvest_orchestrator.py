@@ -15,6 +15,47 @@ from .harvest_planning import (
 from .harvest_sequence import HarvestSequence, HarvestState
 
 
+# First use the release pose proven by the isolated physical gate, then fill a
+# bounded 3x3 pattern from the centre outwards.  Retries keep the same slot
+# because the index advances only after a successful harvest.
+DROP_SLOT_OFFSETS = (
+    (0, 0),
+    (1, 0),
+    (-1, 0),
+    (0, 1),
+    (0, -1),
+    (1, 1),
+    (-1, 1),
+    (1, -1),
+    (-1, -1),
+)
+
+
+def drop_position_for_harvest_index(
+    harvested_count: int,
+    *,
+    center_x: float,
+    center_y: float,
+    center_z: float,
+    spacing_m: float,
+) -> tuple[float, float, float]:
+    """Return one deterministic bin release point for a completed-fruit count."""
+
+    if not 0 <= harvested_count < len(DROP_SLOT_OFFSETS):
+        raise ValueError("harvested_count exceeds the bounded drop-slot bank")
+    values = (center_x, center_y, center_z, spacing_m)
+    if not all(math.isfinite(float(value)) for value in values):
+        raise ValueError("drop-slot geometry must be finite")
+    if spacing_m <= 0.0:
+        raise ValueError("drop-slot spacing must be positive")
+    offset_x, offset_y = DROP_SLOT_OFFSETS[harvested_count]
+    return (
+        float(center_x) + offset_x * float(spacing_m),
+        float(center_y) + offset_y * float(spacing_m),
+        float(center_z),
+    )
+
+
 def build_scan_diagnostics(
     *,
     tracks: list[dict],
@@ -70,13 +111,21 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self.declare_parameter("wrist_max_sigma_m", 0.015)
             self.declare_parameter("wrist_systematic_sigma_m", 0.030)
             self.declare_parameter("minimum_reobservation_baseline_m", 0.04)
-            self.declare_parameter("max_targets", 12)
+            # A generalized scene contains at most three plants with three
+            # fruit each, matching the bounded 3x3 collection-bin drop bank.
+            self.declare_parameter("max_targets", len(DROP_SLOT_OFFSETS))
             self.declare_parameter("place_x", 0.35)
             self.declare_parameter("place_y", -0.45)
             self.declare_parameter("place_z", 0.45)
+            self.declare_parameter("place_grid_spacing_m", 0.08)
             self.declare_parameter("require_wrist_confirmation", True)
             self._group = ReentrantCallbackGroup()
-            self._sequence = HarvestSequence(max_targets=int(self.get_parameter("max_targets").value))
+            max_targets = int(self.get_parameter("max_targets").value)
+            if not 1 <= max_targets <= len(DROP_SLOT_OFFSETS):
+                raise ValueError(
+                    "max_targets must fit the bounded collection-bin drop bank"
+                )
+            self._sequence = HarvestSequence(max_targets=max_targets)
             self._started_monotonic = None
             self._scan_timer = None
             self._confirmation_timer = None
@@ -638,6 +687,15 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             return True
 
         def _send_pick(self) -> None:
+            place_position = drop_position_for_harvest_index(
+                len(self._sequence.harvested),
+                center_x=float(self.get_parameter("place_x").value),
+                center_y=float(self.get_parameter("place_y").value),
+                center_z=float(self.get_parameter("place_z").value),
+                spacing_m=float(
+                    self.get_parameter("place_grid_spacing_m").value
+                ),
+            )
             goal = PickAndPlace.Goal()
             goal.target_id = int(self._current_target.target_id)
             goal.target_pose = PoseStamped()
@@ -645,16 +703,22 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             goal.target_pose.pose = self._current_goal_pose
             goal.place_pose = PoseStamped()
             goal.place_pose.header.frame_id = "panda_link0"
-            goal.place_pose.pose.position.x = float(self.get_parameter("place_x").value)
-            goal.place_pose.pose.position.y = float(self.get_parameter("place_y").value)
-            goal.place_pose.pose.position.z = float(self.get_parameter("place_z").value)
+            goal.place_pose.pose.position.x = place_position[0]
+            goal.place_pose.pose.position.y = place_position[1]
+            goal.place_pose.pose.position.z = place_position[2]
             goal.place_pose.pose.orientation.w = 1.0
             future = self._pick_client.send_goal_async(
                 goal,
                 feedback_callback=self._pick_feedback,
             )
             future.add_done_callback(self._goal_response)
-            self._publish("PICK_SENT")
+            self._publish(
+                "PICK_SENT",
+                diagnostics={
+                    "drop_slot_index": len(self._sequence.harvested),
+                    "place_position_m": list(place_position),
+                },
+            )
 
         def _pick_feedback(self, message) -> None:
             if self._sequence.state is not HarvestState.PICKING:

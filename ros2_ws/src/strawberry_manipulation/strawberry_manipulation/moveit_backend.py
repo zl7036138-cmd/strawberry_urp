@@ -139,6 +139,8 @@ class MoveItBackend:
         maximum_joint_trajectory_points: int = 512,
         joint_trajectory_velocity_rad_per_sec: float = 0.30,
         home_joint_trajectory_velocity_rad_per_sec: float = 0.10,
+        home_joint_trajectory_segment_duration_sec: float = 4.0,
+        joint_trajectory_start_tolerance_rad: float = 0.05,
         minimum_joint_limit_margin_rad: float = 0.01,
         minimum_joint_waypoint_duration_sec: float = 0.05,
         settle_timeout_sec: float = 1.5,
@@ -239,6 +241,13 @@ class MoveItBackend:
             or home_joint_trajectory_velocity_rad_per_sec <= 0.0
             or home_joint_trajectory_velocity_rad_per_sec
             > joint_trajectory_velocity_rad_per_sec
+            or not math.isfinite(home_joint_trajectory_segment_duration_sec)
+            or home_joint_trajectory_segment_duration_sec <= 0.0
+            or home_joint_trajectory_segment_duration_sec
+            > maximum_joint_trajectory_duration_sec
+            or not math.isfinite(joint_trajectory_start_tolerance_rad)
+            or joint_trajectory_start_tolerance_rad <= 0.0
+            or joint_trajectory_start_tolerance_rad > 0.10
             or not math.isfinite(minimum_joint_limit_margin_rad)
             or minimum_joint_limit_margin_rad <= 0.0
             or minimum_joint_limit_margin_rad >= 0.05
@@ -330,6 +339,12 @@ class MoveItBackend:
         self.home_joint_trajectory_velocity_rad_per_sec = float(
             home_joint_trajectory_velocity_rad_per_sec
         )
+        self.home_joint_trajectory_segment_duration_sec = float(
+            home_joint_trajectory_segment_duration_sec
+        )
+        self.joint_trajectory_start_tolerance_rad = float(
+            joint_trajectory_start_tolerance_rad
+        )
         self.minimum_joint_limit_margin_rad = float(minimum_joint_limit_margin_rad)
         self.minimum_joint_waypoint_duration_sec = float(
             minimum_joint_waypoint_duration_sec
@@ -412,6 +427,10 @@ class MoveItBackend:
         self._latest_gripper_positions_m = {
             joint_name: None for joint_name in self.gripper_joints
         }
+        self._latest_arm_positions_rad = {
+            joint_name: None for joint_name in self._arm_joint_names
+        }
+        self._arm_state_sequence = 0
         self._gripper_state_subscription = node.create_subscription(
             JointState,
             "/joint_states",
@@ -451,11 +470,28 @@ class MoveItBackend:
             )
 
     def _on_gripper_joint_state(self, message) -> None:
-        for name, position in zip(message.name, message.position, strict=False):
-            joint_name = str(name)
-            if joint_name in self.gripper_joints:
-                with self._gripper_state_lock:
+        observed_arm_positions: dict[str, float] = {}
+        with self._gripper_state_lock:
+            for name, position in zip(message.name, message.position, strict=False):
+                joint_name = str(name)
+                if joint_name in self.gripper_joints:
                     self._latest_gripper_positions_m[joint_name] = float(position)
+                if joint_name in self._latest_arm_positions_rad:
+                    observed_arm_positions[joint_name] = float(position)
+            if set(observed_arm_positions) == set(self._arm_joint_names):
+                self._latest_arm_positions_rad.update(observed_arm_positions)
+                self._arm_state_sequence += 1
+
+    def _latest_live_arm_positions(self) -> tuple[int, tuple[float, ...]] | None:
+        positions = getattr(self, "_latest_arm_positions_rad", None)
+        lock = getattr(self, "_gripper_state_lock", None)
+        if positions is None or lock is None:
+            return None
+        with lock:
+            ordered = tuple(positions.get(name) for name in self._arm_joint_names)
+            if any(value is None for value in ordered):
+                return None
+            return int(self._arm_state_sequence), tuple(float(value) for value in ordered)
 
     @staticmethod
     def _build_fruit_manifest(fruit_obstacles) -> MappingProxyType:
@@ -1107,20 +1143,64 @@ class MoveItBackend:
             for left, right in zip(positions, positions[1:])
         )
 
+    def _partition_joint_path_by_duration(
+        self,
+        positions: tuple[tuple[float, ...], ...],
+        *,
+        velocity_rad_per_sec: float,
+        maximum_segment_duration_sec: float,
+    ) -> tuple[tuple[tuple[float, ...], ...], ...]:
+        """Split a planned path at existing waypoints without changing its route."""
+
+        if len(positions) < 2:
+            raise ValueError("joint path must contain at least two waypoints")
+        segments: list[tuple[tuple[float, ...], ...]] = []
+        segment_start = 0
+        segment_duration = 0.0
+        for right_index in range(1, len(positions)):
+            edge_duration = self._joint_path_nominal_duration(
+                positions[right_index - 1 : right_index + 1],
+                velocity_rad_per_sec=velocity_rad_per_sec,
+            )
+            if edge_duration > maximum_segment_duration_sec + 1.0e-9:
+                raise ValueError(
+                    "planned joint-path edge exceeds the bounded segment duration"
+                )
+            if (
+                segment_duration > 0.0
+                and segment_duration + edge_duration
+                > maximum_segment_duration_sec + 1.0e-9
+            ):
+                segments.append(positions[segment_start:right_index])
+                segment_start = right_index - 1
+                segment_duration = 0.0
+            segment_duration += edge_duration
+        segments.append(positions[segment_start:])
+        return tuple(segments)
+
     def _wait_until_arm_settled(self) -> bool:
-        """Wait for consecutive low-delta joint samples before replanning."""
+        """Wait for consecutive fresh, low-delta joint samples before replanning."""
 
         deadline = time.monotonic() + self.settle_timeout_sec
         previous = None
+        previous_sequence = None
         stable_samples = 0
         while time.monotonic() < deadline:
-            with self._planning_scene_monitor.read_only() as scene:
-                positions = tuple(
-                    float(value)
-                    for value in scene.current_state.get_joint_group_positions(
-                        self.planning_group
+            live = self._latest_live_arm_positions()
+            if live is not None:
+                sequence, positions = live
+                if sequence == previous_sequence:
+                    time.sleep(self.settle_sample_period_sec)
+                    continue
+                previous_sequence = sequence
+            else:
+                with self._planning_scene_monitor.read_only() as scene:
+                    positions = tuple(
+                        float(value)
+                        for value in scene.current_state.get_joint_group_positions(
+                            self.planning_group
+                        )
                     )
-                )
             if previous is not None and len(positions) == len(previous):
                 maximum_delta = max(
                     abs(current - prior) for current, prior in zip(positions, previous)
@@ -1209,6 +1289,9 @@ class MoveItBackend:
         ).normalized()
 
     def _current_joint_positions(self) -> tuple[float, ...]:
+        live = self._latest_live_arm_positions()
+        if live is not None:
+            return live[1]
         with self._planning_scene_monitor.read_only() as scene:
             return tuple(
                 float(value)
@@ -1388,6 +1471,27 @@ class MoveItBackend:
         if not joint_path:
             return False, 0.0
         all_positions = (start_positions,) + tuple(joint_path)
+        live = self._latest_live_arm_positions()
+        if live is not None:
+            _, measured_start = live
+            if len(measured_start) != len(start_positions):
+                self.node.get_logger().error(
+                    "joint trajectory rejected before execution: live arm state "
+                    "has the wrong dimension"
+                )
+                return False, 0.0
+            maximum_start_error = max(
+                abs(measured - planned)
+                for measured, planned in zip(measured_start, start_positions)
+            )
+            if maximum_start_error > self.joint_trajectory_start_tolerance_rad:
+                self.node.get_logger().error(
+                    "joint trajectory rejected before execution: planned start "
+                    f"differs from fresh live joints by {maximum_start_error:.6f} "
+                    "rad, exceeding the configured "
+                    f"{self.joint_trajectory_start_tolerance_rad:.6f} rad limit"
+                )
+                return False, 0.0
         velocity = (
             self.joint_trajectory_velocity_rad_per_sec
             if velocity_rad_per_sec is None
@@ -1925,14 +2029,59 @@ class MoveItBackend:
                 "MoveIt named-configuration plan has an invalid arm state"
             )
             return MotionOutcome(False, planning_time, 0.0)
-        executed, execution_time = self._execute_joint_path(
-            positions[0],
-            positions[1:],
-            velocity_rad_per_sec=self.home_joint_trajectory_velocity_rad_per_sec,
+        velocity = self.home_joint_trajectory_velocity_rad_per_sec
+        # Validate the complete plan before partitioning so segmentation cannot
+        # bypass the global point, travel, duration, or joint-limit bounds.
+        if not self._joint_path_within_safety_limits(
+            positions,
+            velocity_rad_per_sec=velocity,
+        ):
+            return MotionOutcome(False, planning_time, 0.0)
+        try:
+            segments = self._partition_joint_path_by_duration(
+                positions,
+                velocity_rad_per_sec=velocity,
+                maximum_segment_duration_sec=(
+                    self.home_joint_trajectory_segment_duration_sec
+                ),
+            )
+        except ValueError as exc:
+            self.node.get_logger().error(
+                f"named-configuration path cannot be safely segmented: {exc}"
+            )
+            return MotionOutcome(False, planning_time, 0.0)
+
+        self.node.get_logger().info(
+            "Executing named-configuration route in "
+            f"{len(segments)} bounded controller segment(s)"
         )
-        if executed:
-            executed = self._wait_until_arm_settled()
-        return MotionOutcome(executed, planning_time, execution_time)
+        execution_time = 0.0
+        for segment_index, segment in enumerate(segments, start=1):
+            executed, segment_execution_time = self._execute_joint_path(
+                segment[0],
+                segment[1:],
+                velocity_rad_per_sec=velocity,
+            )
+            execution_time += segment_execution_time
+            if not executed or not self._wait_until_arm_settled():
+                self.node.get_logger().error(
+                    "named-configuration route stopped at bounded segment "
+                    f"{segment_index}/{len(segments)}"
+                )
+                return MotionOutcome(False, planning_time, execution_time)
+            measured = self._current_joint_positions()
+            endpoint = segment[-1]
+            if len(measured) != len(endpoint) or any(
+                abs(observed - expected) > self.home_joint_tolerance_rad
+                for observed, expected in zip(measured, endpoint)
+            ):
+                self.node.get_logger().error(
+                    "named-configuration route stopped because bounded segment "
+                    f"{segment_index}/{len(segments)} did not reach its verified "
+                    "joint endpoint"
+                )
+                return MotionOutcome(False, planning_time, execution_time)
+        return MotionOutcome(True, planning_time, execution_time)
 
     def move_to(self, pose: Pose, stage: str) -> MotionOutcome:
         self.node.get_logger().info(f"MoveIt stage {stage}")

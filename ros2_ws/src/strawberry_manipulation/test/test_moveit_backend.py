@@ -299,16 +299,38 @@ class MoveItBackendStaticTests(unittest.TestCase):
             "panda_finger_joint1": None,
             "panda_finger_joint2": None,
         }
+        backend._arm_joint_names = tuple(f"panda_joint{index}" for index in range(1, 8))
+        backend._latest_arm_positions_rad = {
+            joint_name: None for joint_name in backend._arm_joint_names
+        }
+        backend._arm_state_sequence = 0
 
         backend._on_gripper_joint_state(
             SimpleNamespace(
                 name=[
                     "panda_joint1",
+                    "panda_joint2",
+                    "panda_joint3",
+                    "panda_joint4",
+                    "panda_joint5",
+                    "panda_joint6",
+                    "panda_joint7",
                     "panda_finger_joint1",
                     "panda_finger_joint2",
                 ],
-                position=[0.5, 0.031, 0.032],
+                position=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.031, 0.032],
             )
+        )
+        self.assertEqual(
+            backend._latest_live_arm_positions(),
+            (1, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)),
+        )
+        backend._on_gripper_joint_state(
+            SimpleNamespace(name=["panda_joint1"], position=[0.15])
+        )
+        self.assertEqual(
+            backend._latest_live_arm_positions(),
+            (1, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)),
         )
 
         self.assertEqual(
@@ -871,7 +893,15 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.planning_group = "panda_arm"
         backend._arm_joint_names = ("panda_joint1",)
         backend.home_joint_trajectory_velocity_rad_per_sec = 0.10
+        backend.home_joint_trajectory_segment_duration_sec = 6.0
+        backend.home_joint_tolerance_rad = 0.03
+        backend.maximum_joint_trajectory_points = 512
+        backend.maximum_joint_trajectory_travel_rad = 40.0
+        backend.maximum_joint_trajectory_duration_sec = 60.0
+        backend.minimum_joint_limit_margin_rad = 0.01
+        backend.minimum_joint_waypoint_duration_sec = 0.05
         backend._wait_until_arm_settled = lambda: True
+        backend._current_joint_positions = lambda: (0.5,)
         calls = []
         backend._execute_joint_path = lambda start, path, **kwargs: (
             calls.append((start, path, kwargs)) or (True, 1.0)
@@ -884,6 +914,99 @@ class MoveItBackendStaticTests(unittest.TestCase):
             calls[0][2]["velocity_rad_per_sec"],
             0.10,
         )
+
+    def test_named_home_partitions_long_plan_and_verifies_each_endpoint(self):
+        class Arm:
+            def set_start_state_to_current_state(self):
+                pass
+
+            def set_goal_state(self, **kwargs):
+                pass
+
+            def plan(self):
+                states = [
+                    SimpleNamespace(
+                        get_joint_group_positions=lambda _group, value=value: (value,)
+                    )
+                    for value in (0.0, 0.2, 0.4, 0.6)
+                ]
+                return SimpleNamespace(trajectory=states)
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._arm = Arm()
+        backend.planning_group = "panda_arm"
+        backend._arm_joint_names = ("panda_joint1",)
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.10
+        backend.home_joint_trajectory_segment_duration_sec = 3.0
+        backend.home_joint_tolerance_rad = 0.03
+        backend.maximum_joint_trajectory_points = 512
+        backend.maximum_joint_trajectory_travel_rad = 40.0
+        backend.maximum_joint_trajectory_duration_sec = 60.0
+        backend.minimum_joint_limit_margin_rad = 0.01
+        backend.minimum_joint_waypoint_duration_sec = 0.05
+        backend._wait_until_arm_settled = lambda: True
+        measured = [0.0]
+        calls = []
+
+        def execute(start, path, **kwargs):
+            measured[0] = path[-1][0]
+            calls.append((start, path, kwargs))
+            return True, 0.5
+
+        backend._execute_joint_path = execute
+        backend._current_joint_positions = lambda: (measured[0],)
+
+        outcome = backend._move_to_named_configuration_direct("ready")
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(len(calls), 3)
+        self.assertEqual([call[1][-1] for call in calls], [(0.2,), (0.4,), (0.6,)])
+        self.assertAlmostEqual(outcome.execution_time_sec, 1.5)
+
+    def test_named_home_stops_before_next_segment_on_endpoint_mismatch(self):
+        class Arm:
+            def set_start_state_to_current_state(self):
+                pass
+
+            def set_goal_state(self, **kwargs):
+                pass
+
+            def plan(self):
+                states = [
+                    SimpleNamespace(
+                        get_joint_group_positions=lambda _group, value=value: (value,)
+                    )
+                    for value in (0.0, 0.2, 0.4)
+                ]
+                return SimpleNamespace(trajectory=states)
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend._arm = Arm()
+        backend.planning_group = "panda_arm"
+        backend._arm_joint_names = ("panda_joint1",)
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.10
+        backend.home_joint_trajectory_segment_duration_sec = 3.0
+        backend.home_joint_tolerance_rad = 0.03
+        backend.maximum_joint_trajectory_points = 512
+        backend.maximum_joint_trajectory_travel_rad = 40.0
+        backend.maximum_joint_trajectory_duration_sec = 60.0
+        backend.minimum_joint_limit_margin_rad = 0.01
+        backend.minimum_joint_waypoint_duration_sec = 0.05
+        backend._wait_until_arm_settled = lambda: True
+        calls = []
+        backend._execute_joint_path = lambda start, path, **kwargs: (
+            calls.append((start, path, kwargs)) or (True, 0.5)
+        )
+        backend._current_joint_positions = lambda: (0.0,)
+
+        outcome = backend._move_to_named_configuration_direct("ready")
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("did not reach its verified joint endpoint", logger.errors[-1])
 
     def test_stationary_home_plan_succeeds_only_when_live_joints_confirm_home(self):
         class Arm:
@@ -971,6 +1094,29 @@ class MoveItBackendStaticTests(unittest.TestCase):
             "Panda arm trajectory action server became unavailable",
             logger.errors,
         )
+
+    def test_direct_joint_path_rejects_stale_planned_start_before_goal(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend._arm_joint_names = ("panda_joint1",)
+        backend._gripper_state_lock = threading.Lock()
+        backend._latest_arm_positions_rad = {"panda_joint1": 0.20}
+        backend._arm_state_sequence = 1
+        backend.joint_trajectory_start_tolerance_rad = 0.05
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: self.fail(
+                "stale planned start reached the controller"
+            )
+        )
+
+        succeeded, execution_time = backend._execute_joint_path(
+            (0.0,), ((0.1,),)
+        )
+
+        self.assertFalse(succeeded)
+        self.assertEqual(execution_time, 0.0)
+        self.assertIn("planned start differs from fresh live joints", logger.errors[-1])
 
     def test_joint_path_rejects_excessive_nominal_duration_before_goal(self):
         backend = MoveItBackend.__new__(MoveItBackend)

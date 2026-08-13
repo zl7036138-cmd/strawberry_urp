@@ -16,6 +16,7 @@ from strawberry_manipulation.core import (  # noqa: E402
     alternate_approach,
     bounded_pregrasp_candidates_for_fruit_center,
     offset_along_local_z,
+    offset_along_local_y,
     pregrasp_pose_for_fruit_center,
     rotate_about_base_z,
 )
@@ -46,6 +47,8 @@ class FakeBackend:
         home=True,
         close_results=None,
         open_results=None,
+        centering_offsets=None,
+        contact_classes=None,
     ):
         self.outcomes = list(outcomes or [])
         self.prepare_ok = prepare
@@ -58,6 +61,8 @@ class FakeBackend:
         self.home_ok = home
         self.close_results = list(close_results or [])
         self.open_results = list(open_results or [])
+        self.centering_offsets = list(centering_offsets or [])
+        self.contact_classes = list(contact_classes or [])
         self.calls = []
         self.poses = []
 
@@ -83,6 +88,14 @@ class FakeBackend:
     def close_gripper(self):
         self.calls.append("close")
         return self.close_results.pop(0) if self.close_results else True
+
+    def gripper_centering_offset_m(self):
+        self.calls.append("centering_offset")
+        return self.centering_offsets.pop(0) if self.centering_offsets else None
+
+    def gripper_fruit_contact_class(self):
+        self.calls.append("contact_class")
+        return self.contact_classes.pop(0) if self.contact_classes else None
 
     def open_gripper(self):
         self.calls.append("open")
@@ -169,24 +182,123 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
 
-    def test_asymmetric_contact_gets_one_orthogonal_checked_retry(self):
+    def test_asymmetric_contact_gets_one_measured_centering_retry(self):
+        backend = FakeBackend(
+            close_results=[False, True],
+            centering_offsets=[0.0045],
+            contact_classes=["LEFT_SINGLE_FRUIT"],
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertTrue(result.success)
+        self.assertEqual(backend.calls.count("CONTACT_CENTERING_PREP"), 1)
+        self.assertEqual(backend.calls.count("CONTACT_CENTERING_GRASP"), 1)
+        self.assertEqual(backend.calls.count("close"), 2)
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["CONTACT_CENTERING_GRASP"],
+            offset_along_local_y(poses["GRASP_POSE"], 0.0045),
+        )
+        self.assertEqual(
+            poses["RETREAT"].qz,
+            poses["CONTACT_CENTERING_GRASP"].qz,
+        )
+
+    def test_missing_finger_measurement_keeps_orthogonal_fallback(self):
         backend = FakeBackend(close_results=[False, True])
 
         result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
 
         self.assertTrue(result.success)
-        self.assertEqual(backend.calls.count("CONTACT_RETRY_PREP"), 1)
-        self.assertEqual(backend.calls.count("CONTACT_RETRY_GRASP"), 1)
-        self.assertEqual(backend.calls.count("close"), 2)
         poses = dict(backend.poses)
         self.assertEqual(
             poses["CONTACT_RETRY_GRASP"],
             rotate_about_base_z(poses["GRASP_POSE"], math.pi / 2.0),
         )
-        self.assertEqual(
-            poses["RETREAT"].qz,
-            poses["CONTACT_RETRY_GRASP"].qz,
+
+    def test_right_contact_and_negative_asymmetry_get_centering_retry(self):
+        backend = FakeBackend(
+            close_results=[False, True],
+            centering_offsets=[-0.0045],
+            contact_classes=["RIGHT_SINGLE_FRUIT"],
         )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertTrue(result.success)
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["CONTACT_CENTERING_GRASP"],
+            offset_along_local_y(poses["GRASP_POSE"], -0.0045),
+        )
+
+    def test_out_of_bounds_measured_centering_fails_closed(self):
+        backend = FakeBackend(
+            close_results=[False],
+            centering_offsets=[0.011],
+            contact_classes=["LEFT_SINGLE_FRUIT"],
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
+        self.assertNotIn("CONTACT_CENTERING_PREP", backend.calls)
+        self.assertNotIn("CONTACT_RETRY_PREP", backend.calls)
+
+    def test_contact_side_overrides_unreliable_joint_difference_sign(self):
+        backend = FakeBackend(
+            close_results=[False, True],
+            centering_offsets=[0.0045],
+            contact_classes=["RIGHT_SINGLE_FRUIT"],
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertTrue(result.success)
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["CONTACT_CENTERING_GRASP"],
+            offset_along_local_y(poses["GRASP_POSE"], -0.0045),
+        )
+
+    def test_left_contact_corrects_positive_despite_negative_joint_difference(self):
+        backend = FakeBackend(
+            close_results=[False, True],
+            centering_offsets=[-0.0065],
+            contact_classes=["LEFT_SINGLE_FRUIT"],
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertTrue(result.success)
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["CONTACT_CENTERING_GRASP"],
+            offset_along_local_y(poses["GRASP_POSE"], 0.0065),
+        )
+
+    def test_centering_rejects_nonfruit_or_ambiguous_contact(self):
+        for contact_class in (
+            "NO_FRUIT_CONTACT",
+            "BILATERAL_SAME_FRUIT",
+            "AMBIGUOUS_FRUIT_CONTACT",
+            "CONTACT_CLASS_UNAVAILABLE",
+        ):
+            with self.subTest(contact_class=contact_class):
+                backend = FakeBackend(
+                    close_results=[False],
+                    centering_offsets=[-0.0045],
+                    contact_classes=[contact_class],
+                )
+
+                result = PickAndPlaceExecutor(backend).execute(
+                    4, self.target, self.bin
+                )
+
+                self.assertFalse(result.success)
+                self.assertNotIn("CONTACT_CENTERING_PREP", backend.calls)
 
     def test_single_side_attachment_rejection_gets_one_orthogonal_retry(self):
         backend = FakeBackend(attach_results=[False, True])

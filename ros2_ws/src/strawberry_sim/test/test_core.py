@@ -11,7 +11,13 @@ from strawberry_sim.core import (  # noqa: E402
     BinBounds,
     BinStabilityTracker,
     ContactStabilityTracker,
+    AMBIGUOUS_FRUIT_CONTACT,
+    BILATERAL_SAME_FRUIT,
+    LEFT_SINGLE_FRUIT,
+    NO_FRUIT_CONTACT,
     Pose3D,
+    RIGHT_SINGLE_FRUIT,
+    classify_anonymous_fruit_contacts,
     dual_pad_geometric_contact,
     fruit_models_in_contacts,
     fruit_models_contacting_entity,
@@ -162,6 +168,42 @@ class SimulationCoreTests(unittest.TestCase):
     def test_contact_target_rejects_nonpositive_entity_id(self):
         with self.assertRaisesRegex(ValueError, "positive"):
             select_unique_contact_target({0: True})
+
+    def test_anonymous_contact_class_distinguishes_safe_centering_cases(self):
+        classify = lambda contacts: classify_anonymous_fruit_contacts(
+            contacts, now_sec=2.0, freshness_sec=0.25
+        )
+        self.assertEqual(
+            classify({1: (False, 2.0, False, 2.0)}), NO_FRUIT_CONTACT
+        )
+        self.assertEqual(
+            classify({1: (True, 1.9, False, 2.0)}), LEFT_SINGLE_FRUIT
+        )
+        self.assertEqual(
+            classify({1: (False, 2.0, True, 1.9)}), RIGHT_SINGLE_FRUIT
+        )
+        self.assertEqual(
+            classify({1: (True, 1.9, True, 1.9)}), BILATERAL_SAME_FRUIT
+        )
+        self.assertEqual(
+            classify(
+                {
+                    1: (True, 1.9, False, 2.0),
+                    2: (False, 2.0, True, 1.9),
+                }
+            ),
+            AMBIGUOUS_FRUIT_CONTACT,
+        )
+
+    def test_anonymous_contact_class_ignores_stale_contact(self):
+        self.assertEqual(
+            classify_anonymous_fruit_contacts(
+                {1: (True, 1.0, False, 2.0)},
+                now_sec=2.0,
+                freshness_sec=0.25,
+            ),
+            NO_FRUIT_CONTACT,
+        )
 
     def test_geometric_contact_requires_close_pads_straddling_fruit(self):
         fruit = Pose3D(0.42, -0.12, 0.52)

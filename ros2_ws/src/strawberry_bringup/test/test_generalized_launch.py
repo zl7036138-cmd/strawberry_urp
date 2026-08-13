@@ -64,6 +64,11 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('"/strawberry/move_home"', manipulation)
         self.assertIn('"scene_config_file": scene_config', self.source)
         self.assertNotIn("oracle_target_provider", self.source)
+        simulation = (
+            ROOT.parent / "strawberry_sim" / "launch" / "sim.launch.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"verification_timeout_wall_sec": (', simulation)
+        self.assertIn("12.0 if generalized_scene else 3.0", simulation)
 
     def test_qualified_detector_settings_are_shared_end_to_end(self):
         self.assertIn(

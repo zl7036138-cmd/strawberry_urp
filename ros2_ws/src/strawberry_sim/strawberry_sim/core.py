@@ -12,6 +12,11 @@ VALID_ATTACHMENT_STATES = {
     "attached": True,
     "detached": False,
 }
+NO_FRUIT_CONTACT = "NO_FRUIT_CONTACT"
+LEFT_SINGLE_FRUIT = "LEFT_SINGLE_FRUIT"
+RIGHT_SINGLE_FRUIT = "RIGHT_SINGLE_FRUIT"
+BILATERAL_SAME_FRUIT = "BILATERAL_SAME_FRUIT"
+AMBIGUOUS_FRUIT_CONTACT = "AMBIGUOUS_FRUIT_CONTACT"
 
 
 def parse_attachment_state(value: str) -> bool:
@@ -432,6 +437,55 @@ def select_unique_contact_target(
     if not candidates:
         return None, "no fruit has fresh bilateral gripper contact"
     return None, "bilateral gripper contact is ambiguous across multiple fruits"
+
+
+def classify_anonymous_fruit_contacts(
+    contacts_by_target_id: Mapping[
+        int, tuple[bool, float | None, bool, float | None]
+    ],
+    *,
+    now_sec: float,
+    freshness_sec: float,
+) -> str:
+    """Classify fresh fruit-pad contact without disclosing fruit identity.
+
+    The result deliberately contains neither a target ID nor a pose.  It is a
+    physical observation used only to decide whether a bounded centering move
+    is justified after a failed bilateral grasp.
+    """
+
+    now = _finite(now_sec, "now_sec")
+    freshness = _finite(freshness_sec, "freshness_sec")
+    if freshness <= 0.0:
+        raise ValueError("contact freshness must be positive")
+    if any(target_id <= 0 for target_id in contacts_by_target_id):
+        raise ValueError("contact target IDs must be positive")
+
+    def fresh(active: bool, stamp_sec: float | None) -> bool:
+        if not active or stamp_sec is None:
+            return False
+        age = now - _finite(stamp_sec, "contact_stamp_sec")
+        return 0.0 <= age <= freshness
+
+    left_ids: set[int] = set()
+    right_ids: set[int] = set()
+    for target_id, (left, left_stamp, right, right_stamp) in (
+        contacts_by_target_id.items()
+    ):
+        if fresh(left, left_stamp):
+            left_ids.add(target_id)
+        if fresh(right, right_stamp):
+            right_ids.add(target_id)
+
+    if not left_ids and not right_ids:
+        return NO_FRUIT_CONTACT
+    if len(left_ids) == 1 and not right_ids:
+        return LEFT_SINGLE_FRUIT
+    if len(right_ids) == 1 and not left_ids:
+        return RIGHT_SINGLE_FRUIT
+    if len(left_ids) == 1 and left_ids == right_ids:
+        return BILATERAL_SAME_FRUIT
+    return AMBIGUOUS_FRUIT_CONTACT
 
 
 def normalize_entity_name(frame_id: str) -> str:

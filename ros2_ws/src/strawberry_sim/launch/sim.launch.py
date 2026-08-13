@@ -423,6 +423,13 @@ def _launch_nodes(context):
                     "resume_world_after_initialization": attachment_enabled,
                     "stem_constraints_enabled": generalized_scene,
                     "contact_resolved_only": generalized_scene,
+                    # Generalized GPU perception runs below real time.  Keep
+                    # the physical 1 s simulated-contact requirement intact,
+                    # but allow enough wall time for the released fruit to
+                    # fall and then accumulate that interval.
+                    "verification_timeout_wall_sec": (
+                        12.0 if generalized_scene else 3.0
+                    ),
                 },
             ],
         ),

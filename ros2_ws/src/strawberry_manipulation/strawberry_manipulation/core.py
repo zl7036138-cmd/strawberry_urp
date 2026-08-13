@@ -8,6 +8,14 @@ import math
 from typing import Callable, Protocol
 
 
+LEFT_SINGLE_FRUIT = "LEFT_SINGLE_FRUIT"
+RIGHT_SINGLE_FRUIT = "RIGHT_SINGLE_FRUIT"
+BILATERAL_SAME_FRUIT = "BILATERAL_SAME_FRUIT"
+NO_FRUIT_CONTACT = "NO_FRUIT_CONTACT"
+AMBIGUOUS_FRUIT_CONTACT = "AMBIGUOUS_FRUIT_CONTACT"
+CONTACT_CLASS_UNAVAILABLE = "CONTACT_CLASS_UNAVAILABLE"
+
+
 class FailureCode(IntEnum):
     NONE = 0
     NO_TARGET = 1
@@ -74,6 +82,10 @@ class MotionBackend(Protocol):
 
     def close_gripper(self) -> bool: ...
 
+    def gripper_centering_offset_m(self) -> float | None: ...
+
+    def gripper_fruit_contact_class(self) -> str | None: ...
+
     def open_gripper(self) -> bool: ...
 
     def attach(self, target_id: int) -> bool: ...
@@ -102,6 +114,23 @@ def offset_along_local_z(pose: Pose, distance_m: float) -> Pose:
     axis_x = 2.0 * (pose.qx * pose.qz + pose.qw * pose.qy)
     axis_y = 2.0 * (pose.qy * pose.qz - pose.qw * pose.qx)
     axis_z = 1.0 - 2.0 * (pose.qx**2 + pose.qy**2)
+    return replace(
+        pose,
+        x=pose.x + distance_m * axis_x,
+        y=pose.y + distance_m * axis_y,
+        z=pose.z + distance_m * axis_z,
+    )
+
+
+def offset_along_local_y(pose: Pose, distance_m: float) -> Pose:
+    """Translate along the pose's local +Y finger-closing axis."""
+
+    pose = pose.normalized()
+    if not math.isfinite(distance_m):
+        raise ValueError("finger-axis offset must be finite")
+    axis_x = 2.0 * (pose.qx * pose.qy - pose.qw * pose.qz)
+    axis_y = 1.0 - 2.0 * (pose.qx**2 + pose.qz**2)
+    axis_z = 2.0 * (pose.qy * pose.qz + pose.qw * pose.qx)
     return replace(
         pose,
         x=pose.x + distance_m * axis_x,
@@ -213,6 +242,8 @@ class PickAndPlaceExecutor:
             0.0,
         ),
         target_pose_refiner: Callable[[int, Pose], Pose] | None = None,
+        maximum_grasp_centering_correction_m: float = 0.010,
+        minimum_grasp_centering_correction_m: float = 0.001,
     ) -> None:
         if pregrasp_offset_m <= 0.0 or retreat_distance_m <= 0.0:
             raise ValueError("motion offsets must be positive")
@@ -220,6 +251,14 @@ class PickAndPlaceExecutor:
             raise ValueError("tool center offset must be positive")
         if len(grasp_quaternion) != 4 or len(place_quaternion) != 4:
             raise ValueError("grasp and place quaternions must contain four values")
+        if (
+            not math.isfinite(maximum_grasp_centering_correction_m)
+            or not math.isfinite(minimum_grasp_centering_correction_m)
+            or minimum_grasp_centering_correction_m <= 0.0
+            or maximum_grasp_centering_correction_m
+            <= minimum_grasp_centering_correction_m
+        ):
+            raise ValueError("grasp centering correction bounds are invalid")
         self.backend = backend
         self.pregrasp_offset_m = pregrasp_offset_m
         self.retreat_distance_m = retreat_distance_m
@@ -228,6 +267,12 @@ class PickAndPlaceExecutor:
         self.grasp_quaternion = tuple(float(value) for value in grasp_quaternion)
         self.place_quaternion = tuple(float(value) for value in place_quaternion)
         self.target_pose_refiner = target_pose_refiner
+        self.maximum_grasp_centering_correction_m = float(
+            maximum_grasp_centering_correction_m
+        )
+        self.minimum_grasp_centering_correction_m = float(
+            minimum_grasp_centering_correction_m
+        )
 
     def _hand_pose_for_fruit_center(
         self,
@@ -467,31 +512,93 @@ class PickAndPlaceExecutor:
             self.backend.attach(target_id) if gripper_closed else False
         )
         if not attachment_confirmed:
-            # A single-finger stall or a strict dual-contact rejection is
-            # evidence of an off-centre grasp, not a reason to weaken the
-            # attachment gate. Re-open, retreat through a checked pre-grasp,
-            # and try one orthogonal finger orientation. Both moves remain
-            # collision checked and the search is bounded.
+            # A single-finger stall or strict dual-contact rejection can be
+            # evidence of an off-centre grasp, but joint asymmetry alone also
+            # occurs when foliage or the mechanism blocks a finger.  The
+            # generalized runtime therefore requires an identity-free raw
+            # fruit-contact class consistent with the measured direction.
+            # Legacy fixed-scene backends retain the bounded orthogonal retry.
+            contact_class_reader = getattr(
+                self.backend, "gripper_fruit_contact_class", None
+            )
+            fruit_contact_class = (
+                contact_class_reader() if callable(contact_class_reader) else None
+            )
+            centering_offset_m = self.backend.gripper_centering_offset_m()
             if not self.backend.open_gripper():
                 return fail(
                     FailureCode.GRASP_FAILED,
                     "failed to reopen gripper after asymmetric contact",
                 )
-            alternate_grasp_pose = rotate_about_base_z(grasp_pose, math.pi / 2.0)
+            if (
+                centering_offset_m is not None
+                and abs(centering_offset_m)
+                > self.maximum_grasp_centering_correction_m
+            ):
+                return fail(
+                    FailureCode.GRASP_FAILED,
+                    "measured finger asymmetry requires an out-of-bounds "
+                    "centering correction",
+                )
+            if fruit_contact_class is not None:
+                if centering_offset_m is None:
+                    return fail(
+                        FailureCode.GRASP_FAILED,
+                        "fruit contact was observed but finger asymmetry could "
+                        "not be measured safely",
+                    )
+                if (
+                    abs(centering_offset_m)
+                    < self.minimum_grasp_centering_correction_m
+                ):
+                    return fail(
+                        FailureCode.GRASP_FAILED,
+                        "single-sided fruit contact has no reliable measurable "
+                        "centering correction",
+                    )
+                if fruit_contact_class == LEFT_SINGLE_FRUIT:
+                    centering_offset_m = abs(centering_offset_m)
+                elif fruit_contact_class == RIGHT_SINGLE_FRUIT:
+                    centering_offset_m = -abs(centering_offset_m)
+                else:
+                    return fail(
+                        FailureCode.GRASP_FAILED,
+                        "centering retry rejected because anonymous fruit contact "
+                        f"class {fruit_contact_class} is not a unique single-sided "
+                        "fruit contact",
+                    )
+            use_centering = (
+                centering_offset_m is not None
+                and abs(centering_offset_m)
+                >= self.minimum_grasp_centering_correction_m
+            )
+            alternate_grasp_pose = (
+                offset_along_local_y(grasp_pose, centering_offset_m)
+                if use_centering
+                else rotate_about_base_z(grasp_pose, math.pi / 2.0)
+            )
             alternate_pregrasp_pose = rotate_about_base_z(
                 offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
                 math.pi / 2.0,
             )
+            if use_centering:
+                alternate_pregrasp_pose = offset_along_local_y(
+                    offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
+                    centering_offset_m,
+                )
+            retry_stage_prefix = (
+                "CONTACT_CENTERING" if use_centering else "CONTACT_RETRY"
+            )
             retry_preparation = self.backend.move_to(
                 alternate_pregrasp_pose,
-                "CONTACT_RETRY_PREP",
+                f"{retry_stage_prefix}_PREP",
             )
             planning_time += retry_preparation.planning_time_sec
             execution_time += retry_preparation.execution_time_sec
             if retry_preparation.success:
                 retry_grasp = self.backend.move_to(
                     alternate_grasp_pose,
-                    "CONTACT_RETRY_GRASP",
+                    f"{retry_stage_prefix}_GRASP",
                 )
                 planning_time += retry_grasp.planning_time_sec
                 execution_time += retry_grasp.execution_time_sec
@@ -507,7 +614,7 @@ class PickAndPlaceExecutor:
             return fail(
                 FailureCode.GRASP_FAILED,
                 "dual-finger contact or simulated attachment failed after one "
-                "orthogonal contact retry",
+                "bounded contact retry",
             )
         attached = True
 

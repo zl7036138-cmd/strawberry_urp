@@ -14,6 +14,7 @@ from .core import (
     BinStabilityTracker,
     ContactStabilityTracker,
     Pose3D,
+    classify_anonymous_fruit_contacts,
     dual_pad_geometric_contact,
     load_scene_config,
     parse_attachment_state,
@@ -329,6 +330,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         Trigger,
                         "/strawberry/sim/contact_target/verify_in_bin",
                         self._verify_contact_target_in_bin,
+                        callback_group=self._group,
+                    ),
+                    self.create_service(
+                        Trigger,
+                        "/strawberry/sim/contact_target/contact_class",
+                        self._contact_target_class,
                         callback_group=self._group,
                     ),
                 ]
@@ -757,6 +764,35 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         f"fruit entity {target_id}"
                     )
                 return response
+
+        def _contact_target_class(self, request, response):
+            """Return an identity-free summary of fresh fruit-pad contacts."""
+
+            del request
+            if self._is_shutting_down():
+                response.success = False
+                response.message = "CONTACT_CLASS_UNAVAILABLE"
+                return response
+            now = self._sim_time_sec()
+            contacts = {}
+            for target_id, runtime in self._runtime.items():
+                with runtime.condition:
+                    contacts[target_id] = (
+                        runtime.left_contact,
+                        runtime.left_stamp_sec,
+                        runtime.right_contact,
+                        runtime.right_stamp_sec,
+                    )
+            response.success = True
+            response.message = classify_anonymous_fruit_contacts(
+                contacts,
+                now_sec=now,
+                freshness_sec=self._gate.contact_freshness_sec,
+            )
+            self.get_logger().info(
+                "anonymous fruit contact class: " + response.message
+            )
+            return response
 
         def _detach(self, target_id: int, request, response):
             del request

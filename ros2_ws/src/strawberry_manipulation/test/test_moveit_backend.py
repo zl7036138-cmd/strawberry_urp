@@ -189,6 +189,73 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(commands, [0.022, 0.04, 0.022])
         sleep.assert_called_once_with(0.05)
 
+    def test_finger_asymmetry_reports_signed_local_y_centering_offset(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.gripper_joint = "panda_finger_joint1"
+        backend.gripper_secondary_joint = "panda_finger_joint2"
+        backend.open_width_m = 0.04
+        backend.closed_width_m = 0.022
+        backend.gripper_position_tolerance_m = 0.0039
+        backend._gripper_state_lock = threading.Lock()
+        backend._latest_gripper_positions_m = {
+            "panda_finger_joint1": 0.03166,
+            "panda_finger_joint2": 0.022,
+        }
+
+        self.assertAlmostEqual(backend.gripper_centering_offset_m(), 0.00483)
+
+        backend._latest_gripper_positions_m = {
+            "panda_finger_joint1": 0.022,
+            "panda_finger_joint2": 0.030,
+        }
+        self.assertAlmostEqual(backend.gripper_centering_offset_m(), -0.004)
+
+    def test_contact_resolved_backend_reads_anonymous_contact_class(self):
+        response = SimpleNamespace(success=True, message="LEFT_SINGLE_FRUIT")
+        client = SimpleNamespace(
+            wait_for_service=lambda timeout_sec: True,
+            call_async=lambda request: FakeFuture(response),
+        )
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(
+            get_logger=lambda: self.Logger(),
+            create_client=lambda service_type, topic, callback_group: client,
+        )
+        backend.contact_resolved_attachment = True
+        backend._service_clients = {}
+        backend._Trigger = SimpleNamespace(Request=lambda: object())
+        backend._callback_group = object()
+        backend.request_timeout_sec = 1.0
+
+        self.assertEqual(
+            backend.gripper_fruit_contact_class(), "LEFT_SINGLE_FRUIT"
+        )
+        self.assertIn((0, "contact_class"), backend._service_clients)
+
+    def test_contact_class_unavailable_fails_closed_for_generalized_runtime(self):
+        client = SimpleNamespace(wait_for_service=lambda timeout_sec: False)
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(
+            get_logger=lambda: self.Logger(),
+            create_client=lambda service_type, topic, callback_group: client,
+        )
+        backend.contact_resolved_attachment = True
+        backend._service_clients = {}
+        backend._Trigger = SimpleNamespace(Request=lambda: object())
+        backend._callback_group = object()
+        backend.request_timeout_sec = 1.0
+
+        self.assertEqual(
+            backend.gripper_fruit_contact_class(), "CONTACT_CLASS_UNAVAILABLE"
+        )
+
+    def test_legacy_runtime_does_not_require_contact_class_service(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.contact_resolved_attachment = False
+
+        self.assertIsNone(backend.gripper_fruit_contact_class())
+
     def test_gripper_joint_callback_tracks_both_commanded_joints(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.gripper_joint = "panda_finger_joint1"
@@ -556,6 +623,69 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         self.assertTrue(backend.move_home())
         self.assertEqual(requested, ["ready"])
+
+    def test_stationary_home_plan_succeeds_only_when_live_joints_confirm_home(self):
+        class Arm:
+            def set_start_state_to_current_state(self):
+                pass
+
+            def set_goal_state(self, **kwargs):
+                pass
+
+            def plan(self):
+                return SimpleNamespace(trajectory=())
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._arm = Arm()
+        backend.home_joint_positions_rad = (
+            0.0,
+            -0.785,
+            0.0,
+            -2.356,
+            0.0,
+            1.571,
+            0.785,
+        )
+        backend.home_joint_tolerance_rad = 0.03
+        backend._wait_until_arm_settled = lambda: True
+        backend._current_joint_positions = lambda: (
+            0.001,
+            -0.786,
+            0.0,
+            -2.355,
+            0.0,
+            1.570,
+            0.786,
+        )
+
+        outcome = backend._move_to_named_configuration_direct("ready")
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(outcome.execution_time_sec, 0.0)
+
+    def test_stationary_home_plan_fails_when_live_joints_are_not_home(self):
+        class Arm:
+            def set_start_state_to_current_state(self):
+                pass
+
+            def set_goal_state(self, **kwargs):
+                pass
+
+            def plan(self):
+                return SimpleNamespace(trajectory=())
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._arm = Arm()
+        backend.home_joint_positions_rad = (0.0,) * 7
+        backend.home_joint_tolerance_rad = 0.03
+        backend._wait_until_arm_settled = lambda: True
+        backend._current_joint_positions = lambda: (0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0)
+
+        outcome = backend._move_to_named_configuration_direct("ready")
+
+        self.assertFalse(outcome.success)
 
     def test_direct_joint_path_waits_for_action_server_before_goal(self):
         backend = MoveItBackend.__new__(MoveItBackend)

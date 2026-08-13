@@ -91,6 +91,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("base_frame", "panda_link0")
             self.declare_parameter("home_configuration", "ready")
             self.declare_parameter(
+                "home_joint_positions_rad",
+                [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785],
+            )
+            self.declare_parameter("home_joint_tolerance_rad", 0.03)
+            self.declare_parameter(
                 "gripper_action", "/panda_gripper_controller/gripper_cmd"
             )
             self.declare_parameter(
@@ -118,6 +123,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter(
                 "gripper_position_tolerance_m",
                 grasp_geometry.gripper_position_tolerance_m_per_finger,
+            )
+            self.declare_parameter(
+                "maximum_grasp_centering_correction_m",
+                0.010,
             )
             self.declare_parameter("gripper_max_effort_n", 40.0)
             self.declare_parameter("request_timeout_sec", 5.0)
@@ -261,6 +270,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 pose_link=str(self.get_parameter("pose_link").value),
                 base_frame=base_frame,
                 home_configuration=str(self.get_parameter("home_configuration").value),
+                home_joint_positions_rad=tuple(
+                    float(value)
+                    for value in self.get_parameter(
+                        "home_joint_positions_rad"
+                    ).value
+                ),
+                home_joint_tolerance_rad=float(
+                    self.get_parameter("home_joint_tolerance_rad").value
+                ),
                 gripper_action=str(self.get_parameter("gripper_action").value),
                 gripper_secondary_action=str(
                     self.get_parameter("gripper_secondary_action").value
@@ -372,6 +390,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("tool_center_offset_m").value
                 ),
                 target_pose_refiner=target_pose_refiner,
+                maximum_grasp_centering_correction_m=float(
+                    self.get_parameter(
+                        "maximum_grasp_centering_correction_m"
+                    ).value
+                ),
             )
             self._goal_gate = ExclusiveGoalGate()
             self._callback_group = ReentrantCallbackGroup()

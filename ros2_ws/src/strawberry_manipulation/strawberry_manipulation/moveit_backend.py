@@ -10,7 +10,7 @@ import time
 from types import MappingProxyType
 from typing import Callable, Mapping
 
-from .core import MotionOutcome, Pose
+from .core import CONTACT_CLASS_UNAVAILABLE, MotionOutcome, Pose
 from .moveit_scene import (
     apply_fruit_collision_scene,
     apply_static_collision_scene,
@@ -87,6 +87,8 @@ class MoveItBackend:
         pose_link: str = "panda_hand",
         base_frame: str = "panda_link0",
         home_configuration: str = "ready",
+        home_joint_positions_rad: tuple[float, ...] | None = None,
+        home_joint_tolerance_rad: float = 0.03,
         gripper_action: str = "/panda_gripper_controller/gripper_cmd",
         gripper_secondary_action: str = ("/panda_gripper_right_controller/gripper_cmd"),
         arm_action: str = "/panda_arm_controller/follow_joint_trajectory",
@@ -166,6 +168,13 @@ class MoveItBackend:
             raise ValueError("gripper position tolerance must be positive")
         if request_timeout_sec <= 0.0:
             raise ValueError("request timeout must be positive")
+        if (
+            home_joint_positions_rad is not None
+            and len(home_joint_positions_rad) != 7
+        ):
+            raise ValueError("home joint positions must contain seven values")
+        if not math.isfinite(home_joint_tolerance_rad) or home_joint_tolerance_rad <= 0.0:
+            raise ValueError("home joint tolerance must be positive")
         if startup_timeout_sec <= 0.0:
             raise ValueError("startup timeout must be positive")
         if trajectory_timeout_margin_sec <= 0.0:
@@ -228,6 +237,16 @@ class MoveItBackend:
         self.pose_link = pose_link
         self.base_frame = base_frame
         self.home_configuration = home_configuration
+        self.home_joint_positions_rad = (
+            None
+            if home_joint_positions_rad is None
+            else tuple(float(value) for value in home_joint_positions_rad)
+        )
+        if self.home_joint_positions_rad is not None and not all(
+            math.isfinite(value) for value in self.home_joint_positions_rad
+        ):
+            raise ValueError("home joint positions must be finite")
+        self.home_joint_tolerance_rad = float(home_joint_tolerance_rad)
         self.gripper_joint = gripper_joint
         self.gripper_secondary_joint = gripper_secondary_joint
         self.gripper_joints = (
@@ -1610,8 +1629,25 @@ class MoveItBackend:
         trajectory = plan_result.trajectory
         waypoint_count = len(trajectory)
         if waypoint_count < 2:
+            current = self._current_joint_positions()
+            expected = self.home_joint_positions_rad
+            already_at_home = (
+                expected is not None
+                and len(current) == len(expected)
+                and all(
+                    abs(observed - target) <= self.home_joint_tolerance_rad
+                    for observed, target in zip(current, expected)
+                )
+            )
+            if already_at_home:
+                self.node.get_logger().info(
+                    "MoveIt returned a stationary named-configuration plan; "
+                    "live joints independently confirm the home posture"
+                )
+                return MotionOutcome(True, planning_time, 0.0)
             self.node.get_logger().error(
-                "MoveIt named-configuration plan contains fewer than two waypoints"
+                "MoveIt named-configuration plan contains fewer than two "
+                "waypoints and live joints do not confirm home"
             )
             return MotionOutcome(False, planning_time, 0.0)
         positions = tuple(
@@ -1645,6 +1681,8 @@ class MoveItBackend:
             "GRASP_POSE_RETRY",
             "CONTACT_RETRY_PREP",
             "CONTACT_RETRY_GRASP",
+            "CONTACT_CENTERING_PREP",
+            "CONTACT_CENTERING_GRASP",
             "RETREAT",
         } or stage.startswith(("GRASP_RETRY_PREP_", "GRASP_POSE_RETRY_")):
             return self._move_to_segmented(pose)
@@ -1752,6 +1790,75 @@ class MoveItBackend:
             return False
         time.sleep(self.settle_sample_period_sec)
         return self._gripper_command(self.closed_width_m)
+
+    def gripper_centering_offset_m(self) -> float | None:
+        """Estimate centering magnitude from the two final finger poses.
+
+        The sign is only a raw joint-space diagnostic. One controller can fail
+        to travel while the other finger physically contacts fruit, so the
+        executor obtains the correction direction from the pad-contact class.
+        """
+
+        with self._gripper_state_lock:
+            left = self._latest_gripper_positions_m.get(self.gripper_joint)
+            right = self._latest_gripper_positions_m.get(
+                self.gripper_secondary_joint
+            )
+        if left is None or right is None:
+            return None
+        left = float(left)
+        right = float(right)
+        if not math.isfinite(left) or not math.isfinite(right):
+            return None
+        tolerance = self.gripper_position_tolerance_m
+        if (
+            left < self.closed_width_m - tolerance
+            or right < self.closed_width_m - tolerance
+            or left > self.open_width_m + tolerance
+            or right > self.open_width_m + tolerance
+        ):
+            return None
+        correction = 0.5 * (left - right)
+        self.node.get_logger().info(
+            "measured grasp centering magnitude from finger asymmetry: "
+            f"left_m={left:.6f}, right_m={right:.6f}, "
+            f"raw_signed_half_difference_m={correction:.6f}"
+        )
+        return correction
+
+    def gripper_fruit_contact_class(self) -> str | None:
+        """Read identity-free physical fruit contact for centering gating."""
+
+        if not bool(getattr(self, "contact_resolved_attachment", False)):
+            return None
+        operation = "contact_class"
+        key = (0, operation)
+        client = self._service_clients.get(key)
+        if client is None:
+            topic = f"/strawberry/sim/contact_target/{operation}"
+            client = self.node.create_client(
+                self._Trigger, topic, callback_group=self._callback_group
+            )
+            self._service_clients[key] = client
+        if not client.wait_for_service(timeout_sec=self.request_timeout_sec):
+            self.node.get_logger().error(
+                "anonymous fruit contact classification service unavailable"
+            )
+            return CONTACT_CLASS_UNAVAILABLE
+        response = self._wait_future(
+            client.call_async(self._Trigger.Request()), self.request_timeout_sec
+        )
+        if response is None or not response.success:
+            message = "timeout" if response is None else response.message
+            self.node.get_logger().error(
+                f"anonymous fruit contact classification failed: {message}"
+            )
+            return CONTACT_CLASS_UNAVAILABLE
+        contact_class = str(response.message).strip()
+        self.node.get_logger().info(
+            f"anonymous fruit contact classification: {contact_class}"
+        )
+        return contact_class or CONTACT_CLASS_UNAVAILABLE
 
     def open_gripper(self) -> bool:
         return self._gripper_command(self.open_width_m)

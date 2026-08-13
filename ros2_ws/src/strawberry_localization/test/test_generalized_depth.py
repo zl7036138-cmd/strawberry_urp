@@ -12,6 +12,7 @@ from strawberry_localization.core import (  # noqa: E402
     BoundingBox,
     CameraIntrinsics,
     DepthEstimate,
+    LocalizationError,
     robust_geometry_layer_depth,
 )
 from strawberry_localization.generalized_depth import (  # noqa: E402
@@ -62,6 +63,80 @@ class GeneralizedDepthBandTests(unittest.TestCase):
 
         self.assertAlmostEqual(estimate.depth_m, 0.627, places=5)
         self.assertEqual(estimate.valid_pixels, 280)
+
+    def test_support_ranker_rejects_weak_natural_occluder_layer(self):
+        depth = np.full((19, 20), 1.024, dtype=np.float32)
+        flattened = depth.reshape(-1)
+        flattened[:33] = 0.774
+        flattened[33:205] = 0.819
+        flattened[205:312] = 0.914
+
+        filtered = retain_support_ranked_geometry_layer(
+            depth,
+            BoundingBox(0, 0, 20, 19),
+            fx=277.128,
+            fy=277.128,
+            target_radius_m=0.026,
+            search_fraction=1.0,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            min_layer_fraction=0.03,
+            layer_gap_m=0.015,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.025,
+            ambiguity_min_support_ratio=0.50,
+            bbox_quantization_margin_px=2.0,
+        )
+        estimate = robust_geometry_layer_depth(
+            filtered,
+            BoundingBox(0, 0, 20, 19),
+            CameraIntrinsics(277.128, 277.128, 10.0, 9.5),
+            target_radius_m=0.026,
+            min_layer_fraction=0.03,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.025,
+            ambiguity_min_support_ratio=0.50,
+            bbox_quantization_margin_px=2.0,
+        )
+
+        self.assertAlmostEqual(estimate.depth_m, 0.819, places=5)
+        self.assertEqual(estimate.valid_pixels, 172)
+
+    def test_support_ranker_keeps_similarly_supported_conflict_ambiguous(self):
+        depth = np.full((19, 20), 0.819, dtype=np.float32)
+        depth.reshape(-1)[:150] = 0.774
+
+        filtered = retain_support_ranked_geometry_layer(
+            depth,
+            BoundingBox(0, 0, 20, 19),
+            fx=277.128,
+            fy=277.128,
+            target_radius_m=0.026,
+            search_fraction=1.0,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            min_layer_fraction=0.03,
+            layer_gap_m=0.015,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.025,
+            ambiguity_min_support_ratio=0.50,
+            bbox_quantization_margin_px=2.0,
+        )
+
+        with self.assertRaisesRegex(LocalizationError, "geometrically ambiguous"):
+            robust_geometry_layer_depth(
+                filtered,
+                BoundingBox(0, 0, 20, 19),
+                CameraIntrinsics(277.128, 277.128, 10.0, 9.5),
+                target_radius_m=0.026,
+                min_layer_fraction=0.03,
+                expected_depth_tolerance_m=0.08,
+                ambiguity_margin_m=0.025,
+                ambiguity_min_support_ratio=0.50,
+                bbox_quantization_margin_px=2.0,
+            )
 
     def test_support_ranker_leaves_zero_margin_input_unchanged(self):
         depth = np.full((21, 23), 0.627, dtype=np.float32)
@@ -126,6 +201,7 @@ class GeneralizedDepthBandTests(unittest.TestCase):
             min_layer_fraction=0.03,
             layer_gap_m=0.015,
             maximum_band_width_m=0.06,
+            minimum_band_fraction=0.20,
         )
 
         self.assertTrue(np.isnan(result[2, 2]))
@@ -145,8 +221,61 @@ class GeneralizedDepthBandTests(unittest.TestCase):
             min_layer_fraction=0.03,
             layer_gap_m=0.015,
             maximum_band_width_m=0.06,
+            minimum_band_fraction=0.20,
         )
         np.testing.assert_array_equal(depth, original)
+
+    def test_weak_near_sliver_does_not_truncate_supported_fruit_band(self):
+        depth = np.full((16, 16), np.nan, dtype=np.float32)
+        flattened = depth.reshape(-1)
+        flattened[:15] = 0.930
+        flattened[15:41] = 1.000
+        flattened[41:148] = 1.042
+        flattened[148:248] = 1.304
+
+        result = retain_foreground_depth_band(
+            depth,
+            BoundingBox(0, 0, 16, 16),
+            search_fraction=1.0,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            min_layer_fraction=0.03,
+            layer_gap_m=0.015,
+            maximum_band_width_m=0.06,
+            minimum_band_fraction=0.20,
+        )
+
+        self.assertAlmostEqual(float(result.reshape(-1)[0]), 0.930, places=5)
+        self.assertAlmostEqual(float(result.reshape(-1)[41]), 1.042, places=5)
+        self.assertTrue(np.isnan(result.reshape(-1)[148]))
+
+    def test_foreground_filter_does_not_leave_a_cutoff_tail_as_a_new_layer(self):
+        depth = np.full((20, 22), 0.614, dtype=np.float32)
+        flattened = depth.reshape(-1)
+        farther = (
+            [0.672] * 18
+            + [0.684, 0.696, 0.708, 0.720, 0.732, 0.744, 0.756, 0.768] * 9
+            + [0.774] * 87
+        )
+        self.assertEqual(len(farther), 177)
+        flattened[263:] = farther
+
+        result = retain_foreground_depth_band(
+            depth,
+            BoundingBox(0, 0, 22, 20),
+            search_fraction=1.0,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            min_layer_fraction=0.03,
+            layer_gap_m=0.015,
+            maximum_band_width_m=0.06,
+            minimum_band_fraction=0.20,
+        )
+
+        self.assertEqual(int(np.isfinite(result).sum()), 263)
+        self.assertTrue(np.all(np.isnan(result.reshape(-1)[263:])))
 
     def test_bbox_expansion_is_symmetric_and_clamped(self):
         self.assertEqual(
@@ -179,6 +308,22 @@ class GeneralizedDepthBandTests(unittest.TestCase):
         self.assertAlmostEqual(float(np.linalg.norm(point)), 0.22, places=9)
         self.assertGreater(point[0], 0.0)
         self.assertLess(point[1], 0.0)
+
+    def test_bbox_center_bearing_removes_one_sided_centroid_bias(self):
+        biased = np.array([0.018, 0.011, 0.88])
+        corrected = point_on_pixel_bearing(
+            biased,
+            u=160.0,
+            v=120.0,
+            fx=277.128,
+            fy=277.128,
+            cx=160.0,
+            cy=120.0,
+        )
+
+        self.assertAlmostEqual(float(np.linalg.norm(corrected)), float(np.linalg.norm(biased)))
+        self.assertAlmostEqual(float(corrected[0]), 0.0)
+        self.assertAlmostEqual(float(corrected[1]), 0.0)
 
 
 if __name__ == "__main__":

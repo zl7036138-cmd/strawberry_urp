@@ -196,6 +196,7 @@ def _load_parameters(path: Path) -> dict[str, Any]:
         "geometry_bbox_quantization_margin_px",
         "geometry_size_residual_sigma_weight",
         "geometry_foreground_band_m",
+        "geometry_foreground_min_band_fraction",
         "geometry_bbox_padding_px",
         "geometry_target_radius_m",
         "use_bbox_center_bearing",
@@ -429,6 +430,9 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                     layer_gap_m=float(parameters["geometry_layer_gap_m"]),
                     maximum_band_width_m=float(
                         parameters["geometry_foreground_band_m"]
+                    ),
+                    minimum_band_fraction=float(
+                        parameters["geometry_foreground_min_band_fraction"]
                     ),
                 )
                 filtered = retain_support_ranked_geometry_layer(

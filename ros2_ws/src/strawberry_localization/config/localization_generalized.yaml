@@ -30,15 +30,26 @@
     geometry_layer_gap_m: 0.015
     geometry_min_layer_fraction: 0.03
     geometry_expected_depth_tolerance_m: 0.08
-    geometry_ambiguity_margin_m: 0.01
+    # Natural foliage can produce a weak near layer whose apparent-size
+    # residual is only slightly better than the supported fruit surface.  The
+    # generalized preprocessor may prefer the support-dominant layer anywhere
+    # inside this conservative conflict window; similarly supported layers
+    # remain ambiguous and fail closed in the frozen core estimator.
+    geometry_ambiguity_margin_m: 0.040
     geometry_ambiguity_min_support_ratio: 0.50
     geometry_bbox_quantization_margin_px: 2.0
     # Reject planter/table layers well behind a supported fruit/leaf surface.
     geometry_foreground_band_m: 0.06
+    # A lone leaf sliver must not truncate a substantially supported fruit
+    # layer behind it; require aggregate near-band support before masking.
+    geometry_foreground_min_band_fraction: 0.20
     # YOLO boxes under-fit the rendered fruit silhouette by about one pixel.
     geometry_bbox_padding_px: 1
     # Base overview apparent radius; wrist launch overrides this independently.
     geometry_target_radius_m: 0.026
+    # The detector box center is more stable than the visible depth-layer
+    # centroid under one-sided leaf occlusion. Depth still supplies range.
+    use_bbox_center_bearing: true
     # Truth remains available to benchmark scorers only, never to control.
     ground_truth_association_enabled: false
     tracking_association_distance_m: 0.06

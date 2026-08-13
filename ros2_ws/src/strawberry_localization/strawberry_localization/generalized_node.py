@@ -367,6 +367,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter("geometry_size_residual_sigma_weight", 1.0)
             self.declare_parameter("geometry_foreground_band_m", 0.06)
+            self.declare_parameter("geometry_foreground_min_band_fraction", 0.20)
             self.declare_parameter("geometry_bbox_padding_px", 1)
             self.declare_parameter("geometry_target_radius_m", 0.026)
             self.declare_parameter("use_bbox_center_bearing", False)
@@ -1052,6 +1053,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         ),
                         maximum_band_width_m=float(
                             self.get_parameter("geometry_foreground_band_m").value
+                        ),
+                        minimum_band_fraction=float(
+                            self.get_parameter(
+                                "geometry_foreground_min_band_fraction"
+                            ).value
                         ),
                     )
                     depth = retain_support_ranked_geometry_layer(

@@ -251,6 +251,7 @@ def retain_foreground_depth_band(
     min_layer_fraction: float,
     layer_gap_m: float,
     maximum_band_width_m: float,
+    minimum_band_fraction: float,
 ) -> np.ndarray:
     """Mask distant background while retaining nearby leaf/fruit layers.
 
@@ -270,6 +271,7 @@ def retain_foreground_depth_band(
         min_layer_fraction,
         layer_gap_m,
         maximum_band_width_m,
+        minimum_band_fraction,
     )
     if not all(math.isfinite(value) for value in values):
         raise ValueError("foreground depth-band parameters must be finite")
@@ -281,6 +283,8 @@ def retain_foreground_depth_band(
         raise ValueError("foreground layer support limits are invalid")
     if layer_gap_m <= 0.0 or maximum_band_width_m <= layer_gap_m:
         raise ValueError("foreground band must exceed the depth layer gap")
+    if not 0.0 <= minimum_band_fraction <= 1.0:
+        raise ValueError("foreground band support fraction must be in [0, 1]")
 
     inset_x = 0.5 * (1.0 - search_fraction) * box.width
     inset_y = 0.5 * (1.0 - search_fraction) * box.height
@@ -299,15 +303,42 @@ def retain_foreground_depth_band(
     if valid.size < required:
         raise LocalizationError("too few valid pixels for foreground depth band")
 
-    ordered = np.sort(valid, kind="stable")
-    boundaries = np.flatnonzero(np.diff(ordered) > layer_gap_m) + 1
-    supported = [group for group in np.split(ordered, boundaries) if group.size >= required]
-    if not supported:
+    valid_mask = np.isfinite(crop) & (crop >= min_depth_m) & (crop <= max_depth_m)
+    valid_y, valid_x = np.nonzero(valid_mask)
+    order = np.argsort(valid, kind="stable")
+    boundaries = np.flatnonzero(np.diff(valid[order]) > layer_gap_m) + 1
+    groups = np.split(order, boundaries)
+    supported_indices = [group for group in groups if group.size >= required]
+    if not supported_indices:
         raise LocalizationError("no supported foreground depth layer")
-    nearest_depth_m = float(np.median(supported[0]))
-    cutoff_m = nearest_depth_m + maximum_band_width_m
+    layer_medians = [float(np.median(valid[group])) for group in supported_indices]
+    band_required = max(
+        required,
+        int(math.ceil(float(crop.size) * minimum_band_fraction)),
+    )
+    cutoff_m = None
+    for index, nearest_depth_m in enumerate(layer_medians):
+        candidate_cutoff_m = nearest_depth_m + maximum_band_width_m
+        band_support = sum(
+            int(group.size)
+            for group, median in zip(
+                supported_indices[index:], layer_medians[index:], strict=True
+            )
+            if median <= candidate_cutoff_m
+        )
+        if band_support >= band_required:
+            cutoff_m = candidate_cutoff_m
+            break
+    if cutoff_m is None:
+        return depth_image_m
 
     filtered = np.array(depth_image_m, dtype=np.float32, copy=True)
     selected = filtered[y0:y1, x0:x1]
-    selected[np.isfinite(selected) & (selected > cutoff_m)] = np.nan
+    # Mask complete depth clusters. A scalar cutoff can slice the near tail of
+    # a farther continuous surface into a tiny new layer whose median appears
+    # spuriously geometry-consistent and whose MAD is close to zero.
+    for group in groups:
+        if float(np.median(valid[group])) <= cutoff_m:
+            continue
+        selected[valid_y[group], valid_x[group]] = np.nan
     return filtered

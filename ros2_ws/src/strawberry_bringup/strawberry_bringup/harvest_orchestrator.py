@@ -51,6 +51,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._started_monotonic = None
             self._scan_timer = None
             self._confirmation_timer = None
+            self._recovery_home_in_progress = False
             self._latest_view_by_stamp = {}
             self._latest_plan_by_stamp = {}
             self._current_target = None
@@ -74,6 +75,9 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             )
             self._evaluation_client = self.create_client(
                 EvaluateTarget, "/strawberry/evaluate_target", callback_group=self._group
+            )
+            self._home_client = self.create_client(
+                Trigger, "/strawberry/move_home", callback_group=self._group
             )
             self.create_subscription(PoseStamped, "/strawberry/wrist_observation_pose", self._on_view, 10, callback_group=self._group)
             self.create_subscription(ObservationPlan, "/strawberry/wrist_observation_plan", self._on_view_plan, 10, callback_group=self._group)
@@ -134,6 +138,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 not self._pick_client.server_is_ready()
                 or not self._observation_client.service_is_ready()
                 or not self._evaluation_client.service_is_ready()
+                or not self._home_client.service_is_ready()
             ):
                 response.success = False
                 response.message = "pick or observation motion server is unavailable"
@@ -149,6 +154,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._last_observation_position_by_target = {}
             self._distinct_reobservation_targets = set()
             self._last_wrist_rejection_reason = None
+            self._recovery_home_in_progress = False
             self._arm_scan_timer()
             self._publish("STARTED")
             response.success = True
@@ -172,7 +178,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._latest_plan_by_stamp.pop(oldest, None)
 
         def _on_selected(self, target) -> None:
-            if self._sequence.state is not HarvestState.SCANNING:
+            if (
+                self._sequence.state is not HarvestState.SCANNING
+                or self._recovery_home_in_progress
+            ):
                 return
             target_id = int(target.target_id)
             if target_id in self._sequence.completed_ids:
@@ -465,19 +474,89 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             if feasible:
                 self._send_pick()
                 return
-            self._sequence.pick_result(
-                False,
-                f"final connected pick feasibility failed: {detail}",
-                7 if collision else 6,
-            )
+            failure_detail = f"final connected pick feasibility failed: {detail}"
+            if self._begin_cached_distinct_reobservation(
+                "FINAL_PICK_FEASIBILITY_FAILED",
+                failure_detail,
+                failure_code=7 if collision else 6,
+            ):
+                return
+            if self._sequence.state is not HarvestState.PICKING:
+                self._after_attempt_failure()
+                return
+            self._sequence.pick_result(False, failure_detail, 7 if collision else 6)
             self._after_attempt_failure()
 
         def _confirmation_timeout(self) -> None:
             self._cancel_timer("_confirmation_timer")
             if self._sequence.state is not HarvestState.CONFIRMING:
                 return
+            if self._begin_cached_distinct_reobservation(
+                "CONFIRMATION_FAILED",
+                "wrist confirmation timeout",
+            ):
+                return
+            if self._sequence.state is not HarvestState.CONFIRMING:
+                self._after_attempt_failure()
+                return
             self._sequence.confirmation_result(False, "wrist confirmation timeout")
             self._after_attempt_failure()
+
+        def _begin_cached_distinct_reobservation(
+            self,
+            outcome: str,
+            detail: str,
+            *,
+            failure_code: int | None = None,
+        ) -> bool:
+            if self._current_target is None or self._current_view is None:
+                return False
+            previous = self._last_observation_position_by_target.get(
+                int(self._current_target.target_id)
+            )
+            if previous is None:
+                return False
+            minimum_baseline_m = float(
+                self.get_parameter("minimum_reobservation_baseline_m").value
+            )
+            ranked_indices = rank_distinct_view_indices(
+                [
+                    (
+                        float(view.pose.position.x),
+                        float(view.pose.position.y),
+                        float(view.pose.position.z),
+                    )
+                    for view in self._current_views
+                ],
+                previous,
+                minimum_baseline_m=minimum_baseline_m,
+            )
+            if not ranked_indices:
+                return False
+            if not self._sequence.begin_bounded_reobservation(
+                outcome,
+                detail,
+                failure_code=failure_code,
+            ):
+                return False
+            self._current_views = [
+                self._current_views[index] for index in ranked_indices
+            ]
+            self._current_view_index = 0
+            self._current_view = self._current_views[0]
+            self._current_is_reobservation = True
+            self._last_wrist_rejection_reason = None
+            self._publish(
+                "CACHED_DISTINCT_REOBSERVATION",
+                diagnostics={
+                    "target_id": int(self._current_target.target_id),
+                    "remaining_view_count": len(self._current_views),
+                    "minimum_reobservation_baseline_m": minimum_baseline_m,
+                    "trigger": outcome,
+                },
+            )
+            self._try_current_observation_view()
+            return True
 
         def _send_pick(self) -> None:
             goal = PickAndPlace.Goal()
@@ -566,7 +645,51 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_view_index = 0
             self._current_is_reobservation = False
             self._publish("RETRY" if self._sequence.retry_target_id else "TARGET_SKIPPED")
-            self._arm_scan_timer()
+            self._request_recovery_home()
+
+        def _request_recovery_home(self) -> None:
+            if self._recovery_home_in_progress:
+                return
+            self._cancel_timer("_scan_timer")
+            self._recovery_home_in_progress = True
+            self._publish("RETURNING_TO_GLOBAL_SCAN_HOME")
+            if not self._home_client.service_is_ready():
+                self._finish_after_recovery_home_failure(
+                    "recovery home service is unavailable"
+                )
+                return
+            future = self._home_client.call_async(Trigger.Request())
+            future.add_done_callback(self._recovery_home_result)
+
+        def _recovery_home_result(self, future) -> None:
+            try:
+                result = future.result()
+                success = result is not None and bool(result.success)
+                detail = (
+                    result.message
+                    if result is not None
+                    else "recovery home service failed"
+                )
+            except Exception as exc:
+                success, detail = False, str(exc)
+            self._recovery_home_in_progress = False
+            if not success:
+                self._finish_after_recovery_home_failure(detail)
+                return
+            self._publish("GLOBAL_SCAN_HOME_REACHED")
+            if not self._sequence.terminal:
+                self._arm_scan_timer()
+
+        def _finish_after_recovery_home_failure(self, detail: str) -> None:
+            self._recovery_home_in_progress = False
+            if not self._sequence.terminal:
+                self._sequence.finish(
+                    f"unsafe to continue after recovery-home failure: {detail}"
+                )
+            self._publish(
+                "RECOVERY_HOME_FAILED",
+                diagnostics={"message": detail},
+            )
 
         def _scan_timeout(self) -> None:
             self._cancel_timer("_scan_timer")

@@ -24,6 +24,41 @@ def _distance(left: Sequence[float], right: Sequence[float]) -> float:
     return math.sqrt(sum((float(a) - float(b)) ** 2 for a, b in zip(left, right)))
 
 
+def fuse_smoothed_position_sigma(
+    prior_sigma_m: float,
+    observation_sigma_m: float,
+    innovation_m: float,
+    *,
+    smoothing_alpha: float,
+    uncertainty_floor_m: float,
+) -> float:
+    """Propagate uncertainty for the same exponential position smoother.
+
+    The first two terms are the variance of the weighted prior and new
+    measurement.  The innovation term prevents repeated but spatially
+    inconsistent detections from appearing more certain merely because more
+    frames arrived.  A non-zero floor represents camera calibration and model
+    systematics that correlated video frames cannot average away.
+    """
+
+    prior_sigma = _finite(prior_sigma_m, "prior_sigma_m")
+    observation_sigma = _finite(observation_sigma_m, "observation_sigma_m")
+    innovation = _finite(innovation_m, "innovation_m")
+    alpha = _finite(smoothing_alpha, "smoothing_alpha")
+    floor = _finite(uncertainty_floor_m, "uncertainty_floor_m")
+    if prior_sigma <= 0.0 or observation_sigma <= 0.0 or innovation < 0.0:
+        raise ValueError("tracking uncertainty inputs are invalid")
+    if not 0.0 < alpha <= 1.0 or floor < 0.0:
+        raise ValueError("tracking uncertainty bounds are invalid")
+    retained = 1.0 - alpha
+    variance = (
+        retained * retained * prior_sigma * prior_sigma
+        + alpha * alpha * observation_sigma * observation_sigma
+        + alpha * retained * innovation * innovation
+    )
+    return max(floor, math.sqrt(variance), 1e-6)
+
+
 @dataclass(frozen=True)
 class LocalizedObservation:
     source_detection_id: int
@@ -93,6 +128,7 @@ class MultiTargetTracker:
         max_track_age_sec: float = 0.75,
         minimum_observations: int = 3,
         smoothing_alpha: float = 0.35,
+        uncertainty_floor_m: float = 0.005,
     ) -> None:
         self.association_distance_m = _finite(association_distance_m, "association_distance_m")
         self.completed_suppression_distance_m = _finite(
@@ -101,6 +137,10 @@ class MultiTargetTracker:
         )
         self.max_track_age_sec = _finite(max_track_age_sec, "max_track_age_sec")
         self.smoothing_alpha = _finite(smoothing_alpha, "smoothing_alpha")
+        self.uncertainty_floor_m = _finite(
+            uncertainty_floor_m,
+            "uncertainty_floor_m",
+        )
         if self.association_distance_m <= 0.0 or self.max_track_age_sec <= 0.0:
             raise ValueError("tracker distance and age bounds must be positive")
         if not 0.0 < self.completed_suppression_distance_m < self.association_distance_m:
@@ -111,6 +151,8 @@ class MultiTargetTracker:
             raise ValueError("minimum_observations must be positive")
         if not 0.0 < self.smoothing_alpha <= 1.0:
             raise ValueError("smoothing_alpha must be in (0, 1]")
+        if self.uncertainty_floor_m < 0.0:
+            raise ValueError("uncertainty_floor_m must be non-negative")
         self.minimum_observations = int(minimum_observations)
         self._tracks: dict[int, _Track] = {}
         self._next_track_id = 1
@@ -172,12 +214,19 @@ class MultiTargetTracker:
             observation = incoming[observation_index]
             track = self._tracks[track_id]
             alpha = self.smoothing_alpha
+            innovation_m = _distance(observation.position, track.position)
             track.position = tuple(
                 alpha * observed + (1.0 - alpha) * previous
                 for observed, previous in zip(observation.position, track.position)
             )
             track.confidence = alpha * observation.confidence + (1.0 - alpha) * track.confidence
-            track.sigma_m = max(1e-6, alpha * observation.sigma_m + (1.0 - alpha) * track.sigma_m)
+            track.sigma_m = fuse_smoothed_position_sigma(
+                track.sigma_m,
+                observation.sigma_m,
+                innovation_m,
+                smoothing_alpha=alpha,
+                uncertainty_floor_m=self.uncertainty_floor_m,
+            )
             track.source_detection_id = observation.source_detection_id
             track.observation_count += 1
             track.last_seen_sec = stamp
@@ -195,7 +244,7 @@ class MultiTargetTracker:
                 source_detection_id=observation.source_detection_id,
                 position=observation.position,
                 confidence=observation.confidence,
-                sigma_m=observation.sigma_m,
+                sigma_m=max(self.uncertainty_floor_m, observation.sigma_m),
                 observation_count=1,
                 first_seen_sec=stamp,
                 last_seen_sec=stamp,

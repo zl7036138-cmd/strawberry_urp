@@ -63,18 +63,13 @@ def gripper_result_allows_command(
     closing = target_position_m <= closed_position_m + 1.0e-6
     if not closing:
         return reached_goal and (
-            abs(observed_position_m - target_position_m)
-            <= position_tolerance_m
+            abs(observed_position_m - target_position_m) <= position_tolerance_m
         )
     if reached_goal and (
-        abs(observed_position_m - target_position_m)
-        <= position_tolerance_m
+        abs(observed_position_m - target_position_m) <= position_tolerance_m
     ):
         return True
-    return stalled and (
-        observed_position_m
-        <= open_position_m - minimum_close_travel_m
-    )
+    return stalled and (observed_position_m <= open_position_m - minimum_close_travel_m)
 
 
 class MoveItBackend:
@@ -93,9 +88,7 @@ class MoveItBackend:
         base_frame: str = "panda_link0",
         home_configuration: str = "ready",
         gripper_action: str = "/panda_gripper_controller/gripper_cmd",
-        gripper_secondary_action: str = (
-            "/panda_gripper_right_controller/gripper_cmd"
-        ),
+        gripper_secondary_action: str = ("/panda_gripper_right_controller/gripper_cmd"),
         arm_action: str = "/panda_arm_controller/follow_joint_trajectory",
         gripper_joint: str = "panda_finger_joint1",
         gripper_secondary_joint: str = "panda_finger_joint2",
@@ -109,6 +102,8 @@ class MoveItBackend:
         maximum_joint_trajectory_duration_sec: float = 60.0,
         maximum_joint_trajectory_travel_rad: float = 40.0,
         maximum_joint_trajectory_points: int = 512,
+        joint_trajectory_velocity_rad_per_sec: float = 0.30,
+        minimum_joint_waypoint_duration_sec: float = 0.05,
         settle_timeout_sec: float = 1.5,
         settle_sample_period_sec: float = 0.05,
         settle_delta_rad: float = 0.002,
@@ -127,12 +122,10 @@ class MoveItBackend:
         fruit_obstacles: dict[int, Pose] | None = None,
         fruit_collision_radius_m: float = FRUIT_COLLISION_RADIUS_M,
         static_collision_objects=STATIC_COLLISION_OBJECTS,
-        fruit_pose_provider: Callable[
-            [], Mapping[int, tuple[float, float, float]]
-        ]
+        fruit_pose_provider: Callable[[], Mapping[int, tuple[float, float, float]]]
         | None = None,
         dynamic_fruit_manifest: bool = False,
-        entity_id_resolver: Callable[[int, Pose], int] | None = None,
+        contact_resolved_attachment: bool = False,
         config_dict: dict | None = None,
     ) -> None:
         try:
@@ -188,6 +181,13 @@ class MoveItBackend:
             or maximum_joint_trajectory_points < 2
         ):
             raise ValueError("joint trajectory point limit must be at least two")
+        if (
+            not math.isfinite(joint_trajectory_velocity_rad_per_sec)
+            or joint_trajectory_velocity_rad_per_sec <= 0.0
+            or not math.isfinite(minimum_joint_waypoint_duration_sec)
+            or minimum_joint_waypoint_duration_sec <= 0.0
+        ):
+            raise ValueError("joint trajectory timing parameters must be positive")
         if settle_timeout_sec <= 0.0 or settle_sample_period_sec <= 0.0:
             raise ValueError("settling timeouts must be positive")
         if settle_delta_rad <= 0.0 or settle_stable_samples <= 0:
@@ -236,32 +236,30 @@ class MoveItBackend:
         )
         self.open_width_m = float(open_width_m)
         self.closed_width_m = float(closed_width_m)
-        self.gripper_position_tolerance_m = float(
-            gripper_position_tolerance_m
-        )
+        self.gripper_position_tolerance_m = float(gripper_position_tolerance_m)
         self.max_effort_n = float(max_effort_n)
         self.request_timeout_sec = float(request_timeout_sec)
         self.startup_timeout_sec = float(startup_timeout_sec)
-        self.trajectory_timeout_margin_sec = float(
-            trajectory_timeout_margin_sec
-        )
+        self.trajectory_timeout_margin_sec = float(trajectory_timeout_margin_sec)
         self.maximum_joint_trajectory_duration_sec = float(
             maximum_joint_trajectory_duration_sec
         )
         self.maximum_joint_trajectory_travel_rad = float(
             maximum_joint_trajectory_travel_rad
         )
-        self.maximum_joint_trajectory_points = int(
-            maximum_joint_trajectory_points
+        self.maximum_joint_trajectory_points = int(maximum_joint_trajectory_points)
+        self.joint_trajectory_velocity_rad_per_sec = float(
+            joint_trajectory_velocity_rad_per_sec
+        )
+        self.minimum_joint_waypoint_duration_sec = float(
+            minimum_joint_waypoint_duration_sec
         )
         self.settle_timeout_sec = float(settle_timeout_sec)
         self.settle_sample_period_sec = float(settle_sample_period_sec)
         self.settle_delta_rad = float(settle_delta_rad)
         self.settle_stable_samples = int(settle_stable_samples)
         self.pose_position_tolerance_m = float(pose_position_tolerance_m)
-        self.pose_orientation_tolerance_rad = float(
-            pose_orientation_tolerance_rad
-        )
+        self.pose_orientation_tolerance_rad = float(pose_orientation_tolerance_rad)
         self.intermediate_position_tolerance_m = float(
             intermediate_position_tolerance_m
         )
@@ -271,21 +269,14 @@ class MoveItBackend:
         self.cartesian_endpoint_retry_limit = cartesian_endpoint_retry_limit
         self.max_grasp_segment_m = float(max_grasp_segment_m)
         self.max_orientation_segment_rad = float(max_orientation_segment_rad)
-        self.max_collision_joint_step_rad = float(
-            max_collision_joint_step_rad
-        )
+        self.max_collision_joint_step_rad = float(max_collision_joint_step_rad)
         self.safe_transit_clearance_m = float(safe_transit_clearance_m)
-        self.place_transit_clearance_m = float(
-            place_transit_clearance_m
-        )
-        self.safe_transit_corridor_y_m = float(
-            safe_transit_corridor_y_m
-        )
+        self.place_transit_clearance_m = float(place_transit_clearance_m)
+        self.safe_transit_corridor_y_m = float(safe_transit_corridor_y_m)
         self.fruit_collision_radius_m = float(fruit_collision_radius_m)
         self.static_collision_objects = tuple(static_collision_objects)
         static_collision_ids = [
-            specification.object_id
-            for specification in self.static_collision_objects
+            specification.object_id for specification in self.static_collision_objects
         ]
         if not static_collision_ids:
             raise ValueError("static collision scene must not be empty")
@@ -297,7 +288,7 @@ class MoveItBackend:
         self.fruit_obstacle_centers_m = fruit_manifest
         self.fruit_pose_provider = fruit_pose_provider
         self.dynamic_fruit_manifest = bool(dynamic_fruit_manifest)
-        self.entity_id_resolver = entity_id_resolver
+        self.contact_resolved_attachment = bool(contact_resolved_attachment)
         self._PoseStamped = PoseStamped
         self._FollowJointTrajectory = FollowJointTrajectory
         self._ParallelGripperCommand = ParallelGripperCommand
@@ -373,15 +364,11 @@ class MoveItBackend:
             )
 
     def _on_gripper_joint_state(self, message) -> None:
-        for name, position in zip(
-            message.name, message.position, strict=False
-        ):
+        for name, position in zip(message.name, message.position, strict=False):
             joint_name = str(name)
             if joint_name in self.gripper_joints:
                 with self._gripper_state_lock:
-                    self._latest_gripper_positions_m[joint_name] = float(
-                        position
-                    )
+                    self._latest_gripper_positions_m[joint_name] = float(position)
 
     @staticmethod
     def _build_fruit_manifest(fruit_obstacles) -> MappingProxyType:
@@ -421,7 +408,9 @@ class MoveItBackend:
         current_ids = set(int(target_id) for target_id in centers)
         if bool(getattr(self, "dynamic_fruit_manifest", False)):
             previous_ids = set(
-                getattr(self, "_dynamic_collision_target_ids", self.fruit_obstacle_centers_m)
+                getattr(
+                    self, "_dynamic_collision_target_ids", self.fruit_obstacle_centers_m
+                )
             )
             for target_id in sorted(previous_ids - current_ids):
                 set_target_fruit_collision(
@@ -466,9 +455,15 @@ class MoveItBackend:
                     float(value)
                     for value in state.get_joint_group_positions(self.planning_group)
                 )
-                maximum_delta = max(abs(right - left) for left, right in zip(previous, current))
-                joint_travel += sum(abs(right - left) for left, right in zip(previous, current))
-                sample_count = max(1, math.ceil(maximum_delta / self.max_collision_joint_step_rad))
+                maximum_delta = max(
+                    abs(right - left) for left, right in zip(previous, current)
+                )
+                joint_travel += sum(
+                    abs(right - left) for left, right in zip(previous, current)
+                )
+                sample_count = max(
+                    1, math.ceil(maximum_delta / self.max_collision_joint_step_rad)
+                )
                 for sample_index in range(1, sample_count + 1):
                     fraction = sample_index / sample_count
                     sample = tuple(
@@ -493,7 +488,9 @@ class MoveItBackend:
         try:
             scene_centers = self._fruit_centers_for_planning()
             if target_id not in scene_centers:
-                raise ValueError(f"target {target_id} is absent from the live fruit scene")
+                raise ValueError(
+                    f"target {target_id} is absent from the live fruit scene"
+                )
             if getattr(self, "fruit_pose_provider", None) is not None:
                 self._synchronize_fruit_collision_scene(scene_centers)
         except Exception as exc:  # pragma: no cover - ROS integration only
@@ -519,44 +516,18 @@ class MoveItBackend:
             )
             return False
         self._prepared_target_id = target_id
-        try:
-            resolver = getattr(self, "entity_id_resolver", None)
-            self._prepared_entity_id = (
-                int(resolver(target_id, target_pose))
-                if resolver is not None
-                else target_id
-            )
-        except Exception as exc:
-            self.node.get_logger().error(f"failed to resolve simulated fruit entity: {exc}")
-            try:
-                set_target_fruit_collision(
-                    self._planning_scene_monitor, self.base_frame, target_id
-                )
-            except Exception as cleanup_exc:  # pragma: no cover - ROS integration only
-                self.node.get_logger().error(
-                    f"failed to remove unresolved target obstacle: {cleanup_exc}"
-                )
-            self._prepared_target_id = None
-            return False
-        if self._prepared_entity_id <= 0:
-            self.node.get_logger().error("resolved simulated fruit entity ID must be positive")
-            try:
-                set_target_fruit_collision(
-                    self._planning_scene_monitor, self.base_frame, target_id
-                )
-            except Exception as cleanup_exc:  # pragma: no cover - ROS integration only
-                self.node.get_logger().error(
-                    f"failed to remove invalid target obstacle: {cleanup_exc}"
-                )
-            self._prepared_target_id = None
-            self._prepared_entity_id = None
-            return False
+        contact_resolved = bool(getattr(self, "contact_resolved_attachment", False))
+        self._prepared_entity_id = None if contact_resolved else target_id
         self._target_contact_open = False
         self._prepared_scene_centers_m = scene_centers
+        attachment_detail = (
+            "physical bilateral contact will resolve the simulation entity"
+            if contact_resolved
+            else f"simulation entity {self._prepared_entity_id} selected"
+        )
         self.node.get_logger().info(
             f"MoveIt live fruit scene synchronized; target obstacle {object_id} "
-            f"enabled for transit; perception target {target_id} maps to "
-            f"simulation entity {self._prepared_entity_id}"
+            f"enabled for transit; {attachment_detail}"
         )
         return True
 
@@ -647,9 +618,10 @@ class MoveItBackend:
                 )
             # The deterministic Panda startup posture has non-zero joints 2,
             # 4, 6, and 7.  An all-zero vector is MoveIt's pre-message default.
-            if len(positions) > 0 and max(
-                abs(float(value)) for value in positions
-            ) > 0.1:
+            if (
+                len(positions) > 0
+                and max(abs(float(value)) for value in positions) > 0.1
+            ):
                 break
             time.sleep(0.1)
         else:
@@ -721,9 +693,7 @@ class MoveItBackend:
         position_tolerance_m: float | None = None,
         orientation_tolerance_rad: float | None = None,
     ) -> bool:
-        translation_error, orientation_error = self._pose_errors(
-            requested, observed
-        )
+        translation_error, orientation_error = self._pose_errors(requested, observed)
         position_tolerance_m = (
             self.pose_position_tolerance_m
             if position_tolerance_m is None
@@ -763,9 +733,7 @@ class MoveItBackend:
         return message
 
     @staticmethod
-    def _joint_path_travel(
-        positions: tuple[tuple[float, ...], ...]
-    ) -> float:
+    def _joint_path_travel(positions: tuple[tuple[float, ...], ...]) -> float:
         return sum(
             sum(abs(current - previous) for current, previous in zip(right, left))
             for left, right in zip(positions, positions[1:])
@@ -801,9 +769,7 @@ class MoveItBackend:
                 "MoveIt pose plan contains fewer than two waypoints"
             )
             return (), PathAssessment(False, False, planning_time, 0.0)
-        planned_endpoint = trajectory[waypoint_count - 1].get_pose(
-            self.pose_link
-        )
+        planned_endpoint = trajectory[waypoint_count - 1].get_pose(self.pose_link)
         if not self._pose_is_within_tolerance(
             pose, planned_endpoint, "planned endpoint"
         ):
@@ -817,13 +783,8 @@ class MoveItBackend:
             )
             for index in range(waypoint_count)
         )
-        if any(
-            len(values) != len(self._arm_joint_names)
-            for values in positions
-        ):
-            self.node.get_logger().error(
-                "MoveIt pose plan has an invalid arm state"
-            )
+        if any(len(values) != len(self._arm_joint_names) for values in positions):
+            self.node.get_logger().error("MoveIt pose plan has an invalid arm state")
             return (), PathAssessment(False, False, planning_time, 0.0)
         if not self._joint_path_within_safety_limits(positions):
             return (), PathAssessment(False, False, planning_time, 0.0)
@@ -877,15 +838,14 @@ class MoveItBackend:
             return False
         return True
 
-    @staticmethod
     def _joint_path_nominal_duration(
-        positions: tuple[tuple[float, ...], ...]
+        self, positions: tuple[tuple[float, ...], ...]
     ) -> float:
         return sum(
             max(
-                0.25,
+                self.minimum_joint_waypoint_duration_sec,
                 max(abs(current - prior) for current, prior in zip(right, left))
-                / 0.30,
+                / self.joint_trajectory_velocity_rad_per_sec,
             )
             for left, right in zip(positions, positions[1:])
         )
@@ -906,8 +866,7 @@ class MoveItBackend:
                 )
             if previous is not None and len(positions) == len(previous):
                 maximum_delta = max(
-                    abs(current - prior)
-                    for current, prior in zip(positions, previous)
+                    abs(current - prior) for current, prior in zip(positions, previous)
                 )
                 if maximum_delta <= self.settle_delta_rad:
                     stable_samples += 1
@@ -922,7 +881,9 @@ class MoveItBackend:
         )
         return False
 
-    def _plan_and_execute(self, *, pose: Pose | None = None, configuration: str | None = None) -> MotionOutcome:
+    def _plan_and_execute(
+        self, *, pose: Pose | None = None, configuration: str | None = None
+    ) -> MotionOutcome:
         if not self._wait_until_arm_settled():
             return MotionOutcome(False, 0.0, 0.0)
         self._arm.set_start_state_to_current_state()
@@ -948,9 +909,7 @@ class MoveItBackend:
 
         if pose is not None:
             trajectory = plan_result.trajectory
-            planned_endpoint = trajectory[len(trajectory) - 1].get_pose(
-                self.pose_link
-            )
+            planned_endpoint = trajectory[len(trajectory) - 1].get_pose(self.pose_link)
             if not self._pose_is_within_tolerance(
                 pose, planned_endpoint, "planned endpoint"
             ):
@@ -1046,9 +1005,7 @@ class MoveItBackend:
         segment_count = max(
             1,
             math.ceil(distance / self.max_grasp_segment_m),
-            math.ceil(
-                orientation_distance / self.max_orientation_segment_rad
-            ),
+            math.ceil(orientation_distance / self.max_orientation_segment_rad),
         )
         return tuple(
             self._interpolate_pose(start, target, index / segment_count)
@@ -1078,9 +1035,7 @@ class MoveItBackend:
                     raise ValueError(
                         "Cartesian preview start state has the wrong joint count"
                     )
-                state.set_joint_group_positions(
-                    self.planning_group, start_positions
-                )
+                state.set_joint_group_positions(self.planning_group, start_positions)
                 state.update()
                 if not scene.is_state_valid(state, self.planning_group, False):
                     self.node.get_logger().error(
@@ -1122,28 +1077,20 @@ class MoveItBackend:
                     return None
                 solved_positions = tuple(
                     float(value)
-                    for value in state.get_joint_group_positions(
-                        self.planning_group
-                    )
+                    for value in state.get_joint_group_positions(self.planning_group)
                 )
                 maximum_joint_delta = max(
                     abs(current - previous)
-                    for current, previous in zip(
-                        solved_positions, previous_positions
-                    )
+                    for current, previous in zip(solved_positions, previous_positions)
                 )
                 collision_samples = max(
                     1,
-                    math.ceil(
-                        maximum_joint_delta
-                        / self.max_collision_joint_step_rad
-                    ),
+                    math.ceil(maximum_joint_delta / self.max_collision_joint_step_rad),
                 )
                 for sample_index in range(1, collision_samples + 1):
                     fraction = sample_index / collision_samples
                     sample_positions = tuple(
-                        previous
-                        + fraction * (current - previous)
+                        previous + fraction * (current - previous)
                         for current, previous in zip(
                             solved_positions, previous_positions
                         )
@@ -1152,17 +1099,13 @@ class MoveItBackend:
                         self.planning_group, sample_positions
                     )
                     state.update()
-                    if not scene.is_state_valid(
-                        state, self.planning_group, False
-                    ):
+                    if not scene.is_state_valid(state, self.planning_group, False):
                         self.node.get_logger().error(
                             "MoveIt rejected interpolated collision state at "
                             f"Cartesian waypoint {index}/{len(waypoints)}, "
                             f"sample {sample_index}/{collision_samples}"
                         )
-                        scene.is_state_valid(
-                            state, self.planning_group, True
-                        )
+                        scene.is_state_valid(state, self.planning_group, True)
                         return (
                             start_positions,
                             tuple(joint_path),
@@ -1188,6 +1131,13 @@ class MoveItBackend:
         all_positions = (start_positions,) + tuple(joint_path)
         if not self._joint_path_within_safety_limits(all_positions):
             return False, 0.0
+        nominal_duration = self._joint_path_nominal_duration(all_positions)
+        cumulative_travel = self._joint_path_travel(all_positions)
+        self.node.get_logger().info(
+            "Executing collision-checked joint path: "
+            f"{len(all_positions)} points, {cumulative_travel:.3f} rad "
+            f"cumulative travel, {nominal_duration:.3f} s nominal duration"
+        )
         if not self._arm_action_probe.wait_for_server(
             timeout_sec=self.request_timeout_sec
         ):
@@ -1201,10 +1151,12 @@ class MoveItBackend:
         elapsed = 0.0
         for positions in joint_path:
             maximum_delta = max(
-                abs(current - prior)
-                for current, prior in zip(positions, previous)
+                abs(current - prior) for current, prior in zip(positions, previous)
             )
-            elapsed += max(0.25, maximum_delta / 0.30)
+            elapsed += max(
+                self.minimum_joint_waypoint_duration_sec,
+                maximum_delta / self.joint_trajectory_velocity_rad_per_sec,
+            )
             point = self._JointTrajectoryPoint()
             point.positions = list(positions)
             point.time_from_start = self._Duration(seconds=elapsed).to_msg()
@@ -1231,9 +1183,7 @@ class MoveItBackend:
             self._wait_future(cancel_future, self.request_timeout_sec)
             return False, execution_time
         error_code = int(wrapped.result.error_code)
-        succeeded = error_code == int(
-            self._FollowJointTrajectory.Result.SUCCESSFUL
-        )
+        succeeded = error_code == int(self._FollowJointTrajectory.Result.SUCCESSFUL)
         if not succeeded:
             self.node.get_logger().error(
                 f"Cartesian arm trajectory failed with controller code "
@@ -1311,51 +1261,66 @@ class MoveItBackend:
 
         safe_z = max(current.z, target.z) + self.safe_transit_clearance_m
         return (
-            ("vertical lift", Pose(
-                current.x,
-                current.y,
-                safe_z,
-                current.qx,
-                current.qy,
-                current.qz,
-                current.qw,
-            )),
-            ("in-place reorientation", Pose(
-                current.x,
-                current.y,
-                safe_z,
-                target.qx,
-                target.qy,
-                target.qz,
-                target.qw,
-            )),
-            ("move to clear corridor", Pose(
-                current.x,
-                self.safe_transit_corridor_y_m,
-                safe_z,
-                target.qx,
-                target.qy,
-                target.qz,
-                target.qw,
-            )),
-            ("corridor translation", Pose(
-                target.x,
-                self.safe_transit_corridor_y_m,
-                safe_z,
-                target.qx,
-                target.qy,
-                target.qz,
-                target.qw,
-            )),
-            ("align over target", Pose(
-                target.x,
-                target.y,
-                safe_z,
-                target.qx,
-                target.qy,
-                target.qz,
-                target.qw,
-            )),
+            (
+                "vertical lift",
+                Pose(
+                    current.x,
+                    current.y,
+                    safe_z,
+                    current.qx,
+                    current.qy,
+                    current.qz,
+                    current.qw,
+                ),
+            ),
+            (
+                "in-place reorientation",
+                Pose(
+                    current.x,
+                    current.y,
+                    safe_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
+            (
+                "move to clear corridor",
+                Pose(
+                    current.x,
+                    self.safe_transit_corridor_y_m,
+                    safe_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
+            (
+                "corridor translation",
+                Pose(
+                    target.x,
+                    self.safe_transit_corridor_y_m,
+                    safe_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
+            (
+                "align over target",
+                Pose(
+                    target.x,
+                    target.y,
+                    safe_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
             ("pre-grasp descent", target),
         )
 
@@ -1409,9 +1374,7 @@ class MoveItBackend:
         joint_travel = 0.0
         for waypoint in target_poses:
             waypoint = waypoint.normalized()
-            dense_waypoints = self._dense_pose_waypoints(
-                current_pose, waypoint
-            )
+            dense_waypoints = self._dense_pose_waypoints(current_pose, waypoint)
             solution = self._solve_cartesian_joint_path(
                 dense_waypoints,
                 start_joint_positions=current_joints,
@@ -1422,9 +1385,7 @@ class MoveItBackend:
                 )
             start_positions, joint_path, collision, elapsed = solution
             planning_time += elapsed
-            joint_travel += self._joint_path_travel(
-                (start_positions,) + joint_path
-            )
+            joint_travel += self._joint_path_travel((start_positions,) + joint_path)
             if collision or not joint_path:
                 return PathAssessment(
                     False,
@@ -1463,9 +1424,7 @@ class MoveItBackend:
             observation.end_joint_positions,
             pregrasp_pose,
         )
-        planning_time = (
-            observation.planning_time_sec + continuation.planning_time_sec
-        )
+        planning_time = observation.planning_time_sec + continuation.planning_time_sec
         if not continuation.feasible:
             self.node.get_logger().warning(
                 "Wrist observation rejected before motion: its planned endpoint "
@@ -1477,9 +1436,7 @@ class MoveItBackend:
                 0.0,
                 collision=continuation.collision,
             )
-        executed, execution_time = self._execute_joint_path(
-            positions[0], positions[1:]
-        )
+        executed, execution_time = self._execute_joint_path(positions[0], positions[1:])
         if not executed or not self._wait_until_arm_settled():
             return MotionOutcome(False, planning_time, execution_time)
         with self._planning_scene_monitor.read_only() as scene:
@@ -1511,12 +1468,8 @@ class MoveItBackend:
             )
         planning_time = preview.planning_time_sec
         execution_time = 0.0
-        for label, waypoint in self._guarded_approach_waypoints(
-            current, target
-        ):
-            self.node.get_logger().info(
-                f"MoveIt guarded approach phase: {label}"
-            )
+        for label, waypoint in self._guarded_approach_waypoints(current, target):
+            self.node.get_logger().info(f"MoveIt guarded approach phase: {label}")
             outcome = self._move_segmented_between(
                 current,
                 waypoint,
@@ -1538,45 +1491,50 @@ class MoveItBackend:
         """Enter the open collection bin vertically instead of through a wall."""
 
         current = self._current_link_pose()
-        safe_z = (
-            max(current.z, target.z) + self.place_transit_clearance_m
-        )
+        safe_z = max(current.z, target.z) + self.place_transit_clearance_m
         waypoints = (
-            ("vertical lift", Pose(
-                current.x,
-                current.y,
-                safe_z,
-                current.qx,
-                current.qy,
-                current.qz,
-                current.qw,
-            )),
-            ("in-place reorientation", Pose(
-                current.x,
-                current.y,
-                safe_z,
-                target.qx,
-                target.qy,
-                target.qz,
-                target.qw,
-            )),
-            ("align above bin", Pose(
-                target.x,
-                target.y,
-                safe_z,
-                target.qx,
-                target.qy,
-                target.qz,
-                target.qw,
-            )),
+            (
+                "vertical lift",
+                Pose(
+                    current.x,
+                    current.y,
+                    safe_z,
+                    current.qx,
+                    current.qy,
+                    current.qz,
+                    current.qw,
+                ),
+            ),
+            (
+                "in-place reorientation",
+                Pose(
+                    current.x,
+                    current.y,
+                    safe_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
+            (
+                "align above bin",
+                Pose(
+                    target.x,
+                    target.y,
+                    safe_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
             ("vertical descent", target),
         )
         planning_time = 0.0
         execution_time = 0.0
         for label, waypoint in waypoints:
-            self.node.get_logger().info(
-                f"MoveIt guarded place phase: {label}"
-            )
+            self.node.get_logger().info(f"MoveIt guarded place phase: {label}")
             outcome = self._move_segmented_between(
                 current,
                 waypoint,
@@ -1612,13 +1570,9 @@ class MoveItBackend:
                 0.0,
                 collision=assessment.collision,
             )
-        executed, execution_time = self._execute_joint_path(
-            positions[0], positions[1:]
-        )
+        executed, execution_time = self._execute_joint_path(positions[0], positions[1:])
         if not executed or not self._wait_until_arm_settled():
-            return MotionOutcome(
-                False, assessment.planning_time_sec, execution_time
-            )
+            return MotionOutcome(False, assessment.planning_time_sec, execution_time)
         with self._planning_scene_monitor.read_only() as scene:
             actual_pose = scene.current_state.get_pose(self.pose_link)
         executed = self._pose_is_within_tolerance(
@@ -1630,9 +1584,7 @@ class MoveItBackend:
             execution_time,
         )
 
-    def _move_to_named_configuration_direct(
-        self, configuration: str
-    ) -> MotionOutcome:
+    def _move_to_named_configuration_direct(self, configuration: str) -> MotionOutcome:
         """Plan a named posture and execute it through the bounded arm client.
 
         Recovery and final-home motions must not depend on MoveItPy's
@@ -1650,9 +1602,7 @@ class MoveItBackend:
             plan_result = self._arm.plan()
         except Exception as exc:
             self.node.get_logger().error(f"MoveIt planning exception: {exc}")
-            return MotionOutcome(
-                False, time.perf_counter() - planning_started, 0.0
-            )
+            return MotionOutcome(False, time.perf_counter() - planning_started, 0.0)
         planning_time = time.perf_counter() - planning_started
         if not plan_result:
             return MotionOutcome(False, planning_time, 0.0)
@@ -1661,8 +1611,7 @@ class MoveItBackend:
         waypoint_count = len(trajectory)
         if waypoint_count < 2:
             self.node.get_logger().error(
-                "MoveIt named-configuration plan contains fewer than two "
-                "waypoints"
+                "MoveIt named-configuration plan contains fewer than two waypoints"
             )
             return MotionOutcome(False, planning_time, 0.0)
         positions = tuple(
@@ -1674,17 +1623,12 @@ class MoveItBackend:
             )
             for index in range(waypoint_count)
         )
-        if any(
-            len(values) != len(self._arm_joint_names)
-            for values in positions
-        ):
+        if any(len(values) != len(self._arm_joint_names) for values in positions):
             self.node.get_logger().error(
                 "MoveIt named-configuration plan has an invalid arm state"
             )
             return MotionOutcome(False, planning_time, 0.0)
-        executed, execution_time = self._execute_joint_path(
-            positions[0], positions[1:]
-        )
+        executed, execution_time = self._execute_joint_path(positions[0], positions[1:])
         if executed:
             executed = self._wait_until_arm_settled()
         return MotionOutcome(executed, planning_time, execution_time)
@@ -1764,9 +1708,7 @@ class MoveItBackend:
             observed_source = "controller_result"
             if observed_position is None:
                 with self._gripper_state_lock:
-                    observed_position = self._latest_gripper_positions_m.get(
-                        joint_name
-                    )
+                    observed_position = self._latest_gripper_positions_m.get(joint_name)
                 observed_source = "joint_states_fallback"
             if observed_position is None:
                 self.node.get_logger().error(
@@ -1841,26 +1783,67 @@ class MoveItBackend:
             return False
         return True
 
+    def _trigger_contact_target(self, operation: str) -> bool:
+        key = (0, operation)
+        client = self._service_clients.get(key)
+        if client is None:
+            topic = f"/strawberry/sim/contact_target/{operation}"
+            client = self.node.create_client(
+                self._Trigger, topic, callback_group=self._callback_group
+            )
+            self._service_clients[key] = client
+        if not client.wait_for_service(timeout_sec=self.request_timeout_sec):
+            self.node.get_logger().error(
+                f"contact-resolved simulation service unavailable: {operation}"
+            )
+            return False
+        response = self._wait_future(
+            client.call_async(self._Trigger.Request()), self.request_timeout_sec
+        )
+        if response is None or not response.success:
+            message = "timeout" if response is None else response.message
+            self.node.get_logger().error(
+                f"contact-resolved simulation {operation} failed: {message}"
+            )
+            return False
+        return True
+
     def attach(self, target_id: int) -> bool:
-        entity_id = getattr(self, "_prepared_entity_id", None) if self._prepared_target_id == target_id else target_id
+        if bool(getattr(self, "contact_resolved_attachment", False)):
+            return self._trigger_contact_target("attach")
+        entity_id = (
+            getattr(self, "_prepared_entity_id", None)
+            if self._prepared_target_id == target_id
+            else target_id
+        )
         entity_id = target_id if entity_id is None else entity_id
         return self._trigger(entity_id, "attach")
 
     def detach(self, target_id: int) -> bool:
-        entity_id = getattr(self, "_prepared_entity_id", None) if self._prepared_target_id == target_id else target_id
+        if bool(getattr(self, "contact_resolved_attachment", False)):
+            return self._trigger_contact_target("detach")
+        entity_id = (
+            getattr(self, "_prepared_entity_id", None)
+            if self._prepared_target_id == target_id
+            else target_id
+        )
         entity_id = target_id if entity_id is None else entity_id
         return self._trigger(entity_id, "detach")
 
     def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool:
         del stable_for_sec  # enforced by strawberry_sim scene configuration
-        entity_id = getattr(self, "_prepared_entity_id", None) if self._prepared_target_id == target_id else target_id
+        if bool(getattr(self, "contact_resolved_attachment", False)):
+            return self._trigger_contact_target("verify_in_bin")
+        entity_id = (
+            getattr(self, "_prepared_entity_id", None)
+            if self._prepared_target_id == target_id
+            else target_id
+        )
         entity_id = target_id if entity_id is None else entity_id
         return self._trigger(entity_id, "verify_in_bin")
 
     def move_home(self) -> bool:
-        return self._move_to_named_configuration_direct(
-            self.home_configuration
-        ).success
+        return self._move_to_named_configuration_direct(self.home_configuration).success
 
     def shutdown(self) -> bool:
         """Stop MoveItPy's worker thread while retaining the Python object.

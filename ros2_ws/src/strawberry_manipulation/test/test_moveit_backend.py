@@ -61,9 +61,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         return backend
 
     def test_fruit_manifest_is_immutable(self):
-        manifest = MoveItBackend._build_fruit_manifest(
-            {1: Pose(0.4, 0.1, 0.5)}
-        )
+        manifest = MoveItBackend._build_fruit_manifest({1: Pose(0.4, 0.1, 0.5)})
         self.assertIsInstance(manifest, MappingProxyType)
         self.assertEqual(manifest[1], (0.4, 0.1, 0.5))
         with self.assertRaises(TypeError):
@@ -181,8 +179,8 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.settle_sample_period_sec = 0.05
         outcomes = iter((False, True, True))
         commands = []
-        backend._gripper_command = (
-            lambda position: commands.append(position) or next(outcomes)
+        backend._gripper_command = lambda position: commands.append(position) or next(
+            outcomes
         )
 
         with patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
@@ -233,6 +231,19 @@ class MoveItBackendStaticTests(unittest.TestCase):
         scene_update.assert_not_called()
         self.assertIsNone(backend._prepared_target_id)
 
+    def test_contact_resolved_attachment_ignores_tracker_identity(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.contact_resolved_attachment = True
+        operations = []
+        backend._trigger_contact_target = (
+            lambda operation: operations.append(operation) or True
+        )
+
+        self.assertTrue(backend.attach(934))
+        self.assertTrue(backend.detach(934))
+        self.assertTrue(backend.fruit_in_bin(934, 1.0))
+        self.assertEqual(operations, ["attach", "detach", "verify_in_bin"])
+
     def test_allow_then_restore_uses_manifest_and_closes_lifecycle(self):
         backend = self.lifecycle_backend()
         with patch(
@@ -265,27 +276,33 @@ class MoveItBackendStaticTests(unittest.TestCase):
             3: (0.4, -2.0, 1.0),
         }
         backend.fruit_pose_provider = lambda: live
-        with patch(
-            "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
-        ) as synchronize, patch(
-            "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
-            return_value="strawberry_fruit_1",
-        ) as target_update:
-            self.assertTrue(
-                backend.prepare_pick(1, Pose(0.45, -0.05, 0.52))
-            )
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
+            ) as synchronize,
+            patch(
+                "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
+                return_value="strawberry_fruit_1",
+            ) as target_update,
+        ):
+            self.assertTrue(backend.prepare_pick(1, Pose(0.45, -0.05, 0.52)))
         synchronize.assert_called_once()
         self.assertEqual(live, dict(synchronize.call_args.args[2]))
-        self.assertEqual((0.45, -0.05, 0.52), target_update.call_args.kwargs["center_m"])
+        self.assertEqual(
+            (0.45, -0.05, 0.52), target_update.call_args.kwargs["center_m"]
+        )
 
     def test_prepare_fails_closed_when_live_truth_ids_are_incomplete(self):
         backend = self.lifecycle_backend()
         backend.fruit_pose_provider = lambda: {}
-        with patch(
-            "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
-        ) as synchronize, patch(
-            "strawberry_manipulation.moveit_backend.set_target_fruit_collision"
-        ) as target_update:
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
+            ) as synchronize,
+            patch(
+                "strawberry_manipulation.moveit_backend.set_target_fruit_collision"
+            ) as target_update,
+        ):
             self.assertFalse(backend.prepare_pick(1, Pose(0.4, 0.1, 0.5)))
         synchronize.assert_not_called()
         target_update.assert_not_called()
@@ -300,9 +317,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
             return_value="strawberry_fruit_1",
         ) as scene_update:
             self.assertTrue(backend.restore_target_collision(1))
-        self.assertEqual(
-            (0.35, -0.45, 0.45), scene_update.call_args.kwargs["center_m"]
-        )
+        self.assertEqual((0.35, -0.45, 0.45), scene_update.call_args.kwargs["center_m"])
 
     def test_restore_uses_prepared_pose_when_target_is_temporarily_occluded(self):
         backend = self.lifecycle_backend()
@@ -310,17 +325,13 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.fruit_pose_provider = lambda: {}
         backend._prepared_target_id = 1
         backend._target_contact_open = True
-        backend._prepared_scene_centers_m = MappingProxyType(
-            {1: (0.38, -0.26, 0.55)}
-        )
+        backend._prepared_scene_centers_m = MappingProxyType({1: (0.38, -0.26, 0.55)})
         with patch(
             "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
             return_value="strawberry_fruit_1",
         ) as scene_update:
             self.assertTrue(backend.restore_target_collision(1))
-        self.assertEqual(
-            (0.38, -0.26, 0.55), scene_update.call_args.kwargs["center_m"]
-        )
+        self.assertEqual((0.38, -0.26, 0.55), scene_update.call_args.kwargs["center_m"])
 
     def test_restore_uses_prepared_pose_when_live_provider_is_stale(self):
         backend = self.lifecycle_backend()
@@ -330,17 +341,13 @@ class MoveItBackendStaticTests(unittest.TestCase):
         )
         backend._prepared_target_id = 1
         backend._target_contact_open = True
-        backend._prepared_scene_centers_m = MappingProxyType(
-            {1: (0.38, -0.26, 0.55)}
-        )
+        backend._prepared_scene_centers_m = MappingProxyType({1: (0.38, -0.26, 0.55)})
         with patch(
             "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
             return_value="strawberry_fruit_1",
         ) as scene_update:
             self.assertTrue(backend.restore_target_collision(1))
-        self.assertEqual(
-            (0.38, -0.26, 0.55), scene_update.call_args.kwargs["center_m"]
-        )
+        self.assertEqual((0.38, -0.26, 0.55), scene_update.call_args.kwargs["center_m"])
 
     def test_guarded_place_aligns_above_bin_before_vertical_descent(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -385,9 +392,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
             (args, kwargs)
         )
 
-        outcome = backend._move_guarded_approach(
-            Pose(0.42, 0.0, 0.62, qx=1.0, qw=0.0)
-        )
+        outcome = backend._move_guarded_approach(Pose(0.42, 0.0, 0.62, qx=1.0, qw=0.0))
 
         self.assertFalse(outcome.success)
         self.assertTrue(outcome.collision)
@@ -410,18 +415,12 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
         expected = MotionOutcome(True, 0.1, 0.2)
         requested = []
-        backend._move_to_segmented = (
-            lambda pose: requested.append(pose) or expected
-        )
+        backend._move_to_segmented = lambda pose: requested.append(pose) or expected
 
         preparation = Pose(0.42, -0.12, 0.7054, qy=1.0, qw=0.0)
         grasp = Pose(0.42, -0.12, 0.5554, qy=1.0, qw=0.0)
-        self.assertIs(
-            backend.move_to(preparation, "GRASP_RETRY_PREP"), expected
-        )
-        self.assertIs(
-            backend.move_to(grasp, "GRASP_POSE_RETRY"), expected
-        )
+        self.assertIs(backend.move_to(preparation, "GRASP_RETRY_PREP"), expected)
+        self.assertIs(backend.move_to(grasp, "GRASP_POSE_RETRY"), expected)
         self.assertEqual(requested, [preparation, grasp])
 
     def test_wrist_observation_uses_startup_verified_action_path(self):
@@ -434,9 +433,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         )
 
         target = Pose(0.28, 0.0, 0.72, qy=0.95, qw=0.31)
-        self.assertIs(
-            backend.move_to(target, "WRIST_OBSERVATION"), expected
-        )
+        self.assertIs(backend.move_to(target, "WRIST_OBSERVATION"), expected)
         self.assertEqual(requested, [target])
 
     def test_observation_is_not_executed_when_approach_preview_fails(self):
@@ -490,9 +487,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         backend._solve_cartesian_joint_path = solve
 
-        result = backend.preview_cartesian_segments(
-            start, (0.1, 0.2), (middle, target)
-        )
+        result = backend.preview_cartesian_segments(start, (0.1, 0.2), (middle, target))
 
         self.assertTrue(result.feasible)
         self.assertEqual(starts, [(0.1, 0.2), (0.3, 0.4)])
@@ -529,9 +524,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend._wait_until_arm_settled = lambda: True
 
         class SceneContext:
-            current_state = SimpleNamespace(
-                get_pose=lambda _link: endpoint_message
-            )
+            current_state = SimpleNamespace(get_pose=lambda _link: endpoint_message)
 
             def __enter__(self):
                 return self
@@ -572,13 +565,13 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.maximum_joint_trajectory_points = 512
         backend.maximum_joint_trajectory_travel_rad = 40.0
         backend.maximum_joint_trajectory_duration_sec = 60.0
+        backend.joint_trajectory_velocity_rad_per_sec = 0.30
+        backend.minimum_joint_waypoint_duration_sec = 0.05
         backend._arm_action_probe = SimpleNamespace(
             wait_for_server=lambda timeout_sec: False
         )
 
-        succeeded, execution_time = backend._execute_joint_path(
-            (0.0,), ((0.1,),)
-        )
+        succeeded, execution_time = backend._execute_joint_path((0.0,), ((0.1,),))
 
         self.assertFalse(succeeded)
         self.assertEqual(execution_time, 0.0)
@@ -594,6 +587,8 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.maximum_joint_trajectory_points = 512
         backend.maximum_joint_trajectory_travel_rad = 40.0
         backend.maximum_joint_trajectory_duration_sec = 1.0
+        backend.joint_trajectory_velocity_rad_per_sec = 0.30
+        backend.minimum_joint_waypoint_duration_sec = 0.05
         backend.request_timeout_sec = 5.0
         backend._arm_action_probe = SimpleNamespace(
             wait_for_server=lambda timeout_sec: True,
@@ -617,6 +612,8 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.maximum_joint_trajectory_points = 512
         backend.maximum_joint_trajectory_travel_rad = 1.0
         backend.maximum_joint_trajectory_duration_sec = 60.0
+        backend.joint_trajectory_velocity_rad_per_sec = 0.30
+        backend.minimum_joint_waypoint_duration_sec = 0.05
         backend.request_timeout_sec = 5.0
         backend._arm_action_probe = SimpleNamespace(
             wait_for_server=lambda timeout_sec: True,
@@ -633,6 +630,21 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(execution_time, 0.0)
         self.assertTrue(any("travel" in message for message in logger.errors))
 
+    def test_dense_joint_path_timing_keeps_velocity_bound_without_long_dwell(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.joint_trajectory_velocity_rad_per_sec = 0.30
+        backend.minimum_joint_waypoint_duration_sec = 0.05
+
+        duration = backend._joint_path_nominal_duration(
+            ((0.0,), (0.003,), (0.006,), (0.009,))
+        )
+        velocity_limited_duration = backend._joint_path_nominal_duration(
+            ((0.0,), (0.06,))
+        )
+
+        self.assertAlmostEqual(duration, 0.15)
+        self.assertAlmostEqual(velocity_limited_duration, 0.20)
+
     def test_cartesian_endpoint_miss_gets_exactly_one_measured_correction(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         logger = self.Logger()
@@ -645,9 +657,9 @@ class MoveItBackendStaticTests(unittest.TestCase):
         measured = Pose(0.09, 0.0, 0.0)
         target = Pose(0.10, 0.0, 0.0)
         dense_starts = []
-        backend._dense_pose_waypoints = (
-            lambda current, requested: dense_starts.append(current) or (requested,)
-        )
+        backend._dense_pose_waypoints = lambda current, requested: dense_starts.append(
+            current
+        ) or (requested,)
         backend._solve_cartesian_joint_path = lambda waypoints: (
             (0.0,),
             ((0.1,),),
@@ -655,9 +667,9 @@ class MoveItBackendStaticTests(unittest.TestCase):
             0.01,
         )
         executions = []
-        backend._execute_joint_path = (
-            lambda initial, path: executions.append((initial, path)) or (True, 0.02)
-        )
+        backend._execute_joint_path = lambda initial, path: executions.append(
+            (initial, path)
+        ) or (True, 0.02)
         backend._wait_until_arm_settled = lambda: True
         backend._current_link_pose = lambda: measured
         verification_results = iter((False, True))
@@ -677,9 +689,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
             def __exit__(self, exc_type, exc_value, traceback):
                 return False
 
-        backend._planning_scene_monitor = SimpleNamespace(
-            read_only=lambda: ReadOnly()
-        )
+        backend._planning_scene_monitor = SimpleNamespace(read_only=lambda: ReadOnly())
         outcome = backend._move_segmented_between(start, target)
 
         self.assertTrue(outcome.success)
@@ -724,9 +734,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
             def __exit__(self, exc_type, exc_value, traceback):
                 return False
 
-        backend._planning_scene_monitor = SimpleNamespace(
-            read_only=lambda: ReadOnly()
-        )
+        backend._planning_scene_monitor = SimpleNamespace(read_only=lambda: ReadOnly())
         outcome = backend._move_segmented_between(
             Pose(0.0, 0.0, 0.0), Pose(0.1, 0.0, 0.0)
         )
@@ -795,7 +803,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         target = Pose(1.0, 2.0, 3.0, qz=-1.0, qw=0.0)
         midpoint = MoveItBackend._interpolate_pose(start, target, 0.5)
         self.assertEqual((midpoint.x, midpoint.y, midpoint.z), (0.5, 1.0, 1.5))
-        self.assertAlmostEqual(midpoint.qz, -2**-0.5)
+        self.assertAlmostEqual(midpoint.qz, -(2**-0.5))
         self.assertAlmostEqual(midpoint.qw, 2**-0.5)
         self.assertAlmostEqual(
             MoveItBackend._orientation_distance(start, target), math.pi

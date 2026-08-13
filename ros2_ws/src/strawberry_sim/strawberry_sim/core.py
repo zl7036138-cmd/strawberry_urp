@@ -81,18 +81,15 @@ def dual_pad_geometric_contact(
         return False
     if math.dist(fruit_xyz, right_xyz) > maximum:
         return False
-    separation = tuple(
-        right_xyz[index] - left_xyz[index] for index in range(3)
-    )
+    separation = tuple(right_xyz[index] - left_xyz[index] for index in range(3))
     separation_squared = sum(value * value for value in separation)
     if separation_squared <= 1e-12:
         return False
-    fruit_from_left = tuple(
-        fruit_xyz[index] - left_xyz[index] for index in range(3)
+    fruit_from_left = tuple(fruit_xyz[index] - left_xyz[index] for index in range(3))
+    projection = (
+        sum(fruit_from_left[index] * separation[index] for index in range(3))
+        / separation_squared
     )
-    projection = sum(
-        fruit_from_left[index] * separation[index] for index in range(3)
-    ) / separation_squared
     return 0.0 <= projection <= 1.0
 
 
@@ -309,6 +306,51 @@ class BinStabilityTracker:
         self._latest_pose.pop(target_id, None)
 
 
+class ContactStabilityTracker:
+    """Require uninterrupted, fresh physical contact for a fixed duration."""
+
+    def __init__(
+        self,
+        required_stability_sec: float,
+        contact_freshness_sec: float = 0.25,
+    ) -> None:
+        if required_stability_sec <= 0.0 or contact_freshness_sec <= 0.0:
+            raise ValueError("contact stability bounds must be positive")
+        self.required_stability_sec = float(required_stability_sec)
+        self.contact_freshness_sec = float(contact_freshness_sec)
+        self._entered_at: dict[int, float] = {}
+        self._last_stamp: dict[int, float] = {}
+        self._active: dict[int, bool] = {}
+
+    def update(self, target_id: int, active: bool, stamp_sec: float) -> None:
+        if target_id <= 0:
+            raise ValueError("target_id must be positive")
+        stamp = _finite(stamp_sec, "stamp_sec")
+        previous = self._last_stamp.get(target_id)
+        if previous is not None and (
+            stamp < previous or stamp - previous > self.contact_freshness_sec
+        ):
+            self._entered_at.pop(target_id, None)
+        self._last_stamp[target_id] = stamp
+        self._active[target_id] = bool(active)
+        if active:
+            self._entered_at.setdefault(target_id, stamp)
+        else:
+            self._entered_at.pop(target_id, None)
+
+    def is_stable(self, target_id: int, now_sec: float) -> bool:
+        now = _finite(now_sec, "now_sec")
+        stamp = self._last_stamp.get(target_id)
+        entered = self._entered_at.get(target_id)
+        if not self._active.get(target_id, False) or stamp is None or entered is None:
+            return False
+        age = now - stamp
+        return (
+            0.0 <= age <= self.contact_freshness_sec
+            and now - entered >= self.required_stability_sec
+        )
+
+
 @dataclass(frozen=True)
 class AttachmentDecision:
     allowed: bool
@@ -344,7 +386,9 @@ class AttachmentGate:
         if not backend_enabled:
             return AttachmentDecision(False, "attachment backend is disabled")
         if not backend_initialized:
-            return AttachmentDecision(False, "attachment backend is not initialized detached")
+            return AttachmentDecision(
+                False, "attachment backend is not initialized detached"
+            )
         if not state_known:
             return AttachmentDecision(False, "attachment state is unknown")
         if attached:
@@ -355,11 +399,39 @@ class AttachmentGate:
         )
         for side, active, stamp in contacts:
             if not active or stamp is None:
-                return AttachmentDecision(False, f"{side} gripper contact is not active")
+                return AttachmentDecision(
+                    False, f"{side} gripper contact is not active"
+                )
             age = now - _finite(stamp, f"{side}_stamp_sec")
             if age < 0.0 or age > self.contact_freshness_sec:
                 return AttachmentDecision(False, f"{side} gripper contact is stale")
         return AttachmentDecision(True, "dual gripper contact confirmed")
+
+
+def select_unique_contact_target(
+    allowed_by_target_id: Mapping[int, bool],
+) -> tuple[int | None, str]:
+    """Resolve exactly one simulated fruit from bilateral pad contact.
+
+    No pose or tracker identity is accepted here.  The simulator adapter acts
+    like a physical grasp switch: exactly one fruit must satisfy the strict
+    dual-contact gate, otherwise attachment fails closed.
+    """
+
+    if any(target_id <= 0 for target_id in allowed_by_target_id):
+        raise ValueError("contact target IDs must be positive")
+    candidates = tuple(
+        sorted(
+            target_id
+            for target_id, allowed in allowed_by_target_id.items()
+            if bool(allowed)
+        )
+    )
+    if len(candidates) == 1:
+        return candidates[0], "unique dual-contact fruit confirmed"
+    if not candidates:
+        return None, "no fruit has fresh bilateral gripper contact"
+    return None, "bilateral gripper contact is ambiguous across multiple fruits"
 
 
 def normalize_entity_name(frame_id: str) -> str:
@@ -390,14 +462,35 @@ def fruit_models_in_contacts(
         raise ValueError("contact model names must be unique")
 
     def components(name: str) -> frozenset[str]:
-        return frozenset(
-            part for part in name.replace("::", "/").split("/") if part
-        )
+        return frozenset(part for part in name.replace("::", "/").split("/") if part)
 
     active: set[int] = set()
     for first, second in collision_pairs:
         names = components(first) | components(second)
         for target_id, model_name in model_by_target_id.items():
             if model_name in names:
+                active.add(target_id)
+    return frozenset(active)
+
+
+def fruit_models_contacting_entity(
+    collision_pairs: list[tuple[str, str]],
+    model_by_target_id: Mapping[int, str],
+    entity_name: str,
+) -> frozenset[int]:
+    """Return fruits whose collision pair also contains one named entity."""
+
+    if not entity_name.strip():
+        raise ValueError("contact entity name must be non-empty")
+    active: set[int] = set()
+    for pair in collision_pairs:
+        components = [
+            frozenset(part for part in name.replace("::", "/").split("/") if part)
+            for name in pair
+        ]
+        if not any(entity_name in names for names in components):
+            continue
+        for target_id, model_name in model_by_target_id.items():
+            if any(model_name in names for names in components):
                 active.add(target_id)
     return frozenset(active)

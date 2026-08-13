@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v9",
+  "scope": "development_only_truth_free_contact_and_batch_recovery",
+  "extends": "generalized_runtime_progress_v8",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "contact_resolved_identity": "Generalized manipulation does not subscribe to fruit truth. Exactly one fruit with fresh bilateral finger contact is resolved inside the simulator and retained privately through detach and verification.",
+    "physical_bin_verification": "Generalized success requires continuous fresh collection-bin floor contact after detach; legacy coordinate inclusion is not used by the generalized path.",
+    "released_fruit_physics": "New generalized-only ripe and unripe assets enable gravity while historical fixed-scene assets remain unchanged.",
+    "uncertainty_propagation": "Tracker sigma follows the exponential position fusion with an innovation penalty and a 0.005 m systematic floor; the 0.015 m execution gate is unchanged.",
+    "cached_distinct_reobservation": "A failed final connected check may consume the one retry using a cached view at least 0.04 m from the prior view without depending on base-camera reacquisition while occluded.",
+    "global_scan_recovery": "Every failed attempt calls the mutually exclusive collision-checked move-home service before base scanning resumes; recovery failure terminates safely.",
+    "trajectory_timing": "Dense collision-sampled joint paths retain the 0.30 rad/s velocity bound and use a 0.05 s minimum waypoint duration."
+  },
+  "development_runtime_probes": {
+    "seed_44008_v18": {
+      "outcome": "FAILED_SAFE",
+      "wrist_gate_result": "HIGH_UNCERTAINTY",
+      "reported_sigma_m": 0.017420358955860138,
+      "maximum_sigma_m": 0.015,
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "9e806e6c9c74133d4d2093c2bd1d624295b9d6496127779d5d8183415e3f3e65",
+      "cleanup_receipt_sha256": "e6622bec7c5a8860de5e4a8a1c0bd647161aba95789dcf9535dcf3ef03bd9c4c"
+    },
+    "seed_44008_v19": {
+      "outcome": "FAILED_SAFE",
+      "wrist_confirmation_accepted": true,
+      "reported_sigma_m": 0.008641582913696766,
+      "terminal_reason": "no final connected grasp and retreat route",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "c70f0e51ff5b7906fcaee3f06ef299b1d841c1d281fb4269bb89979e7575230a",
+      "cleanup_receipt_sha256": "94a96e402b9e31696b8e7809cfe466d8ad190b0e0e588295cefc805c272c70d1"
+    },
+    "seed_44008_v20": {
+      "outcome": "FAILED_SAFE",
+      "cached_distinct_reobservation_used": true,
+      "reobservation_baseline_m": 0.20010408811968264,
+      "accepted_wrist_sigmas_m": [
+        0.009738985449075699,
+        0.009860064834356308
+      ],
+      "terminal_reason": "tracked collision scene synchronization failed after the second confirmation",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "bacd22740dfcc3a3c358ebcfb72c59787466a838568892f7d05c83b091992bc1",
+      "cleanup_receipt_sha256": "90c9faeb0d3b0ea9155dc44e39bf6447ac30e0107e28df0cdb742c075320e405"
+    },
+    "seed_44008_v21": {
+      "outcome": "FAILED_SAFE",
+      "global_scan_recovery_succeeded": true,
+      "later_target_selected_after_recovery": true,
+      "later_target_reached_physical_grasp": true,
+      "grasp_contact_result": "both bounded closes were asymmetric; strict bilateral attachment was not accepted",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "7e844bed7ef93f0da332a81bd1d7e4a01f55044750a29db3870c0cd7f74c6404",
+      "cleanup_receipt_sha256": "e73ec5f0b264eca29e06d517b84d23552525dc99fe960f85a822b92287cfdf9a"
+    }
+  },
+  "verification": {
+    "full_regression": {
+      "test_count": 535,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "truth_free_runtime_boundary_accepted": true,
+    "batch_recovery_milestone_accepted": true,
+    "continuous_harvest_acceptance_deferred": true,
+    "gravity_floor_verified_harvest_proved": false,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "next_required_work": [
+      "Improve physical grasp centering without weakening measured dual-finger contact validation.",
+      "Complete a gravity-enabled, contact-resolved and floor-contact-verified harvest.",
+      "Obtain development batches with at least two successful harvested fruits across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

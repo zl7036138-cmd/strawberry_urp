@@ -104,6 +104,53 @@ class HarvestSequence:
         self.failures.append({"target_id": target_id, "failure_code": int(failure_code), "message": detail})
         self._attempt_failed("PICK_FAILED", detail)
 
+    def begin_bounded_reobservation(
+        self,
+        outcome: str,
+        detail: str = "",
+        failure_code: int | None = None,
+    ) -> bool:
+        """Consume the one retry without losing an already observed target.
+
+        Base-camera reacquisition can be temporarily blocked by the arm at an
+        eye-in-hand observation pose.  When the orchestrator still owns a
+        distinct, precomputed wrist view, keep the target identity and begin
+        the second attempt directly.  This method never creates a third
+        attempt; an exhausted target is skipped through the normal path.
+        """
+
+        if self.state not in {HarvestState.CONFIRMING, HarvestState.PICKING}:
+            raise ValueError("bounded reobservation requires a confirmed observation")
+        target_id = self.current_target_id
+        if target_id is None:
+            raise RuntimeError("bounded reobservation has no target")
+        event_prefix = str(outcome).strip().upper()
+        if not event_prefix:
+            raise ValueError("bounded reobservation outcome must not be empty")
+        if failure_code is not None:
+            self.failures.append(
+                {
+                    "target_id": target_id,
+                    "failure_code": int(failure_code),
+                    "message": detail,
+                }
+            )
+        if self.attempts[target_id] >= self.max_attempts_per_target:
+            self._attempt_failed(event_prefix, detail)
+            return False
+        self.attempts[target_id] += 1
+        self.retry_target_id = None
+        self.state = HarvestState.OBSERVING
+        self.history.append(
+            HarvestEvent(
+                self.state,
+                target_id,
+                f"{event_prefix}_REOBSERVATION",
+                detail,
+            )
+        )
+        return True
+
     def _attempt_failed(self, outcome: str, detail: str) -> None:
         target_id = self.current_target_id
         if target_id is None:

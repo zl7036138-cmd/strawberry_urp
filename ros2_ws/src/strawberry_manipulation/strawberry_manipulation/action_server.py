@@ -47,6 +47,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from strawberry_interfaces.msg import TargetPose, TrackedTargetArray
         from strawberry_interfaces.srv import EvaluateTarget, MoveToObservation
         from strawberry_sim.core import load_scene_config
+        from std_srvs.srv import Trigger
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
 
@@ -127,6 +128,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("maximum_joint_trajectory_duration_sec", 60.0)
             self.declare_parameter("maximum_joint_trajectory_travel_rad", 40.0)
             self.declare_parameter("maximum_joint_trajectory_points", 512)
+            self.declare_parameter("joint_trajectory_velocity_rad_per_sec", 0.30)
+            self.declare_parameter("minimum_joint_waypoint_duration_sec", 0.05)
             self.declare_parameter("settle_timeout_sec", 1.5)
             self.declare_parameter("settle_sample_period_sec", 0.05)
             self.declare_parameter("settle_delta_rad", 0.002)
@@ -147,7 +150,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "tracked_targets_topic", "/strawberry/tracked_targets"
             )
             self.declare_parameter("tracked_pose_timeout_sec", 0.75)
-            self.declare_parameter("sim_entity_resolution_max_distance_m", 0.08)
             self.declare_parameter("target_refinement_topic", "")
             self.declare_parameter("target_refinement_timeout_sec", 3.0)
             self.declare_parameter("target_refinement_max_correction_m", 0.05)
@@ -192,11 +194,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             if self._ground_truth_pose_timeout_sec <= 0.0:
                 raise ValueError("ground_truth_pose_timeout_sec must be positive")
-            self._fruit_pose_subscription = self.create_subscription(
-                PoseArray,
-                "/strawberry/ground_truth/poses",
-                self._on_ground_truth_poses,
-                qos_profile_sensor_data,
+            self._fruit_pose_subscription = (
+                self.create_subscription(
+                    PoseArray,
+                    "/strawberry/ground_truth/poses",
+                    self._on_ground_truth_poses,
+                    qos_profile_sensor_data,
+                )
+                if fruit_pose_source == "ground_truth"
+                else None
             )
             self._tracked_pose_lock = threading.Lock()
             self._tracked_pose_centers = None
@@ -204,16 +210,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._tracked_pose_timeout_sec = float(
                 self.get_parameter("tracked_pose_timeout_sec").value
             )
-            self._sim_entity_resolution_max_distance_m = float(
-                self.get_parameter("sim_entity_resolution_max_distance_m").value
-            )
-            if (
-                self._tracked_pose_timeout_sec <= 0.0
-                or self._sim_entity_resolution_max_distance_m <= 0.0
-            ):
-                raise ValueError(
-                    "tracked pose and entity resolution bounds must be positive"
-                )
+            if self._tracked_pose_timeout_sec <= 0.0:
+                raise ValueError("tracked pose timeout must be positive")
             self._tracked_pose_subscription = self.create_subscription(
                 TrackedTargetArray,
                 str(self.get_parameter("tracked_targets_topic").value),
@@ -290,17 +288,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("trajectory_timeout_margin_sec").value
                 ),
                 maximum_joint_trajectory_duration_sec=float(
-                    self.get_parameter(
-                        "maximum_joint_trajectory_duration_sec"
-                    ).value
+                    self.get_parameter("maximum_joint_trajectory_duration_sec").value
                 ),
                 maximum_joint_trajectory_travel_rad=float(
-                    self.get_parameter(
-                        "maximum_joint_trajectory_travel_rad"
-                    ).value
+                    self.get_parameter("maximum_joint_trajectory_travel_rad").value
                 ),
                 maximum_joint_trajectory_points=int(
                     self.get_parameter("maximum_joint_trajectory_points").value
+                ),
+                joint_trajectory_velocity_rad_per_sec=float(
+                    self.get_parameter("joint_trajectory_velocity_rad_per_sec").value
+                ),
+                minimum_joint_waypoint_duration_sec=float(
+                    self.get_parameter("minimum_joint_waypoint_duration_sec").value
                 ),
                 settle_timeout_sec=float(
                     self.get_parameter("settle_timeout_sec").value
@@ -355,9 +355,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     else self._tracked_pose_snapshot
                 ),
                 dynamic_fruit_manifest=(fruit_pose_source == "tracked"),
-                entity_id_resolver=(
-                    self._resolve_sim_entity if fruit_pose_source == "tracked" else None
-                ),
+                contact_resolved_attachment=(fruit_pose_source == "tracked"),
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)
                 ),
@@ -387,6 +385,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 EvaluateTarget,
                 "/strawberry/evaluate_target",
                 self._evaluate_target,
+                callback_group=self._callback_group,
+            )
+            self._home_service = self.create_service(
+                Trigger,
+                "/strawberry/move_home",
+                self._move_home,
                 callback_group=self._callback_group,
             )
             self.shutdown_timeout_sec = float(
@@ -458,6 +462,27 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     if outcome.success
                     else "wrist observation or connected pre-grasp preview failed"
                 )
+                return response
+            finally:
+                self._goal_gate.release()
+
+        def _move_home(self, request, response):
+            del request
+            if not self._goal_gate.try_acquire():
+                response.success = False
+                response.message = "motion backend is busy"
+                return response
+            try:
+                response.success = bool(self._backend.move_home())
+                response.message = (
+                    "collision-checked recovery home reached"
+                    if response.success
+                    else "failed to reach collision-checked recovery home"
+                )
+                return response
+            except Exception as exc:
+                response.success = False
+                response.message = f"recovery home motion failed: {exc}"
                 return response
             finally:
                 self._goal_gate.release()
@@ -546,9 +571,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 response.feasible = bool(second[0])
                 response.collision = bool(second[1])
-                response.planning_time_sec = float(
-                    first_planning_time + second[2]
-                )
+                response.planning_time_sec = float(first_planning_time + second[2])
                 response.joint_travel_rad = float(
                     second[3]
                     + (first_connected.joint_travel_rad if first_connected else 0.0)
@@ -640,38 +663,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         f"tracked fruit collision scene is stale by {age:.3f} seconds"
                     )
                 return dict(centers)
-
-        def _resolve_sim_entity(self, track_id: int, target_pose: Pose) -> int:
-            del (
-                track_id
-            )  # The physical mapping is geometric, never identity-oracle selection.
-            with self._fruit_pose_lock:
-                centers = dict(self._fruit_pose_centers or {})
-                received = self._fruit_pose_received_monotonic
-            if not centers or received is None:
-                raise RuntimeError(
-                    "simulator entity poses are unavailable for attachment mechanics"
-                )
-            if time.monotonic() - received > self._ground_truth_pose_timeout_sec:
-                raise RuntimeError(
-                    "simulator entity poses are stale for attachment mechanics"
-                )
-            target = (target_pose.x, target_pose.y, target_pose.z)
-            ordered = sorted(
-                (
-                    (math.dist(target, center), entity_id)
-                    for entity_id, center in centers.items()
-                ),
-                key=lambda row: (row[0], row[1]),
-            )
-            if (
-                not ordered
-                or ordered[0][0] > self._sim_entity_resolution_max_distance_m
-            ):
-                raise RuntimeError(
-                    "no simulated fruit entity is near the perception-selected pose"
-                )
-            return int(ordered[0][1])
 
         def _on_target_refinement(self, message) -> None:
             base_frame = str(self.get_parameter("base_frame").value)

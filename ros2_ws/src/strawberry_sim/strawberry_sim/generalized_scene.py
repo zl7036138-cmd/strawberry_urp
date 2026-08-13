@@ -51,14 +51,22 @@ BIN_INTERIOR_TO_OUTER_PADDING_M = (0.05, 0.05, 0.05, 0.05, 0.03, 0.0)
 # Authored pedicel endpoints and fruit orientations, expressed relative to the
 # canonical Blender-v2 plant origin at [0.50, 0.0, 0.47].
 FRUIT_SLOTS = (
-    ((-0.080935247, -0.053479813, 0.076111838), (-0.069813050, -0.087266445, 0.733038306)),
-    ((0.050333202, 0.118588343, 0.062157422), (-0.104719654, 0.087266445, -0.418878973)),
+    (
+        (-0.080935247, -0.053479813, 0.076111838),
+        (-0.069813050, -0.087266445, 0.733038306),
+    ),
+    (
+        (0.050333202, 0.118588343, 0.062157422),
+        (-0.104719654, 0.087266445, -0.418878973),
+    ),
     ((0.078895651, 0.068192676, 0.070231110), (0.087266490, -0.122173049, 0.314159304)),
 )
 
 
 def _distance_xy(left: Sequence[float], right: Sequence[float]) -> float:
-    return math.hypot(float(left[0]) - float(right[0]), float(left[1]) - float(right[1]))
+    return math.hypot(
+        float(left[0]) - float(right[0]), float(left[1]) - float(right[1])
+    )
 
 
 def _distance_xyz(left: Sequence[float], right: Sequence[float]) -> float:
@@ -86,9 +94,7 @@ def _axis_aligned_box_clearance(
 ) -> float:
     if len(position) != 3 or len(bounds) != 6:
         raise ValueError("position and bounds must contain three and six values")
-    min_x, max_x, min_y, max_y, min_z, max_z = (
-        float(value) for value in bounds
-    )
+    min_x, max_x, min_y, max_y, min_z, max_z = (float(value) for value in bounds)
     if min_x >= max_x or min_y >= max_y or min_z >= max_z:
         raise ValueError("axis-aligned bounds are invalid")
     x, y, z = (float(value) for value in position)
@@ -127,12 +133,16 @@ def _bin_exclusion_bounds(scene: Mapping[str, Any]) -> tuple[float, ...]:
 def _reachable_by_construction(
     position: Sequence[float], bin_exclusion_bounds: Sequence[float]
 ) -> bool:
-    return _inside_reach(position) and _axis_aligned_box_clearance(
-        position, bin_exclusion_bounds
-    ) >= MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M
+    return (
+        _inside_reach(position)
+        and _axis_aligned_box_clearance(position, bin_exclusion_bounds)
+        >= MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M
+    )
 
 
-def _sample_plant_centres(rng: random.Random, count: int) -> list[tuple[float, float, float]]:
+def _sample_plant_centres(
+    rng: random.Random, count: int
+) -> list[tuple[float, float, float]]:
     # A jittered triangular layout guarantees space for the authored fruit
     # slots while still varying every plant transform between seeds.
     # The bin's back wall occupies y=-0.24..-0.22.  Centring the nearest plant
@@ -146,8 +156,14 @@ def _sample_plant_centres(rng: random.Random, count: int) -> list[tuple[float, f
     rng.shuffle(anchors)
     centres = [
         (
-            min(max(x + rng.uniform(-0.006, 0.006), PLANT_X_RANGE_M[0]), PLANT_X_RANGE_M[1]),
-            min(max(y + rng.uniform(-0.006, 0.006), PLANT_Y_RANGE_M[0]), PLANT_Y_RANGE_M[1]),
+            min(
+                max(x + rng.uniform(-0.006, 0.006), PLANT_X_RANGE_M[0]),
+                PLANT_X_RANGE_M[1],
+            ),
+            min(
+                max(y + rng.uniform(-0.006, 0.006), PLANT_Y_RANGE_M[0]),
+                PLANT_Y_RANGE_M[1],
+            ),
             PLANT_Z_M,
         )
         for x, y in anchors[:count]
@@ -191,7 +207,10 @@ def generate_scene(
         raise ValueError("seed must be a non-negative integer")
     if profile not in {"mixed", "all_unripe", "unsafe"}:
         raise ValueError("profile must be mixed, all_unripe, or unsafe")
-    if plant_count is not None and not PLANT_COUNT_RANGE[0] <= plant_count <= PLANT_COUNT_RANGE[1]:
+    if (
+        plant_count is not None
+        and not PLANT_COUNT_RANGE[0] <= plant_count <= PLANT_COUNT_RANGE[1]
+    ):
         raise ValueError("plant_count must be between 1 and 3")
     if occlusion not in {None, "none", "partial", "heavy"}:
         raise ValueError("occlusion must be none, partial, or heavy")
@@ -240,8 +259,7 @@ def generate_scene(
             rotated_x, rotated_y = _rotate_xy(offset[0], offset[1], yaw)
             scale = round(rng.uniform(0.92, MAX_FRUIT_SCALE), 6)
             required_bin_clearance = (
-                fruit_collision_radius_m * scale
-                + MIN_INITIAL_STATIC_COLLISION_GAP_M
+                fruit_collision_radius_m * scale + MIN_INITIAL_STATIC_COLLISION_GAP_M
             )
             # Small perturbations exercise localization without detaching the
             # visual fruit from its authored pedicel neighbourhood.
@@ -252,12 +270,14 @@ def generate_scene(
                     centre[1] + rotated_y + rng.uniform(-0.008, 0.008),
                     centre[2] + offset[2] + rng.uniform(-0.006, 0.006),
                 )
-                if all(
-                    _distance_xyz(candidate, previous) >= MIN_FRUIT_SEPARATION_M
-                    for previous in positions
-                ) and _axis_aligned_box_clearance(
-                    candidate, bin_exclusion_bounds
-                ) >= required_bin_clearance:
+                if (
+                    all(
+                        _distance_xyz(candidate, previous) >= MIN_FRUIT_SEPARATION_M
+                        for previous in positions
+                    )
+                    and _axis_aligned_box_clearance(candidate, bin_exclusion_bounds)
+                    >= required_bin_clearance
+                ):
                     position = candidate
                     break
             if position is None:
@@ -271,24 +291,36 @@ def generate_scene(
                     "plant_id": plant_index,
                     "slot_id": slot_index + 1,
                     "position": position,
-                    "orientation": (orientation[0], orientation[1], orientation[2] + yaw),
+                    "orientation": (
+                        orientation[0],
+                        orientation[1],
+                        orientation[2] + yaw,
+                    ),
                     "scale": scale,
                 }
             )
 
     if len(fruit_drafts) < count * FRUIT_COUNT_RANGE[0]:
-        raise RuntimeError("generated plants do not have enough collision-free fruit slots")
+        raise RuntimeError(
+            "generated plants do not have enough collision-free fruit slots"
+        )
 
     maturity_values = _maturities(rng, len(fruit_drafts), profile)
     fruits: list[dict[str, Any]] = []
-    for target_id, (draft, maturity) in enumerate(zip(fruit_drafts, maturity_values), start=1):
+    for target_id, (draft, maturity) in enumerate(
+        zip(fruit_drafts, maturity_values), start=1
+    ):
         position = list(draft["position"])
         if profile == "unsafe" and target_id == 1:
             maturity = "RIPE"
             position[0] = 0.74 + rng.uniform(0.0, 0.03)
             position[1] = rng.choice((-1.0, 1.0)) * rng.uniform(0.32, 0.38)
         reachable = _reachable_by_construction(position, bin_exclusion_bounds)
-        asset = "strawberry_ripe" if maturity == "RIPE" else "strawberry_unripe"
+        asset = (
+            "strawberry_ripe_generalized"
+            if maturity == "RIPE"
+            else "strawberry_unripe_generalized"
+        )
         fruits.append(
             {
                 "target_id": target_id,
@@ -314,6 +346,7 @@ def generate_scene(
         "profile": profile,
         "position_band": position_band,
         "truth_for_runtime_control": False,
+        "released_fruit_physics": "gravity",
         "plant_count_range": list(PLANT_COUNT_RANGE),
         "fruit_count_per_plant_range": list(FRUIT_COUNT_RANGE),
         "conservative_reach_bounds_m": deepcopy(CONSERVATIVE_REACH_BOUNDS_M),
@@ -321,9 +354,7 @@ def generate_scene(
         "minimum_static_obstacle_center_clearance_m": (
             MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M
         ),
-        "minimum_initial_static_collision_gap_m": (
-            MIN_INITIAL_STATIC_COLLISION_GAP_M
-        ),
+        "minimum_initial_static_collision_gap_m": (MIN_INITIAL_STATIC_COLLISION_GAP_M),
     }
     result["condition"] = {"occlusion": selected_occlusion, "lighting": light_level}
     result["plants"] = plants
@@ -331,7 +362,9 @@ def generate_scene(
     result["fruits"] = fruits
     result["evaluation"] = {
         "ground_truth_only": True,
-        "ripe_target_ids": [row["target_id"] for row in fruits if row["maturity"] == "RIPE"],
+        "ripe_target_ids": [
+            row["target_id"] for row in fruits if row["maturity"] == "RIPE"
+        ],
         "reachable_ripe_target_ids": [
             row["target_id"]
             for row in fruits
@@ -353,7 +386,11 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
     generator = scene.get("generator")
     plants = scene.get("plants")
     fruits = scene.get("fruits")
-    if not isinstance(generator, Mapping) or not isinstance(plants, list) or not isinstance(fruits, list):
+    if (
+        not isinstance(generator, Mapping)
+        or not isinstance(plants, list)
+        or not isinstance(fruits, list)
+    ):
         raise ValueError("generated scene is missing generator, plants, or fruits")
     if not PLANT_COUNT_RANGE[0] <= len(plants) <= PLANT_COUNT_RANGE[1]:
         raise ValueError("generated scene plant count is outside the frozen range")
@@ -362,7 +399,10 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
         raise ValueError("plant IDs must be unique")
     centres = [row["pose_in_robot_base"][:3] for row in plants]
     for index, centre in enumerate(centres):
-        if any(_distance_xy(centre, other) < MIN_PLANT_SEPARATION_M for other in centres[:index]):
+        if any(
+            _distance_xy(centre, other) < MIN_PLANT_SEPARATION_M
+            for other in centres[:index]
+        ):
             raise ValueError("plant instances overlap")
     target_ids = [int(row["target_id"]) for row in fruits]
     if target_ids != list(range(1, len(fruits) + 1)):
@@ -379,13 +419,28 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
         counts[plant_id] += 1
         if row["maturity"] not in {"RIPE", "UNRIPE"}:
             raise ValueError("fruit maturity must be RIPE or UNRIPE")
+        expected_asset = (
+            "strawberry_ripe_generalized"
+            if row["maturity"] == "RIPE"
+            else "strawberry_unripe_generalized"
+        )
+        if row.get("asset") != expected_asset:
+            raise ValueError("generalized fruit asset must enable release gravity")
         position = row["initial_pose_m"]
-        if any(_distance_xyz(position, previous) < MIN_FRUIT_SEPARATION_M for previous in fruit_positions):
+        if any(
+            _distance_xyz(position, previous) < MIN_FRUIT_SEPARATION_M
+            for previous in fruit_positions
+        ):
             raise ValueError("fruit collision spheres overlap")
         fruit_positions.append(position)
-    if any(not FRUIT_COUNT_RANGE[0] <= value <= FRUIT_COUNT_RANGE[1] for value in counts.values()):
+    if any(
+        not FRUIT_COUNT_RANGE[0] <= value <= FRUIT_COUNT_RANGE[1]
+        for value in counts.values()
+    ):
         raise ValueError("fruit count per plant is outside the frozen range")
     profile = str(generator.get("profile"))
+    if generator.get("released_fruit_physics") != "gravity":
+        raise ValueError("generalized release physics must use gravity")
     expected_bin_bounds = _bin_exclusion_bounds(scene)
     recorded_bin_bounds = generator.get("bin_exclusion_bounds_m")
     if not isinstance(recorded_bin_bounds, list) or len(recorded_bin_bounds) != 6:
@@ -411,9 +466,7 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
             + MIN_INITIAL_STATIC_COLLISION_GAP_M
         )
         if (
-            _axis_aligned_box_clearance(
-                row["initial_pose_m"], expected_bin_bounds
-            )
+            _axis_aligned_box_clearance(row["initial_pose_m"], expected_bin_bounds)
             < required_bin_clearance
         ):
             raise ValueError("fruit initially collides with the collection bin")
@@ -425,8 +478,12 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
                 "fruit reachability label disagrees with reach and bin clearance"
             )
     if profile == "mixed":
-        if sum(row["maturity"] == "RIPE" for row in fruits) < 2 or not any(row["maturity"] == "UNRIPE" for row in fruits):
-            raise ValueError("mixed scenes require multiple ripe fruit and one unripe fruit")
+        if sum(row["maturity"] == "RIPE" for row in fruits) < 2 or not any(
+            row["maturity"] == "UNRIPE" for row in fruits
+        ):
+            raise ValueError(
+                "mixed scenes require multiple ripe fruit and one unripe fruit"
+            )
     elif profile == "all_unripe" and any(row["maturity"] != "UNRIPE" for row in fruits):
         raise ValueError("all_unripe scene contains a ripe fruit")
     elif profile == "unsafe" and not any(
@@ -436,11 +493,15 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
         raise ValueError("unsafe scene lacks an unreachable ripe fruit")
 
 
-def _include(name: str, uri: str, pose: Sequence[float], scale: float | None = None) -> ET.Element:
+def _include(
+    name: str, uri: str, pose: Sequence[float], scale: float | None = None
+) -> ET.Element:
     include = ET.Element("include")
     ET.SubElement(include, "uri").text = f"model://{uri}"
     ET.SubElement(include, "name").text = name
-    ET.SubElement(include, "pose").text = " ".join(f"{float(value):.9f}" for value in pose)
+    ET.SubElement(include, "pose").text = " ".join(
+        f"{float(value):.9f}" for value in pose
+    )
     if scale is not None:
         ET.SubElement(include, "scale").text = f"{scale:.6f} {scale:.6f} {scale:.6f}"
     return include
@@ -449,7 +510,9 @@ def _include(name: str, uri: str, pose: Sequence[float], scale: float | None = N
 def _occluder(name: str, pose: Sequence[float], size: Sequence[float]) -> ET.Element:
     model = ET.Element("model", {"name": name})
     ET.SubElement(model, "static").text = "true"
-    ET.SubElement(model, "pose").text = " ".join(f"{float(value):.9f}" for value in pose)
+    ET.SubElement(model, "pose").text = " ".join(
+        f"{float(value):.9f}" for value in pose
+    )
     link = ET.SubElement(model, "link", {"name": "visual_only_link"})
     visual = ET.SubElement(link, "visual", {"name": "foliage_occluder"})
     geometry = ET.SubElement(visual, "geometry")
@@ -461,7 +524,9 @@ def _occluder(name: str, pose: Sequence[float], size: Sequence[float]) -> ET.Ele
     return model
 
 
-def materialize_world(base_world: str | Path, scene: Mapping[str, Any]) -> ET.ElementTree:
+def materialize_world(
+    base_world: str | Path, scene: Mapping[str, Any]
+) -> ET.ElementTree:
     """Materialize plants, fruit, light, and visual-only occlusion in SDF."""
 
     validate_generated_scene(scene)
@@ -478,15 +543,21 @@ def materialize_world(base_world: str | Path, scene: Mapping[str, Any]) -> ET.El
             world.remove(model)
 
     for plant in scene["plants"]:
-        world.append(_include(plant["model_name"], plant["asset"], plant["pose_in_robot_base"]))
+        world.append(
+            _include(plant["model_name"], plant["asset"], plant["pose_in_robot_base"])
+        )
     for fruit in scene["fruits"]:
         pose = [*fruit["initial_pose_m"], *fruit["initial_rpy_rad"]]
-        world.append(_include(fruit["model_name"], fruit["asset"], pose, float(fruit["scale"])))
+        world.append(
+            _include(fruit["model_name"], fruit["asset"], pose, float(fruit["scale"]))
+        )
 
     condition = scene["condition"]
     sun = world.find("./light[@name='sun']/diffuse")
     if sun is not None:
-        sun.text = "0.48 0.48 0.48 1" if condition["lighting"] == "dim" else "0.90 0.90 0.90 1"
+        sun.text = (
+            "0.48 0.48 0.48 1" if condition["lighting"] == "dim" else "0.90 0.90 0.90 1"
+        )
     if condition["occlusion"] != "none":
         first = scene["plants"][0]["pose_in_robot_base"]
         heavy = condition["occlusion"] == "heavy"
@@ -522,10 +593,14 @@ def main(args: Sequence[str] | None = None) -> int:
     parser.add_argument("--base-world", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--seed", type=int, required=True)
-    parser.add_argument("--profile", choices=("mixed", "all_unripe", "unsafe"), default="mixed")
+    parser.add_argument(
+        "--profile", choices=("mixed", "all_unripe", "unsafe"), default="mixed"
+    )
     parser.add_argument("--plant-count", type=int)
     parser.add_argument("--occlusion", choices=("none", "partial", "heavy"))
-    parser.add_argument("--position-band", choices=("near", "middle", "far"), default="middle")
+    parser.add_argument(
+        "--position-band", choices=("near", "middle", "far"), default="middle"
+    )
     parser.add_argument("--force", action="store_true")
     options = parser.parse_args(args)
 
@@ -542,7 +617,11 @@ def main(args: Sequence[str] | None = None) -> int:
     scene_path = options.output_dir / f"{stem}.yaml"
     world_path = options.output_dir / f"{stem}.sdf"
     receipt_path = options.output_dir / f"{stem}.receipt.json"
-    _write_new(scene_path, yaml.safe_dump(scene, sort_keys=False, allow_unicode=True), force=options.force)
+    _write_new(
+        scene_path,
+        yaml.safe_dump(scene, sort_keys=False, allow_unicode=True),
+        force=options.force,
+    )
     tree = materialize_world(options.base_world, scene)
     if world_path.exists() and not options.force:
         raise FileExistsError(f"refusing to overwrite {world_path}")
@@ -556,7 +635,11 @@ def main(args: Sequence[str] | None = None) -> int:
         "scene": {"path": str(scene_path), "sha256": _sha256(scene_path)},
         "world": {"path": str(world_path), "sha256": _sha256(world_path)},
     }
-    _write_new(receipt_path, json.dumps(receipt, indent=2, sort_keys=True) + "\n", force=options.force)
+    _write_new(
+        receipt_path,
+        json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+        force=options.force,
+    )
     print(json.dumps(receipt, sort_keys=True))
     return 0
 

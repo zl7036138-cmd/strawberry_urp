@@ -49,6 +49,54 @@ class HarvestSequenceTests(unittest.TestCase):
         self.assertEqual(sequence.harvested, [2])
         self.assertIn(1, sequence.skipped)
 
+    def test_cached_distinct_view_consumes_the_single_retry_in_place(self):
+        sequence = HarvestSequence()
+        sequence.start()
+        sequence.select(1)
+        sequence.observation_result(True)
+        sequence.confirmation_result(True)
+
+        self.assertTrue(
+            sequence.begin_bounded_reobservation(
+                "FINAL_PICK_FEASIBILITY_FAILED",
+                "connected route collides",
+                failure_code=7,
+            )
+        )
+        self.assertEqual(sequence.state, HarvestState.OBSERVING)
+        self.assertEqual(sequence.current_target_id, 1)
+        self.assertEqual(sequence.attempts[1], 2)
+        self.assertIsNone(sequence.retry_target_id)
+        self.assertEqual(sequence.failures[-1]["failure_code"], 7)
+
+        sequence.observation_result(True)
+        sequence.confirmation_result(True)
+        sequence.pick_result(True, "placed")
+        self.assertEqual(sequence.harvested, [1])
+
+    def test_cached_reobservation_never_creates_a_third_attempt(self):
+        sequence = HarvestSequence()
+        sequence.start()
+        sequence.select(2)
+        sequence.observation_result(True)
+        self.assertTrue(
+            sequence.begin_bounded_reobservation(
+                "CONFIRMATION_FAILED",
+                "uncertain",
+            )
+        )
+        sequence.observation_result(True)
+        sequence.confirmation_result(True)
+        self.assertFalse(
+            sequence.begin_bounded_reobservation(
+                "FINAL_PICK_FEASIBILITY_FAILED",
+                "still blocked",
+                failure_code=7,
+            )
+        )
+        self.assertIn(2, sequence.skipped)
+        self.assertEqual(sequence.attempts[2], 2)
+
     def test_no_candidate_is_safe_no_pick(self):
         sequence = HarvestSequence()
         sequence.start()

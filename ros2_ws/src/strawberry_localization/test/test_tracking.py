@@ -9,6 +9,7 @@ sys.path.insert(0, str(PACKAGE))
 from strawberry_localization.tracking import (  # noqa: E402
     LocalizedObservation,
     MultiTargetTracker,
+    fuse_smoothed_position_sigma,
 )
 
 
@@ -17,6 +18,34 @@ def observation(identity, x, maturity=1, confidence=0.9, sigma=0.01):
 
 
 class MultiTargetTrackerTests(unittest.TestCase):
+    def test_consistent_observations_reduce_fused_position_uncertainty(self):
+        tracker = MultiTargetTracker(minimum_observations=3, uncertainty_floor_m=0.005)
+        first = tracker.update([observation(1, 0.4, sigma=0.018)], stamp_sec=0.0)
+        second = tracker.update([observation(2, 0.4, sigma=0.018)], stamp_sec=0.1)
+        third = tracker.update([observation(3, 0.4, sigma=0.018)], stamp_sec=0.2)
+        self.assertEqual(first[0].sigma_m, 0.018)
+        self.assertLess(second[0].sigma_m, first[0].sigma_m)
+        self.assertLess(third[0].sigma_m, 0.015)
+        self.assertGreaterEqual(third[0].sigma_m, 0.005)
+
+    def test_position_disagreement_prevents_false_uncertainty_reduction(self):
+        consistent = fuse_smoothed_position_sigma(
+            0.018,
+            0.018,
+            0.0,
+            smoothing_alpha=0.35,
+            uncertainty_floor_m=0.005,
+        )
+        disagreeing = fuse_smoothed_position_sigma(
+            0.018,
+            0.018,
+            0.03,
+            smoothing_alpha=0.35,
+            uncertainty_floor_m=0.005,
+        )
+        self.assertGreater(disagreeing, consistent)
+        self.assertGreater(disagreeing, 0.018)
+
     def test_frame_local_ids_can_change_without_changing_track_ids(self):
         tracker = MultiTargetTracker(minimum_observations=2)
         first = tracker.update([observation(1, 0.40), observation(2, 0.58)], stamp_sec=1.0)
@@ -101,6 +130,8 @@ class MultiTargetTrackerTests(unittest.TestCase):
             observation(0, 0.4)
         with self.assertRaises(ValueError):
             MultiTargetTracker(association_distance_m=0.0)
+        with self.assertRaises(ValueError):
+            MultiTargetTracker(uncertainty_floor_m=-0.001)
 
 
 if __name__ == "__main__":

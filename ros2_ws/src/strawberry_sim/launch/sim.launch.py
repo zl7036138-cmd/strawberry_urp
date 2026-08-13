@@ -1,4 +1,4 @@
-"""Launch the deterministic Strawberry URP Gazebo Harmonic scene."""
+﻿"""Launch the deterministic Strawberry URP Gazebo Harmonic scene."""
 
 from __future__ import annotations
 
@@ -422,6 +422,7 @@ def _launch_nodes(context):
                     "backend_initialization_attempts": attachment_initialization_attempts,
                     "resume_world_after_initialization": attachment_enabled,
                     "stem_constraints_enabled": generalized_scene,
+                    "contact_resolved_only": generalized_scene,
                 },
             ],
         ),

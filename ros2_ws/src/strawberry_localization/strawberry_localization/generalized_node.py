@@ -403,6 +403,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("tracking_max_age_sec", 0.75)
             self.declare_parameter("tracking_minimum_observations", 3)
             self.declare_parameter("tracking_smoothing_alpha", 0.35)
+            self.declare_parameter("tracking_uncertainty_floor_m", 0.005)
             self.declare_parameter("deferred_retry_enabled", False)
             self.declare_parameter("deferred_retry_period_sec", 0.05)
             self.declare_parameter("pending_detection_capacity", 8)
@@ -459,6 +460,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 smoothing_alpha=float(
                     self.get_parameter("tracking_smoothing_alpha").value
+                ),
+                uncertainty_floor_m=float(
+                    self.get_parameter("tracking_uncertainty_floor_m").value
                 ),
             )
             sensor_qos = QoSProfile(

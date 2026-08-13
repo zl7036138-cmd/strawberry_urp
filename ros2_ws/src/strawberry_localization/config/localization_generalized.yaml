@@ -59,5 +59,7 @@
     tracking_max_age_sec: 0.75
     tracking_minimum_observations: 3
     tracking_smoothing_alpha: 0.35
+    # Correlated video frames cannot average away calibration/model bias.
+    tracking_uncertainty_floor_m: 0.005
     allow_stationary_latest_tf_fallback: false
     allow_stationary_sensor_sync_fallback: false

@@ -181,6 +181,29 @@ class PickAndPlaceTests(unittest.TestCase):
         result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
+        self.assertEqual(backend.calls.count("RECOVERY_RETREAT"), 1)
+        self.assertLess(
+            backend.calls.index("RECOVERY_RETREAT"), backend.calls.index("home")
+        )
+
+    def test_failed_unattached_recovery_retreat_withholds_home(self):
+        backend = FakeBackend(
+            [
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+            ],
+            attach_results=[False, False],
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertIn("recovery retreat failed", result.message)
+        self.assertNotIn("home", backend.calls)
+        self.assertEqual(backend.calls[-1], "restore")
 
     def test_asymmetric_contact_gets_one_measured_centering_retry(self):
         backend = FakeBackend(

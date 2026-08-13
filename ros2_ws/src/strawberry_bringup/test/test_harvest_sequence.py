@@ -7,9 +7,49 @@ PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
 
 from strawberry_bringup.harvest_sequence import HarvestSequence, HarvestState  # noqa: E402
+from strawberry_bringup.harvest_orchestrator import build_scan_diagnostics  # noqa: E402
 
 
 class HarvestSequenceTests(unittest.TestCase):
+    def test_scan_diagnostics_explain_truth_free_no_pick(self):
+        diagnostics = build_scan_diagnostics(
+            tracks=[
+                {
+                    "track_id": 2,
+                    "maturity": 1,
+                    "confidence": 0.91,
+                    "sigma_m": 0.017,
+                    "observation_count": 7,
+                    "position_m": [0.4, 0.1, 0.55],
+                },
+                {
+                    "track_id": 3,
+                    "maturity": 2,
+                    "confidence": 0.94,
+                    "sigma_m": 0.008,
+                    "observation_count": 8,
+                    "position_m": [0.5, 0.0, 0.54],
+                },
+            ],
+            selection_status={
+                "outcome": "NO_PICK",
+                "rejections": [{"track_id": 2, "reasons": ["UNCERTAIN"]}],
+            },
+            completed_ids={1},
+            track_snapshot_age_wall_sec=0.25,
+            selection_status_age_wall_sec=0.50,
+        )
+
+        self.assertEqual(diagnostics["visible_track_count"], 2)
+        self.assertEqual(diagnostics["ripe_track_ids"], [2])
+        self.assertEqual(diagnostics["completed_target_ids"], [1])
+        self.assertEqual(diagnostics["track_snapshot_age_wall_sec"], 0.25)
+        self.assertEqual(diagnostics["selection_status_age_wall_sec"], 0.50)
+        self.assertEqual(
+            diagnostics["latest_selection_status"]["rejections"][0]["track_id"],
+            2,
+        )
+
     def test_multiple_targets_continue_until_scan_finishes(self):
         sequence = HarvestSequence()
         sequence.start()

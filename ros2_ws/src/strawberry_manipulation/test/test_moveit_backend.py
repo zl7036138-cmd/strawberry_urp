@@ -15,6 +15,7 @@ from strawberry_manipulation.moveit_backend import (  # noqa: E402
     MoveItBackend,
     PathAssessment,
     gripper_result_allows_command,
+    joint_limit_margin_violation,
 )
 from strawberry_manipulation.core import MotionOutcome, Pose  # noqa: E402
 
@@ -31,6 +32,29 @@ class FakeFuture:
 
 
 class MoveItBackendStaticTests(unittest.TestCase):
+    def test_joint_limit_margin_rejects_hard_limit_and_accepts_interior(self):
+        interior = (0.0, 0.0, 0.0, -1.5, 0.0, 1.5, 0.0)
+        at_joint_five_limit = (0.0, 0.0, 0.0, -1.5, -2.8973, 1.5, 0.0)
+
+        self.assertIsNone(joint_limit_margin_violation(interior, 0.01))
+        violation = joint_limit_margin_violation(at_joint_five_limit, 0.01)
+        self.assertEqual(violation[0], 5)
+
+    def test_bin_verification_uses_dedicated_wall_timeout(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.contact_resolved_attachment = True
+        backend.bin_verification_timeout_sec = 15.0
+        calls = []
+        backend._trigger_contact_target = lambda operation, **kwargs: (
+            calls.append((operation, kwargs)) or True
+        )
+
+        self.assertTrue(backend.fruit_in_bin(8, 1.0))
+        self.assertEqual(
+            calls,
+            [("verify_in_bin", {"response_timeout_sec": 15.0})],
+        )
+
     class Logger:
         def __init__(self):
             self.errors = []
@@ -58,6 +82,12 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend._target_contact_open = False
         backend._prepared_scene_centers_m = None
         backend.fruit_pose_provider = None
+        backend.dynamic_fruit_manifest = False
+        backend.maximum_cached_collision_scene_age_sec = 120.0
+        backend.maximum_cached_target_drift_m = 0.05
+        backend._cached_collision_scene_centers_m = None
+        backend._cached_collision_scene_monotonic = None
+        backend._locked_collision_scene_target_id = None
         return backend
 
     def test_fruit_manifest_is_immutable(self):
@@ -301,9 +331,10 @@ class MoveItBackendStaticTests(unittest.TestCase):
     def test_contact_resolved_attachment_ignores_tracker_identity(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.contact_resolved_attachment = True
+        backend.bin_verification_timeout_sec = 15.0
         operations = []
         backend._trigger_contact_target = (
-            lambda operation: operations.append(operation) or True
+            lambda operation, **_kwargs: operations.append(operation) or True
         )
 
         self.assertTrue(backend.attach(934))
@@ -372,6 +403,168 @@ class MoveItBackendStaticTests(unittest.TestCase):
         ):
             self.assertFalse(backend.prepare_pick(1, Pose(0.4, 0.1, 0.5)))
         synchronize.assert_not_called()
+        target_update.assert_not_called()
+
+    def test_dynamic_prepare_uses_bounded_pre_occlusion_visual_scene(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend.fruit_pose_provider = lambda: {1: (0.40, 0.10, 0.50), 2: (0.5, 0.0, 0.5)}
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
+            ),
+            patch(
+                "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
+                return_value="strawberry_fruit_1",
+            ),
+            patch(
+                "strawberry_manipulation.moveit_backend.time.monotonic",
+                return_value=10.0,
+            ),
+        ):
+            self.assertTrue(backend.prepare_pick(1, Pose(0.40, 0.10, 0.50)))
+            self.assertTrue(backend.restore_target_collision(1))
+
+        backend.fruit_pose_provider = lambda: (_ for _ in ()).throw(
+            RuntimeError("tracked fruit collision scene is stale")
+        )
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
+            ) as synchronize,
+            patch(
+                "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
+                return_value="strawberry_fruit_1",
+            ),
+            patch(
+                "strawberry_manipulation.moveit_backend.time.monotonic",
+                return_value=40.0,
+            ),
+        ):
+            self.assertTrue(backend.prepare_pick(1, Pose(0.41, 0.10, 0.50)))
+
+        synchronized = dict(synchronize.call_args.args[2])
+        self.assertEqual(synchronized[1], (0.41, 0.10, 0.50))
+        self.assertEqual(synchronized[2], (0.5, 0.0, 0.5))
+
+    def test_pre_observation_lock_freezes_visual_inventory_for_target(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        live = {1: (0.40, 0.10, 0.50), 2: (0.50, 0.00, 0.50)}
+        backend.fruit_pose_provider = lambda: live
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
+            ) as synchronize,
+            patch(
+                "strawberry_manipulation.moveit_backend.time.monotonic",
+                return_value=10.0,
+            ),
+        ):
+            self.assertTrue(
+                backend.lock_pre_observation_collision_scene(
+                    1, Pose(0.40, 0.10, 0.50)
+                )
+            )
+
+        self.assertEqual(backend._locked_collision_scene_target_id, 1)
+        self.assertEqual(dict(backend._cached_collision_scene_centers_m), live)
+        synchronize.assert_called_once()
+
+    def test_locked_scene_is_preferred_over_changed_live_inventory(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend._cached_collision_scene_centers_m = MappingProxyType(
+            {1: (0.40, 0.10, 0.50), 2: (0.50, 0.00, 0.50)}
+        )
+        backend._cached_collision_scene_monotonic = 10.0
+        backend._locked_collision_scene_target_id = 1
+        backend.fruit_pose_provider = lambda: {
+            1: (0.40, 0.10, 0.50),
+            9: (0.41, 0.11, 0.51),
+        }
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            return_value=20.0,
+        ):
+            centers = backend._fruit_centers_for_target_lifecycle(
+                1, Pose(0.405, 0.10, 0.50)
+            )
+
+        self.assertEqual(set(centers), {1, 2})
+        self.assertEqual(centers[1], (0.405, 0.10, 0.50))
+
+    def test_reobservation_does_not_replace_same_target_lock(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend._cached_collision_scene_centers_m = MappingProxyType(
+            {1: (0.40, 0.10, 0.50), 2: (0.50, 0.00, 0.50)}
+        )
+        backend._cached_collision_scene_monotonic = 10.0
+        backend._locked_collision_scene_target_id = 1
+        backend.fruit_pose_provider = lambda: {
+            1: (0.40, 0.10, 0.50),
+            9: (0.41, 0.11, 0.51),
+        }
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.apply_fruit_collision_scene"
+            ) as synchronize,
+            patch(
+                "strawberry_manipulation.moveit_backend.time.monotonic",
+                return_value=20.0,
+            ),
+        ):
+            self.assertTrue(
+                backend.lock_pre_observation_collision_scene(
+                    1, Pose(0.405, 0.10, 0.50)
+                )
+            )
+
+        self.assertEqual(
+            set(backend._cached_collision_scene_centers_m), {1, 2}
+        )
+        synchronize.assert_not_called()
+
+    def test_dynamic_prepare_rejects_expired_pre_occlusion_scene(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend.fruit_pose_provider = lambda: {}
+        backend._cached_collision_scene_centers_m = MappingProxyType(
+            {1: (0.40, 0.10, 0.50)}
+        )
+        backend._cached_collision_scene_monotonic = 10.0
+        backend.maximum_cached_collision_scene_age_sec = 20.0
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.time.monotonic",
+                return_value=31.0,
+            ),
+            patch(
+                "strawberry_manipulation.moveit_backend.set_target_fruit_collision"
+            ) as target_update,
+        ):
+            self.assertFalse(backend.prepare_pick(1, Pose(0.40, 0.10, 0.50)))
+        target_update.assert_not_called()
+
+    def test_dynamic_prepare_rejects_target_drift_from_cached_scene(self):
+        backend = self.lifecycle_backend()
+        backend.dynamic_fruit_manifest = True
+        backend.fruit_pose_provider = lambda: {}
+        backend._cached_collision_scene_centers_m = MappingProxyType(
+            {1: (0.40, 0.10, 0.50)}
+        )
+        backend._cached_collision_scene_monotonic = 10.0
+        with (
+            patch(
+                "strawberry_manipulation.moveit_backend.time.monotonic",
+                return_value=20.0,
+            ),
+            patch(
+                "strawberry_manipulation.moveit_backend.set_target_fruit_collision"
+            ) as target_update,
+        ):
+            self.assertFalse(backend.prepare_pick(1, Pose(0.46, 0.10, 0.50)))
         target_update.assert_not_called()
 
     def test_restore_uses_latest_live_target_pose(self):
@@ -624,6 +817,74 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertTrue(backend.move_home())
         self.assertEqual(requested, ["ready"])
 
+    def test_home_replans_once_after_zero_motion_failure(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.home_configuration = "ready"
+        outcomes = iter(
+            (
+                MotionOutcome(False, 0.1, 0.0),
+                MotionOutcome(True, 0.1, 1.0),
+            )
+        )
+        requested = []
+        backend._move_to_named_configuration_direct = (
+            lambda configuration: requested.append(configuration) or next(outcomes)
+        )
+
+        self.assertTrue(backend.move_home())
+        self.assertEqual(requested, ["ready", "ready"])
+
+    def test_home_does_not_retry_after_controller_execution_started(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.home_configuration = "ready"
+        requested = []
+        backend._move_to_named_configuration_direct = (
+            lambda configuration: requested.append(configuration)
+            or MotionOutcome(False, 0.1, 0.01)
+        )
+
+        self.assertFalse(backend.move_home())
+        self.assertEqual(requested, ["ready"])
+
+    def test_named_home_uses_reduced_tracking_velocity(self):
+        class Arm:
+            def set_start_state_to_current_state(self):
+                pass
+
+            def set_goal_state(self, **kwargs):
+                pass
+
+            def plan(self):
+                states = [
+                    SimpleNamespace(
+                        get_joint_group_positions=lambda _group, value=value: (value,)
+                    )
+                    for value in (0.0, 0.5)
+                ]
+                return SimpleNamespace(trajectory=states)
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._arm = Arm()
+        backend.planning_group = "panda_arm"
+        backend._arm_joint_names = ("panda_joint1",)
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.10
+        backend._wait_until_arm_settled = lambda: True
+        calls = []
+        backend._execute_joint_path = lambda start, path, **kwargs: (
+            calls.append((start, path, kwargs)) or (True, 1.0)
+        )
+
+        outcome = backend._move_to_named_configuration_direct("ready")
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(
+            calls[0][2]["velocity_rad_per_sec"],
+            0.10,
+        )
+
     def test_stationary_home_plan_succeeds_only_when_live_joints_confirm_home(self):
         class Arm:
             def set_start_state_to_current_state(self):
@@ -696,6 +957,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.maximum_joint_trajectory_travel_rad = 40.0
         backend.maximum_joint_trajectory_duration_sec = 60.0
         backend.joint_trajectory_velocity_rad_per_sec = 0.30
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.10
         backend.minimum_joint_waypoint_duration_sec = 0.05
         backend._arm_action_probe = SimpleNamespace(
             wait_for_server=lambda timeout_sec: False

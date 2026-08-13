@@ -19,6 +19,38 @@ from .moveit_scene import (
 from .scene_geometry import FRUIT_COLLISION_RADIUS_M, STATIC_COLLISION_OBJECTS
 
 
+PANDA_ARM_JOINT_LIMITS_RAD = (
+    (-2.8973, 2.8973),
+    (-1.7628, 1.7628),
+    (-2.8973, 2.8973),
+    (-3.0718, -0.0698),
+    (-2.8973, 2.8973),
+    (-0.0175, 3.7525),
+    (-2.8973, 2.8973),
+)
+
+
+def joint_limit_margin_violation(
+    positions: tuple[float, ...], margin_rad: float
+) -> tuple[int, float, float, float] | None:
+    """Return the first Panda arm joint outside conservative soft bounds."""
+
+    if len(positions) != len(PANDA_ARM_JOINT_LIMITS_RAD):
+        raise ValueError("Panda arm state must contain seven joint positions")
+    margin = float(margin_rad)
+    if not math.isfinite(margin) or margin <= 0.0:
+        raise ValueError("joint limit margin must be positive")
+    for index, (value, bounds) in enumerate(
+        zip(positions, PANDA_ARM_JOINT_LIMITS_RAD), start=1
+    ):
+        lower, upper = bounds
+        safe_lower = lower + margin
+        safe_upper = upper - margin
+        if not math.isfinite(value) or not safe_lower <= value <= safe_upper:
+            return index, float(value), safe_lower, safe_upper
+    return None
+
+
 @dataclass(frozen=True)
 class PathAssessment:
     """Zero-execution result for one connected, collision-checked path."""
@@ -99,12 +131,15 @@ class MoveItBackend:
         gripper_position_tolerance_m: float = 0.003,
         max_effort_n: float = 40.0,
         request_timeout_sec: float = 5.0,
+        bin_verification_timeout_sec: float = 15.0,
         startup_timeout_sec: float = 30.0,
         trajectory_timeout_margin_sec: float = 25.0,
         maximum_joint_trajectory_duration_sec: float = 60.0,
         maximum_joint_trajectory_travel_rad: float = 40.0,
         maximum_joint_trajectory_points: int = 512,
         joint_trajectory_velocity_rad_per_sec: float = 0.30,
+        home_joint_trajectory_velocity_rad_per_sec: float = 0.10,
+        minimum_joint_limit_margin_rad: float = 0.01,
         minimum_joint_waypoint_duration_sec: float = 0.05,
         settle_timeout_sec: float = 1.5,
         settle_sample_period_sec: float = 0.05,
@@ -128,6 +163,8 @@ class MoveItBackend:
         | None = None,
         dynamic_fruit_manifest: bool = False,
         contact_resolved_attachment: bool = False,
+        maximum_cached_collision_scene_age_sec: float = 120.0,
+        maximum_cached_target_drift_m: float = 0.05,
         config_dict: dict | None = None,
     ) -> None:
         try:
@@ -169,6 +206,11 @@ class MoveItBackend:
         if request_timeout_sec <= 0.0:
             raise ValueError("request timeout must be positive")
         if (
+            not math.isfinite(bin_verification_timeout_sec)
+            or bin_verification_timeout_sec <= 0.0
+        ):
+            raise ValueError("bin verification timeout must be positive")
+        if (
             home_joint_positions_rad is not None
             and len(home_joint_positions_rad) != 7
         ):
@@ -193,6 +235,13 @@ class MoveItBackend:
         if (
             not math.isfinite(joint_trajectory_velocity_rad_per_sec)
             or joint_trajectory_velocity_rad_per_sec <= 0.0
+            or not math.isfinite(home_joint_trajectory_velocity_rad_per_sec)
+            or home_joint_trajectory_velocity_rad_per_sec <= 0.0
+            or home_joint_trajectory_velocity_rad_per_sec
+            > joint_trajectory_velocity_rad_per_sec
+            or not math.isfinite(minimum_joint_limit_margin_rad)
+            or minimum_joint_limit_margin_rad <= 0.0
+            or minimum_joint_limit_margin_rad >= 0.05
             or not math.isfinite(minimum_joint_waypoint_duration_sec)
             or minimum_joint_waypoint_duration_sec <= 0.0
         ):
@@ -230,6 +279,13 @@ class MoveItBackend:
             raise ValueError("safe transit corridor must be finite")
         if fruit_collision_radius_m <= 0.0:
             raise ValueError("fruit collision radius must be positive")
+        if (
+            not math.isfinite(maximum_cached_collision_scene_age_sec)
+            or maximum_cached_collision_scene_age_sec <= 0.0
+            or not math.isfinite(maximum_cached_target_drift_m)
+            or maximum_cached_target_drift_m <= 0.0
+        ):
+            raise ValueError("cached collision scene bounds must be positive")
         fruit_manifest = self._build_fruit_manifest(fruit_obstacles or {})
 
         self.node = node
@@ -258,6 +314,7 @@ class MoveItBackend:
         self.gripper_position_tolerance_m = float(gripper_position_tolerance_m)
         self.max_effort_n = float(max_effort_n)
         self.request_timeout_sec = float(request_timeout_sec)
+        self.bin_verification_timeout_sec = float(bin_verification_timeout_sec)
         self.startup_timeout_sec = float(startup_timeout_sec)
         self.trajectory_timeout_margin_sec = float(trajectory_timeout_margin_sec)
         self.maximum_joint_trajectory_duration_sec = float(
@@ -270,6 +327,10 @@ class MoveItBackend:
         self.joint_trajectory_velocity_rad_per_sec = float(
             joint_trajectory_velocity_rad_per_sec
         )
+        self.home_joint_trajectory_velocity_rad_per_sec = float(
+            home_joint_trajectory_velocity_rad_per_sec
+        )
+        self.minimum_joint_limit_margin_rad = float(minimum_joint_limit_margin_rad)
         self.minimum_joint_waypoint_duration_sec = float(
             minimum_joint_waypoint_duration_sec
         )
@@ -308,6 +369,13 @@ class MoveItBackend:
         self.fruit_pose_provider = fruit_pose_provider
         self.dynamic_fruit_manifest = bool(dynamic_fruit_manifest)
         self.contact_resolved_attachment = bool(contact_resolved_attachment)
+        self.maximum_cached_collision_scene_age_sec = float(
+            maximum_cached_collision_scene_age_sec
+        )
+        self.maximum_cached_target_drift_m = float(maximum_cached_target_drift_m)
+        self._cached_collision_scene_centers_m: MappingProxyType | None = None
+        self._cached_collision_scene_monotonic: float | None = None
+        self._locked_collision_scene_target_id: int | None = None
         self._PoseStamped = PoseStamped
         self._FollowJointTrajectory = FollowJointTrajectory
         self._ParallelGripperCommand = ParallelGripperCommand
@@ -445,6 +513,135 @@ class MoveItBackend:
         )
         self._dynamic_collision_target_ids = current_ids
 
+    def _fruit_centers_for_target_lifecycle(
+        self, target_id: int, target_pose: Pose
+    ) -> MappingProxyType:
+        """Return a live scene or a bounded pre-occlusion visual snapshot.
+
+        The fixed arm and plants do not move fruit before a pick. Once the arm
+        occludes the base camera, a recent complete visual scene may therefore
+        remain the safest available collision model. The selected target must
+        still agree with that snapshot, and its current fused visual pose
+        replaces the cached centre. No simulator truth is used.
+        """
+
+        dynamic_manifest = bool(getattr(self, "dynamic_fruit_manifest", False))
+        locked_target = getattr(self, "_locked_collision_scene_target_id", None)
+        if dynamic_manifest and locked_target == target_id:
+            return self._bounded_cached_collision_scene(target_id, target_pose)
+
+        live_error: Exception | None = None
+        live_centers: MappingProxyType | None = None
+        try:
+            live_centers = self._fruit_centers_for_planning()
+        except Exception as exc:
+            live_error = exc
+
+        if live_centers is not None and target_id in live_centers:
+            if dynamic_manifest:
+                self._cached_collision_scene_centers_m = live_centers
+                self._cached_collision_scene_monotonic = time.monotonic()
+            return live_centers
+        if not dynamic_manifest:
+            if live_error is not None:
+                raise live_error
+            raise ValueError(f"target {target_id} is absent from the live fruit scene")
+
+        return self._bounded_cached_collision_scene(
+            target_id,
+            target_pose,
+            live_error=live_error,
+        )
+
+    def _bounded_cached_collision_scene(
+        self,
+        target_id: int,
+        target_pose: Pose,
+        *,
+        live_error: Exception | None = None,
+    ) -> MappingProxyType:
+        cached = getattr(self, "_cached_collision_scene_centers_m", None)
+        captured = getattr(self, "_cached_collision_scene_monotonic", None)
+        if cached is None or captured is None or target_id not in cached:
+            detail = (
+                f": {live_error}" if live_error is not None else ""
+            )
+            raise ValueError(
+                "target is absent and no pre-occlusion visual collision snapshot "
+                f"is available{detail}"
+            )
+        age = time.monotonic() - float(captured)
+        maximum_age = float(self.maximum_cached_collision_scene_age_sec)
+        if age < 0.0 or age > maximum_age:
+            raise ValueError(
+                f"pre-occlusion visual collision snapshot is stale by {age:.3f} "
+                f"seconds (limit {maximum_age:.3f})"
+            )
+        cached_target = cached[target_id]
+        target_center = (target_pose.x, target_pose.y, target_pose.z)
+        drift = math.dist(cached_target, target_center)
+        maximum_drift = float(self.maximum_cached_target_drift_m)
+        if drift > maximum_drift:
+            raise ValueError(
+                f"selected target moved {drift:.3f} m from the pre-occlusion "
+                f"visual snapshot (limit {maximum_drift:.3f} m)"
+            )
+        recovered = dict(cached)
+        recovered[target_id] = target_center
+        self.node.get_logger().warning(
+            "using bounded pre-occlusion visual collision snapshot: "
+            f"age_sec={age:.3f}, selected_target_drift_m={drift:.3f}, "
+            f"obstacle_count={len(recovered)}"
+        )
+        return MappingProxyType(recovered)
+
+    def lock_pre_observation_collision_scene(
+        self, target_id: int, target_pose: Pose
+    ) -> bool:
+        """Freeze one visual obstacle inventory before eye-in-hand motion.
+
+        The fixed base camera can be partially occluded by the arm while the
+        wrist camera approaches a fruit.  Rebuilding the obstacle set from
+        those intermediate frames can therefore add transient tracks or drop
+        real ones between feasibility checks.  Capture the last complete
+        visual inventory before motion and retain it for this target's bounded
+        observation/reobservation/pick attempt.  A different target always
+        requires a new live capture.
+        """
+
+        if not bool(getattr(self, "dynamic_fruit_manifest", False)):
+            return True
+        locked_target = getattr(self, "_locked_collision_scene_target_id", None)
+        if locked_target == target_id:
+            try:
+                self._bounded_cached_collision_scene(target_id, target_pose)
+            except Exception as exc:
+                self.node.get_logger().error(
+                    f"pre-observation collision scene lock is invalid: {exc}"
+                )
+                return False
+            return True
+        try:
+            centers = self._fruit_centers_for_planning()
+            if target_id not in centers:
+                raise ValueError(
+                    f"target {target_id} is absent from the live visual scene"
+                )
+            self._synchronize_fruit_collision_scene(centers)
+        except Exception as exc:
+            self.node.get_logger().error(
+                f"failed to lock pre-observation collision scene: {exc}"
+            )
+            return False
+        self._cached_collision_scene_centers_m = MappingProxyType(dict(centers))
+        self._cached_collision_scene_monotonic = time.monotonic()
+        self._locked_collision_scene_target_id = int(target_id)
+        self.node.get_logger().info(
+            "locked pre-observation visual collision scene: "
+            f"target_id={target_id}, obstacle_count={len(centers)}"
+        )
+        return True
+
     def evaluate_pose_sequence(
         self, poses: tuple[Pose, ...]
     ) -> tuple[bool, bool, float, float]:
@@ -505,11 +702,9 @@ class MoveItBackend:
             )
             return False
         try:
-            scene_centers = self._fruit_centers_for_planning()
-            if target_id not in scene_centers:
-                raise ValueError(
-                    f"target {target_id} is absent from the live fruit scene"
-                )
+            scene_centers = self._fruit_centers_for_target_lifecycle(
+                target_id, target_pose
+            )
             if getattr(self, "fruit_pose_provider", None) is not None:
                 self._synchronize_fruit_collision_scene(scene_centers)
         except Exception as exc:  # pragma: no cover - ROS integration only
@@ -538,7 +733,9 @@ class MoveItBackend:
         contact_resolved = bool(getattr(self, "contact_resolved_attachment", False))
         self._prepared_entity_id = None if contact_resolved else target_id
         self._target_contact_open = False
-        self._prepared_scene_centers_m = scene_centers
+        prepared_centers = dict(scene_centers)
+        prepared_centers[target_id] = target_center
+        self._prepared_scene_centers_m = MappingProxyType(prepared_centers)
         attachment_detail = (
             "physical bilateral contact will resolve the simulation entity"
             if contact_resolved
@@ -825,7 +1022,10 @@ class MoveItBackend:
         )
 
     def _joint_path_within_safety_limits(
-        self, positions: tuple[tuple[float, ...], ...]
+        self,
+        positions: tuple[tuple[float, ...], ...],
+        *,
+        velocity_rad_per_sec: float | None = None,
     ) -> bool:
         if len(positions) < 2:
             self.node.get_logger().error(
@@ -847,7 +1047,12 @@ class MoveItBackend:
                 f"{self.maximum_joint_trajectory_travel_rad:.3f} rad limit"
             )
             return False
-        duration = self._joint_path_nominal_duration(positions)
+        if not self._joint_path_within_limit_margin(positions):
+            return False
+        duration = self._joint_path_nominal_duration(
+            positions,
+            velocity_rad_per_sec=velocity_rad_per_sec,
+        )
         if duration > self.maximum_joint_trajectory_duration_sec:
             self.node.get_logger().error(
                 "joint trajectory rejected before execution: nominal "
@@ -857,14 +1062,47 @@ class MoveItBackend:
             return False
         return True
 
-    def _joint_path_nominal_duration(
+    def _joint_path_within_limit_margin(
         self, positions: tuple[tuple[float, ...], ...]
+    ) -> bool:
+        if not all(
+            len(values) == len(PANDA_ARM_JOINT_LIMITS_RAD) for values in positions
+        ):
+            return True
+        for waypoint_index, values in enumerate(positions):
+            violation = joint_limit_margin_violation(
+                values,
+                getattr(self, "minimum_joint_limit_margin_rad", 0.01),
+            )
+            if violation is not None:
+                joint_index, value, lower, upper = violation
+                self.node.get_logger().error(
+                    "joint trajectory rejected before execution: "
+                    f"waypoint {waypoint_index + 1} places panda_joint"
+                    f"{joint_index} at {value:.6f} rad outside the "
+                    f"conservative [{lower:.6f}, {upper:.6f}] rad bounds"
+                )
+                return False
+        return True
+
+    def _joint_path_nominal_duration(
+        self,
+        positions: tuple[tuple[float, ...], ...],
+        *,
+        velocity_rad_per_sec: float | None = None,
     ) -> float:
+        velocity = (
+            self.joint_trajectory_velocity_rad_per_sec
+            if velocity_rad_per_sec is None
+            else float(velocity_rad_per_sec)
+        )
+        if not math.isfinite(velocity) or velocity <= 0.0:
+            raise ValueError("joint trajectory velocity must be positive")
         return sum(
             max(
                 self.minimum_joint_waypoint_duration_sec,
                 max(abs(current - prior) for current, prior in zip(right, left))
-                / self.joint_trajectory_velocity_rad_per_sec,
+                / velocity,
             )
             for left, right in zip(positions, positions[1:])
         )
@@ -1144,13 +1382,26 @@ class MoveItBackend:
         self,
         start_positions: tuple[float, ...],
         joint_path: tuple[tuple[float, ...], ...],
+        *,
+        velocity_rad_per_sec: float | None = None,
     ) -> tuple[bool, float]:
         if not joint_path:
             return False, 0.0
         all_positions = (start_positions,) + tuple(joint_path)
-        if not self._joint_path_within_safety_limits(all_positions):
+        velocity = (
+            self.joint_trajectory_velocity_rad_per_sec
+            if velocity_rad_per_sec is None
+            else float(velocity_rad_per_sec)
+        )
+        if not self._joint_path_within_safety_limits(
+            all_positions,
+            velocity_rad_per_sec=velocity,
+        ):
             return False, 0.0
-        nominal_duration = self._joint_path_nominal_duration(all_positions)
+        nominal_duration = self._joint_path_nominal_duration(
+            all_positions,
+            velocity_rad_per_sec=velocity,
+        )
         cumulative_travel = self._joint_path_travel(all_positions)
         self.node.get_logger().info(
             "Executing collision-checked joint path: "
@@ -1174,7 +1425,7 @@ class MoveItBackend:
             )
             elapsed += max(
                 self.minimum_joint_waypoint_duration_sec,
-                maximum_delta / self.joint_trajectory_velocity_rad_per_sec,
+                maximum_delta / velocity,
             )
             point = self._JointTrajectoryPoint()
             point.positions = list(positions)
@@ -1409,6 +1660,16 @@ class MoveItBackend:
                 return PathAssessment(
                     False,
                     collision,
+                    planning_time,
+                    joint_travel,
+                    current_joints,
+                )
+            if not self._joint_path_within_limit_margin(
+                (start_positions,) + joint_path
+            ):
+                return PathAssessment(
+                    False,
+                    False,
                     planning_time,
                     joint_travel,
                     current_joints,
@@ -1664,7 +1925,11 @@ class MoveItBackend:
                 "MoveIt named-configuration plan has an invalid arm state"
             )
             return MotionOutcome(False, planning_time, 0.0)
-        executed, execution_time = self._execute_joint_path(positions[0], positions[1:])
+        executed, execution_time = self._execute_joint_path(
+            positions[0],
+            positions[1:],
+            velocity_rad_per_sec=self.home_joint_trajectory_velocity_rad_per_sec,
+        )
         if executed:
             executed = self._wait_until_arm_settled()
         return MotionOutcome(executed, planning_time, execution_time)
@@ -1863,7 +2128,13 @@ class MoveItBackend:
     def open_gripper(self) -> bool:
         return self._gripper_command(self.open_width_m)
 
-    def _trigger(self, target_id: int, operation: str) -> bool:
+    def _trigger(
+        self,
+        target_id: int,
+        operation: str,
+        *,
+        response_timeout_sec: float | None = None,
+    ) -> bool:
         if target_id <= 0:
             return False
         key = (target_id, operation)
@@ -1879,8 +2150,13 @@ class MoveItBackend:
                 f"simulation service unavailable for target {target_id}: {operation}"
             )
             return False
+        response_timeout = (
+            self.request_timeout_sec
+            if response_timeout_sec is None
+            else float(response_timeout_sec)
+        )
         response = self._wait_future(
-            client.call_async(self._Trigger.Request()), self.request_timeout_sec
+            client.call_async(self._Trigger.Request()), response_timeout
         )
         if response is None or not response.success:
             message = "timeout" if response is None else response.message
@@ -1890,7 +2166,9 @@ class MoveItBackend:
             return False
         return True
 
-    def _trigger_contact_target(self, operation: str) -> bool:
+    def _trigger_contact_target(
+        self, operation: str, *, response_timeout_sec: float | None = None
+    ) -> bool:
         key = (0, operation)
         client = self._service_clients.get(key)
         if client is None:
@@ -1904,8 +2182,13 @@ class MoveItBackend:
                 f"contact-resolved simulation service unavailable: {operation}"
             )
             return False
+        response_timeout = (
+            self.request_timeout_sec
+            if response_timeout_sec is None
+            else float(response_timeout_sec)
+        )
         response = self._wait_future(
-            client.call_async(self._Trigger.Request()), self.request_timeout_sec
+            client.call_async(self._Trigger.Request()), response_timeout
         )
         if response is None or not response.success:
             message = "timeout" if response is None else response.message
@@ -1940,17 +2223,41 @@ class MoveItBackend:
     def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool:
         del stable_for_sec  # enforced by strawberry_sim scene configuration
         if bool(getattr(self, "contact_resolved_attachment", False)):
-            return self._trigger_contact_target("verify_in_bin")
+            return self._trigger_contact_target(
+                "verify_in_bin",
+                response_timeout_sec=getattr(
+                    self, "bin_verification_timeout_sec", 15.0
+                ),
+            )
         entity_id = (
             getattr(self, "_prepared_entity_id", None)
             if self._prepared_target_id == target_id
             else target_id
         )
         entity_id = target_id if entity_id is None else entity_id
-        return self._trigger(entity_id, "verify_in_bin")
+        return self._trigger(
+            entity_id,
+            "verify_in_bin",
+            response_timeout_sec=getattr(self, "bin_verification_timeout_sec", 15.0),
+        )
 
     def move_home(self) -> bool:
-        return self._move_to_named_configuration_direct(self.home_configuration).success
+        first = self._move_to_named_configuration_direct(self.home_configuration)
+        if first.success:
+            return True
+        if first.execution_time_sec > 1.0e-6:
+            self.node.get_logger().error(
+                "home motion failed after controller execution began; "
+                "withholding an automatic retry"
+            )
+            return False
+        self.node.get_logger().warning(
+            "zero-motion home plan failed; applying one bounded replan from "
+            "the unchanged measured state"
+        )
+        return self._move_to_named_configuration_direct(
+            self.home_configuration
+        ).success
 
     def shutdown(self) -> bool:
         """Stop MoveItPy's worker thread while retaining the Python object.

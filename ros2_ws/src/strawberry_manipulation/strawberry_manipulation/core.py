@@ -360,6 +360,7 @@ class PickAndPlaceExecutor:
         planning_time = 0.0
         execution_time = 0.0
         attached = False
+        unattached_recovery_retreat: Pose | None = None
 
         def mark(stage: str, progress: float) -> None:
             stages.append(stage)
@@ -372,7 +373,7 @@ class PickAndPlaceExecutor:
             *,
             recover_home: bool = True,
         ) -> ExecutionResult:
-            nonlocal attached
+            nonlocal attached, planning_time, execution_time
             # Never carry a fruit into the recovery motion.  A failed detach is
             # treated as a hard stop because moving home with an active Gazebo
             # constraint can damage the simulated scene and hide the real fault.
@@ -386,7 +387,21 @@ class PickAndPlaceExecutor:
                     f"{message}; attachment release failed, recovery motion withheld"
                 )
             elif recover_home:
-                if not self.backend.move_home():
+                retreat_succeeded = True
+                if unattached_recovery_retreat is not None:
+                    retreat = self.backend.move_to(
+                        unattached_recovery_retreat,
+                        "RECOVERY_RETREAT",
+                    )
+                    planning_time += retreat.planning_time_sec
+                    execution_time += retreat.execution_time_sec
+                    stages.append("RECOVERY_RETREAT")
+                    retreat_succeeded = retreat.success
+                    if not retreat_succeeded:
+                        message = (
+                            f"{message}; recovery retreat failed, home motion withheld"
+                        )
+                if retreat_succeeded and not self.backend.move_home():
                     message = f"{message}; recovery home motion failed"
             return ExecutionResult(
                 False,
@@ -459,6 +474,11 @@ class PickAndPlaceExecutor:
                 FailureCode.PLANNING_FAILED,
                 "failed to open the target contact corridor",
             )
+        # Until bilateral contact creates an attachment, every failure at the
+        # fruit first reverses the already collision-checked approach.  A
+        # direct long home sweep from physical single-sided contact is both
+        # less predictable and harder for the controller to track.
+        unattached_recovery_retreat = pregrasp
         grasp_motion = self.backend.move_to(grasp_pose, "GRASP_POSE")
         planning_time += grasp_motion.planning_time_sec
         execution_time += grasp_motion.execution_time_sec
@@ -486,6 +506,7 @@ class PickAndPlaceExecutor:
                 grasp_motion = retry_preparation
                 if not retry_preparation.success:
                     continue
+                unattached_recovery_retreat = alternate_pregrasp_pose
                 grasp_motion = self.backend.move_to(
                     alternate_grasp_pose,
                     f"GRASP_POSE_RETRY{suffix}",
@@ -494,6 +515,7 @@ class PickAndPlaceExecutor:
                 execution_time += grasp_motion.execution_time_sec
                 if grasp_motion.success:
                     grasp_pose = alternate_grasp_pose
+                    unattached_recovery_retreat = alternate_pregrasp_pose
                     break
         if not grasp_motion.success:
             code = (
@@ -596,6 +618,7 @@ class PickAndPlaceExecutor:
             planning_time += retry_preparation.planning_time_sec
             execution_time += retry_preparation.execution_time_sec
             if retry_preparation.success:
+                unattached_recovery_retreat = alternate_pregrasp_pose
                 retry_grasp = self.backend.move_to(
                     alternate_grasp_pose,
                     f"{retry_stage_prefix}_GRASP",
@@ -604,6 +627,7 @@ class PickAndPlaceExecutor:
                 execution_time += retry_grasp.execution_time_sec
                 if retry_grasp.success:
                     grasp_pose = alternate_grasp_pose
+                    unattached_recovery_retreat = alternate_pregrasp_pose
                     gripper_closed = self.backend.close_gripper()
                     attachment_confirmed = (
                         self.backend.attach(target_id)
@@ -617,6 +641,7 @@ class PickAndPlaceExecutor:
                 "bounded contact retry",
             )
         attached = True
+        unattached_recovery_retreat = None
 
         mark("RETREAT", 0.55)
         retreat = offset_pose(grasp_pose, dz=self.retreat_distance_m)

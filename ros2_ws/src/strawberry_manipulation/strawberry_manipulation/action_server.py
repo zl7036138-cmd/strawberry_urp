@@ -130,6 +130,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter("gripper_max_effort_n", 40.0)
             self.declare_parameter("request_timeout_sec", 5.0)
+            self.declare_parameter("bin_verification_timeout_sec", 15.0)
             self.declare_parameter("startup_timeout_sec", 30.0)
             # The trajectory controller may spend up to eight seconds after
             # the nominal timestamp waiting for the actual joints to converge.
@@ -138,6 +139,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("maximum_joint_trajectory_travel_rad", 40.0)
             self.declare_parameter("maximum_joint_trajectory_points", 512)
             self.declare_parameter("joint_trajectory_velocity_rad_per_sec", 0.30)
+            self.declare_parameter(
+                "home_joint_trajectory_velocity_rad_per_sec", 0.10
+            )
+            self.declare_parameter("minimum_joint_limit_margin_rad", 0.01)
             self.declare_parameter("minimum_joint_waypoint_duration_sec", 0.05)
             self.declare_parameter("settle_timeout_sec", 1.5)
             self.declare_parameter("settle_sample_period_sec", 0.05)
@@ -159,6 +164,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "tracked_targets_topic", "/strawberry/tracked_targets"
             )
             self.declare_parameter("tracked_pose_timeout_sec", 0.75)
+            self.declare_parameter(
+                "maximum_cached_collision_scene_age_sec", 120.0
+            )
+            self.declare_parameter("maximum_cached_target_drift_m", 0.05)
             self.declare_parameter("target_refinement_topic", "")
             self.declare_parameter("target_refinement_timeout_sec", 3.0)
             self.declare_parameter("target_refinement_max_correction_m", 0.05)
@@ -299,6 +308,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 request_timeout_sec=float(
                     self.get_parameter("request_timeout_sec").value
                 ),
+                bin_verification_timeout_sec=float(
+                    self.get_parameter("bin_verification_timeout_sec").value
+                ),
                 startup_timeout_sec=float(
                     self.get_parameter("startup_timeout_sec").value
                 ),
@@ -316,6 +328,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 joint_trajectory_velocity_rad_per_sec=float(
                     self.get_parameter("joint_trajectory_velocity_rad_per_sec").value
+                ),
+                home_joint_trajectory_velocity_rad_per_sec=float(
+                    self.get_parameter(
+                        "home_joint_trajectory_velocity_rad_per_sec"
+                    ).value
+                ),
+                minimum_joint_limit_margin_rad=float(
+                    self.get_parameter("minimum_joint_limit_margin_rad").value
                 ),
                 minimum_joint_waypoint_duration_sec=float(
                     self.get_parameter("minimum_joint_waypoint_duration_sec").value
@@ -374,6 +394,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 dynamic_fruit_manifest=(fruit_pose_source == "tracked"),
                 contact_resolved_attachment=(fruit_pose_source == "tracked"),
+                maximum_cached_collision_scene_age_sec=float(
+                    self.get_parameter(
+                        "maximum_cached_collision_scene_age_sec"
+                    ).value
+                ),
+                maximum_cached_target_drift_m=float(
+                    self.get_parameter("maximum_cached_target_drift_m").value
+                ),
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)
                 ),
@@ -460,6 +488,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 except (TypeError, ValueError) as exc:
                     response.success = False
                     response.message = f"invalid target or observation pose: {exc}"
+                    return response
+                if not self._backend.lock_pre_observation_collision_scene(
+                    int(request.target_id), target
+                ):
+                    response.success = False
+                    response.message = (
+                        "failed to lock the pre-observation visual collision scene"
+                    )
                     return response
                 executor = self._executor_core
                 pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(

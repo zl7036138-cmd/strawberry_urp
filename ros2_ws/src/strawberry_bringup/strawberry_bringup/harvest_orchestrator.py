@@ -15,6 +15,35 @@ from .harvest_planning import (
 from .harvest_sequence import HarvestSequence, HarvestState
 
 
+def build_scan_diagnostics(
+    *,
+    tracks: list[dict],
+    selection_status: dict | None,
+    completed_ids,
+    track_snapshot_age_wall_sec: float | None = None,
+    selection_status_age_wall_sec: float | None = None,
+) -> dict:
+    """Build a compact, truth-free explanation of the latest global scan."""
+
+    completed = sorted(int(value) for value in completed_ids)
+    return {
+        "visible_track_count": len(tracks),
+        "visible_track_ids": [int(item["track_id"]) for item in tracks],
+        "ripe_track_ids": [
+            int(item["track_id"])
+            for item in tracks
+            if int(item["maturity"]) == 1
+        ],
+        "completed_target_ids": completed,
+        "tracks": [dict(item) for item in tracks],
+        "track_snapshot_age_wall_sec": track_snapshot_age_wall_sec,
+        "latest_selection_status": (
+            None if selection_status is None else dict(selection_status)
+        ),
+        "selection_status_age_wall_sec": selection_status_age_wall_sec,
+    }
+
+
 def main(args=None) -> None:  # pragma: no cover - ROS integration
     try:
         import rclpy
@@ -63,6 +92,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._last_observation_position_by_target = {}
             self._distinct_reobservation_targets = set()
             self._last_candidate_ids = set()
+            self._last_track_diagnostics = []
+            self._last_track_diagnostics_monotonic = None
+            self._last_selection_status = None
+            self._last_selection_status_monotonic = None
             self._last_wrist_rejection_reason = None
             self._status = self.create_publisher(String, "/strawberry/harvest_status", 10)
             self._completed = self.create_publisher(UInt32, "/strawberry/completed_track_id", 10)
@@ -84,6 +117,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self.create_subscription(TargetPose, "/strawberry/target_pose", self._on_selected, 10, callback_group=self._group)
             self.create_subscription(TargetPose, "/strawberry/wrist/target_pose", self._on_wrist_target, 10, callback_group=self._group)
             self.create_subscription(TrackedTargetArray, "/strawberry/tracked_targets", self._on_tracks, 10, callback_group=self._group)
+            self.create_subscription(String, "/strawberry/selection_status", self._on_selection_status, 10, callback_group=self._group)
             self.create_service(Trigger, "/strawberry/run_harvest", self._run, callback_group=self._group)
 
         @staticmethod
@@ -128,6 +162,24 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._cancel_timer("_scan_timer")
             self._scan_timer = self.create_timer(float(self.get_parameter("scan_timeout_sec").value), self._scan_timeout, callback_group=self._group)
 
+        def _scan_diagnostics(self) -> dict:
+            now = time.monotonic()
+            return build_scan_diagnostics(
+                tracks=self._last_track_diagnostics,
+                selection_status=self._last_selection_status,
+                completed_ids=self._sequence.completed_ids,
+                track_snapshot_age_wall_sec=(
+                    None
+                    if self._last_track_diagnostics_monotonic is None
+                    else max(0.0, now - self._last_track_diagnostics_monotonic)
+                ),
+                selection_status_age_wall_sec=(
+                    None
+                    if self._last_selection_status_monotonic is None
+                    else max(0.0, now - self._last_selection_status_monotonic)
+                ),
+            )
+
         def _run(self, request, response):
             del request
             if self._sequence.state not in {HarvestState.IDLE, HarvestState.DONE}:
@@ -154,6 +206,8 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._last_observation_position_by_target = {}
             self._distinct_reobservation_targets = set()
             self._last_wrist_rejection_reason = None
+            self._last_selection_status = None
+            self._last_selection_status_monotonic = None
             self._recovery_home_in_progress = False
             self._arm_scan_timer()
             self._publish("STARTED")
@@ -163,6 +217,31 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
 
         def _on_tracks(self, message) -> None:
             self._last_candidate_ids = {int(item.track_id) for item in message.targets if int(item.maturity) == int(item.RIPE)}
+            self._last_track_diagnostics = [
+                {
+                    "track_id": int(item.track_id),
+                    "maturity": int(item.maturity),
+                    "confidence": float(item.detection_confidence),
+                    "sigma_m": float(item.position_sigma_m),
+                    "observation_count": int(item.observation_count),
+                    "position_m": [
+                        float(item.pose.position.x),
+                        float(item.pose.position.y),
+                        float(item.pose.position.z),
+                    ],
+                }
+                for item in message.targets
+            ]
+            self._last_track_diagnostics_monotonic = time.monotonic()
+
+        def _on_selection_status(self, message) -> None:
+            try:
+                status = json.loads(message.data)
+            except (json.JSONDecodeError, TypeError):
+                return
+            if isinstance(status, dict):
+                self._last_selection_status = status
+                self._last_selection_status_monotonic = time.monotonic()
 
         def _on_view(self, message) -> None:
             self._latest_view_by_stamp[self._stamp_key(message.header.stamp)] = message
@@ -616,7 +695,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._current_views = []
                 self._current_view_index = 0
                 self._current_is_reobservation = False
-                self._publish("TARGET_HARVESTED")
+                self._publish(
+                    "TARGET_HARVESTED",
+                    diagnostics=self._scan_diagnostics(),
+                )
                 if not self._sequence.terminal:
                     self._arm_scan_timer()
             else:
@@ -644,7 +726,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_views = []
             self._current_view_index = 0
             self._current_is_reobservation = False
-            self._publish("RETRY" if self._sequence.retry_target_id else "TARGET_SKIPPED")
+            self._publish(
+                "RETRY" if self._sequence.retry_target_id else "TARGET_SKIPPED",
+                diagnostics=self._scan_diagnostics(),
+            )
             self._request_recovery_home()
 
         def _request_recovery_home(self) -> None:
@@ -704,11 +789,14 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 completed = UInt32()
                 completed.data = int(target_id)
                 self._completed.publish(completed)
-                self._publish("TARGET_SKIPPED")
+                self._publish(
+                    "TARGET_SKIPPED",
+                    diagnostics=self._scan_diagnostics(),
+                )
                 self._arm_scan_timer()
                 return
             outcome = self._sequence.finish("no additional safe target before timeout")
-            self._publish(outcome)
+            self._publish(outcome, diagnostics=self._scan_diagnostics())
 
     rclpy.init(args=args)
     node = HarvestOrchestrator()

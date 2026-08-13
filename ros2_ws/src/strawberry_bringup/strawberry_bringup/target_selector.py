@@ -20,6 +20,25 @@ REACH_BOUNDS = (0.30, 0.72, -0.34, 0.34, 0.48, 0.66)
 OBSERVATION_REACH_BOUNDS = (0.12, 0.78, -0.55, 0.55, 0.30, 0.90)
 
 
+def register_completed_track(
+    excluded: set[int], target_id: int, *, has_cached_targets: bool
+) -> bool:
+    """Record a completed identity and request one fresh-cache reselection.
+
+    A safe next target can be published just before the batch state machine
+    changes from PICKING back to SCANNING.  The orchestrator correctly ignores
+    that out-of-state publication.  Re-running the deterministic selector when
+    the completed identity arrives closes that hand-off window.  The cached
+    tracked-target message still passes the normal age and safety gates.
+    """
+
+    identity = int(target_id)
+    if identity <= 0 or identity in excluded:
+        return False
+    excluded.add(identity)
+    return bool(has_cached_targets)
+
+
 def geometric_clearance(position, neighbours, fruit_radius_m: float) -> float:
     distances = [
         math.dist(position, neighbour) - 2.0 * fruit_radius_m
@@ -137,6 +156,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
             )
             self._excluded = set()
+            self._latest_targets_message = None
             self._target_publisher = self.create_publisher(
                 TargetPose, str(self.get_parameter("selected_target_topic").value), 10
             )
@@ -165,14 +185,24 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
 
         def _on_completed_track(self, message) -> None:
-            if int(message.data) > 0:
-                self._excluded.add(int(message.data))
+            cached = self._latest_targets_message
+            should_reselect = register_completed_track(
+                self._excluded,
+                int(message.data),
+                has_cached_targets=cached is not None,
+            )
+            if should_reselect:
+                self._select_targets(cached)
 
         @staticmethod
         def _seconds(stamp) -> float:
             return float(stamp.sec) + 1e-9 * float(stamp.nanosec)
 
         def _on_targets(self, message) -> None:
+            self._latest_targets_message = message
+            self._select_targets(message)
+
+        def _select_targets(self, message) -> None:
             now_sec = self.get_clock().now().nanoseconds * 1e-9
             radius = float(self.get_parameter("fruit_radius_m").value)
             positions = {

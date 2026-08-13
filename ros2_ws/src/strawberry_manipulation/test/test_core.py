@@ -43,6 +43,8 @@ class FakeBackend:
         detach=True,
         in_bin=True,
         home=True,
+        close_results=None,
+        open_results=None,
     ):
         self.outcomes = list(outcomes or [])
         self.prepare_ok = prepare
@@ -52,6 +54,8 @@ class FakeBackend:
         self.detach_ok = detach
         self.in_bin_ok = in_bin
         self.home_ok = home
+        self.close_results = list(close_results or [])
+        self.open_results = list(open_results or [])
         self.calls = []
         self.poses = []
 
@@ -76,11 +80,11 @@ class FakeBackend:
 
     def close_gripper(self):
         self.calls.append("close")
-        return True
+        return self.close_results.pop(0) if self.close_results else True
 
     def open_gripper(self):
         self.calls.append("open")
-        return True
+        return self.open_results.pop(0) if self.open_results else True
 
     def attach(self, target_id):
         self.calls.append("attach")
@@ -162,6 +166,39 @@ class PickAndPlaceTests(unittest.TestCase):
         result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
+
+    def test_asymmetric_contact_gets_one_orthogonal_checked_retry(self):
+        backend = FakeBackend(close_results=[False, True])
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertTrue(result.success)
+        self.assertEqual(backend.calls.count("CONTACT_RETRY_PREP"), 1)
+        self.assertEqual(backend.calls.count("CONTACT_RETRY_GRASP"), 1)
+        self.assertEqual(backend.calls.count("close"), 2)
+        poses = dict(backend.poses)
+        self.assertEqual(
+            poses["CONTACT_RETRY_GRASP"],
+            rotate_about_base_z(poses["GRASP_POSE"], math.pi / 2.0),
+        )
+        self.assertEqual(
+            poses["RETREAT"].qz,
+            poses["CONTACT_RETRY_GRASP"].qz,
+        )
+
+    def test_contact_retry_fails_closed_when_checked_retreat_is_unavailable(self):
+        backend = FakeBackend(
+            [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False, collision=True)],
+            close_results=[False],
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(4, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
+        self.assertEqual(backend.calls.count("CONTACT_RETRY_PREP"), 1)
+        self.assertNotIn("CONTACT_RETRY_GRASP", backend.calls)
+        self.assertNotIn("attach", backend.calls)
 
     def test_grasp_collision_gets_one_alternate_orientation_retry(self):
         backend = FakeBackend(

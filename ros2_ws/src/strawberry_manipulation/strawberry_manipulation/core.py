@@ -462,10 +462,43 @@ class PickAndPlaceExecutor:
             )
 
         mark("GRASP", 0.40)
-        if not self.backend.close_gripper() or not self.backend.attach(target_id):
+        gripper_closed = self.backend.close_gripper()
+        if not gripper_closed:
+            # A single-finger stall is evidence of an off-centre grasp, not a
+            # reason to weaken the dual-contact gate. Re-open, retreat through
+            # a checked pre-grasp, and try one orthogonal finger orientation.
+            # Both moves remain collision checked and the search is bounded.
+            if not self.backend.open_gripper():
+                return fail(
+                    FailureCode.GRASP_FAILED,
+                    "failed to reopen gripper after asymmetric contact",
+                )
+            alternate_grasp_pose = rotate_about_base_z(grasp_pose, math.pi / 2.0)
+            alternate_pregrasp_pose = rotate_about_base_z(
+                offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
+                math.pi / 2.0,
+            )
+            retry_preparation = self.backend.move_to(
+                alternate_pregrasp_pose,
+                "CONTACT_RETRY_PREP",
+            )
+            planning_time += retry_preparation.planning_time_sec
+            execution_time += retry_preparation.execution_time_sec
+            if retry_preparation.success:
+                retry_grasp = self.backend.move_to(
+                    alternate_grasp_pose,
+                    "CONTACT_RETRY_GRASP",
+                )
+                planning_time += retry_grasp.planning_time_sec
+                execution_time += retry_grasp.execution_time_sec
+                if retry_grasp.success:
+                    grasp_pose = alternate_grasp_pose
+                    gripper_closed = self.backend.close_gripper()
+        if not gripper_closed or not self.backend.attach(target_id):
             return fail(
                 FailureCode.GRASP_FAILED,
-                "gripper contact or simulated attachment failed",
+                "dual-finger contact or simulated attachment failed after one "
+                "orthogonal contact retry",
             )
         attached = True
 

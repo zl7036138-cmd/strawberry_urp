@@ -200,6 +200,7 @@ def generate_launch_description():
                         "require_wrist_confirmation": True,
                         "wrist_confirmation_timeout_sec": 3.0,
                         "wrist_min_confidence": confidence_threshold,
+                        "minimum_reobservation_baseline_m": 0.04,
                     }
                 ],
             ),

@@ -8,6 +8,7 @@ import time
 
 from .harvest_planning import (
     fuse_position_estimates,
+    rank_distinct_view_indices,
     wrist_refinement_diagnostics,
     wrist_refinement_rejection_reason,
 )
@@ -39,6 +40,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self.declare_parameter("wrist_min_confidence", 0.60)
             self.declare_parameter("wrist_max_sigma_m", 0.015)
             self.declare_parameter("wrist_systematic_sigma_m", 0.030)
+            self.declare_parameter("minimum_reobservation_baseline_m", 0.04)
             self.declare_parameter("max_targets", 12)
             self.declare_parameter("place_x", 0.35)
             self.declare_parameter("place_y", -0.45)
@@ -56,6 +58,9 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_view = None
             self._current_views = []
             self._current_view_index = 0
+            self._current_is_reobservation = False
+            self._last_observation_position_by_target = {}
+            self._distinct_reobservation_targets = set()
             self._last_candidate_ids = set()
             self._last_wrist_rejection_reason = None
             self._status = self.create_publisher(String, "/strawberry/harvest_status", 10)
@@ -140,6 +145,9 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_view = None
             self._current_views = []
             self._current_view_index = 0
+            self._current_is_reobservation = False
+            self._last_observation_position_by_target = {}
+            self._distinct_reobservation_targets = set()
             self._last_wrist_rejection_reason = None
             self._arm_scan_timer()
             self._publish("STARTED")
@@ -185,7 +193,25 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     views.append(stamped)
             elif fallback_view is not None:
                 views.append(fallback_view)
-            if not views:
+            is_reobservation = target_id in self._distinct_reobservation_targets
+            previous_position = self._last_observation_position_by_target.get(target_id)
+            if is_reobservation and previous_position is not None:
+                ranked_indices = rank_distinct_view_indices(
+                    [
+                        (
+                            float(view.pose.position.x),
+                            float(view.pose.position.y),
+                            float(view.pose.position.z),
+                        )
+                        for view in views
+                    ],
+                    previous_position,
+                    minimum_baseline_m=float(
+                        self.get_parameter("minimum_reobservation_baseline_m").value
+                    ),
+                )
+                views = [views[index] for index in ranked_indices]
+            if not views and not is_reobservation:
                 return
             self._cancel_timer("_scan_timer")
             try:
@@ -198,7 +224,26 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_goal_pose = target.pose
             self._current_views = views
             self._current_view_index = 0
-            self._current_view = views[0]
+            self._current_is_reobservation = is_reobservation
+            self._current_view = views[0] if views else None
+            if not views:
+                minimum_baseline_m = float(
+                    self.get_parameter("minimum_reobservation_baseline_m").value
+                )
+                self._sequence.observation_result(
+                    False,
+                    "no safe observation view provides the required distinct "
+                    f"baseline of {minimum_baseline_m:.3f} m",
+                )
+                self._publish(
+                    "REOBSERVATION_UNAVAILABLE",
+                    diagnostics={
+                        "minimum_reobservation_baseline_m": minimum_baseline_m,
+                        "target_id": target_id,
+                    },
+                )
+                self._after_attempt_failure()
+                return
             evaluation = EvaluateTarget.Request()
             evaluation.target_id = target_id
             evaluation.target_pose = PoseStamped()
@@ -206,7 +251,15 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             evaluation.target_pose.pose = target.pose
             future = self._evaluation_client.call_async(evaluation)
             future.add_done_callback(self._evaluation_result)
-            self._publish("TARGET_FEASIBILITY")
+            self._publish(
+                "TARGET_FEASIBILITY_REOBSERVATION"
+                if is_reobservation
+                else "TARGET_FEASIBILITY",
+                diagnostics={
+                    "observation_view_count": len(views),
+                    "reobservation": is_reobservation,
+                },
+            )
 
         def _evaluation_result(self, future) -> None:
             try:
@@ -227,13 +280,35 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._after_attempt_failure()
                 return
             self._current_view = self._current_views[self._current_view_index]
+            diagnostics = {
+                "view_index": self._current_view_index,
+                "view_count": len(self._current_views),
+            }
+            if self._current_is_reobservation:
+                target_id = int(self._current_target.target_id)
+                previous_position = self._last_observation_position_by_target.get(
+                    target_id
+                )
+                if previous_position is not None:
+                    current = self._current_view.pose.position
+                    diagnostics["view_baseline_m"] = math.dist(
+                        previous_position,
+                        (float(current.x), float(current.y), float(current.z)),
+                    )
+                    diagnostics["minimum_reobservation_baseline_m"] = float(
+                        self.get_parameter("minimum_reobservation_baseline_m").value
+                    )
             self._wrist_target_hint.publish(self._current_target)
             request = MoveToObservation.Request()
             request.target_id = int(self._current_target.target_id)
             request.observation_pose = self._current_view
             future = self._observation_client.call_async(request)
             future.add_done_callback(self._observation_result)
-            self._publish(f"OBSERVATION_MOTION_{self._current_view_index + 1}_OF_{len(self._current_views)}")
+            prefix = "REOBSERVATION_MOTION" if self._current_is_reobservation else "OBSERVATION_MOTION"
+            self._publish(
+                f"{prefix}_{self._current_view_index + 1}_OF_{len(self._current_views)}",
+                diagnostics=diagnostics,
+            )
 
         def _observation_result(self, future) -> None:
             try:
@@ -254,6 +329,15 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._sequence.observation_result(False, detail)
                 self._after_attempt_failure()
                 return
+            if self._current_view is not None:
+                position = self._current_view.pose.position
+                self._last_observation_position_by_target[
+                    int(self._current_target.target_id)
+                ] = (
+                    float(position.x),
+                    float(position.y),
+                    float(position.z),
+                )
             self._sequence.observation_result(True, detail)
             if not bool(self.get_parameter("require_wrist_confirmation").value):
                 self._sequence.confirmation_result(True, "wrist confirmation disabled")
@@ -407,6 +491,8 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             target_id = self._sequence.current_target_id
             self._sequence.pick_result(bool(result.success), str(result.message), int(result.failure_code))
             if result.success:
+                self._distinct_reobservation_targets.discard(int(target_id))
+                self._last_observation_position_by_target.pop(int(target_id), None)
                 completed = UInt32()
                 completed.data = int(target_id)
                 self._completed.publish(completed)
@@ -415,6 +501,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self._current_view = None
                 self._current_views = []
                 self._current_view_index = 0
+                self._current_is_reobservation = False
                 self._publish("TARGET_HARVESTED")
                 if not self._sequence.terminal:
                     self._arm_scan_timer()
@@ -426,14 +513,23 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             if self._sequence.history:
                 target_id = self._sequence.history[-1].target_id
             if target_id in self._sequence.skipped:
+                self._distinct_reobservation_targets.discard(int(target_id))
+                self._last_observation_position_by_target.pop(int(target_id), None)
                 completed = UInt32()
                 completed.data = int(target_id)
                 self._completed.publish(completed)
+            elif (
+                target_id is not None
+                and self._sequence.retry_target_id == target_id
+                and target_id in self._last_observation_position_by_target
+            ):
+                self._distinct_reobservation_targets.add(int(target_id))
             self._current_target = None
             self._current_goal_pose = None
             self._current_view = None
             self._current_views = []
             self._current_view_index = 0
+            self._current_is_reobservation = False
             self._publish("RETRY" if self._sequence.retry_target_id else "TARGET_SKIPPED")
             self._arm_scan_timer()
 
@@ -445,6 +541,8 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 target_id = self._sequence.retry_unavailable(
                     "retry target was not safely observable before timeout"
                 )
+                self._distinct_reobservation_targets.discard(int(target_id))
+                self._last_observation_position_by_target.pop(int(target_id), None)
                 completed = UInt32()
                 completed.data = int(target_id)
                 self._completed.publish(completed)

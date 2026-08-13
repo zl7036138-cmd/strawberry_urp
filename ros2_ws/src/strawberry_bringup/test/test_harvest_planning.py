@@ -14,6 +14,7 @@ from strawberry_bringup.harvest_planning import (  # noqa: E402
     generate_dynamic_views,
     hand_pose_for_optical_view,
     rank_dynamic_views,
+    rank_distinct_view_indices,
     rank_safe_targets,
     select_dynamic_view,
     target_rejection_reasons,
@@ -135,6 +136,38 @@ class HarvestPlanningTests(unittest.TestCase):
         self.assertEqual(len(ranked), 2)
         self.assertAlmostEqual(ranked[0][0].azimuth_rad, 0.0)
         self.assertGreater(ranked[1][0].azimuth_rad, 0.0)
+
+    def test_reobservation_maximizes_parallax_and_rejects_reused_view(self):
+        ranked = rank_distinct_view_indices(
+            (
+                (0.0, 0.0, 0.0),
+                (0.03, 0.0, 0.0),
+                (0.05, 0.0, 0.0),
+                (-0.10, 0.0, 0.0),
+                (0.0, 0.10, 0.0),
+            ),
+            (0.0, 0.0, 0.0),
+            minimum_baseline_m=0.04,
+        )
+
+        self.assertEqual(ranked, (3, 4, 2))
+
+    def test_reobservation_fails_closed_without_a_distinct_view(self):
+        ranked = rank_distinct_view_indices(
+            ((0.0, 0.0, 0.0), (0.01, 0.0, 0.0)),
+            (0.0, 0.0, 0.0),
+            minimum_baseline_m=0.04,
+        )
+
+        self.assertEqual(ranked, ())
+
+    def test_reobservation_rejects_invalid_baseline(self):
+        with self.assertRaisesRegex(ValueError, "must be finite"):
+            rank_distinct_view_indices(
+                ((0.1, 0.0, 0.0),),
+                (0.0, 0.0, 0.0),
+                minimum_baseline_m=float("nan"),
+            )
 
     def test_wrist_fusion_accounts_for_calibrated_systematic_error(self):
         fused, sigma = fuse_position_estimates(

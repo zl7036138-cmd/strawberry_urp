@@ -48,18 +48,25 @@ def _world_without_fixed_camera(source: str) -> str:
     return str(output)
 
 
-def _bridge_for_fruit_count(source: str, fruit_count: int) -> str:
+def _bridge_for_fruit_count(
+    source: str,
+    fruit_count: int,
+    *,
+    stem_constraints_enabled: bool = False,
+) -> str:
     """Extend the frozen three-fruit bridge contract for generalized scenes."""
 
-    if fruit_count <= 3:
+    if fruit_count <= 3 and not stem_constraints_enabled:
         return source
     with open(source, encoding="utf-8") as stream:
         document = yaml.safe_load(stream)
     if not isinstance(document, list):
         raise RuntimeError("Gazebo bridge configuration must be a YAML list")
     existing = {str(item.get("ros_topic_name")) for item in document if isinstance(item, dict)}
-    for target_id in range(4, fruit_count + 1):
-        additions = [
+    for target_id in range(1, fruit_count + 1):
+        additions = []
+        if target_id >= 4:
+            additions.extend([
             {
                 "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/pose_tf",
                 "gz_topic_name": f"/model/strawberry_{target_id}/pose",
@@ -89,7 +96,33 @@ def _bridge_for_fruit_count(source: str, fruit_count: int) -> str:
                 "gz_type_name": "gz.msgs.StringMsg",
                 "direction": "GZ_TO_ROS",
             },
-        ]
+            ])
+        if stem_constraints_enabled:
+            additions.extend(
+                [
+                    {
+                        "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attach_command",
+                        "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attach",
+                        "ros_type_name": "std_msgs/msg/Empty",
+                        "gz_type_name": "gz.msgs.Empty",
+                        "direction": "ROS_TO_GZ",
+                    },
+                    {
+                        "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_detach_command",
+                        "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_detach",
+                        "ros_type_name": "std_msgs/msg/Empty",
+                        "gz_type_name": "gz.msgs.Empty",
+                        "direction": "ROS_TO_GZ",
+                    },
+                    {
+                        "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attached_state",
+                        "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attached",
+                        "ros_type_name": "std_msgs/msg/String",
+                        "gz_type_name": "gz.msgs.StringMsg",
+                        "direction": "GZ_TO_ROS",
+                    },
+                ]
+            )
         for item in additions:
             if item["ros_topic_name"] in existing:
                 raise RuntimeError("generalized bridge topic is duplicated")
@@ -167,8 +200,12 @@ def _launch_nodes(context):
     if not isinstance(fruits, list) or not 1 <= len(fruits) <= 9:
         raise RuntimeError("scene config must contain between 1 and 9 fruits")
     fruit_attachment_count = len(fruits)
-    bridge_file = _bridge_for_fruit_count(bridge_file, fruit_attachment_count)
     generalized_scene = isinstance(scene_document.get("generator"), dict)
+    bridge_file = _bridge_for_fruit_count(
+        bridge_file,
+        fruit_attachment_count,
+        stem_constraints_enabled=generalized_scene,
+    )
     attachment_initialization_attempts = (
         150 if generalized_scene or fruit_attachment_count > 3 else 10
     )
@@ -239,6 +276,7 @@ def _launch_nodes(context):
         mappings={
             "initial_positions_file": initial_positions,
             "enable_attachment": enable_attachment,
+            "enable_stem_attachment": "true" if generalized_scene else "false",
             "fruit_attachment_count": str(fruit_attachment_count),
             "camera_mount": camera_mount,
         },
@@ -383,6 +421,7 @@ def _launch_nodes(context):
                     "attachment_backend_enabled": attachment_enabled,
                     "backend_initialization_attempts": attachment_initialization_attempts,
                     "resume_world_after_initialization": attachment_enabled,
+                    "stem_constraints_enabled": generalized_scene,
                 },
             ],
         ),

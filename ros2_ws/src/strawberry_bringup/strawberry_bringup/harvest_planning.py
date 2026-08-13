@@ -467,3 +467,33 @@ def rank_dynamic_views(
             ),
         )
     )
+
+
+def rank_distinct_view_indices(
+    view_positions: Sequence[Sequence[float]],
+    previous_position: Sequence[float],
+    *,
+    minimum_baseline_m: float = 0.04,
+) -> tuple[int, ...]:
+    """Rank safe re-observation views by parallax from the previous view.
+
+    The caller passes only views that survived the normal visibility and
+    conservative feasibility gates. Candidates too close to the previous
+    camera pose are rejected; the rest are ordered by decreasing translation
+    baseline with their original order used as a deterministic tie-breaker.
+    """
+
+    previous = _point(previous_position, "previous_position")
+    baseline_limit = _finite(minimum_baseline_m, "minimum_baseline_m")
+    if baseline_limit < 0.0:
+        raise ValueError("minimum_baseline_m must be non-negative")
+
+    ranked: list[tuple[float, int]] = []
+    for index, position in enumerate(view_positions):
+        candidate = _point(position, "view_position")
+        baseline = math.dist(previous, candidate)
+        if baseline + 1e-12 >= baseline_limit:
+            ranked.append((baseline, index))
+
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return tuple(index for _baseline, index in ranked)

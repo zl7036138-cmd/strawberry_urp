@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v7",
+  "scope": "development_only_reobservation_grasp_support_and_scene_safety",
+  "extends": "generalized_runtime_progress_v6",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "distinct_reobservation": "A retry after a reached wrist view must use a different candidate at least 40 mm away; if none exists, execution fails closed with REOBSERVATION_UNAVAILABLE.",
+    "bounded_contact_retry": "A failed close may reopen and try one collision-checked orthogonal finger orientation; the dual-contact attachment gate remains unchanged.",
+    "plant_support": "Generalized fruit starts constrained to a world-fixed plant support. The support releases only after fresh dual contact and confirmed gripper attachment; failed release rolls the gripper attachment back.",
+    "initial_scene_safety": "Generated fruit collision spheres retain at least 2 mm clearance from the collection-bin outer volume. Reachability labels additionally require the same 70 mm static-obstacle centre clearance implied by the 50 mm static margin and 20 mm target gate.",
+    "unchanged_gates": "The 15 mm base and wrist uncertainty gates, 50 mm wrist correction gate, 20 mm target clearance gate, MoveIt collision/IK checks, and dual-contact attachment verification were not relaxed."
+  },
+  "development_generation_audit": {
+    "seed_range": [45000, 45499],
+    "profiles": ["mixed", "all_unripe", "unsafe"],
+    "position_bands": ["near", "middle", "far"],
+    "scene_count": 4500,
+    "validation_failures": 0,
+    "formal_seed_consumed": false,
+    "mixed_scene_reachable_ripe_target_count": 3856,
+    "mixed_scene_unreachable_ripe_target_count": 1068
+  },
+  "development_diagnostics": {
+    "empty_gripper": {
+      "outcome": "PASS",
+      "left_close_position_m": 0.02219987747785542,
+      "right_close_position_m": 0.022067549921922863,
+      "interpretation": "Both finger control channels move correctly without nearby geometry.",
+      "receipt_sha256": "8844300d6f4f562845f50c107ec1166d5bc08f470c85ed6ddc6d56ff8238e403"
+    },
+    "stem_supported_exact_pose": {
+      "outcome": "SAFE_GRASP_REJECTION",
+      "fruit_pose_changed": false,
+      "diagnosis": "The legacy seed-17036 target intersects the collection-bin work volume; the right finger contacted the bin wall and the strict dual-contact gate rejected attachment.",
+      "receipt_sha256": "f029612a1c8a0173dab6b217295687886ccd28c39f23a795f0a105c5a5e51587"
+    },
+    "bin_clear_stem_transfer": {
+      "outcome": "PICK_AND_PLACE_COMPLETED",
+      "left_contact_width_m": 0.026199909088433053,
+      "right_contact_width_m": 0.0260675498565563,
+      "retreat_delta_z_m": 0.0800000009251886,
+      "dual_contact_observed": true,
+      "stem_release_and_gripper_transfer_confirmed": true,
+      "stable_in_bin_confirmed": true,
+      "receipt_sha256": "6f7d08a01c2ac0ea50add4906ed5dfecb8a5a78b3d0b9969bc4d05cd20975aae",
+      "cleanup_receipt_sha256": "de0e526335e87c89d2dc35a75a42085a54701e9a68453a58b112b9a2b6d6eb72"
+    }
+  },
+  "development_runtime_followup": {
+    "seed": 44008,
+    "scene_generator_version": "v7_bin_clearance_and_plant_support",
+    "outcome": "FAILED",
+    "wrist_confirmation": "Target 1 passed wrist confirmation with 5.4 mm raw correction and 6.8 mm fused uncertainty.",
+    "pick_failure": "The wrist-observation-to-pregrasp transition failed at Cartesian waypoint 5/26; all remaining candidates were rejected by bounded IK/collision feasibility.",
+    "collection_bin_contact_observed": false,
+    "collision_or_limit_violation": false,
+    "cleanup": "CLEAN",
+    "runtime_receipt_sha256": "bb14cce54480627c06a00d7d79f1f1c243c3ca107d15a57b8529807de0a653bd",
+    "cleanup_receipt_sha256": "db1b242d6105d4382a40ae65c842ba8062c2d9f4be1a2318028e7ff221446d4d",
+    "claims": {
+      "initial_bin_collision_reproduced_and_repaired": true,
+      "free_fruit_drift_reproduced_and_repaired": true,
+      "fail_closed_runtime_behavior_preserved": true,
+      "completed_multi_fruit_batch_proved": false,
+      "runtime_generalization_gate_passed": false
+    }
+  },
+  "verification": {
+    "full_regression": {
+      "test_count": 518,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "scene_and_grasp_safety_milestone_accepted": true,
+    "continuous_harvest_acceptance_deferred": true,
+    "next_required_work": [
+      "Generate observation views whose connected transition to a safe pregrasp is checked before execution.",
+      "Prove dual-contact grasp and stem release on a bin-clear development target.",
+      "Obtain development batches with at least two successful harvested fruits across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

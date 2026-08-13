@@ -91,6 +91,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         )
         state_known: bool = False
         attached: bool = False
+        stem_state_known: bool = False
+        stem_attached: bool = False
         left_contact: bool = False
         left_stamp_sec: float | None = None
         right_contact: bool = False
@@ -99,6 +101,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         latest_pose_stamp_sec: float | None = None
         attach_publisher: object | None = None
         detach_publisher: object | None = None
+        stem_attach_publisher: object | None = None
+        stem_detach_publisher: object | None = None
 
     class AttachmentManager(Node):
         def __init__(self) -> None:
@@ -113,6 +117,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("backend_initialization_attempts", 10)
             self.declare_parameter("backend_initialization_period_sec", 0.20)
             self.declare_parameter("resume_world_after_initialization", False)
+            self.declare_parameter("stem_constraints_enabled", False)
             self.declare_parameter(
                 "world_control_service",
                 "/world/strawberry_orchard/control",
@@ -136,6 +141,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self._resume_world = bool(
                 self.get_parameter("resume_world_after_initialization").value
+            )
+            self._stem_constraints_enabled = bool(
+                self.get_parameter("stem_constraints_enabled").value
             )
             if self._confirmation_timeout <= 0.0 or self._verification_timeout <= 0.0:
                 raise RuntimeError("service wall timeouts must be positive")
@@ -203,6 +211,13 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 runtime.detach_publisher = self.create_publisher(
                     Empty, f"{prefix}/detach_command", 10
                 )
+                if self._stem_constraints_enabled:
+                    runtime.stem_attach_publisher = self.create_publisher(
+                        Empty, f"{prefix}/stem_attach_command", 10
+                    )
+                    runtime.stem_detach_publisher = self.create_publisher(
+                        Empty, f"{prefix}/stem_detach_command", 10
+                    )
                 self._managed_subscriptions.extend(
                     [
                         self.create_subscription(
@@ -235,6 +250,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         ),
                     ]
                 )
+                if self._stem_constraints_enabled:
+                    self._managed_subscriptions.append(
+                        self.create_subscription(
+                            String,
+                            f"{prefix}/stem_attached_state",
+                            partial(
+                                self._on_stem_attachment_state,
+                                fruit.target_id,
+                            ),
+                            10,
+                            callback_group=self._group,
+                        )
+                    )
                 self._managed_services.extend(
                     [
                         self.create_service(
@@ -279,7 +307,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 self.get_logger().warn(
                     "attachment backend enabled; waiting for every DetachableJoint "
-                    "to confirm the detached startup state"
+                    "to confirm the safe startup state"
                 )
             else:
                 self.get_logger().warn(
@@ -306,6 +334,21 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             with runtime.condition:
                 runtime.state_known = True
                 runtime.attached = attached
+                runtime.condition.notify_all()
+            self._complete_initialization_if_ready()
+
+        def _on_stem_attachment_state(self, target_id: int, message) -> None:
+            if self._is_shutting_down():
+                return
+            try:
+                attached = parse_attachment_state(message.data)
+            except ValueError as exc:
+                self.get_logger().error(str(exc))
+                return
+            runtime = self._runtime[target_id]
+            with runtime.condition:
+                runtime.stem_state_known = True
+                runtime.stem_attached = attached
                 runtime.condition.notify_all()
             self._complete_initialization_if_ready()
 
@@ -417,7 +460,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 return
             self._finish_initialization(
-                "attachment backend initialized with all fruits detached; "
+                "attachment backend initialized with grippers detached and "
+                "plant supports confirmed; "
                 "Gazebo physics resumed"
             )
 
@@ -429,11 +473,18 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     runtime.state_known and not runtime.attached
                     for runtime in self._runtime.values()
                 )
-                if not detached:
+                stems_supported = (
+                    not self._stem_constraints_enabled
+                    or all(
+                        runtime.stem_state_known and runtime.stem_attached
+                        for runtime in self._runtime.values()
+                    )
+                )
+                if not detached or not stems_supported:
                     return
                 if not self._resume_world:
                     self._finish_initialization(
-                        "attachment backend initialized with all fruits detached"
+                        "attachment backend initialized with grippers detached"
                     )
                     return
                 if self._world_resume_future is not None:
@@ -449,8 +500,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self._world_resume_future = future
             future.add_done_callback(self._on_world_resume)
             self.get_logger().info(
-                "all fruits detached at their initial poses; requesting Gazebo "
-                "physics resume"
+                "all gripper attachments detached and plant supports confirmed; "
+                "requesting Gazebo physics resume"
             )
 
         def _initialize_backend(self) -> None:
@@ -463,7 +514,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 if self._initialization_timer is not None:
                     self._initialization_timer.cancel()
                 self.get_logger().error(
-                    "attachment backend did not confirm a detached startup state; "
+                    "attachment backend did not confirm a safe startup state; "
                     "services remain locked"
                 )
                 return
@@ -471,11 +522,32 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             for runtime in self._runtime.values():
                 if not runtime.state_known or runtime.attached:
                     runtime.detach_publisher.publish(Empty())
+                if self._stem_constraints_enabled and (
+                    not runtime.stem_state_known or not runtime.stem_attached
+                ):
+                    runtime.stem_attach_publisher.publish(Empty())
 
         def _wait_for_state(self, runtime: FruitRuntime, desired: bool) -> bool:
             deadline = time.monotonic() + self._confirmation_timeout
             with runtime.condition:
                 while not (runtime.state_known and runtime.attached is desired):
+                    if self._is_shutting_down():
+                        return False
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0.0:
+                        return False
+                    runtime.condition.wait(timeout=remaining)
+                return True
+
+        def _wait_for_stem_state(
+            self, runtime: FruitRuntime, desired: bool
+        ) -> bool:
+            deadline = time.monotonic() + self._confirmation_timeout
+            with runtime.condition:
+                while not (
+                    runtime.stem_state_known
+                    and runtime.stem_attached is desired
+                ):
                     if self._is_shutting_down():
                         return False
                     remaining = deadline - time.monotonic()
@@ -526,8 +598,17 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 response.message = decision.reason
                 return response
             if already_attached:
-                response.success = True
-                response.message = decision.reason
+                if self._stem_constraints_enabled and runtime.stem_attached:
+                    runtime.stem_detach_publisher.publish(Empty())
+                    response.success = self._wait_for_stem_state(runtime, False)
+                    response.message = (
+                        "Gazebo attachment confirmed and stem released"
+                        if response.success
+                        else "gripper attached but stem release was not confirmed"
+                    )
+                else:
+                    response.success = True
+                    response.message = decision.reason
                 return response
             if geometric_fallback_used:
                 self.get_logger().warn(
@@ -535,11 +616,26 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     "dual-pad contact fallback"
                 )
             runtime.attach_publisher.publish(Empty())
-            response.success = self._wait_for_state(runtime, True)
+            gripper_attached = self._wait_for_state(runtime, True)
+            if not gripper_attached:
+                response.success = False
+                response.message = "no Gazebo attachment confirmation before timeout"
+                return response
+            if self._stem_constraints_enabled:
+                runtime.stem_detach_publisher.publish(Empty())
+                if not self._wait_for_stem_state(runtime, False):
+                    runtime.detach_publisher.publish(Empty())
+                    self._wait_for_state(runtime, False)
+                    response.success = False
+                    response.message = (
+                        "stem release was not confirmed; gripper attachment rolled back"
+                    )
+                    return response
+            response.success = True
             response.message = (
-                "Gazebo attachment confirmed"
-                if response.success
-                else "no Gazebo attachment confirmation before timeout"
+                "Gazebo attachment confirmed and stem released"
+                if self._stem_constraints_enabled
+                else "Gazebo attachment confirmed"
             )
             return response
 

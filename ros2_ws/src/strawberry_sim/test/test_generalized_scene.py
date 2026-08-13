@@ -11,7 +11,10 @@ sys.path.insert(0, str(PACKAGE))
 
 from strawberry_sim.generalized_scene import (  # noqa: E402
     FRUIT_COUNT_RANGE,
+    MIN_INITIAL_STATIC_COLLISION_GAP_M,
     MIN_FRUIT_SEPARATION_M,
+    MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M,
+    _axis_aligned_box_clearance,
     generate_scene,
     materialize_world,
     validate_generated_scene,
@@ -46,6 +49,43 @@ class GeneralizedSceneTests(unittest.TestCase):
         self.assertTrue(all(row["maturity"] == "UNRIPE" for row in negative["fruits"]))
         unsafe = generate_scene(self.base_scene, seed=9, profile="unsafe")
         self.assertTrue(unsafe["evaluation"]["unreachable_ripe_target_ids"])
+
+    def test_generated_fruit_clear_bin_and_use_runtime_reach_margin(self):
+        scene = generate_scene(self.base_scene, seed=17036, profile="mixed")
+        bin_bounds = scene["generator"]["bin_exclusion_bounds_m"]
+        self.assertTrue(
+            any(row["reachable_by_construction"] for row in scene["fruits"])
+        )
+        for row in scene["fruits"]:
+            clearance = _axis_aligned_box_clearance(
+                row["initial_pose_m"], bin_bounds
+            )
+            required = (
+                float(scene["fruit_collision_radius_m"]) * float(row["scale"])
+                + MIN_INITIAL_STATIC_COLLISION_GAP_M
+            )
+            self.assertGreaterEqual(clearance, required)
+        self.assertEqual(
+            scene["generator"]["minimum_static_obstacle_center_clearance_m"],
+            MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M,
+        )
+
+    def test_validator_rejects_initial_bin_collision(self):
+        scene = generate_scene(self.base_scene, seed=17036, profile="mixed")
+        broken = deepcopy(scene)
+        broken["fruits"][0]["initial_pose_m"] = [0.35, -0.23, 0.54]
+        broken["fruits"][0]["reachable_by_construction"] = False
+        with self.assertRaisesRegex(ValueError, "collection bin"):
+            validate_generated_scene(broken)
+
+    def test_validator_rejects_a_forged_reachability_label(self):
+        scene = generate_scene(self.base_scene, seed=17036, profile="mixed")
+        broken = deepcopy(scene)
+        broken["fruits"][0]["reachable_by_construction"] = not bool(
+            broken["fruits"][0]["reachable_by_construction"]
+        )
+        with self.assertRaisesRegex(ValueError, "reachability label"):
+            validate_generated_scene(broken)
 
     def test_position_bands_shift_the_same_seed_reproducibly(self):
         near = generate_scene(self.base_scene, seed=20, profile="mixed", position_band="near")

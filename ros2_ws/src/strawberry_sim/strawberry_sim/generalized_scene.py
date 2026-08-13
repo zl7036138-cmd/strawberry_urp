@@ -24,13 +24,15 @@ import yaml
 
 PLANT_COUNT_RANGE = (1, 3)
 FRUIT_COUNT_RANGE = (2, 3)
-PLANT_X_RANGE_M = (0.39, 0.63)
+PLANT_X_RANGE_M = (0.35, 0.68)
 PLANT_Y_RANGE_M = (-0.21, 0.21)
 PLANT_Z_M = 0.47
 MIN_PLANT_SEPARATION_M = 0.25
 # Blender-v2 uses a 26 mm fruit collision radius.  A 54 mm centre distance
 # preserves a small initial gap without rejecting adjacent authored pedicels.
 MIN_FRUIT_SEPARATION_M = 0.054
+MAX_FRUIT_SCALE = 1.08
+MIN_INITIAL_STATIC_COLLISION_GAP_M = 0.002
 CONSERVATIVE_REACH_BOUNDS_M = {
     "min_x": 0.30,
     "max_x": 0.72,
@@ -39,6 +41,12 @@ CONSERVATIVE_REACH_BOUNDS_M = {
     "min_z": 0.48,
     "max_z": 0.66,
 }
+# Keep the construction-time reachability label aligned with the runtime
+# selector: 50 mm of static-obstacle padding plus the unchanged 20 mm target
+# clearance gate.  A fruit may still be generated near the bin as an explicit
+# unreachable target, but it must never be counted as safely reachable.
+MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M = 0.070
+BIN_INTERIOR_TO_OUTER_PADDING_M = (0.05, 0.05, 0.05, 0.05, 0.03, 0.0)
 
 # Authored pedicel endpoints and fruit orientations, expressed relative to the
 # canonical Blender-v2 plant origin at [0.50, 0.0, 0.47].
@@ -73,12 +81,68 @@ def _inside_reach(position: Sequence[float]) -> bool:
     )
 
 
+def _axis_aligned_box_clearance(
+    position: Sequence[float], bounds: Sequence[float]
+) -> float:
+    if len(position) != 3 or len(bounds) != 6:
+        raise ValueError("position and bounds must contain three and six values")
+    min_x, max_x, min_y, max_y, min_z, max_z = (
+        float(value) for value in bounds
+    )
+    if min_x >= max_x or min_y >= max_y or min_z >= max_z:
+        raise ValueError("axis-aligned bounds are invalid")
+    x, y, z = (float(value) for value in position)
+    deltas = (
+        max(min_x - x, 0.0, x - max_x),
+        max(min_y - y, 0.0, y - max_y),
+        max(min_z - z, 0.0, z - max_z),
+    )
+    return math.sqrt(sum(value * value for value in deltas))
+
+
+def _bin_exclusion_bounds(scene: Mapping[str, Any]) -> tuple[float, ...]:
+    try:
+        interior = scene["bin"]["interior_bounds_m"]
+        values = (
+            float(interior["min_x"]),
+            float(interior["max_x"]),
+            float(interior["min_y"]),
+            float(interior["max_y"]),
+            float(interior["min_z"]),
+            float(interior["max_z"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("scene bin interior bounds are incomplete") from exc
+    padding = BIN_INTERIOR_TO_OUTER_PADDING_M
+    return (
+        values[0] - padding[0],
+        values[1] + padding[1],
+        values[2] - padding[2],
+        values[3] + padding[3],
+        values[4] - padding[4],
+        values[5] + padding[5],
+    )
+
+
+def _reachable_by_construction(
+    position: Sequence[float], bin_exclusion_bounds: Sequence[float]
+) -> bool:
+    return _inside_reach(position) and _axis_aligned_box_clearance(
+        position, bin_exclusion_bounds
+    ) >= MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M
+
+
 def _sample_plant_centres(rng: random.Random, count: int) -> list[tuple[float, float, float]]:
     # A jittered triangular layout guarantees space for the authored fruit
     # slots while still varying every plant transform between seeds.
-    anchors = [(0.40, -0.20), (0.62, 0.0), (0.40, 0.20)]
+    # The bin's back wall occupies y=-0.24..-0.22.  Centring the nearest plant
+    # at y=-0.10 leaves every authored fruit slot outside the wall even after
+    # the bounded pose jitter and maximum fruit scale are applied.
+    anchors = [(0.40, -0.09), (0.67, 0.055), (0.40, 0.20)]
     if rng.random() < 0.5:
-        anchors = [(x, -y) for x, y in anchors]
+        # Reflect about y=0.055 instead of y=0 so the randomized layout keeps
+        # the same bin clearance on both variants.
+        anchors = [(x, 0.11 - y) for x, y in anchors]
     rng.shuffle(anchors)
     centres = [
         (
@@ -135,6 +199,10 @@ def generate_scene(
         raise ValueError("position_band must be near, middle, or far")
 
     rng = random.Random(seed)
+    bin_exclusion_bounds = _bin_exclusion_bounds(base_scene)
+    fruit_collision_radius_m = float(base_scene.get("fruit_collision_radius_m", 0.0))
+    if not math.isfinite(fruit_collision_radius_m) or fruit_collision_radius_m <= 0.0:
+        raise ValueError("fruit collision radius must be positive")
     count = plant_count if plant_count is not None else rng.randint(*PLANT_COUNT_RANGE)
     centres = _sample_plant_centres(rng, count)
     x_shift = {"near": -0.035, "middle": 0.0, "far": 0.035}[position_band]
@@ -170,6 +238,11 @@ def generate_scene(
         for slot_index in slot_indices[:fruit_count]:
             offset, orientation = FRUIT_SLOTS[slot_index]
             rotated_x, rotated_y = _rotate_xy(offset[0], offset[1], yaw)
+            scale = round(rng.uniform(0.92, MAX_FRUIT_SCALE), 6)
+            required_bin_clearance = (
+                fruit_collision_radius_m * scale
+                + MIN_INITIAL_STATIC_COLLISION_GAP_M
+            )
             # Small perturbations exercise localization without detaching the
             # visual fruit from its authored pedicel neighbourhood.
             position = None
@@ -182,7 +255,9 @@ def generate_scene(
                 if all(
                     _distance_xyz(candidate, previous) >= MIN_FRUIT_SEPARATION_M
                     for previous in positions
-                ):
+                ) and _axis_aligned_box_clearance(
+                    candidate, bin_exclusion_bounds
+                ) >= required_bin_clearance:
                     position = candidate
                     break
             if position is None:
@@ -197,7 +272,7 @@ def generate_scene(
                     "slot_id": slot_index + 1,
                     "position": position,
                     "orientation": (orientation[0], orientation[1], orientation[2] + yaw),
-                    "scale": round(rng.uniform(0.92, 1.08), 6),
+                    "scale": scale,
                 }
             )
 
@@ -212,7 +287,7 @@ def generate_scene(
             maturity = "RIPE"
             position[0] = 0.74 + rng.uniform(0.0, 0.03)
             position[1] = rng.choice((-1.0, 1.0)) * rng.uniform(0.32, 0.38)
-        reachable = _inside_reach(position)
+        reachable = _reachable_by_construction(position, bin_exclusion_bounds)
         asset = "strawberry_ripe" if maturity == "RIPE" else "strawberry_unripe"
         fruits.append(
             {
@@ -242,6 +317,13 @@ def generate_scene(
         "plant_count_range": list(PLANT_COUNT_RANGE),
         "fruit_count_per_plant_range": list(FRUIT_COUNT_RANGE),
         "conservative_reach_bounds_m": deepcopy(CONSERVATIVE_REACH_BOUNDS_M),
+        "bin_exclusion_bounds_m": list(bin_exclusion_bounds),
+        "minimum_static_obstacle_center_clearance_m": (
+            MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M
+        ),
+        "minimum_initial_static_collision_gap_m": (
+            MIN_INITIAL_STATIC_COLLISION_GAP_M
+        ),
     }
     result["condition"] = {"occlusion": selected_occlusion, "lighting": light_level}
     result["plants"] = plants
@@ -304,6 +386,44 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
     if any(not FRUIT_COUNT_RANGE[0] <= value <= FRUIT_COUNT_RANGE[1] for value in counts.values()):
         raise ValueError("fruit count per plant is outside the frozen range")
     profile = str(generator.get("profile"))
+    expected_bin_bounds = _bin_exclusion_bounds(scene)
+    recorded_bin_bounds = generator.get("bin_exclusion_bounds_m")
+    if not isinstance(recorded_bin_bounds, list) or len(recorded_bin_bounds) != 6:
+        raise ValueError("generator bin exclusion bounds are missing")
+    if any(
+        not math.isclose(float(actual), expected, abs_tol=1e-9)
+        for actual, expected in zip(recorded_bin_bounds, expected_bin_bounds)
+    ):
+        raise ValueError("generator bin exclusion bounds drifted from the scene")
+    recorded_clearance = float(
+        generator.get("minimum_static_obstacle_center_clearance_m", -1.0)
+    )
+    if not math.isclose(
+        recorded_clearance,
+        MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M,
+        abs_tol=1e-9,
+    ):
+        raise ValueError("generator static-obstacle clearance threshold drifted")
+    for row in fruits:
+        required_bin_clearance = (
+            float(scene.get("fruit_collision_radius_m", 0.0))
+            * float(row.get("scale", 1.0))
+            + MIN_INITIAL_STATIC_COLLISION_GAP_M
+        )
+        if (
+            _axis_aligned_box_clearance(
+                row["initial_pose_m"], expected_bin_bounds
+            )
+            < required_bin_clearance
+        ):
+            raise ValueError("fruit initially collides with the collection bin")
+        expected_reachable = _reachable_by_construction(
+            row["initial_pose_m"], expected_bin_bounds
+        )
+        if bool(row.get("reachable_by_construction")) != expected_reachable:
+            raise ValueError(
+                "fruit reachability label disagrees with reach and bin clearance"
+            )
     if profile == "mixed":
         if sum(row["maturity"] == "RIPE" for row in fruits) < 2 or not any(row["maturity"] == "UNRIPE" for row in fruits):
             raise ValueError("mixed scenes require multiple ripe fruit and one unripe fruit")

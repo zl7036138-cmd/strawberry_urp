@@ -1383,6 +1383,8 @@ class MoveItBackend:
             "GRASP_POSE",
             "GRASP_RETRY_PREP",
             "GRASP_POSE_RETRY",
+            "CONTACT_RETRY_PREP",
+            "CONTACT_RETRY_GRASP",
             "RETREAT",
         } or stage.startswith(("GRASP_RETRY_PREP_", "GRASP_POSE_RETRY_")):
             return self._move_to_segmented(pose)

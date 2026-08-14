@@ -17,28 +17,18 @@ from strawberry_bringup.target_selector import (  # noqa: E402
 
 
 class TargetSelectorWorkspaceTests(unittest.TestCase):
-    def test_new_completion_reselects_from_cached_tracks_once(self):
+    def test_new_completion_is_recorded_once_without_cache_replay(self):
         excluded = set()
 
-        self.assertTrue(
-            register_completed_track(excluded, 4, has_cached_targets=True)
-        )
+        self.assertTrue(register_completed_track(excluded, 4))
         self.assertEqual(excluded, {4})
-        self.assertFalse(
-            register_completed_track(excluded, 4, has_cached_targets=True)
-        )
+        self.assertFalse(register_completed_track(excluded, 4))
 
-    def test_completion_without_cache_or_valid_identity_does_not_reselect(self):
+    def test_invalid_completion_identity_is_not_recorded(self):
         excluded = set()
 
-        self.assertFalse(
-            register_completed_track(excluded, 4, has_cached_targets=False)
-        )
-        self.assertEqual(excluded, {4})
-        self.assertFalse(
-            register_completed_track(excluded, 0, has_cached_targets=True)
-        )
-        self.assertEqual(excluded, {4})
+        self.assertFalse(register_completed_track(excluded, 0))
+        self.assertEqual(excluded, set())
 
     def test_valid_fruit_and_nearer_wrist_view_use_distinct_bounds(self):
         fruit = (0.50, 0.0, 0.55)

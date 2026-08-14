@@ -20,23 +20,14 @@ REACH_BOUNDS = (0.30, 0.72, -0.34, 0.34, 0.48, 0.66)
 OBSERVATION_REACH_BOUNDS = (0.12, 0.78, -0.55, 0.55, 0.30, 0.90)
 
 
-def register_completed_track(
-    excluded: set[int], target_id: int, *, has_cached_targets: bool
-) -> bool:
-    """Record a completed identity and request one fresh-cache reselection.
-
-    A safe next target can be published just before the batch state machine
-    changes from PICKING back to SCANNING.  The orchestrator correctly ignores
-    that out-of-state publication.  Re-running the deterministic selector when
-    the completed identity arrives closes that hand-off window.  The cached
-    tracked-target message still passes the normal age and safety gates.
-    """
+def register_completed_track(excluded: set[int], target_id: int) -> bool:
+    """Record a completed identity without replaying a pre-completion cache."""
 
     identity = int(target_id)
     if identity <= 0 or identity in excluded:
         return False
     excluded.add(identity)
-    return bool(has_cached_targets)
+    return True
 
 
 def geometric_clearance(position, neighbours, fruit_radius_m: float) -> float:
@@ -185,14 +176,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
 
         def _on_completed_track(self, message) -> None:
-            cached = self._latest_targets_message
-            should_reselect = register_completed_track(
-                self._excluded,
-                int(message.data),
-                has_cached_targets=cached is not None,
-            )
-            if should_reselect:
-                self._select_targets(cached)
+            # Selection resumes only when the localizer publishes a new
+            # tracking snapshot. Replaying the pre-completion cache can race
+            # the batch state transition and can never prove a fresh rescan.
+            register_completed_track(self._excluded, int(message.data))
 
         @staticmethod
         def _seconds(stamp) -> float:
@@ -212,6 +199,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     float(item.pose.position.z),
                 )
                 for item in message.targets
+            }
+            messages_by_track_id = {
+                int(item.track_id): item for item in message.targets
             }
             candidates = []
             for item in message.targets:
@@ -297,6 +287,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self._status_publisher.publish(status)
                 return
             selected = ranked[0]
+            selected_message = messages_by_track_id[selected.track_id]
 
             def assess_view(view):
                 reachable = inside_observation_reach(view.position)
@@ -329,7 +320,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             hand_view = hand_views[0]
             target = TargetPose()
-            target.header = message.header
+            target.header = selected_message.header
             target.target_id = selected.track_id
             target.pose.position.x, target.pose.position.y, target.pose.position.z = (
                 selected.position
@@ -338,7 +329,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             target.detection_confidence = selected.confidence
             target.position_sigma_m = selected.sigma_m
             view_message = PoseStamped()
-            view_message.header = message.header
+            view_message.header = selected_message.header
             (
                 view_message.pose.position.x,
                 view_message.pose.position.y,
@@ -351,7 +342,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 view_message.pose.orientation.w,
             ) = hand_view.quaternion_xyzw
             view_plan = ObservationPlan()
-            view_plan.header = message.header
+            view_plan.header = selected_message.header
             view_plan.target_id = selected.track_id
             for candidate in hand_views:
                 pose = Pose()

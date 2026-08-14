@@ -45,7 +45,9 @@ standard topics. Non-acceptance development mode `camera_mount:=dual` removes
 the world camera and publishes two isolated data planes:
 
 - base overview: `/camera/base/*`,
-  `strawberry_base_camera_optical_frame`, 320x240 at 10 simulated Hz;
+  `strawberry_base_camera_optical_frame`, 320x240 at 10 simulated Hz. The
+  generalized development mount is on the opposite side of the plants at mast
+  origin `[-0.35, 0.45, 0.05]` with camera RPY `[0, 0.543, -0.480]`;
 - wrist precision: `/camera/wrist/*`,
   `strawberry_wrist_camera_optical_frame`, 640x480 at 30 simulated Hz.
 
@@ -275,8 +277,9 @@ physics through the world-control service. Attach, detach, and verification
 services remain unavailable until this initialization gate completes.
 
 The deployed `gz_ros2_control` position proportional gain is `1.0`. The arm
-trajectory controller requires every joint to finish within `0.05 rad` and
-allows an eight-second goal-time tolerance. Direct Cartesian execution adds a
+trajectory controller requires every joint to remain and finish within
+`0.05 rad` and allows an eight-second goal-time tolerance. Direct Cartesian
+execution adds a
 25-second wall-time margin to its duration-derived deadline, then checks the
 settled joint state and actual end pose instead of accepting the trajectory
 timestamp alone.

@@ -34,16 +34,15 @@ panda_arm_controller:
     constraints:
       goal_time: 8.0
       stopped_velocity_tolerance: 0.02
-      # The Cartesian endpoint is independently checked at 10 mm / 5 deg.
-      # A 0.05 rad joint gate prevents the old premature success while still
-      # allowing convergence under rigid-contact loads near the table.
-      panda_joint1: {trajectory: 0.50, goal: 0.05}
-      panda_joint2: {trajectory: 0.50, goal: 0.05}
-      panda_joint3: {trajectory: 0.50, goal: 0.05}
-      panda_joint4: {trajectory: 0.50, goal: 0.05}
-      panda_joint5: {trajectory: 0.50, goal: 0.05}
-      panda_joint6: {trajectory: 0.50, goal: 0.05}
-      panda_joint7: {trajectory: 0.50, goal: 0.05}
+      # Keep path and goal error within 0.05 rad. The Cartesian endpoint and a
+      # separate live-joint hard-limit monitor independently fail closed.
+      panda_joint1: {trajectory: 0.05, goal: 0.05}
+      panda_joint2: {trajectory: 0.05, goal: 0.05}
+      panda_joint3: {trajectory: 0.05, goal: 0.05}
+      panda_joint4: {trajectory: 0.05, goal: 0.05}
+      panda_joint5: {trajectory: 0.05, goal: 0.05}
+      panda_joint6: {trajectory: 0.05, goal: 0.05}
+      panda_joint7: {trajectory: 0.05, goal: 0.05}
 
 panda_gripper_controller:
   ros__parameters:

@@ -303,6 +303,20 @@ def newest_pending_detection(pending):
     return pending[max(pending)]
 
 
+def split_stamp_seconds(stamp_sec: float) -> tuple[int, int]:
+    """Convert finite non-negative seconds to a normalized ROS stamp pair."""
+
+    stamp = float(stamp_sec)
+    if not math.isfinite(stamp) or stamp < 0.0:
+        raise ValueError("stamp_sec must be finite and non-negative")
+    seconds = int(math.floor(stamp))
+    nanoseconds = int(round((stamp - seconds) * 1_000_000_000.0))
+    if nanoseconds >= 1_000_000_000:
+        seconds += 1
+        nanoseconds -= 1_000_000_000
+    return seconds, nanoseconds
+
+
 def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
     try:
         import rclpy
@@ -827,8 +841,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             except (TypeError, ValueError) as exc:
                 self.get_logger().error(str(exc))
                 return
-            if not detections:
-                return
             localized = []
             for detection in detections:
                 result = self._process_one_detection(
@@ -838,9 +850,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 if result is not None:
                     localized.append((detection, result))
-            if not localized:
-                return
-
             stamp_sec = self._seconds(message.header.stamp)
             observations = [
                 LocalizedObservation(
@@ -858,10 +867,17 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             ]
             tracks = self._tracker.update(observations, stamp_sec=stamp_sec)
             tracked_array = TrackedTargetArray()
-            tracked_array.header = localized[0][1].header
+            tracked_array.header.stamp = message.header.stamp
+            tracked_array.header.frame_id = str(
+                self.get_parameter("target_frame").value
+            )
             for track in tracks:
                 item = TrackedTarget()
-                item.header = tracked_array.header
+                item.header.frame_id = tracked_array.header.frame_id
+                (
+                    item.header.stamp.sec,
+                    item.header.stamp.nanosec,
+                ) = split_stamp_seconds(track.last_seen_sec)
                 item.track_id = int(track.track_id)
                 item.source_detection_id = int(track.source_detection_id)
                 item.maturity = int(track.maturity)
@@ -898,7 +914,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             if selected is not None:
                 legacy = TargetPose()
-                legacy.header = tracked_array.header
+                legacy.header.frame_id = tracked_array.header.frame_id
+                (
+                    legacy.header.stamp.sec,
+                    legacy.header.stamp.nanosec,
+                ) = split_stamp_seconds(selected.last_seen_sec)
                 legacy.target_id = (
                     int(selected.track_id)
                     if target_hint is None

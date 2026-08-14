@@ -109,6 +109,10 @@ def generate_launch_description():
                         "target_pose_topic": "/strawberry/localization_best_pose",
                         "ground_truth_association_enabled": False,
                         "confidence_threshold": confidence_threshold,
+                        # The 320x240 overview box is quantized more coarsely
+                        # than the wrist image.  Depth-layer ambiguity still
+                        # fails closed before this bounded residual calibration.
+                        "geometry_size_residual_sigma_weight": 0.5,
                     },
                 ],
             ),

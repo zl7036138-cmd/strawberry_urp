@@ -377,6 +377,14 @@ class SimulationAssetTests(unittest.TestCase):
             "joint[@name='panda_base_camera_mast_joint']"
         )
         self.assertEqual(mast_joint.find("parent").attrib["link"], "panda_link0")
+        self.assertEqual(
+            mast_joint.find("origin").attrib,
+            {"xyz": "-0.35 0.45 0.05", "rpy": "0 0 0"},
+        )
+        base_camera = next(
+            call for call in mount_calls if call.attrib["topic"] == "/camera/base"
+        )
+        self.assertEqual(base_camera.attrib["rpy"], "0 0.543 -0.480")
 
     def test_panda_has_gazebo_control_contact_and_attachment_plugins(self):
         root = ET.parse(PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro").getroot()
@@ -431,7 +439,7 @@ class SimulationAssetTests(unittest.TestCase):
         self.assertEqual(constraints["stopped_velocity_tolerance"], 0.02)
         for joint_name in parameters["joints"]:
             self.assertEqual(constraints[joint_name]["goal"], 0.05)
-            self.assertEqual(constraints[joint_name]["trajectory"], 0.50)
+            self.assertEqual(constraints[joint_name]["trajectory"], 0.05)
 
     def test_gripper_stall_window_allows_first_measured_motion(self):
         config = yaml.safe_load(

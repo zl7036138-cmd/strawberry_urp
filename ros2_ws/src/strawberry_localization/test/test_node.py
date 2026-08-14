@@ -27,10 +27,17 @@ from strawberry_localization.generalized_node import (  # noqa: E402
     newest_pending_detection,
     select_candidate_detections,
     select_stable_ripe_track,
+    split_stamp_seconds,
 )
 
 
 class LocalizationNodeInputSelectionTests(unittest.TestCase):
+    def test_track_last_seen_stamp_conversion_is_normalized(self):
+        self.assertEqual(split_stamp_seconds(12.25), (12, 250_000_000))
+        self.assertEqual(split_stamp_seconds(1.9999999996), (2, 0))
+        with self.assertRaises(ValueError):
+            split_stamp_seconds(-0.1)
+
     @staticmethod
     def detection(
         target_id: int,

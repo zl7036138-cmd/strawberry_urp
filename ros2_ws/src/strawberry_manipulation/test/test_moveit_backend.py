@@ -40,6 +40,26 @@ class MoveItBackendStaticTests(unittest.TestCase):
         violation = joint_limit_margin_violation(at_joint_five_limit, 0.01)
         self.assertEqual(violation[0], 5)
 
+    def test_arm_result_wait_aborts_on_live_joint_limit_excursion(self):
+        class PendingFuture:
+            def add_done_callback(self, callback):
+                self.callback = callback
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.execution_joint_limit_margin_rad = 0.02
+        backend._latest_live_arm_positions = lambda: (
+            1,
+            (0.0, -1.75, 0.0, -1.5, 0.0, 1.5, 0.0),
+        )
+
+        self.assertIsNone(
+            backend._wait_arm_trajectory_result(PendingFuture(), 1.0)
+        )
+        self.assertTrue(backend._arm_trajectory_limit_abort)
+        self.assertIn("live arm limit monitor", logger.errors[-1])
+
     def test_bin_verification_uses_dedicated_wall_timeout(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.contact_resolved_attachment = True
@@ -58,6 +78,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
     class Logger:
         def __init__(self):
             self.errors = []
+            self.warnings = []
 
         def error(self, message):
             self.errors.append(message)
@@ -66,7 +87,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
             pass
 
         def warning(self, message):
-            pass
+            self.warnings.append(message)
 
     @classmethod
     def lifecycle_backend(cls):
@@ -183,6 +204,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend._gripper = client
         backend._gripper_secondary = client
         backend.request_timeout_sec = 1.0
+        backend.gripper_result_timeout_sec = 2.0
         backend.gripper_joint = "panda_finger_joint1"
         backend.gripper_secondary_joint = "panda_finger_joint2"
         backend.gripper_joints = (
@@ -200,6 +222,52 @@ class MoveItBackendStaticTests(unittest.TestCase):
         }
 
         self.assertTrue(backend._gripper_command(0.04))
+
+    def test_dual_gripper_results_share_one_bounded_deadline(self):
+        class Goal:
+            def __init__(self):
+                self.command = SimpleNamespace(name=[], position=[], effort=[])
+
+        class PendingFuture:
+            def add_done_callback(self, callback):
+                del callback
+
+        handle = SimpleNamespace(
+            accepted=True,
+            get_result_async=lambda: PendingFuture(),
+        )
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._ParallelGripperCommand = SimpleNamespace(Goal=Goal)
+        client = SimpleNamespace(
+            wait_for_server=lambda timeout_sec: True,
+            send_goal_async=lambda goal: FakeFuture(handle),
+        )
+        backend._gripper = client
+        backend._gripper_secondary = client
+        backend.request_timeout_sec = 1.0
+        backend.gripper_result_timeout_sec = 4.0
+        backend.gripper_joint = "panda_finger_joint1"
+        backend.gripper_secondary_joint = "panda_finger_joint2"
+        backend.max_effort_n = 40.0
+        waits = []
+
+        def wait_future(future, timeout_sec):
+            if isinstance(future, FakeFuture):
+                return future.result()
+            waits.append(timeout_sec)
+            return None
+
+        backend._wait_future = wait_future
+        monotonic_values = iter((10.0, 11.0, 13.5))
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            side_effect=lambda: next(monotonic_values),
+        ):
+            self.assertFalse(backend._gripper_command(0.022))
+
+        self.assertEqual(waits, [3.0, 0.5])
 
     def test_close_gripper_retries_one_no_travel_result(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -802,6 +870,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.preview_guarded_approach = lambda *args: PathAssessment(
             True, False, 0.07, 0.2, (0.4, 0.5)
         )
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: True
         backend._execute_joint_path = lambda start, path: (True, 0.3)
         backend._wait_until_arm_settled = lambda: True
 
@@ -826,6 +895,27 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertTrue(outcome.success)
         self.assertAlmostEqual(outcome.planning_time_sec, 0.18)
         self.assertAlmostEqual(outcome.execution_time_sec, 0.3)
+
+    def test_observation_rejects_path_without_larger_limit_margin(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.observation_joint_limit_margin_rad = 0.02
+        pose = Pose(0.28, 0.0, 0.72, qy=1.0, qw=0.0)
+        positions = ((0.0,) * 7, (0.0, -1.75, 0.0, -1.5, 0.0, 1.5, 0.0))
+        backend._plan_joint_path_to_pose = lambda _pose: (
+            positions,
+            PathAssessment(True, False, 0.1, 0.2, positions[-1], pose),
+        )
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: False
+        backend.preview_guarded_approach = lambda *args: self.fail(
+            "unsafe observation path reached connected preview"
+        )
+
+        outcome = backend.move_to_observation_if_approach_feasible(pose, pose)
+
+        self.assertFalse(outcome.success)
+        self.assertIn("observation-specific limit margin", logger.warnings[-1])
 
     def test_home_uses_bounded_direct_action_path(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -1117,6 +1207,51 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertFalse(succeeded)
         self.assertEqual(execution_time, 0.0)
         self.assertIn("planned start differs from fresh live joints", logger.errors[-1])
+
+    def test_settle_gate_rejects_slow_drift_across_complete_window(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend.settle_timeout_sec = 0.8
+        backend.settle_window_sec = 0.4
+        backend.settle_sample_period_sec = 0.05
+        backend.settle_delta_rad = 0.002
+        backend.settle_stable_samples = 3
+        samples = iter(
+            (index, (0.001 * index,))
+            for index in range(1, 30)
+        )
+        backend._latest_live_arm_positions = lambda: next(samples)
+        clock = iter(index * 0.05 for index in range(100))
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            side_effect=lambda: next(clock),
+        ), patch("strawberry_manipulation.moveit_backend.time.sleep"):
+            self.assertFalse(backend._wait_until_arm_settled())
+
+        self.assertIn("did not settle", logger.errors[-1])
+
+    def test_settle_gate_accepts_fresh_samples_stable_for_complete_window(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.settle_timeout_sec = 1.0
+        backend.settle_window_sec = 0.4
+        backend.settle_sample_period_sec = 0.05
+        backend.settle_delta_rad = 0.002
+        backend.settle_stable_samples = 3
+        samples = iter(
+            (index, (0.5 + (0.0001 if index % 2 else 0.0),))
+            for index in range(1, 30)
+        )
+        backend._latest_live_arm_positions = lambda: next(samples)
+        clock = iter(index * 0.05 for index in range(100))
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            side_effect=lambda: next(clock),
+        ), patch("strawberry_manipulation.moveit_backend.time.sleep"):
+            self.assertTrue(backend._wait_until_arm_settled())
 
     def test_joint_path_rejects_excessive_nominal_duration_before_goal(self):
         backend = MoveItBackend.__new__(MoveItBackend)

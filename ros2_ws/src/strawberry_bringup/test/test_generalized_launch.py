@@ -22,7 +22,9 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             '"target_hint_topic": "/strawberry/wrist/target_hint"', self.source
         )
         self.assertIn('"require_target_hint": True', self.source)
-        self.assertIn('"geometry_size_residual_sigma_weight": 0.5', self.source)
+        self.assertEqual(
+            self.source.count('"geometry_size_residual_sigma_weight": 0.5'), 2
+        )
         self.assertIn('"completed_track_topic": ""', self.source)
 
     def test_generalized_control_disables_truth_association(self):

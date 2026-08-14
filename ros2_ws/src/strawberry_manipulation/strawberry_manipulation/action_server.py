@@ -130,6 +130,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter("gripper_max_effort_n", 40.0)
             self.declare_parameter("request_timeout_sec", 5.0)
+            self.declare_parameter("gripper_result_timeout_sec", 15.0)
             self.declare_parameter("bin_verification_timeout_sec", 15.0)
             self.declare_parameter("startup_timeout_sec", 30.0)
             # The trajectory controller may spend up to eight seconds after
@@ -147,8 +148,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter("joint_trajectory_start_tolerance_rad", 0.05)
             self.declare_parameter("minimum_joint_limit_margin_rad", 0.01)
+            self.declare_parameter("observation_joint_limit_margin_rad", 0.02)
+            self.declare_parameter("execution_joint_limit_margin_rad", 0.02)
             self.declare_parameter("minimum_joint_waypoint_duration_sec", 0.05)
             self.declare_parameter("settle_timeout_sec", 1.5)
+            self.declare_parameter("settle_window_sec", 0.5)
             self.declare_parameter("settle_sample_period_sec", 0.05)
             self.declare_parameter("settle_delta_rad", 0.002)
             self.declare_parameter("settle_stable_samples", 3)
@@ -312,6 +316,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 request_timeout_sec=float(
                     self.get_parameter("request_timeout_sec").value
                 ),
+                gripper_result_timeout_sec=float(
+                    self.get_parameter("gripper_result_timeout_sec").value
+                ),
                 bin_verification_timeout_sec=float(
                     self.get_parameter("bin_verification_timeout_sec").value
                 ),
@@ -351,11 +358,20 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 minimum_joint_limit_margin_rad=float(
                     self.get_parameter("minimum_joint_limit_margin_rad").value
                 ),
+                observation_joint_limit_margin_rad=float(
+                    self.get_parameter("observation_joint_limit_margin_rad").value
+                ),
+                execution_joint_limit_margin_rad=float(
+                    self.get_parameter("execution_joint_limit_margin_rad").value
+                ),
                 minimum_joint_waypoint_duration_sec=float(
                     self.get_parameter("minimum_joint_waypoint_duration_sec").value
                 ),
                 settle_timeout_sec=float(
                     self.get_parameter("settle_timeout_sec").value
+                ),
+                settle_window_sec=float(
+                    self.get_parameter("settle_window_sec").value
                 ),
                 settle_sample_period_sec=float(
                     self.get_parameter("settle_sample_period_sec").value

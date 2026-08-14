@@ -36,6 +36,24 @@ def test_moveit_controller_matches_gazebo_arm_controller():
     assert len(manager["panda_arm_controller"]["joints"]) == 7
 
 
+def test_arm_controller_keeps_strict_bounded_tracking_tolerances():
+    controllers = yaml.safe_load(
+        (
+            PACKAGE_ROOT.parent
+            / "strawberry_sim"
+            / "config"
+            / "panda_controllers.yaml"
+        ).read_text()
+    )
+    constraints = controllers["panda_arm_controller"]["ros__parameters"][
+        "constraints"
+    ]
+    for joint_index in range(1, 8):
+        tolerance = constraints[f"panda_joint{joint_index}"]
+        assert tolerance["goal"] == 0.05
+        assert tolerance["trajectory"] == 0.05
+
+
 def test_moveit_py_uses_sim_time_and_bounded_planning():
     config = yaml.safe_load((CONFIG / "moveit_py.yaml").read_text())
     assert config["use_sim_time"] is True

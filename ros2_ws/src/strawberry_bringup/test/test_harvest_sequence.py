@@ -11,6 +11,7 @@ from strawberry_bringup.harvest_orchestrator import (  # noqa: E402
     DROP_SLOT_OFFSETS,
     build_scan_diagnostics,
     drop_position_for_harvest_index,
+    observation_is_after_barrier,
 )
 
 
@@ -73,6 +74,8 @@ class HarvestSequenceTests(unittest.TestCase):
             completed_ids={1},
             track_snapshot_age_wall_sec=0.25,
             selection_status_age_wall_sec=0.50,
+            fresh_scan_required=True,
+            fresh_tracking_snapshot_received=True,
         )
 
         self.assertEqual(diagnostics["visible_track_count"], 2)
@@ -80,10 +83,22 @@ class HarvestSequenceTests(unittest.TestCase):
         self.assertEqual(diagnostics["completed_target_ids"], [1])
         self.assertEqual(diagnostics["track_snapshot_age_wall_sec"], 0.25)
         self.assertEqual(diagnostics["selection_status_age_wall_sec"], 0.50)
+        self.assertTrue(diagnostics["fresh_scan_required"])
+        self.assertTrue(diagnostics["fresh_tracking_snapshot_received"])
         self.assertEqual(
             diagnostics["latest_selection_status"]["rejections"][0]["track_id"],
             2,
         )
+
+    def test_post_motion_barrier_rejects_cached_and_accepts_new_observation(self):
+        class Stamp:
+            def __init__(self, sec, nanosec):
+                self.sec = sec
+                self.nanosec = nanosec
+
+        self.assertFalse(observation_is_after_barrier(Stamp(12, 500), 12.0000005))
+        self.assertTrue(observation_is_after_barrier(Stamp(12, 501), 12.0000005))
+        self.assertTrue(observation_is_after_barrier(Stamp(1, 0), None))
 
     def test_multiple_targets_continue_until_scan_finishes(self):
         sequence = HarvestSequence()

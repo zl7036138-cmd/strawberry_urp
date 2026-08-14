@@ -63,6 +63,8 @@ def build_scan_diagnostics(
     completed_ids,
     track_snapshot_age_wall_sec: float | None = None,
     selection_status_age_wall_sec: float | None = None,
+    fresh_scan_required: bool = False,
+    fresh_tracking_snapshot_received: bool = False,
 ) -> dict:
     """Build a compact, truth-free explanation of the latest global scan."""
 
@@ -82,7 +84,21 @@ def build_scan_diagnostics(
             None if selection_status is None else dict(selection_status)
         ),
         "selection_status_age_wall_sec": selection_status_age_wall_sec,
+        "fresh_scan_required": bool(fresh_scan_required),
+        "fresh_tracking_snapshot_received": bool(
+            fresh_tracking_snapshot_received
+        ),
     }
+
+
+def stamp_seconds(stamp) -> float:
+    return float(stamp.sec) + 1e-9 * float(stamp.nanosec)
+
+
+def observation_is_after_barrier(stamp, barrier_sec: float | None) -> bool:
+    """Require a strictly post-barrier observation when a rescan is active."""
+
+    return barrier_sec is None or stamp_seconds(stamp) > float(barrier_sec)
 
 
 def main(args=None) -> None:  # pragma: no cover - ROS integration
@@ -105,6 +121,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
         def __init__(self) -> None:
             super().__init__("strawberry_harvest_orchestrator")
             self.declare_parameter("scan_timeout_sec", 3.0)
+            self.declare_parameter("post_motion_scan_timeout_sec", 6.0)
             self.declare_parameter("wrist_confirmation_timeout_sec", 3.0)
             self.declare_parameter("wrist_max_correction_m", 0.05)
             self.declare_parameter("wrist_min_confidence", 0.60)
@@ -146,6 +163,8 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._last_selection_status = None
             self._last_selection_status_monotonic = None
             self._last_wrist_rejection_reason = None
+            self._fresh_scan_barrier_sec = None
+            self._fresh_tracking_snapshot_received = False
             self._status = self.create_publisher(String, "/strawberry/harvest_status", 10)
             self._completed = self.create_publisher(UInt32, "/strawberry/completed_track_id", 10)
             self._wrist_target_hint = self.create_publisher(
@@ -209,7 +228,22 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
 
         def _arm_scan_timer(self) -> None:
             self._cancel_timer("_scan_timer")
-            self._scan_timer = self.create_timer(float(self.get_parameter("scan_timeout_sec").value), self._scan_timeout, callback_group=self._group)
+            parameter = (
+                "post_motion_scan_timeout_sec"
+                if self._fresh_scan_barrier_sec is not None
+                else "scan_timeout_sec"
+            )
+            self._scan_timer = self.create_timer(
+                float(self.get_parameter(parameter).value),
+                self._scan_timeout,
+                callback_group=self._group,
+            )
+
+        def _require_fresh_scan(self) -> None:
+            self._fresh_scan_barrier_sec = (
+                float(self.get_clock().now().nanoseconds) * 1e-9
+            )
+            self._fresh_tracking_snapshot_received = False
 
         def _scan_diagnostics(self) -> dict:
             now = time.monotonic()
@@ -226,6 +260,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     None
                     if self._last_selection_status_monotonic is None
                     else max(0.0, now - self._last_selection_status_monotonic)
+                ),
+                fresh_scan_required=self._fresh_scan_barrier_sec is not None,
+                fresh_tracking_snapshot_received=(
+                    self._fresh_tracking_snapshot_received
                 ),
             )
 
@@ -258,13 +296,18 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._last_selection_status = None
             self._last_selection_status_monotonic = None
             self._recovery_home_in_progress = False
-            self._arm_scan_timer()
+            self._require_fresh_scan()
             self._publish("STARTED")
+            self._arm_scan_timer()
             response.success = True
             response.message = "continuous harvest started"
             return response
 
         def _on_tracks(self, message) -> None:
+            if observation_is_after_barrier(
+                message.header.stamp, self._fresh_scan_barrier_sec
+            ):
+                self._fresh_tracking_snapshot_received = True
             self._last_candidate_ids = {int(item.track_id) for item in message.targets if int(item.maturity) == int(item.RIPE)}
             self._last_track_diagnostics = [
                 {
@@ -273,6 +316,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     "confidence": float(item.detection_confidence),
                     "sigma_m": float(item.position_sigma_m),
                     "observation_count": int(item.observation_count),
+                    "last_seen_sec": stamp_seconds(item.header.stamp),
                     "position_m": [
                         float(item.pose.position.x),
                         float(item.pose.position.y),
@@ -309,6 +353,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             if (
                 self._sequence.state is not HarvestState.SCANNING
                 or self._recovery_home_in_progress
+            ):
+                return
+            if not observation_is_after_barrier(
+                target.header.stamp, self._fresh_scan_barrier_sec
             ):
                 return
             target_id = int(target.target_id)
@@ -357,6 +405,8 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 self.get_logger().warning(str(exc))
                 self._arm_scan_timer()
                 return
+            self._fresh_scan_barrier_sec = None
+            self._fresh_tracking_snapshot_received = False
             self._current_target = target
             self._current_goal_pose = target.pose
             self._current_views = views
@@ -748,6 +798,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             target_id = self._sequence.current_target_id
             self._sequence.pick_result(bool(result.success), str(result.message), int(result.failure_code))
             if result.success:
+                if not self._sequence.terminal:
+                    # Close the SCANNING hand-off race before publishing the
+                    # completion tombstone or accepting any selector output.
+                    self._require_fresh_scan()
                 self._distinct_reobservation_targets.discard(int(target_id))
                 self._last_observation_position_by_target.pop(int(target_id), None)
                 completed = UInt32()
@@ -825,8 +879,9 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             if not success:
                 self._finish_after_recovery_home_failure(detail)
                 return
-            self._publish("GLOBAL_SCAN_HOME_REACHED")
+            self._publish("RECOVERY_HOME_REACHED")
             if not self._sequence.terminal:
+                self._require_fresh_scan()
                 self._arm_scan_timer()
 
         def _finish_after_recovery_home_failure(self, detail: str) -> None:
@@ -859,7 +914,14 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 )
                 self._arm_scan_timer()
                 return
-            outcome = self._sequence.finish("no additional safe target before timeout")
+            if (
+                self._fresh_scan_barrier_sec is not None
+                and not self._fresh_tracking_snapshot_received
+            ):
+                detail = "no fresh post-motion tracking snapshot before timeout"
+            else:
+                detail = "no additional safe target before timeout"
+            outcome = self._sequence.finish(detail)
             self._publish(outcome, diagnostics=self._scan_diagnostics())
 
     rclpy.init(args=args)

@@ -131,6 +131,7 @@ class MoveItBackend:
         gripper_position_tolerance_m: float = 0.003,
         max_effort_n: float = 40.0,
         request_timeout_sec: float = 5.0,
+        gripper_result_timeout_sec: float = 15.0,
         bin_verification_timeout_sec: float = 15.0,
         startup_timeout_sec: float = 30.0,
         trajectory_timeout_margin_sec: float = 25.0,
@@ -142,8 +143,11 @@ class MoveItBackend:
         home_joint_trajectory_segment_duration_sec: float = 4.0,
         joint_trajectory_start_tolerance_rad: float = 0.05,
         minimum_joint_limit_margin_rad: float = 0.01,
+        observation_joint_limit_margin_rad: float = 0.02,
+        execution_joint_limit_margin_rad: float = 0.02,
         minimum_joint_waypoint_duration_sec: float = 0.05,
         settle_timeout_sec: float = 1.5,
+        settle_window_sec: float = 0.5,
         settle_sample_period_sec: float = 0.05,
         settle_delta_rad: float = 0.002,
         settle_stable_samples: int = 3,
@@ -208,6 +212,11 @@ class MoveItBackend:
         if request_timeout_sec <= 0.0:
             raise ValueError("request timeout must be positive")
         if (
+            not math.isfinite(gripper_result_timeout_sec)
+            or gripper_result_timeout_sec <= 0.0
+        ):
+            raise ValueError("gripper result timeout must be positive")
+        if (
             not math.isfinite(bin_verification_timeout_sec)
             or bin_verification_timeout_sec <= 0.0
         ):
@@ -251,11 +260,22 @@ class MoveItBackend:
             or not math.isfinite(minimum_joint_limit_margin_rad)
             or minimum_joint_limit_margin_rad <= 0.0
             or minimum_joint_limit_margin_rad >= 0.05
+            or not math.isfinite(observation_joint_limit_margin_rad)
+            or observation_joint_limit_margin_rad < minimum_joint_limit_margin_rad
+            or observation_joint_limit_margin_rad >= 0.10
+            or not math.isfinite(execution_joint_limit_margin_rad)
+            or execution_joint_limit_margin_rad < minimum_joint_limit_margin_rad
+            or execution_joint_limit_margin_rad >= 0.10
             or not math.isfinite(minimum_joint_waypoint_duration_sec)
             or minimum_joint_waypoint_duration_sec <= 0.0
         ):
             raise ValueError("joint trajectory timing parameters must be positive")
-        if settle_timeout_sec <= 0.0 or settle_sample_period_sec <= 0.0:
+        if (
+            settle_timeout_sec <= 0.0
+            or settle_window_sec <= 0.0
+            or settle_window_sec >= settle_timeout_sec
+            or settle_sample_period_sec <= 0.0
+        ):
             raise ValueError("settling timeouts must be positive")
         if settle_delta_rad <= 0.0 or settle_stable_samples <= 0:
             raise ValueError("settling threshold and sample count must be positive")
@@ -323,6 +343,7 @@ class MoveItBackend:
         self.gripper_position_tolerance_m = float(gripper_position_tolerance_m)
         self.max_effort_n = float(max_effort_n)
         self.request_timeout_sec = float(request_timeout_sec)
+        self.gripper_result_timeout_sec = float(gripper_result_timeout_sec)
         self.bin_verification_timeout_sec = float(bin_verification_timeout_sec)
         self.startup_timeout_sec = float(startup_timeout_sec)
         self.trajectory_timeout_margin_sec = float(trajectory_timeout_margin_sec)
@@ -346,10 +367,17 @@ class MoveItBackend:
             joint_trajectory_start_tolerance_rad
         )
         self.minimum_joint_limit_margin_rad = float(minimum_joint_limit_margin_rad)
+        self.observation_joint_limit_margin_rad = float(
+            observation_joint_limit_margin_rad
+        )
+        self.execution_joint_limit_margin_rad = float(
+            execution_joint_limit_margin_rad
+        )
         self.minimum_joint_waypoint_duration_sec = float(
             minimum_joint_waypoint_duration_sec
         )
         self.settle_timeout_sec = float(settle_timeout_sec)
+        self.settle_window_sec = float(settle_window_sec)
         self.settle_sample_period_sec = float(settle_sample_period_sec)
         self.settle_delta_rad = float(settle_delta_rad)
         self.settle_stable_samples = int(settle_stable_samples)
@@ -1099,7 +1127,10 @@ class MoveItBackend:
         return True
 
     def _joint_path_within_limit_margin(
-        self, positions: tuple[tuple[float, ...], ...]
+        self,
+        positions: tuple[tuple[float, ...], ...],
+        *,
+        margin_rad: float | None = None,
     ) -> bool:
         if not all(
             len(values) == len(PANDA_ARM_JOINT_LIMITS_RAD) for values in positions
@@ -1108,7 +1139,11 @@ class MoveItBackend:
         for waypoint_index, values in enumerate(positions):
             violation = joint_limit_margin_violation(
                 values,
-                getattr(self, "minimum_joint_limit_margin_rad", 0.01),
+                (
+                    getattr(self, "minimum_joint_limit_margin_rad", 0.01)
+                    if margin_rad is None
+                    else float(margin_rad)
+                ),
             )
             if violation is not None:
                 joint_index, value, lower, upper = violation
@@ -1120,6 +1155,44 @@ class MoveItBackend:
                 )
                 return False
         return True
+
+    def _wait_arm_trajectory_result(self, future, timeout_sec: float):
+        """Wait while fail-closing on a fresh live-joint limit excursion."""
+
+        self._arm_trajectory_limit_abort = False
+        event = threading.Event()
+        future.add_done_callback(lambda _: event.set())
+        deadline = time.monotonic() + float(timeout_sec)
+        previous_sequence = None
+        while True:
+            live = self._latest_live_arm_positions()
+            if live is not None:
+                sequence, positions = live
+                if sequence != previous_sequence:
+                    previous_sequence = sequence
+                    violation = joint_limit_margin_violation(
+                        positions,
+                        getattr(self, "execution_joint_limit_margin_rad", 0.02),
+                    )
+                    if violation is not None:
+                        self._arm_trajectory_limit_abort = True
+                        joint_index, value, lower, upper = violation
+                        self.node.get_logger().error(
+                            "live arm limit monitor rejected trajectory: "
+                            f"panda_joint{joint_index} reached {value:.6f} rad "
+                            f"outside the execution [{lower:.6f}, {upper:.6f}] "
+                            "rad bounds"
+                        )
+                        return None
+            if event.is_set():
+                try:
+                    return future.result()
+                except Exception:
+                    return None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.0:
+                return None
+            event.wait(min(0.01, remaining))
 
     def _joint_path_nominal_duration(
         self,
@@ -1182,7 +1255,8 @@ class MoveItBackend:
         """Wait for consecutive fresh, low-delta joint samples before replanning."""
 
         deadline = time.monotonic() + self.settle_timeout_sec
-        previous = None
+        anchor = None
+        anchor_monotonic = None
         previous_sequence = None
         stable_samples = 0
         while time.monotonic() < deadline:
@@ -1201,17 +1275,28 @@ class MoveItBackend:
                             self.planning_group
                         )
                     )
-            if previous is not None and len(positions) == len(previous):
+            sample_monotonic = time.monotonic()
+            if anchor is not None and len(positions) == len(anchor):
                 maximum_delta = max(
-                    abs(current - prior) for current, prior in zip(positions, previous)
+                    abs(current - initial) for current, initial in zip(positions, anchor)
                 )
                 if maximum_delta <= self.settle_delta_rad:
                     stable_samples += 1
-                    if stable_samples >= self.settle_stable_samples:
+                    if (
+                        stable_samples >= self.settle_stable_samples
+                        and anchor_monotonic is not None
+                        and sample_monotonic - anchor_monotonic
+                        >= self.settle_window_sec
+                    ):
                         return True
                 else:
-                    stable_samples = 0
-            previous = positions
+                    anchor = positions
+                    anchor_monotonic = sample_monotonic
+                    stable_samples = 1
+            else:
+                anchor = positions
+                anchor_monotonic = sample_monotonic
+                stable_samples = 1
             time.sleep(self.settle_sample_period_sec)
         self.node.get_logger().error(
             "Panda arm did not settle before the next planning request"
@@ -1497,6 +1582,13 @@ class MoveItBackend:
             if velocity_rad_per_sec is None
             else float(velocity_rad_per_sec)
         )
+        if not self._joint_path_within_limit_margin(
+            all_positions,
+            margin_rad=getattr(
+                self, "execution_joint_limit_margin_rad", 0.02
+            ),
+        ):
+            return False, 0.0
         if not self._joint_path_within_safety_limits(
             all_positions,
             velocity_rad_per_sec=velocity,
@@ -1543,16 +1635,17 @@ class MoveItBackend:
         )
         if goal_handle is None or not goal_handle.accepted:
             return False, time.perf_counter() - execution_started
-        wrapped = self._wait_future(
+        wrapped = self._wait_arm_trajectory_result(
             goal_handle.get_result_async(),
             4.0 * elapsed + self.trajectory_timeout_margin_sec,
         )
         execution_time = time.perf_counter() - execution_started
         if wrapped is None:
-            self.node.get_logger().error(
-                "Cartesian arm trajectory exceeded its wall-time deadline; "
-                "requesting cancellation"
-            )
+            if not getattr(self, "_arm_trajectory_limit_abort", False):
+                self.node.get_logger().error(
+                    "Cartesian arm trajectory exceeded its wall-time deadline; "
+                    "requesting cancellation"
+                )
             cancel_future = goal_handle.cancel_goal_async()
             self._wait_future(cancel_future, self.request_timeout_sec)
             return False, execution_time
@@ -1803,6 +1896,22 @@ class MoveItBackend:
                 0.0,
                 collision=observation.collision,
             )
+        if not self._joint_path_within_limit_margin(
+            positions,
+            margin_rad=getattr(
+                self, "observation_joint_limit_margin_rad", 0.02
+            ),
+        ):
+            self.node.get_logger().warning(
+                "Wrist observation rejected before motion: its joint path "
+                "does not preserve the observation-specific limit margin"
+            )
+            return MotionOutcome(
+                False,
+                observation.planning_time_sec,
+                0.0,
+                collision=False,
+            )
         continuation = self.preview_guarded_approach(
             observation.end_pose or observation_pose,
             observation.end_joint_positions,
@@ -1968,7 +2077,13 @@ class MoveItBackend:
             execution_time,
         )
 
-    def _move_to_named_configuration_direct(self, configuration: str) -> MotionOutcome:
+    def _move_to_named_configuration_direct(
+        self,
+        configuration: str,
+        *,
+        expected_joint_positions_rad: tuple[float, ...] | None = None,
+        velocity_rad_per_sec: float | None = None,
+    ) -> MotionOutcome:
         """Plan a named posture and execute it through the bounded arm client.
 
         Recovery and final-home motions must not depend on MoveItPy's
@@ -1995,8 +2110,12 @@ class MoveItBackend:
         waypoint_count = len(trajectory)
         if waypoint_count < 2:
             current = self._current_joint_positions()
-            expected = self.home_joint_positions_rad
-            already_at_home = (
+            expected = (
+                self.home_joint_positions_rad
+                if expected_joint_positions_rad is None
+                else expected_joint_positions_rad
+            )
+            already_at_configuration = (
                 expected is not None
                 and len(current) == len(expected)
                 and all(
@@ -2004,15 +2123,15 @@ class MoveItBackend:
                     for observed, target in zip(current, expected)
                 )
             )
-            if already_at_home:
+            if already_at_configuration:
                 self.node.get_logger().info(
                     "MoveIt returned a stationary named-configuration plan; "
-                    "live joints independently confirm the home posture"
+                    "live joints independently confirm the requested posture"
                 )
                 return MotionOutcome(True, planning_time, 0.0)
             self.node.get_logger().error(
                 "MoveIt named-configuration plan contains fewer than two "
-                "waypoints and live joints do not confirm home"
+                "waypoints and live joints do not confirm the requested posture"
             )
             return MotionOutcome(False, planning_time, 0.0)
         positions = tuple(
@@ -2029,7 +2148,11 @@ class MoveItBackend:
                 "MoveIt named-configuration plan has an invalid arm state"
             )
             return MotionOutcome(False, planning_time, 0.0)
-        velocity = self.home_joint_trajectory_velocity_rad_per_sec
+        velocity = (
+            self.home_joint_trajectory_velocity_rad_per_sec
+            if velocity_rad_per_sec is None
+            else float(velocity_rad_per_sec)
+        )
         # Validate the complete plan before partitioning so segmentation cannot
         # bypass the global point, travel, duration, or joint-limit bounds.
         if not self._joint_path_within_safety_limits(
@@ -2141,10 +2264,16 @@ class MoveItBackend:
                 return False
             goal_handles.append((joint_name, goal_handle))
 
+        pending_results = [
+            (joint_name, goal_handle.get_result_async())
+            for joint_name, goal_handle in goal_handles
+        ]
         accepted = True
-        for joint_name, goal_handle in goal_handles:
+        result_deadline = time.monotonic() + self.gripper_result_timeout_sec
+        for joint_name, result_future in pending_results:
+            remaining = max(0.0, result_deadline - time.monotonic())
             wrapped = self._wait_future(
-                goal_handle.get_result_async(), self.request_timeout_sec
+                result_future, remaining
             )
             if wrapped is None:
                 self.node.get_logger().error(

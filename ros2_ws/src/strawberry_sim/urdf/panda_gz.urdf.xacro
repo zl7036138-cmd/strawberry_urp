@@ -127,7 +127,9 @@
     <joint name="panda_base_camera_mast_joint" type="fixed">
       <parent link="panda_link0"/>
       <child link="strawberry_base_camera_mast"/>
-      <origin xyz="-0.10 -0.42 0.05" rpy="0 0 0"/>
+      <!-- Lateral offset keeps the verified ready arm out of the plant-core
+           image region while preserving the complete conservative workspace. -->
+      <origin xyz="-0.35 0.45 0.05" rpy="0 0 0"/>
     </joint>
     <gazebo reference="panda_base_camera_mast_joint">
       <preserveFixedJoint>true</preserveFixedJoint>
@@ -140,7 +142,7 @@
         optical_joint_name="strawberry_base_camera_optical_joint"
         parent_link="strawberry_base_camera_mast"
         xyz="0 0 1.00"
-        rpy="0 0.599 0.611"
+        rpy="0 0.543 -0.480"
         topic="/camera/base"
         sensor_name="base_rgbd"
         image_width="320"

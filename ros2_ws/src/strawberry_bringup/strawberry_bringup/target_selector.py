@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import dataclass, replace
 
 from .harvest_planning import (
     HarvestCandidate,
@@ -18,6 +19,95 @@ from .harvest_planning import (
 
 REACH_BOUNDS = (0.30, 0.72, -0.34, 0.34, 0.48, 0.66)
 OBSERVATION_REACH_BOUNDS = (0.12, 0.78, -0.55, 0.55, 0.30, 0.90)
+
+
+@dataclass(frozen=True)
+class MoveItEvaluation:
+    """A reusable target-path assessment tied to one measured fruit pose."""
+
+    position: tuple[float, float, float]
+    feasible: bool
+    collision: bool
+    planning_time_sec: float
+    joint_travel_rad: float
+    message: str
+
+    def __post_init__(self) -> None:
+        if len(self.position) != 3 or not all(
+            math.isfinite(float(value)) for value in self.position
+        ):
+            raise ValueError("evaluation position must be a finite 3-D point")
+        if (
+            not math.isfinite(float(self.planning_time_sec))
+            or float(self.planning_time_sec) < 0.0
+            or not math.isfinite(float(self.joint_travel_rad))
+            or float(self.joint_travel_rad) < 0.0
+        ):
+            raise ValueError(
+                "evaluation motion metrics must be finite and non-negative"
+            )
+
+
+def apply_moveit_evaluation(
+    candidate: HarvestCandidate,
+    evaluation: MoveItEvaluation,
+) -> HarvestCandidate:
+    """Replace geometric reachability with the authoritative MoveIt result."""
+
+    return replace(
+        candidate,
+        joint_travel_rad=float(evaluation.joint_travel_rad),
+        pregrasp_feasible=bool(evaluation.feasible),
+        grasp_feasible=bool(evaluation.feasible),
+        retreat_feasible=bool(evaluation.feasible),
+    )
+
+
+def moveit_priority_group(candidate: HarvestCandidate) -> tuple[float, float, float]:
+    """The ranking prefix that is independent of MoveIt's joint-travel result."""
+
+    return (
+        -candidate.clearance_m,
+        candidate.sigma_m,
+        -candidate.confidence,
+    )
+
+
+def evaluation_matches_position(
+    evaluation: MoveItEvaluation,
+    position,
+    *,
+    maximum_drift_m: float,
+) -> bool:
+    """Only reuse a path proof while the tracked fruit stayed at that pose."""
+
+    limit = float(maximum_drift_m)
+    return (
+        math.isfinite(limit)
+        and limit >= 0.0
+        and len(position) == 3
+        and all(math.isfinite(float(value)) for value in position)
+        and math.dist(evaluation.position, position) <= limit
+    )
+
+
+def evaluation_failure_is_transient(message: str) -> bool:
+    """Distinguish backend availability failures from deterministic path failures."""
+
+    detail = str(message).strip().lower()
+    return any(
+        marker in detail
+        for marker in (
+            "motion backend is busy",
+            "service failed",
+            "service is unavailable",
+            "target evaluation request is invalid",
+            "failed to synchronize perception collision scene",
+            "failed to open target contact corridor for evaluation",
+            "failed to restore the target collision object",
+            "target feasibility evaluation failed",
+        )
+    )
 
 
 def register_completed_track(excluded: set[int], target_id: int) -> bool:
@@ -103,6 +193,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             TargetPose,
             TrackedTargetArray,
         )
+        from strawberry_interfaces.srv import EvaluateTarget
         from strawberry_sim.core import load_scene_config
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
@@ -128,6 +219,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("minimum_clearance_m", 0.02)
             self.declare_parameter("fruit_radius_m", 0.026)
             self.declare_parameter("static_obstacle_margin_m", 0.05)
+            self.declare_parameter(
+                "target_evaluation_service", "/strawberry/evaluate_target"
+            )
+            self.declare_parameter("maximum_evaluation_pose_drift_m", 0.005)
             self.declare_parameter("scene_config_file", "")
             scene_path = str(self.get_parameter("scene_config_file").value)
             if not scene_path:
@@ -148,6 +243,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self._excluded = set()
             self._latest_targets_message = None
+            self._evaluation_epoch = 0
+            self._evaluation_active = False
+            self._evaluation_batch = None
+            self._evaluation_cache = {}
+            self._selected_track_id = None
+            self._evaluation_client = self.create_client(
+                EvaluateTarget,
+                str(self.get_parameter("target_evaluation_service").value),
+            )
             self._target_publisher = self.create_publisher(
                 TargetPose, str(self.get_parameter("selected_target_topic").value), 10
             )
@@ -179,7 +283,20 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             # Selection resumes only when the localizer publishes a new
             # tracking snapshot. Replaying the pre-completion cache can race
             # the batch state transition and can never prove a fresh rescan.
-            register_completed_track(self._excluded, int(message.data))
+            target_id = int(message.data)
+            if not register_completed_track(self._excluded, target_id):
+                return
+            # Feasibility includes a connected route from the current robot
+            # state. A completed or skipped attempt changes that state, so no
+            # assessment for any remaining fruit may survive the tombstone.
+            self._evaluation_cache.clear()
+            if self._selected_track_id == target_id:
+                self._selected_track_id = None
+            # Any in-flight response was computed before the completion
+            # tombstone and must never publish after it.
+            self._evaluation_epoch += 1
+            self._evaluation_active = False
+            self._evaluation_batch = None
 
         @staticmethod
         def _seconds(stamp) -> float:
@@ -187,10 +304,85 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
 
         def _on_targets(self, message) -> None:
             self._latest_targets_message = message
+            if self._evaluation_active:
+                return
             self._select_targets(message)
 
         def _select_targets(self, message) -> None:
             now_sec = self.get_clock().now().nanoseconds * 1e-9
+            candidates, messages_by_track_id = self._build_candidates(message)
+            selection_limits = self._selection_limits()
+            ranked = rank_safe_targets(
+                candidates,
+                now_sec=now_sec,
+                **selection_limits,
+            )
+            if not ranked:
+                self._publish_no_pick(
+                    candidates,
+                    now_sec=now_sec,
+                    selection_limits=selection_limits,
+                )
+                return
+
+            # Keep a preflighted identity selected until the orchestrator
+            # publishes its completion tombstone. Fresh poses are still used
+            # for every publication, but no MoveIt request competes with arm
+            # motion after hand-off.
+            if self._selected_track_id is not None:
+                selected = next(
+                    (
+                        candidate
+                        for candidate in ranked
+                        if candidate.track_id == self._selected_track_id
+                    ),
+                    None,
+                )
+                evaluation = self._evaluation_cache.get(self._selected_track_id)
+                maximum_drift_m = float(
+                    self.get_parameter("maximum_evaluation_pose_drift_m").value
+                )
+                if (
+                    selected is not None
+                    and evaluation is not None
+                    and evaluation.feasible
+                    and evaluation_matches_position(
+                        evaluation,
+                        selected.position,
+                        maximum_drift_m=maximum_drift_m,
+                    )
+                ):
+                    self._publish_selected_target(
+                        apply_moveit_evaluation(selected, evaluation),
+                        messages_by_track_id[selected.track_id],
+                        evaluation=evaluation,
+                        evaluated_track_ids=(selected.track_id,),
+                        moveit_rejections=(),
+                        cached=True,
+                    )
+                    return
+                self._selected_track_id = None
+
+            self._evaluation_epoch += 1
+            epoch = self._evaluation_epoch
+            self._evaluation_active = True
+            self._evaluation_batch = {
+                "epoch": epoch,
+                "now_sec": now_sec,
+                "candidates": tuple(candidates),
+                "ranked": tuple(ranked),
+                "messages": messages_by_track_id,
+                "selection_limits": selection_limits,
+                "index": 0,
+                "group": moveit_priority_group(ranked[0]),
+                "feasible": [],
+                "evaluations": {},
+                "evaluated_track_ids": [],
+                "moveit_rejections": [],
+            }
+            self._advance_evaluation(epoch)
+
+        def _build_candidates(self, message):
             radius = float(self.get_parameter("fruit_radius_m").value)
             positions = {
                 int(item.track_id): (
@@ -237,7 +429,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         retreat_feasible=reachable,
                     )
                 )
-            selection_limits = {
+            return candidates, messages_by_track_id
+
+        def _selection_limits(self):
+            return {
                 "confidence_threshold": float(
                     self.get_parameter("confidence_threshold").value
                 ),
@@ -251,43 +446,306 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 "excluded_track_ids": self._excluded,
             }
-            ranked = rank_safe_targets(
-                candidates,
-                now_sec=now_sec,
-                **selection_limits,
-            )
-            status = String()
-            if not ranked:
-                status.data = json.dumps(
+
+        def _publish_no_pick(
+            self,
+            candidates,
+            *,
+            now_sec,
+            selection_limits,
+            reason=None,
+            moveit_rejections=(),
+            evaluated_track_ids=(),
+        ) -> None:
+            moveit_by_id = {
+                int(entry["track_id"]): entry for entry in moveit_rejections
+            }
+            payload = {
+                "schema_version": 1,
+                "outcome": "NO_PICK",
+                "candidate_count": len(candidates),
+                "moveit_evaluated_track_ids": list(evaluated_track_ids),
+                "rejections": [
                     {
-                        "schema_version": 1,
-                        "outcome": "NO_PICK",
-                        "candidate_count": len(candidates),
-                        "rejections": [
-                            {
-                                "track_id": candidate.track_id,
-                                "reasons": list(
-                                    target_rejection_reasons(
-                                        candidate,
-                                        now_sec=now_sec,
-                                        **selection_limits,
-                                    )
-                                ),
-                                "confidence": candidate.confidence,
-                                "sigma_m": candidate.sigma_m,
-                                "observation_count": candidate.observation_count,
-                                "age_sec": now_sec - candidate.last_seen_sec,
-                                "clearance_m": candidate.clearance_m,
-                            }
-                            for candidate in candidates
-                        ],
-                    },
-                    separators=(",", ":"),
+                        "track_id": candidate.track_id,
+                        "reasons": list(
+                            target_rejection_reasons(
+                                candidate,
+                                now_sec=now_sec,
+                                **selection_limits,
+                            )
+                        )
+                        + (
+                            ["MOVEIT_PATH_INFEASIBLE"]
+                            if candidate.track_id in moveit_by_id
+                            else []
+                        ),
+                        "confidence": candidate.confidence,
+                        "sigma_m": candidate.sigma_m,
+                        "observation_count": candidate.observation_count,
+                        "age_sec": now_sec - candidate.last_seen_sec,
+                        "clearance_m": candidate.clearance_m,
+                        **(
+                            {"moveit": moveit_by_id[candidate.track_id]}
+                            if candidate.track_id in moveit_by_id
+                            else {}
+                        ),
+                    }
+                    for candidate in candidates
+                ],
+            }
+            if reason:
+                payload["reason"] = str(reason)
+            status = String()
+            status.data = json.dumps(payload, separators=(",", ":"))
+            self._status_publisher.publish(status)
+
+        def _advance_evaluation(self, epoch: int) -> None:
+            if (
+                not self._evaluation_active
+                or self._evaluation_batch is None
+                or int(self._evaluation_batch["epoch"]) != int(epoch)
+            ):
+                return
+            batch = self._evaluation_batch
+            ranked = batch["ranked"]
+            index = int(batch["index"])
+            if batch["feasible"] and (
+                index >= len(ranked)
+                or moveit_priority_group(ranked[index]) != batch["group"]
+            ):
+                self._finish_evaluation_with_selection(epoch)
+                return
+            if index >= len(ranked):
+                self._finish_evaluation_without_selection(epoch)
+                return
+            if (
+                not batch["feasible"]
+                and moveit_priority_group(ranked[index]) != batch["group"]
+            ):
+                batch["group"] = moveit_priority_group(ranked[index])
+
+            candidate = ranked[index]
+            batch["index"] = index + 1
+            maximum_drift_m = float(
+                self.get_parameter("maximum_evaluation_pose_drift_m").value
+            )
+            cached = self._evaluation_cache.get(candidate.track_id)
+            if cached is not None and evaluation_matches_position(
+                cached,
+                candidate.position,
+                maximum_drift_m=maximum_drift_m,
+            ):
+                self._record_evaluation(epoch, candidate, cached, cached=True)
+                return
+            if not self._evaluation_client.service_is_ready():
+                self._defer_evaluation(
+                    epoch,
+                    "target feasibility evaluation service is unavailable",
                 )
-                self._status_publisher.publish(status)
+                return
+
+            item = batch["messages"][candidate.track_id]
+            request = EvaluateTarget.Request()
+            request.target_id = candidate.track_id
+            request.target_pose = PoseStamped()
+            request.target_pose.header = item.header
+            request.target_pose.pose.position = item.pose.position
+            request.target_pose.pose.orientation.w = 1.0
+            future = self._evaluation_client.call_async(request)
+            future.add_done_callback(
+                lambda completed, token=epoch, row=candidate: (
+                    self._on_evaluation_result(token, row, completed)
+                )
+            )
+
+        def _on_evaluation_result(self, epoch, candidate, future) -> None:
+            if (
+                not self._evaluation_active
+                or self._evaluation_batch is None
+                or int(self._evaluation_batch["epoch"]) != int(epoch)
+            ):
+                return
+            try:
+                response = future.result()
+                if response is None:
+                    raise RuntimeError("target evaluation service failed")
+                evaluation = MoveItEvaluation(
+                    position=candidate.position,
+                    feasible=bool(response.feasible),
+                    collision=bool(response.collision),
+                    planning_time_sec=float(response.planning_time_sec),
+                    joint_travel_rad=float(response.joint_travel_rad),
+                    message=str(response.message),
+                )
+            except Exception as exc:
+                self._defer_evaluation(epoch, str(exc))
+                return
+            if not evaluation.feasible and evaluation_failure_is_transient(
+                evaluation.message
+            ):
+                self._defer_evaluation(epoch, evaluation.message)
+                return
+            self._evaluation_cache[candidate.track_id] = evaluation
+            self._record_evaluation(epoch, candidate, evaluation, cached=False)
+
+        def _record_evaluation(
+            self,
+            epoch,
+            candidate,
+            evaluation,
+            *,
+            cached,
+        ) -> None:
+            if (
+                not self._evaluation_active
+                or self._evaluation_batch is None
+                or int(self._evaluation_batch["epoch"]) != int(epoch)
+            ):
+                return
+            batch = self._evaluation_batch
+            batch["evaluated_track_ids"].append(candidate.track_id)
+            batch["evaluations"][candidate.track_id] = evaluation
+            assessed = apply_moveit_evaluation(candidate, evaluation)
+            if evaluation.feasible:
+                batch["feasible"].append(assessed)
+            else:
+                batch["moveit_rejections"].append(
+                    {
+                        "track_id": candidate.track_id,
+                        "collision": evaluation.collision,
+                        "planning_time_sec": evaluation.planning_time_sec,
+                        "joint_travel_rad": evaluation.joint_travel_rad,
+                        "message": evaluation.message,
+                        "cached": bool(cached),
+                    }
+                )
+            self._advance_evaluation(epoch)
+
+        def _finish_evaluation_with_selection(self, epoch) -> None:
+            batch = self._evaluation_batch
+            if (
+                not self._evaluation_active
+                or batch is None
+                or int(batch["epoch"]) != int(epoch)
+            ):
+                return
+            ranked = rank_safe_targets(
+                batch["feasible"],
+                now_sec=batch["now_sec"],
+                **batch["selection_limits"],
+            )
+            if not ranked:
+                self._finish_evaluation_without_selection(epoch)
                 return
             selected = ranked[0]
-            selected_message = messages_by_track_id[selected.track_id]
+            evaluation = batch["evaluations"][selected.track_id]
+
+            latest = self._latest_targets_message
+            latest_now = self.get_clock().now().nanoseconds * 1e-9
+            latest_candidates, latest_messages = self._build_candidates(latest)
+            latest_by_id = {
+                candidate.track_id: candidate for candidate in latest_candidates
+            }
+            latest_selected = latest_by_id.get(selected.track_id)
+            latest_limits = self._selection_limits()
+            maximum_drift_m = float(
+                self.get_parameter("maximum_evaluation_pose_drift_m").value
+            )
+            latest_reasons = (
+                ("TARGET_DISAPPEARED",)
+                if latest_selected is None
+                else target_rejection_reasons(
+                    latest_selected,
+                    now_sec=latest_now,
+                    **latest_limits,
+                )
+            )
+            if (
+                latest_selected is None
+                or latest_reasons
+                or not evaluation_matches_position(
+                    evaluation,
+                    latest_selected.position,
+                    maximum_drift_m=maximum_drift_m,
+                )
+            ):
+                self._evaluation_cache.pop(selected.track_id, None)
+                self._evaluation_epoch += 1
+                self._evaluation_active = False
+                self._evaluation_batch = None
+                self._selected_track_id = None
+                self._select_targets(latest)
+                return
+
+            evaluated_track_ids = tuple(batch["evaluated_track_ids"])
+            moveit_rejections = tuple(batch["moveit_rejections"])
+            self._evaluation_active = False
+            self._evaluation_batch = None
+            self._selected_track_id = selected.track_id
+            self._publish_selected_target(
+                apply_moveit_evaluation(latest_selected, evaluation),
+                latest_messages[selected.track_id],
+                evaluation=evaluation,
+                evaluated_track_ids=evaluated_track_ids,
+                moveit_rejections=moveit_rejections,
+                cached=False,
+            )
+
+        def _finish_evaluation_without_selection(self, epoch) -> None:
+            batch = self._evaluation_batch
+            if (
+                not self._evaluation_active
+                or batch is None
+                or int(batch["epoch"]) != int(epoch)
+            ):
+                return
+            self._evaluation_active = False
+            self._evaluation_batch = None
+            self._selected_track_id = None
+            self._publish_no_pick(
+                batch["candidates"],
+                now_sec=batch["now_sec"],
+                selection_limits=batch["selection_limits"],
+                reason="NO_MOVEIT_FEASIBLE_TARGET",
+                moveit_rejections=batch["moveit_rejections"],
+                evaluated_track_ids=batch["evaluated_track_ids"],
+            )
+
+        def _defer_evaluation(self, epoch, detail) -> None:
+            batch = self._evaluation_batch
+            if (
+                not self._evaluation_active
+                or batch is None
+                or int(batch["epoch"]) != int(epoch)
+            ):
+                return
+            self._evaluation_epoch += 1
+            self._evaluation_active = False
+            self._evaluation_batch = None
+            self._publish_no_pick(
+                batch["candidates"],
+                now_sec=batch["now_sec"],
+                selection_limits=batch["selection_limits"],
+                reason="MOVEIT_EVALUATION_DEFERRED",
+                moveit_rejections=batch["moveit_rejections"],
+                evaluated_track_ids=batch["evaluated_track_ids"],
+            )
+            self.get_logger().debug(
+                f"Target selection deferred until MoveIt is idle: {detail}"
+            )
+
+        def _publish_selected_target(
+            self,
+            selected,
+            selected_message,
+            *,
+            evaluation,
+            evaluated_track_ids,
+            moveit_rejections,
+            cached,
+        ) -> None:
+            status = String()
 
             def assess_view(view):
                 reachable = inside_observation_reach(view.position)
@@ -309,11 +767,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         "schema_version": 1,
                         "outcome": "NO_PICK",
                         "reason": "NO_SAFE_WRIST_VIEW",
+                        "track_id": selected.track_id,
                     }
                 )
                 self._status_publisher.publish(status)
                 return
-            view, assessment = ranked_views[0]
+            _, assessment = ranked_views[0]
             hand_views = tuple(
                 hand_pose_for_optical_view(candidate_view)
                 for candidate_view, _ in ranked_views
@@ -354,13 +813,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     pose.orientation.w,
                 ) = candidate.quaternion_xyzw
                 view_plan.hand_poses.append(pose)
-            # Publish the full bounded bank first.  The orchestrator asks the
-            # MoveIt service to check candidates one by one without motion on
-            # failed plans, and moves only to the first genuinely safe view.
             self._view_plan_publisher.publish(view_plan)
             self._view_publisher.publish(view_message)
-            # Publish the target after its stamp-matched observation pose so a
-            # batch orchestrator can consume the pair without a fixed preset.
             self._target_publisher.publish(target)
             status.data = json.dumps(
                 {
@@ -370,6 +824,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     "clearance_m": selected.clearance_m,
                     "view_joint_travel_rad": assessment.joint_travel_rad,
                     "observation_candidate_count": len(hand_views),
+                    "moveit_preflight": {
+                        "feasible": True,
+                        "planning_time_sec": evaluation.planning_time_sec,
+                        "joint_travel_rad": evaluation.joint_travel_rad,
+                        "message": evaluation.message,
+                        "cached": bool(cached),
+                    },
+                    "moveit_evaluated_track_ids": list(evaluated_track_ids),
+                    "moveit_rejections": list(moveit_rejections),
                 },
                 separators=(",", ":"),
             )

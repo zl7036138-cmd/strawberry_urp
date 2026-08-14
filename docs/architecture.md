@@ -403,15 +403,20 @@ The aggregate gate passes at a success rate of at least 90 percent.
 
 The v2 extension adds `/strawberry/tracked_targets` as the multi-target data
 plane. Detection IDs remain acquisition-local; the localization tracker owns a
-run-stable `track_id`. A safety selector publishes the chosen legacy-compatible
-`TargetPose` plus a stamp-matched, deterministically ordered bank of dynamic
-wrist hand poses. Its fail-closed clearance gate includes both tracked fruit
-and the configured collection-bin outer envelope. The continuous orchestrator
-calls `/strawberry/evaluate_target`,
-asks MoveIt to test the finite view bank until the first zero-motion-safe plan succeeds,
-requires a bounded wrist refinement, and then invokes the unchanged
-`PickAndPlace` action. Completed or exhausted track IDs are broadcast once so
-the tracker, selector, collision scene, and batch queue all suppress them.
+run-stable `track_id`. Before publishing a target, the safety selector calls
+`/strawberry/evaluate_target` and replaces its coarse workspace prefilter with
+MoveIt's connected pre-grasp, approach, grasp and retreat result. It evaluates
+candidates in deterministic clearance/uncertainty/confidence groups, using
+MoveIt's measured joint travel as the final tie-break. Only then does it publish
+the chosen legacy-compatible `TargetPose` plus a stamp-matched, deterministically
+ordered bank of dynamic wrist hand poses. Its fail-closed clearance gate
+includes both tracked fruit and the configured collection-bin outer envelope.
+The continuous orchestrator revalidates the selected target at the execution
+boundary, asks MoveIt to test the finite view bank until the first
+zero-motion-safe plan succeeds, requires a bounded wrist refinement, and then
+invokes the unchanged `PickAndPlace` action. Completed or exhausted track IDs
+are broadcast once so the tracker, selector, collision scene, and batch queue
+all suppress them and invalidate current-state feasibility caches.
 
 Base and wrist localization estimates are fused by inverse variance with a
 non-zero wrist systematic-error floor. A failed target may reserve one

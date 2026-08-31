@@ -1,0 +1,65 @@
+{
+  "schema_version": 2,
+  "matrix_id": "generalized_runtime_development_matrix_v2",
+  "extends": "generalized_runtime_development_matrix_v1",
+  "scope": "DEVELOPMENT_ONLY_REACH_AWARE_MULTI_FRUIT_RUNTIME_GATE",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_seed_matrix": "config/generalized_harvest_matrix_v1.json",
+  "evidence_basis": {
+    "progress": "config/generalized_runtime_progress_v15.json",
+    "discovery_seed_range": [45001, 45018],
+    "qualification_seed_range": [46001, 46018],
+    "observed_feasible_tracks": 14,
+    "observed_eligible_scenes": 2,
+    "policy": "Guarantee evidence-backed spawn candidates only; perception and MoveIt remain authoritative and no runtime truth input is allowed."
+  },
+  "discovery": {
+    "initial_seed_start": 45101,
+    "seed_block_stride": 100,
+    "scenario_count_per_batch": 18,
+    "behavioral_results_qualifying": false
+  },
+  "qualification": {
+    "initial_seed_start": 46101,
+    "seed_block_stride": 100,
+    "scenario_count_per_batch": 18,
+    "selected_runtime_scenarios": 5,
+    "selection_order": "matrix_order_first_eligible",
+    "new_seed_block_after_behavior_change": true
+  },
+  "schedule": {
+    "profile": "mixed",
+    "layout_contract": "multi_pick_v2",
+    "position_bands": ["near", "middle", "far"],
+    "occlusions": ["none", "partial", "heavy"],
+    "plant_counts_by_repeat": [2, 3]
+  },
+  "generation_contract": {
+    "required_primary_roles": ["primary_upper", "primary_lower"],
+    "required_primary_slots": {
+      "primary_upper": 1,
+      "primary_lower": 2
+    },
+    "minimum_primary_ripe_by_construction": 2,
+    "minimum_unripe_targets": 1,
+    "moveit_feasibility_guaranteed_by_generator": false,
+    "runtime_truth_use": false
+  },
+  "zero_motion_eligibility": {
+    "minimum_stable_moveit_feasible_ripe_tracks": 2,
+    "runtime_truth_use": false,
+    "trajectory_execution_allowed": false
+  },
+  "runtime_acceptance": {
+    "required_terminal_runs": 5,
+    "required_clean_runs": 5,
+    "minimum_runs_with_two_harvests": 4,
+    "minimum_accepted_target_success_rate": 0.8,
+    "maximum_unripe_picks": 0,
+    "maximum_collisions": 0,
+    "maximum_joint_limit_violations": 0,
+    "maximum_unsafe_motion_attempts": 0,
+    "maximum_reobservations_per_target": 1
+  }
+}

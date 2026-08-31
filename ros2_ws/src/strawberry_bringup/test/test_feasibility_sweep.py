@@ -23,6 +23,11 @@ class FeasibilitySweepTests(unittest.TestCase):
                 ROOT / "config" / "generalized_runtime_development_matrix_v1.json"
             ).read_text(encoding="utf-8")
         )
+        cls.config_v2 = json.loads(
+            (
+                ROOT / "config" / "generalized_runtime_development_matrix_v2.json"
+            ).read_text(encoding="utf-8")
+        )
         formal = json.loads(
             (ROOT / "config" / "generalized_harvest_matrix_v1.json").read_text(
                 encoding="utf-8"
@@ -49,6 +54,37 @@ class FeasibilitySweepTests(unittest.TestCase):
         self.assertFalse(
             {row["seed"] for row in first} & {row["seed"] for row in second}
         )
+
+    def test_v2_discovery_and_qualification_advance_without_reusing_v1_seeds(self):
+        validate_development_matrix(self.config_v2, formal_seeds=self.formal_seeds)
+        discovery = scenario_rows(self.config_v2, split="discovery", batch_index=0)
+        next_discovery = scenario_rows(
+            self.config_v2, split="discovery", batch_index=1
+        )
+        qualification = scenario_rows(
+            self.config_v2, split="qualification", batch_index=0
+        )
+        next_qualification = scenario_rows(
+            self.config_v2, split="qualification", batch_index=1
+        )
+
+        self.assertEqual(discovery[0]["seed"], 45101)
+        self.assertEqual(next_discovery[0]["seed"], 45201)
+        self.assertEqual(qualification[0]["seed"], 46101)
+        self.assertEqual(next_qualification[0]["seed"], 46201)
+        self.assertTrue(
+            all(row["layout_contract"] == "multi_pick_v2" for row in discovery)
+        )
+        self.assertFalse(
+            {row["seed"] for row in discovery}
+            & {row["seed"] for row in qualification}
+        )
+
+    def test_v2_generation_contract_never_claims_moveit_feasibility(self):
+        generation = self.config_v2["generation_contract"]
+        self.assertEqual(generation["minimum_primary_ripe_by_construction"], 2)
+        self.assertFalse(generation["moveit_feasibility_guaranteed_by_generator"])
+        self.assertFalse(generation["runtime_truth_use"])
 
     def test_first_five_eligible_are_selected_without_score_cherry_pick(self):
         rows = scenario_rows(self.config, split="qualification")
@@ -91,6 +127,7 @@ class FeasibilitySweepTests(unittest.TestCase):
         self.assertIn('options.split == "qualification" and git_status', sweep)
         self.assertIn('("scene", scene_path)', sweep)
         self.assertIn('("world", world_path)', sweep)
+        self.assertIn('str(row["layout_contract"])', sweep)
         self.assertIn('if _git(("status", "--porcelain"))', runtime)
         self.assertIn('or len(selected) != 5', runtime)
         self.assertIn("summarize_runtime_gate(scores)", runtime)

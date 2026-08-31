@@ -11,7 +11,8 @@ from typing import Mapping, Sequence
 def validate_development_matrix(
     config: Mapping[str, object], *, formal_seeds: Sequence[int]
 ) -> None:
-    if int(config.get("schema_version", 0)) != 1:
+    schema_version = int(config.get("schema_version", 0))
+    if schema_version not in {1, 2}:
         raise ValueError("unsupported development matrix schema")
     if config.get("formal_acceptance") is not False or config.get(
         "formal_results_consumed"
@@ -21,12 +22,30 @@ def validate_development_matrix(
     qualification = config.get("qualification")
     if not isinstance(discovery, Mapping) or not isinstance(qualification, Mapping):
         raise ValueError("development matrix splits are missing")
-    if int(discovery.get("scenario_count", 0)) != 18 or int(
+    discovery_count = int(
+        discovery.get(
+            "scenario_count_per_batch", discovery.get("scenario_count", 0)
+        )
+    )
+    if discovery_count != 18 or int(
         qualification.get("scenario_count_per_batch", 0)
     ) != 18:
         raise ValueError("each feasibility sweep must contain 18 scenarios")
     if int(qualification.get("selected_runtime_scenarios", 0)) != 5:
         raise ValueError("qualification must select exactly five runtime scenes")
+    if schema_version == 2:
+        schedule = config.get("schedule")
+        generation = config.get("generation_contract")
+        if not isinstance(schedule, Mapping) or schedule.get(
+            "layout_contract"
+        ) != "multi_pick_v2":
+            raise ValueError("schema v2 requires the multi_pick_v2 layout contract")
+        if not isinstance(generation, Mapping) or int(
+            generation.get("minimum_primary_ripe_by_construction", 0)
+        ) != 2:
+            raise ValueError("schema v2 must require two primary ripe spawn candidates")
+        if generation.get("moveit_feasibility_guaranteed_by_generator") is not False:
+            raise ValueError("scene generation may not claim MoveIt feasibility")
     all_formal = {int(seed) for seed in formal_seeds}
     for split in ("discovery", "qualification"):
         for row in scenario_rows(config, split=split, batch_index=0):
@@ -51,10 +70,17 @@ def scenario_rows(
         "heavy",
     ) or plant_counts != (2, 3):
         raise ValueError("development schedule must remain the balanced 18-scene grid")
+    schema_version = int(config.get("schema_version", 0))
     if split == "discovery":
-        if int(batch_index) != 0:
-            raise ValueError("discovery has one fixed seed block")
-        start = int(config["discovery"]["seed_start"])
+        discovery = config["discovery"]
+        if schema_version == 1:
+            if int(batch_index) != 0:
+                raise ValueError("schema v1 discovery has one fixed seed block")
+            start = int(discovery["seed_start"])
+        else:
+            start = int(discovery["initial_seed_start"]) + int(batch_index) * int(
+                discovery["seed_block_stride"]
+            )
     else:
         qualification = config["qualification"]
         start = int(qualification["initial_seed_start"]) + int(batch_index) * int(
@@ -74,6 +100,9 @@ def scenario_rows(
                         "plant_count": plant_count,
                         "position_band": band,
                         "occlusion": occlusion,
+                        "layout_contract": str(
+                            schedule.get("layout_contract", "legacy_random_v1")
+                        ),
                     }
                 )
                 index += 1

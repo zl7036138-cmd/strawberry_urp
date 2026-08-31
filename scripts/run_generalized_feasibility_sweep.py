@@ -113,6 +113,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 str(row["position_band"]),
                 "--occlusion",
                 str(row["occlusion"]),
+                "--layout-contract",
+                str(row["layout_contract"]),
             ],
             stdout_path=scene_stdout,
             stderr_path=scene_stderr,

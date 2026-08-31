@@ -28,6 +28,7 @@ PLANT_X_RANGE_M = (0.35, 0.68)
 PLANT_Y_RANGE_M = (-0.21, 0.21)
 PLANT_Z_M = 0.47
 MIN_PLANT_SEPARATION_M = 0.25
+LAYOUT_CONTRACTS = ("legacy_random_v1", "multi_pick_v2")
 # Blender-v2 uses a 26 mm fruit collision radius.  A 54 mm centre distance
 # preserves a small initial gap without rejecting adjacent authored pedicels.
 MIN_FRUIT_SEPARATION_M = 0.054
@@ -47,6 +48,20 @@ CONSERVATIVE_REACH_BOUNDS_M = {
 # unreachable target, but it must never be counted as safely reachable.
 MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M = 0.070
 BIN_INTERIOR_TO_OUTER_PADDING_M = (0.05, 0.05, 0.05, 0.05, 0.03, 0.0)
+
+# Development-only v2 placement contract derived from the completed 45001-45018
+# and 46001-46018 zero-motion screens.  The only two-scene pattern that yielded
+# two stable MoveIt-feasible tracks used the upper plant's authored slot 1 and
+# the lower plant's authored slot 2.  This contract guarantees those *spawn
+# candidates* exist and are ripe; MoveIt and perception still decide whether a
+# scene is eligible, and the coordinates are never read by runtime control.
+MULTI_PICK_V2_ANCHORS = (
+    ("primary_upper", (0.435, 0.200), 0),
+    ("primary_lower", (0.400, -0.090), 1),
+    ("distractor", (0.670, 0.055), None),
+)
+MULTI_PICK_V2_X_SHIFT_M = {"near": -0.020, "middle": 0.0, "far": 0.020}
+MULTI_PICK_V2_PRIMARY_YAW_RANGE_RAD = (-0.12, 0.12)
 
 # Authored pedicel endpoints and fruit orientations, expressed relative to the
 # canonical Blender-v2 plant origin at [0.50, 0.0, 0.47].
@@ -177,6 +192,58 @@ def _sample_plant_centres(
     return centres
 
 
+def _sample_multi_pick_v2_plants(
+    rng: random.Random, count: int, position_band: str
+) -> list[dict[str, Any]]:
+    """Return two evidence-backed primary plants plus an optional distractor."""
+
+    if count not in {2, 3}:
+        raise ValueError("multi_pick_v2 requires two or three plants")
+    x_shift = MULTI_PICK_V2_X_SHIFT_M[position_band]
+    specs: list[dict[str, Any]] = []
+    for role, anchor, required_slot_index in MULTI_PICK_V2_ANCHORS[:count]:
+        yaw_range = (
+            MULTI_PICK_V2_PRIMARY_YAW_RANGE_RAD
+            if role.startswith("primary_")
+            else (-0.45, 0.45)
+        )
+        specs.append(
+            {
+                "layout_role": role,
+                "centre": (
+                    min(
+                        max(
+                            anchor[0] + x_shift + rng.uniform(-0.006, 0.006),
+                            PLANT_X_RANGE_M[0],
+                        ),
+                        PLANT_X_RANGE_M[1],
+                    ),
+                    min(
+                        max(
+                            anchor[1] + rng.uniform(-0.006, 0.006),
+                            PLANT_Y_RANGE_M[0],
+                        ),
+                        PLANT_Y_RANGE_M[1],
+                    ),
+                    PLANT_Z_M,
+                ),
+                "yaw": rng.uniform(*yaw_range),
+                "required_slot_index": required_slot_index,
+            }
+        )
+    if any(
+        _distance_xy(spec["centre"], previous["centre"])
+        < MIN_PLANT_SEPARATION_M
+        for index, spec in enumerate(specs)
+        for previous in specs[:index]
+    ):
+        raise RuntimeError("multi_pick_v2 plant instances overlap")
+    # Enumeration order remains randomized so the visual-only occluder does not
+    # always exercise the same plant.  The explicit role preserves the contract.
+    rng.shuffle(specs)
+    return specs
+
+
 def _maturities(rng: random.Random, total: int, profile: str) -> list[str]:
     if profile == "all_unripe":
         return ["UNRIPE"] * total
@@ -187,6 +254,26 @@ def _maturities(rng: random.Random, total: int, profile: str) -> list[str]:
     return values[:total]
 
 
+def _multi_pick_v2_maturities(
+    rng: random.Random, drafts: Sequence[Mapping[str, Any]], profile: str
+) -> list[str]:
+    if profile == "all_unripe":
+        return ["UNRIPE"] * len(drafts)
+    if profile != "mixed":
+        return _maturities(rng, len(drafts), profile)
+    values = [
+        "RIPE" if bool(draft.get("multi_pick_primary")) else ""
+        for draft in drafts
+    ]
+    non_primary = [index for index, value in enumerate(values) if not value]
+    if not non_primary:
+        raise RuntimeError("multi_pick_v2 has no non-primary fruit for an unripe target")
+    values[non_primary[0]] = "UNRIPE"
+    for index in non_primary[1:]:
+        values[index] = "RIPE" if rng.random() < 0.60 else "UNRIPE"
+    return values
+
+
 def generate_scene(
     base_scene: Mapping[str, Any],
     *,
@@ -195,6 +282,7 @@ def generate_scene(
     plant_count: int | None = None,
     occlusion: str | None = None,
     position_band: str = "middle",
+    layout_contract: str = "legacy_random_v1",
 ) -> dict[str, Any]:
     """Return one validated, deterministic scene manifest.
 
@@ -216,37 +304,65 @@ def generate_scene(
         raise ValueError("occlusion must be none, partial, or heavy")
     if position_band not in {"near", "middle", "far"}:
         raise ValueError("position_band must be near, middle, or far")
+    if layout_contract not in LAYOUT_CONTRACTS:
+        raise ValueError(
+            "layout_contract must be legacy_random_v1 or multi_pick_v2"
+        )
+    if layout_contract == "multi_pick_v2" and plant_count == 1:
+        raise ValueError("multi_pick_v2 requires two or three plants")
 
     rng = random.Random(seed)
     bin_exclusion_bounds = _bin_exclusion_bounds(base_scene)
     fruit_collision_radius_m = float(base_scene.get("fruit_collision_radius_m", 0.0))
     if not math.isfinite(fruit_collision_radius_m) or fruit_collision_radius_m <= 0.0:
         raise ValueError("fruit collision radius must be positive")
-    count = plant_count if plant_count is not None else rng.randint(*PLANT_COUNT_RANGE)
-    centres = _sample_plant_centres(rng, count)
-    x_shift = {"near": -0.035, "middle": 0.0, "far": 0.035}[position_band]
-    centres = [
-        (
-            min(max(center[0] + x_shift, PLANT_X_RANGE_M[0]), PLANT_X_RANGE_M[1]),
-            center[1],
-            center[2],
-        )
-        for center in centres
-    ]
+    if layout_contract == "multi_pick_v2":
+        count = plant_count if plant_count is not None else rng.randint(2, 3)
+        plant_specs = _sample_multi_pick_v2_plants(rng, count, position_band)
+    else:
+        count = plant_count if plant_count is not None else rng.randint(*PLANT_COUNT_RANGE)
+        centres = _sample_plant_centres(rng, count)
+        x_shift = {"near": -0.035, "middle": 0.0, "far": 0.035}[position_band]
+        centres = [
+            (
+                min(
+                    max(center[0] + x_shift, PLANT_X_RANGE_M[0]),
+                    PLANT_X_RANGE_M[1],
+                ),
+                center[1],
+                center[2],
+            )
+            for center in centres
+        ]
+        plant_specs = [
+            {
+                "centre": centre,
+                "yaw": None,
+                "layout_role": None,
+                "required_slot_index": None,
+            }
+            for centre in centres
+        ]
     plants: list[dict[str, Any]] = []
     fruit_drafts: list[dict[str, Any]] = []
     positions: list[tuple[float, float, float]] = []
 
-    for plant_index, centre in enumerate(centres, start=1):
-        yaw = rng.uniform(-0.45, 0.45)
-        plants.append(
-            {
-                "plant_id": plant_index,
-                "model_name": f"strawberry_plant_{plant_index}",
-                "asset": "strawberry_plant_v2",
-                "pose_in_robot_base": [*centre, 0.0, 0.0, yaw],
-            }
+    for plant_index, spec in enumerate(plant_specs, start=1):
+        centre = spec["centre"]
+        yaw = (
+            rng.uniform(-0.45, 0.45)
+            if spec["yaw"] is None
+            else float(spec["yaw"])
         )
+        plant = {
+            "plant_id": plant_index,
+            "model_name": f"strawberry_plant_{plant_index}",
+            "asset": "strawberry_plant_v2",
+            "pose_in_robot_base": [*centre, 0.0, 0.0, yaw],
+        }
+        if layout_contract == "multi_pick_v2":
+            plant["layout_role"] = str(spec["layout_role"])
+        plants.append(plant)
         fruit_count = (
             FRUIT_COUNT_RANGE[1]
             if profile == "mixed" and count == 1
@@ -254,6 +370,10 @@ def generate_scene(
         )
         slot_indices = list(range(len(FRUIT_SLOTS)))
         rng.shuffle(slot_indices)
+        required_slot_index = spec["required_slot_index"]
+        if required_slot_index is not None:
+            slot_indices.remove(int(required_slot_index))
+            slot_indices.insert(0, int(required_slot_index))
         for slot_index in slot_indices[:fruit_count]:
             offset, orientation = FRUIT_SLOTS[slot_index]
             rotated_x, rotated_y = _rotate_xy(offset[0], offset[1], yaw)
@@ -286,26 +406,35 @@ def generate_scene(
                 # geometrically valid for this plant placement.
                 continue
             positions.append(position)
-            fruit_drafts.append(
-                {
-                    "plant_id": plant_index,
-                    "slot_id": slot_index + 1,
-                    "position": position,
-                    "orientation": (
-                        orientation[0],
-                        orientation[1],
-                        orientation[2] + yaw,
-                    ),
-                    "scale": scale,
-                }
-            )
+            draft = {
+                "plant_id": plant_index,
+                "slot_id": slot_index + 1,
+                "position": position,
+                "orientation": (
+                    orientation[0],
+                    orientation[1],
+                    orientation[2] + yaw,
+                ),
+                "scale": scale,
+            }
+            if layout_contract == "multi_pick_v2":
+                draft["layout_role"] = str(spec["layout_role"])
+                draft["multi_pick_primary"] = (
+                    required_slot_index is not None
+                    and slot_index == int(required_slot_index)
+                )
+            fruit_drafts.append(draft)
 
     if len(fruit_drafts) < count * FRUIT_COUNT_RANGE[0]:
         raise RuntimeError(
             "generated plants do not have enough collision-free fruit slots"
         )
 
-    maturity_values = _maturities(rng, len(fruit_drafts), profile)
+    maturity_values = (
+        _multi_pick_v2_maturities(rng, fruit_drafts, profile)
+        if layout_contract == "multi_pick_v2"
+        else _maturities(rng, len(fruit_drafts), profile)
+    )
     fruits: list[dict[str, Any]] = []
     for target_id, (draft, maturity) in enumerate(
         zip(fruit_drafts, maturity_values), start=1
@@ -321,30 +450,33 @@ def generate_scene(
             if maturity == "RIPE"
             else "strawberry_unripe_generalized"
         )
-        fruits.append(
-            {
-                "target_id": target_id,
-                "plant_id": int(draft["plant_id"]),
-                "slot_id": int(draft["slot_id"]),
-                "model_name": f"strawberry_{target_id}",
-                "maturity": maturity,
-                "asset": asset,
-                "scale": float(draft["scale"]),
-                "initial_pose_m": [float(value) for value in position],
-                "initial_rpy_rad": [float(value) for value in draft["orientation"]],
-                "reachable_by_construction": reachable,
-            }
-        )
+        fruit = {
+            "target_id": target_id,
+            "plant_id": int(draft["plant_id"]),
+            "slot_id": int(draft["slot_id"]),
+            "model_name": f"strawberry_{target_id}",
+            "maturity": maturity,
+            "asset": asset,
+            "scale": float(draft["scale"]),
+            "initial_pose_m": [float(value) for value in position],
+            "initial_rpy_rad": [float(value) for value in draft["orientation"]],
+            "reachable_by_construction": reachable,
+        }
+        if layout_contract == "multi_pick_v2":
+            fruit["layout_role"] = str(draft["layout_role"])
+            fruit["multi_pick_primary"] = bool(draft["multi_pick_primary"])
+        fruits.append(fruit)
 
     result = deepcopy(dict(base_scene))
     selected_occlusion = occlusion or rng.choice(("none", "partial", "heavy"))
     light_level = rng.choice(("nominal", "dim"))
     result["schema_version"] = 1
     result["generator"] = {
-        "schema_version": 1,
+        "schema_version": 2 if layout_contract == "multi_pick_v2" else 1,
         "seed": seed,
         "profile": profile,
         "position_band": position_band,
+        "layout_contract": layout_contract,
         "truth_for_runtime_control": False,
         "released_fruit_physics": "gravity",
         "plant_count_range": list(PLANT_COUNT_RANGE),
@@ -356,6 +488,11 @@ def generate_scene(
         ),
         "minimum_initial_static_collision_gap_m": (MIN_INITIAL_STATIC_COLLISION_GAP_M),
     }
+    if layout_contract == "multi_pick_v2":
+        result["generator"]["multi_pick_primary_roles"] = {
+            "primary_upper": {"slot_id": 1},
+            "primary_lower": {"slot_id": 2},
+        }
     result["condition"] = {"occlusion": selected_occlusion, "lighting": light_level}
     result["plants"] = plants
     result["plant"] = plants[0]
@@ -376,6 +513,12 @@ def generate_scene(
             if row["maturity"] == "RIPE" and not row["reachable_by_construction"]
         ],
     }
+    if layout_contract == "multi_pick_v2":
+        result["evaluation"]["multi_pick_primary_ripe_target_ids"] = [
+            row["target_id"]
+            for row in fruits
+            if row["maturity"] == "RIPE" and row["multi_pick_primary"]
+        ]
     validate_generated_scene(result)
     return result
 
@@ -394,9 +537,24 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
         raise ValueError("generated scene is missing generator, plants, or fruits")
     if not PLANT_COUNT_RANGE[0] <= len(plants) <= PLANT_COUNT_RANGE[1]:
         raise ValueError("generated scene plant count is outside the frozen range")
+    layout_contract = str(generator.get("layout_contract", "legacy_random_v1"))
+    if layout_contract not in LAYOUT_CONTRACTS:
+        raise ValueError("generated scene uses an unknown layout contract")
+    if layout_contract == "multi_pick_v2" and len(plants) not in {2, 3}:
+        raise ValueError("multi_pick_v2 requires two or three plants")
     plant_ids = [int(row["plant_id"]) for row in plants]
     if len(plant_ids) != len(set(plant_ids)):
         raise ValueError("plant IDs must be unique")
+    plant_roles: dict[int, str] = {}
+    if layout_contract == "multi_pick_v2":
+        plant_roles = {
+            int(row["plant_id"]): str(row.get("layout_role")) for row in plants
+        }
+        expected_roles = {"primary_upper", "primary_lower"}
+        if len(plants) == 3:
+            expected_roles.add("distractor")
+        if set(plant_roles.values()) != expected_roles:
+            raise ValueError("multi_pick_v2 plant roles are incomplete or duplicated")
     centres = [row["pose_in_robot_base"][:3] for row in plants]
     for index, centre in enumerate(centres):
         if any(
@@ -426,6 +584,16 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
         )
         if row.get("asset") != expected_asset:
             raise ValueError("generalized fruit asset must enable release gravity")
+        if layout_contract == "multi_pick_v2":
+            role = str(row.get("layout_role"))
+            if role != plant_roles[plant_id]:
+                raise ValueError("multi_pick_v2 fruit role disagrees with its plant")
+            expected_primary = (role, int(row["slot_id"])) in {
+                ("primary_upper", 1),
+                ("primary_lower", 2),
+            }
+            if bool(row.get("multi_pick_primary")) != expected_primary:
+                raise ValueError("multi-pick primary flag disagrees with role and slot")
         position = row["initial_pose_m"]
         if any(
             _distance_xyz(position, previous) < MIN_FRUIT_SEPARATION_M
@@ -477,6 +645,22 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
             raise ValueError(
                 "fruit reachability label disagrees with reach and bin clearance"
             )
+    if layout_contract == "multi_pick_v2" and profile == "mixed":
+        primary = [row for row in fruits if bool(row.get("multi_pick_primary"))]
+        if len(primary) != 2 or any(
+            row["maturity"] != "RIPE"
+            or not bool(row["reachable_by_construction"])
+            for row in primary
+        ):
+            raise ValueError(
+                "multi-pick primary contract requires two reachable ripe fruit"
+            )
+        expected_primary_ids = [int(row["target_id"]) for row in primary]
+        recorded_primary_ids = scene.get("evaluation", {}).get(
+            "multi_pick_primary_ripe_target_ids"
+        )
+        if recorded_primary_ids != expected_primary_ids:
+            raise ValueError("multi-pick primary evaluation IDs are inconsistent")
     if profile == "mixed":
         if sum(row["maturity"] == "RIPE" for row in fruits) < 2 or not any(
             row["maturity"] == "UNRIPE" for row in fruits
@@ -601,6 +785,9 @@ def main(args: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--position-band", choices=("near", "middle", "far"), default="middle"
     )
+    parser.add_argument(
+        "--layout-contract", choices=LAYOUT_CONTRACTS, default="legacy_random_v1"
+    )
     parser.add_argument("--force", action="store_true")
     options = parser.parse_args(args)
 
@@ -612,6 +799,7 @@ def main(args: Sequence[str] | None = None) -> int:
         plant_count=options.plant_count,
         occlusion=options.occlusion,
         position_band=options.position_band,
+        layout_contract=options.layout_contract,
     )
     stem = f"generalized_seed_{options.seed:06d}"
     scene_path = options.output_dir / f"{stem}.yaml"
@@ -631,6 +819,7 @@ def main(args: Sequence[str] | None = None) -> int:
         "schema_version": 1,
         "seed": options.seed,
         "profile": options.profile,
+        "layout_contract": options.layout_contract,
         "truth_for_runtime_control": False,
         "scene": {"path": str(scene_path), "sha256": _sha256(scene_path)},
         "world": {"path": str(world_path), "sha256": _sha256(world_path)},

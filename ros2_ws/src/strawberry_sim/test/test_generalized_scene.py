@@ -1,4 +1,6 @@
 from copy import deepcopy
+import hashlib
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -13,6 +15,9 @@ from strawberry_sim.generalized_scene import (  # noqa: E402
     FRUIT_COUNT_RANGE,
     MIN_INITIAL_STATIC_COLLISION_GAP_M,
     MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M,
+    MULTI_PICK_V2_ANCHORS,
+    MULTI_PICK_V2_PRIMARY_YAW_RANGE_RAD,
+    MULTI_PICK_V2_X_SHIFT_M,
     _axis_aligned_box_clearance,
     generate_scene,
     materialize_world,
@@ -34,6 +39,28 @@ class GeneralizedSceneTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertFalse(first["generator"]["truth_for_runtime_control"])
 
+    def test_legacy_layout_payload_remains_frozen(self):
+        scene = generate_scene(
+            self.base_scene,
+            seed=17036,
+            profile="mixed",
+            plant_count=2,
+            position_band="middle",
+            occlusion="partial",
+            layout_contract="legacy_random_v1",
+        )
+        payload = {
+            key: scene[key]
+            for key in ("condition", "plants", "fruits", "evaluation")
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        self.assertEqual(
+            digest,
+            "bebda12eceeead9ee6dc0050da4be83d19a24ccf31aef78eb77ec2a8ca23c845",
+        )
+
     def test_counts_names_maturity_and_geometry_are_valid(self):
         scene = generate_scene(self.base_scene, seed=31, profile="mixed", plant_count=3)
         validate_generated_scene(scene)
@@ -53,6 +80,126 @@ class GeneralizedSceneTests(unittest.TestCase):
             sum(row["maturity"] == "RIPE" for row in scene["fruits"]), 2
         )
         self.assertTrue(any(row["maturity"] == "UNRIPE" for row in scene["fruits"]))
+
+    def test_multi_pick_v2_guarantees_two_primary_ripe_slots_without_truth_control(self):
+        positions_by_band = {}
+        seed = 45101
+        for plant_count in (2, 3):
+            for band in ("near", "middle", "far"):
+                for occlusion in ("none", "partial", "heavy"):
+                    scene = generate_scene(
+                        self.base_scene,
+                        seed=seed,
+                        profile="mixed",
+                        plant_count=plant_count,
+                        position_band=band,
+                        occlusion=occlusion,
+                        layout_contract="multi_pick_v2",
+                    )
+                    seed += 1
+                    validate_generated_scene(scene)
+                    primary = [
+                        row
+                        for row in scene["fruits"]
+                        if row["multi_pick_primary"]
+                    ]
+                    self.assertEqual(
+                        scene["generator"]["layout_contract"], "multi_pick_v2"
+                    )
+                    self.assertFalse(scene["generator"]["truth_for_runtime_control"])
+                    roles = {row["layout_role"] for row in scene["plants"]}
+                    self.assertEqual(
+                        {"primary_upper", "primary_lower"},
+                        roles - {"distractor"},
+                    )
+                    self.assertEqual(len(primary), 2)
+                    self.assertEqual(
+                        {(row["layout_role"], row["slot_id"]) for row in primary},
+                        {("primary_upper", 1), ("primary_lower", 2)},
+                    )
+                    self.assertTrue(
+                        all(row["maturity"] == "RIPE" for row in primary)
+                    )
+                    self.assertTrue(
+                        all(row["reachable_by_construction"] for row in primary)
+                    )
+                    self.assertTrue(
+                        any(
+                            row["maturity"] == "UNRIPE" for row in scene["fruits"]
+                        )
+                    )
+                    positions_by_band.setdefault(
+                        band,
+                        tuple(
+                            tuple(round(value, 6) for value in row["initial_pose_m"])
+                            for row in primary
+                        ),
+                    )
+        self.assertEqual(len(set(positions_by_band.values())), 3)
+
+    def test_multi_pick_v2_three_plant_scene_keeps_a_distractor(self):
+        scene = generate_scene(
+            self.base_scene,
+            seed=45110,
+            profile="mixed",
+            plant_count=3,
+            layout_contract="multi_pick_v2",
+        )
+        self.assertEqual(
+            {row["layout_role"] for row in scene["plants"]},
+            {"primary_upper", "primary_lower", "distractor"},
+        )
+        self.assertTrue(
+            any(
+                row["layout_role"] == "distractor"
+                and not row["multi_pick_primary"]
+                for row in scene["fruits"]
+            )
+        )
+
+    def test_multi_pick_v2_validator_rejects_primary_contract_drift(self):
+        scene = generate_scene(
+            self.base_scene,
+            seed=45101,
+            profile="mixed",
+            plant_count=2,
+            layout_contract="multi_pick_v2",
+        )
+        broken = deepcopy(scene)
+        primary = next(row for row in broken["fruits"] if row["multi_pick_primary"])
+        primary["maturity"] = "UNRIPE"
+        primary["asset"] = "strawberry_unripe_generalized"
+        with self.assertRaisesRegex(ValueError, "multi-pick primary"):
+            validate_generated_scene(broken)
+
+    def test_multi_pick_v2_policy_matches_hash_bound_development_diagnostic(self):
+        diagnostic = json.loads(
+            (
+                PACKAGE.parents[2]
+                / "config"
+                / "generalized_feasibility_observed_envelope_v1.json"
+            ).read_text(encoding="utf-8")
+        )
+        policy = diagnostic["generator_policy"]
+        self.assertFalse(diagnostic["formal_acceptance"])
+        self.assertFalse(diagnostic["runtime_control_input"])
+        self.assertFalse(policy["moveit_feasibility_guaranteed"])
+        self.assertEqual(
+            policy["primary_spawn_patterns"],
+            [
+                {
+                    "layout_role": role,
+                    "plant_anchor_xy_m": list(anchor),
+                    "required_slot_id": int(slot_index) + 1,
+                }
+                for role, anchor, slot_index in MULTI_PICK_V2_ANCHORS[:2]
+            ],
+        )
+        self.assertEqual(
+            policy["primary_yaw_range_rad"],
+            list(MULTI_PICK_V2_PRIMARY_YAW_RANGE_RAD),
+        )
+        self.assertEqual(policy["position_band_x_shift_m"], MULTI_PICK_V2_X_SHIFT_M)
 
     def test_negative_and_unsafe_profiles_are_fail_closed(self):
         negative = generate_scene(self.base_scene, seed=8, profile="all_unripe")

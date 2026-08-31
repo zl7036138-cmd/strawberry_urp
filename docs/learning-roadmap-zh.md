@@ -3,9 +3,9 @@
 > 适用主线：固定机械臂、随机多植株、底座全局相机、夹爪近距离相机、
 > 多目标三维跟踪、MoveIt 安全预选、连续采摘。
 >
-> 校验基线：2026-08-31 开发门审计工作树；最终冻结提交和 v15 进度记录在
-> 本轮资格筛选完成后写入。历史单果证据见
-> `config/generalized_runtime_progress_v14.json`。
+> 校验基线：行为冻结提交 `9300ce9`，进度记录
+> `config/generalized_runtime_progress_v15.json`，校验日期 2026-08-31。
+> 历史单果证据见 `config/generalized_runtime_progress_v14.json`。
 >
 > 本教材不要求死记代码行号。查找函数时优先使用 `rg`；代码变化后，应以
 > 函数名、接口定义和测试为准。
@@ -611,7 +611,9 @@ rg -n "evaluate_target|allow_target_contact|bilateral|attach|retreat|place" \
 
 ```text
 config/generalized_runtime_progress_v14.json
+config/generalized_runtime_progress_v15.json
 docs/decisions/0077-preflight-moveit-before-target-selection.md
+docs/decisions/0079-stop-qualification-on-insufficient-eligible-scenes.md
 config/generalized_runtime_development_matrix_v1.json
 ```
 

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v15",
+  "scope": "development_only_truth_isolation_and_multi_fruit_qualification_screen",
+  "extends": "generalized_runtime_progress_v14",
+  "behavior_freeze_git_commit": "9300ce903780e589c02771e3e7a7879a7d475ec4",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_claim_created": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "trajectory_execution_during_screen": false,
+  "changes": {
+    "structural_truth_isolation": "Localization defaults truth association off and creates no truth subscriptions in that state; a live graph audit rejects control-plane truth subscribers.",
+    "async_moveit_selection": "A pure coordinator rejects stale callbacks, invalidates drifted poses and caches, and distinguishes backend contention from path infeasibility.",
+    "development_receipt_schema": "Schema v3 records every selection event and separates simulation scoring events from runtime control.",
+    "zero_motion_feasibility": "An immutable sweep selects only scenes with at least two stable ripe tracked targets that pass the existing MoveIt connected-path evaluator.",
+    "formal_schema_v2": "Formal acceptance and atomic claims bind the matrix, materialized scenes and worlds, model, runtime configuration, Git commit, one behavior attempt, cleanup and unsafe-motion count."
+  },
+  "live_truth_isolation_smoke": {
+    "outcome": "PASS",
+    "seed": 45007,
+    "truth_isolation_pass": true,
+    "cleanup": "CLEAN",
+    "runtime_truth_use": false,
+    "trajectory_execution_allowed": false,
+    "probe_receipt_sha256": "89943342871be5f5ac63721a68e0f9bd54285b9302b7b48f8aa56801478545ab",
+    "truth_isolation_receipt_sha256": "802639895cc05b204958b7c9807a28dc0a60e389f8954a407c8d4e22c1edf64c",
+    "cleanup_receipt_sha256": "35dba7d5fea4fcc9651231d78f7f40c2b93129322a3bcc2ef89a44321c3be6f9"
+  },
+  "development_discovery": {
+    "seed_range": [45001, 45018],
+    "scenario_count": 18,
+    "eligible_count": 1,
+    "eligible_seed": 45007,
+    "moveit_evaluated_track_count": 29,
+    "moveit_feasible_track_count": 7,
+    "truth_isolation_pass_count": 18,
+    "clean_shutdown_count": 18,
+    "first_sweep_summary_sha256": "d9a6fe2e4a9366a6218311b1f3b428796c9978a07d4de833dfc702edbb8772a0",
+    "orientation_consistent_sweep_summary_sha256": "08ab7efdeae7a0a0877810b2f7466d23e88c4d80dc9663a4494ba46d18c664d0",
+    "orientation_fix_changed_eligibility": false
+  },
+  "qualification_batch_0": {
+    "seed_range": [46001, 46018],
+    "scenario_count": 18,
+    "completed_probe_count": 18,
+    "eligible_count": 1,
+    "required_eligible_count": 5,
+    "eligible_scenario_ids": ["qualification_b00_46016"],
+    "selection_complete": false,
+    "candidate_track_count": 68,
+    "accepted_ripe_candidate_count": 26,
+    "moveit_evaluated_track_count": 26,
+    "moveit_feasible_track_count": 7,
+    "moveit_collision_rejection_count": 5,
+    "truth_isolation_pass_count": 18,
+    "clean_shutdown_count": 18,
+    "runtime_truth_use_count": 0,
+    "trajectory_execution_allowed_count": 0,
+    "behavior_runs_started": 0,
+    "summary_path_local": ".codex_tmp/generalized_feasibility_qualification_b00/sweep_summary.json",
+    "summary_size_bytes": 31722,
+    "summary_sha256": "4a9aae4a0e203c0551ca207f2449e31268f6606a0b56ea912c5c92188c0a6e72",
+    "outcome": "INSUFFICIENT_ELIGIBLE_SCENARIOS"
+  },
+  "verification": {
+    "dependency_light_regression": {
+      "test_count": 735,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "ros_colcon_regression": {
+      "test_count": 617,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "truth_isolation_gate_passed": true,
+    "zero_motion_qualification_infrastructure_passed": true,
+    "five_scene_selection_gate_passed": false,
+    "five_scene_behavior_gate_executed": false,
+    "two_or_more_fruits_harvested_in_one_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "formal_30_seed_matrix_may_be_opened": false,
+    "current_primary_blocker": "Only one of 18 untouched qualification scenes contained at least two stable ripe MoveIt-feasible tracks; five were required before any behavior run.",
+    "next_required_work": [
+      "Use the development evidence to correct the mismatch between randomized plant/fruit placement and the arm's conservatively connected MoveIt workspace without relaxing safety thresholds.",
+      "Add a reproducing test for the scene-generation feasibility contract, freeze the behavior change, and advance qualification to the next unused hundred-seed block.",
+      "Run five once-only continuous-harvest trials only after a fresh qualification block selects five eligible scenes; keep the formal matrix sealed until that gate passes."
+    ]
+  }
+}

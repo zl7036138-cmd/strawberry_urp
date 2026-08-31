@@ -468,9 +468,11 @@ passes both the validation gate (ripe P 96.15%, R 90.91%) and the independent
 qualification gate using the same frozen settings (ripe P 95.65%, R 97.78%).
 The runtime path defaults to no truth association and does not create truth
 subscriptions unless explicitly opted into a historical diagnostic. A live
-zero-motion ROS-graph audit passes, while discovery seeds 45001--45018 yielded
-only one scene with two stable, ripe, MoveIt-feasible targets. Therefore the
-five-scene behavior gate remains closed and the formal matrix has not been
-executed. No formal acceptance is claimed until the development gate passes,
-all 30 one-attempt runtime receipts exist, and the strict schema-v2 aggregate
+zero-motion ROS-graph audit passes. Discovery seeds 45001--45018 and untouched
+qualification seeds 46001--46018 each yielded only one scene with two stable,
+ripe, MoveIt-feasible targets. All 18 qualification probes and graph audits
+completed cleanly, but the required five scenes did not exist, so no behavior
+run was started. The five-scene gate remains closed and the formal matrix stays
+sealed. No formal acceptance is claimed until the development gate passes, all
+30 one-attempt runtime receipts exist, and the strict schema-v2 aggregate
 evaluator returns `overall_pass: true`.

@@ -65,6 +65,8 @@ ros2 topic echo /strawberry/harvest_status
 
 开发发现种子 `45001～45018` 已按冻结顺序完成两轮无运动筛选。18/18 场景都清理为 `CLEAN`，18/18 真值隔离审计通过；29 条候选轨迹中只有 7 条通过 MoveIt，只有种子 `45007` 同时拥有至少两条稳定、成熟且 MoveIt 可行的轨迹。抓取姿态现已保证预抓取和抓取使用同一滚转分支，但这一正确性修复没有改变 1/18 的场景资格率。它说明当前瓶颈是可行工作区/场景分布，不是通过放宽成熟度、15 mm 不确定度、50 mm 腕部修正、碰撞或重试阈值可以合理解决的问题。
 
+在冻结提交 `9300ce9` 上，从未调试的资格种子 `46001～46018` 也已完成一次无运动筛选：18/18 探针完成、18/18 真值隔离通过、18/18 清理为 `CLEAN`，且所有场景都明确禁止轨迹执行。68 条候选中有 26 条成熟轨迹进入 MoveIt，7 条可行，但只有 `46016` 一场具有两条可行成熟轨迹。由于少于预先要求的五场，筛选器拒绝启动行为批次；没有单独挑选 `46016` 做抓取，也没有打开正式矩阵。机器可读结论见 `config/generalized_runtime_progress_v15.json` 与 ADR 0079。
+
 下面的 v5～v14 文字是保留的开发时间线，用于解释问题如何被发现和修复；其中的旧测试数量和当时的“尚未成功”结论不是当前项目状态：
 
 最近一次 v5 完整 ROS 2 回归当时为 `505 tests, 0 errors, 0 failures, 0 skipped`，对应定向测试为 `31 passed`；机器可读结果见 `config/generalized_runtime_progress_v5.json`。该阶段的随机开发场景给出以下结论：
@@ -88,7 +90,7 @@ ros2 topic echo /strawberry/harvest_status
 
 ### 当前多果开发门
 
-开发矩阵冻结在 `config/generalized_runtime_development_matrix_v1.json`。发现块使用 `45001～45018`；资格批次从未用于调试的 `46001～46018` 开始，行为代码修改后必须换到下一个百位种子块。先运行不执行机械臂轨迹的筛选：
+开发矩阵冻结在 `config/generalized_runtime_development_matrix_v1.json`。发现块使用 `45001～45018`；已完成的资格批次从 `46001～46018` 开始，后续行为代码修改必须换到下一个未使用的百位种子块。先运行不执行机械臂轨迹的筛选：
 
 ```bash
 python scripts/run_generalized_feasibility_sweep.py \

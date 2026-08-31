@@ -26,10 +26,16 @@ class BoundedPregraspCandidateTests(unittest.TestCase):
     def test_matches_primary_and_execution_retry_orientation(self):
         center = Pose(0.48, -0.12, 0.54)
 
-        primary, retry = bounded_pregrasp_candidates_for_fruit_center(center)
+        candidates = bounded_pregrasp_candidates_for_fruit_center(center)
+        primary = candidates[0]
 
+        self.assertEqual(len(candidates), 4)
         self.assertEqual(primary, pregrasp_pose_for_fruit_center(center))
-        self.assertEqual(retry, alternate_approach(primary))
+        self.assertEqual(candidates[1], alternate_approach(primary))
+        self.assertEqual(candidates[2], rotate_about_base_z(primary, math.pi))
+        self.assertEqual(
+            candidates[3], rotate_about_base_z(primary, 3.0 * math.pi / 2.0)
+        )
 
 
 class FakeBackend:
@@ -204,8 +210,8 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(backend.calls.count("APPROACH_RETRY"), 1)
 
-    def test_two_approach_failures_abort_without_unsafe_home_sweep(self):
-        backend = FakeBackend([MotionOutcome(False), MotionOutcome(False)])
+    def test_four_approach_failures_abort_without_unsafe_home_sweep(self):
+        backend = FakeBackend([MotionOutcome(False)] * 4)
         result = PickAndPlaceExecutor(backend).execute(3, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
@@ -490,7 +496,7 @@ class PickAndPlaceTests(unittest.TestCase):
 
     def test_restore_failure_is_appended_to_existing_failure(self):
         backend = FakeBackend(
-            [MotionOutcome(False), MotionOutcome(False)],
+            [MotionOutcome(False)] * 4,
             restore=False,
         )
         result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)

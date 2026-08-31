@@ -72,6 +72,26 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('"verification_timeout_wall_sec": (', simulation)
         self.assertIn("12.0 if generalized_scene else 3.0", simulation)
 
+    def test_no_motion_screen_can_disable_control_without_disabling_moveit(self):
+        self.assertIn(
+            'DeclareLaunchArgument(\n                "harvest_control_enabled", default_value="true"',
+            self.source,
+        )
+        self.assertEqual(
+            self.source.count("condition=IfCondition(harvest_control_enabled)"),
+            2,
+        )
+        manipulation_index = self.source.index(
+            'executable="pick_and_place_server"'
+        )
+        selector_index = self.source.index('executable="target_selector"')
+        orchestrator_index = self.source.index('executable="harvest_orchestrator"')
+        self.assertNotIn(
+            "condition=IfCondition(harvest_control_enabled)",
+            self.source[manipulation_index:orchestrator_index],
+        )
+        self.assertLess(selector_index, manipulation_index)
+
     def test_qualified_detector_settings_are_shared_end_to_end(self):
         self.assertIn(
             "device_parameter = ParameterValue(device, value_type=str)", self.source

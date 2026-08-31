@@ -11,7 +11,7 @@
 5. 每个目标生成 12 个有限腕部视点，转换为 Panda 手部位姿；MoveIt 在运动前检查预抓取、抓取、撤离 IK 与插值碰撞状态。
 6. `/strawberry/run_harvest` 依次执行观察、腕部视觉确认、抓取、放置和重新扫描。失败目标只允许一次重新观察；若重试时已不可见，也会明确标记跳过并继续扫描其他目标。
 
-广义模式中，规划碰撞球来自 `/strawberry/tracked_targets`。Gazebo 真值只在仿真适配层中把感知选中的三维位置映射到实际可分离的模型实体，以完成 attach/detach；它不参与成熟度判断、候选排序、目标位姿修正或路径选择。
+广义模式中，规划碰撞球来自 `/strawberry/tracked_targets`。定位节点默认关闭真值关联，并且在关闭时根本不创建真值话题订阅。Gazebo 实体身份只由仿真适配层在真实双指接触后解析，用于 attach/detach；评分记录器可以在行为结束后读取真值事件，但这些数据不能回流到成熟度判断、候选排序、目标位姿修正或路径选择。
 
 ## 生成并运行一个新场景
 
@@ -61,7 +61,13 @@ ros2 topic echo /strawberry/harvest_status
 
 ## 开发验证状态
 
-最近一次完整 ROS 2 回归为 `505 tests, 0 errors, 0 failures, 0 skipped`，本次改动对应的定向测试为 `31 passed`；机器可读结果见 `config/generalized_runtime_progress_v5.json`。随机开发场景运行还给出了以下结论：
+截至 2026-08-31，当前工作树的完整纯 Python 回归为 `735 tests, 0 failures, 0 errors, 2 skipped`，完整 ROS 2/colcon 回归为 `617 tests, 0 failures, 0 errors, 0 skipped`。无运动真实 ROS 图审计已通过：定位、跟踪、选择、编排和操作控制节点均未订阅真值话题；只有仿真适配/评分边界可以读取真值。
+
+开发发现种子 `45001～45018` 已按冻结顺序完成两轮无运动筛选。18/18 场景都清理为 `CLEAN`，18/18 真值隔离审计通过；29 条候选轨迹中只有 7 条通过 MoveIt，只有种子 `45007` 同时拥有至少两条稳定、成熟且 MoveIt 可行的轨迹。抓取姿态现已保证预抓取和抓取使用同一滚转分支，但这一正确性修复没有改变 1/18 的场景资格率。它说明当前瓶颈是可行工作区/场景分布，不是通过放宽成熟度、15 mm 不确定度、50 mm 腕部修正、碰撞或重试阈值可以合理解决的问题。
+
+下面的 v5～v14 文字是保留的开发时间线，用于解释问题如何被发现和修复；其中的旧测试数量和当时的“尚未成功”结论不是当前项目状态：
+
+最近一次 v5 完整 ROS 2 回归当时为 `505 tests, 0 errors, 0 failures, 0 skipped`，对应定向测试为 `31 passed`；机器可读结果见 `config/generalized_runtime_progress_v5.json`。该阶段的随机开发场景给出以下结论：
 
 1. 开发种子 `17036` 已实际经过“底座发现 → 安全选择 → 动态腕部观察 → 腕部确认 → 发起抓取”。精确真值隔离诊断证明抓取失败的直接原因是夹爪右指接触收集箱背板，而不是目标实体映射错误。选择器现已把收集箱外轮廓作为静态障碍；同一风险目标会返回安全 `NO_PICK`。
 2. 现有固定场景视觉模型在额外随机开发种子上的多目标召回不足：`17037`、`17038` 各只形成一个稳定成熟轨迹且均位于收集箱风险区，`17039`、`17042` 没有形成检测。它因此尚未达到进入正式隐藏评测的开发门槛。
@@ -79,6 +85,27 @@ ros2 topic echo /strawberry/harvest_status
 进一步的v6开发诊断修复了三类底座RGB-D危险失效：弱前景层误删果面、像素阈值切出伪小深度层，以及可见果面质心带来的单侧遮挡方向偏差。最终代码在6个开发种子的只读真值评分中定位19个目标，19/19均低于30 mm，最大误差9.22 mm；12个通过15 mm控制门限的目标最大误差7.40 mm，其余7个全部因高不确定度拒绝。完整回归为510项全通过，冻结定位核心未修改。运行时复验仍未取得同批两果成功，因此总体泛化门仍未通过，30个正式隐藏种子继续封存；详见 `config/generalized_runtime_progress_v6.json` 与ADR 0069。
 
 开发运行器同时修复了 `setsid` 后过早查询PGID的竞态：现在直接使用子进程PID作为进程组ID，只有连续确认ROS/Gazebo组为空才写入 `cleanup_probe: CLEAN`。独立就绪后清理冒烟以退出码0结束且无残留进程。正式30种子仍继续封存。
+
+### 当前多果开发门
+
+开发矩阵冻结在 `config/generalized_runtime_development_matrix_v1.json`。发现块使用 `45001～45018`；资格批次从未用于调试的 `46001～46018` 开始，行为代码修改后必须换到下一个百位种子块。先运行不执行机械臂轨迹的筛选：
+
+```bash
+python scripts/run_generalized_feasibility_sweep.py \
+  --split discovery \
+  --batch-index 0 \
+  --output-dir .codex_tmp/generalized_feasibility_discovery
+```
+
+只有干净且冻结的 Git 提交才能运行 `--split qualification`。筛选器按矩阵顺序选择前五个至少含两条稳定、成熟且 MoveIt 可行轨迹的场景；不足五个时必须停止并报告，不能降低安全门，也不能启动行为批次。正好选满五场后，才可在同一提交上各执行一次：
+
+```bash
+python scripts/run_generalized_qualification_batch.py \
+  --sweep-summary .codex_tmp/generalized_feasibility_qualification_b00/sweep_summary.json \
+  --output-dir .codex_tmp/generalized_runtime_qualification_b00
+```
+
+开发记录 schema v3 保存完整 `/strawberry/selection_status` 事件；运行后评分器只用这些控制事件和物理接触/放置事件做证据关联。通过要求保持为 5/5 收到终态且清理干净、全部安全计数为 0、至少 4/5 同批采摘两颗不同目标、被接受成熟目标完整抓放成功率至少 80%，且每个失败目标最多一次重新观察。
 
 开发数据工具链已冻结在 `config/generalized_development_capture_v1.json`：72个训练种子、24个验证种子和24个独立资格种子，与正式矩阵零重叠。采集器把同一画面中的所有可见果实写成多行 YOLO 标签，并用深度支持度剔除完全遮挡的真值投影框；资格集不会出现在训练配置中。种子 `41001` 的 Gazebo 冒烟采集已成功生成3个可见标签（2个成熟、1个未成熟）。
 
@@ -120,6 +147,8 @@ ros2 run strawberry_benchmark generalized-detector-eval \
 
 冻结配置位于 `config/generalized_harvest_matrix_v1.json`，由18个正样本、6个全未成熟负样本和6个不可达/不安全样本组成。正样本均衡覆盖近、中、远位置与无、部分、重度遮挡。
 
+本节命令只记录封存流程，不代表已经授权执行。开发门全部通过后，仍需先在干净冻结提交上创建单次 claim；claim 会绑定矩阵、物化清单、模型、运行配置和 Git 提交，并拒绝覆盖已有输出。本轮没有创建或消费正式 claim。
+
 只物化场景、不运行行为：
 
 ```bash
@@ -135,6 +164,7 @@ ros2 run strawberry_benchmark materialize-generalized-harvest \
 ```bash
 ros2 run strawberry_benchmark generalized-harvest-acceptance \
   --matrix config/generalized_harvest_matrix_v1.json \
+  --manifest results/generalized/formal_v1/materialization_manifest.json \
   --results results/generalized/formal_v1/results.json \
   --output results/generalized/formal_v1/summary.json
 ```
@@ -143,4 +173,4 @@ ros2 run strawberry_benchmark generalized-harvest-acceptance \
 
 ## 尚未宣称的结果
 
-代码、接口、单元测试、场景物化和验收器已经完成，并不等于30种子运行已经通过。广义检测器已经通过独立资格门，但运行时的腕部重定位、运动状态有效性、完整单果抓放和多果批次仍未通过开发门槛，因此30个隐藏种子没有执行正式行为试验。只有这些运行门先通过，并在同一冻结提交上实际完成全部30个场景、生成 `overall_pass: true` 的汇总后，才能声称达到计划中的泛化指标。现有固定场景和历史 P3/P4 结论保持不变。
+代码、接口、单元测试、场景物化和严格 schema-v2 验收器已经完成，并不等于30种子运行已经通过。广义检测器已经通过独立资格门，且一次不依赖运行时真值控制的完整单果抓放已经证明；尚未证明的是同一批次成功采摘两颗以上，以及五场多果开发门。正式30种子没有创建 claim，也没有执行正式行为试验。只有开发门先通过，并在同一冻结提交上实际完成全部30个一次性场景、生成 `overall_pass: true` 的汇总后，才能声称达到计划中的泛化指标。现有固定场景和历史 P3/P4 结论保持不变。

@@ -385,7 +385,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("geometry_bbox_padding_px", 1)
             self.declare_parameter("geometry_target_radius_m", 0.026)
             self.declare_parameter("use_bbox_center_bearing", False)
-            self.declare_parameter("ground_truth_association_enabled", True)
+            # Generalized control is truth-free by default.  Historical
+            # localization configs that intentionally use simulator identity
+            # association must opt in explicitly.
+            self.declare_parameter("ground_truth_association_enabled", False)
             self.declare_parameter("association_max_distance_m", 0.08)
             self.declare_parameter("camera_info_topic", "/camera/camera_info")
             self.declare_parameter("depth_topic", "/camera/depth/image_raw")
@@ -544,23 +547,31 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     10,
                     callback_group=self._localization_callback_group,
                 )
-            catalog_qos = QoSProfile(depth=1)
-            catalog_qos.reliability = ReliabilityPolicy.RELIABLE
-            catalog_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
-            self.create_subscription(
-                String,
-                "/strawberry/ground_truth/catalog",
-                self._on_ground_truth_catalog,
-                catalog_qos,
-                callback_group=self._sensor_callback_group,
-            )
-            self.create_subscription(
-                PoseArray,
-                "/strawberry/ground_truth/poses",
-                self._on_ground_truth_poses,
-                qos_profile_sensor_data,
-                callback_group=self._sensor_callback_group,
-            )
+            self._ground_truth_subscriptions = []
+            if bool(
+                self.get_parameter("ground_truth_association_enabled").value
+            ):
+                catalog_qos = QoSProfile(depth=1)
+                catalog_qos.reliability = ReliabilityPolicy.RELIABLE
+                catalog_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+                self._ground_truth_subscriptions.extend(
+                    (
+                        self.create_subscription(
+                            String,
+                            "/strawberry/ground_truth/catalog",
+                            self._on_ground_truth_catalog,
+                            catalog_qos,
+                            callback_group=self._sensor_callback_group,
+                        ),
+                        self.create_subscription(
+                            PoseArray,
+                            "/strawberry/ground_truth/poses",
+                            self._on_ground_truth_poses,
+                            qos_profile_sensor_data,
+                            callback_group=self._sensor_callback_group,
+                        ),
+                    )
+                )
             completed_topic = str(self.get_parameter("completed_track_topic").value)
             if completed_topic:
                 self.create_subscription(

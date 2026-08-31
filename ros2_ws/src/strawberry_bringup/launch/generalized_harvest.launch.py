@@ -2,6 +2,7 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -25,6 +26,7 @@ def generate_launch_description():
     nms_iou_threshold = ParameterValue(
         LaunchConfiguration("nms_iou_threshold"), value_type=float
     )
+    harvest_control_enabled = LaunchConfiguration("harvest_control_enabled")
 
     simulation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -73,6 +75,9 @@ def generate_launch_description():
             DeclareLaunchArgument("image_size", default_value="800"),
             DeclareLaunchArgument("nms_iou_threshold", default_value="0.50"),
             DeclareLaunchArgument("device", default_value="0"),
+            DeclareLaunchArgument(
+                "harvest_control_enabled", default_value="true"
+            ),
             simulation,
             Node(
                 package="strawberry_perception",
@@ -169,6 +174,7 @@ def generate_launch_description():
                 executable="target_selector",
                 name="strawberry_target_selector",
                 output="screen",
+                condition=IfCondition(harvest_control_enabled),
                 parameters=[
                     {
                         "use_sim_time": True,
@@ -198,6 +204,7 @@ def generate_launch_description():
                 executable="harvest_orchestrator",
                 name="strawberry_harvest_orchestrator",
                 output="screen",
+                condition=IfCondition(harvest_control_enabled),
                 parameters=[
                     {
                         "use_sim_time": True,

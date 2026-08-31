@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "matrix_id": "generalized_runtime_development_matrix_v1",
+  "scope": "DEVELOPMENT_ONLY_MULTI_FRUIT_RUNTIME_GATE",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_seed_matrix": "config/generalized_harvest_matrix_v1.json",
+  "discovery": {
+    "seed_start": 45001,
+    "scenario_count": 18,
+    "behavioral_results_qualifying": false
+  },
+  "qualification": {
+    "initial_seed_start": 46001,
+    "seed_block_stride": 100,
+    "scenario_count_per_batch": 18,
+    "selected_runtime_scenarios": 5,
+    "selection_order": "matrix_order_first_eligible",
+    "new_seed_block_after_behavior_change": true
+  },
+  "schedule": {
+    "profile": "mixed",
+    "position_bands": ["near", "middle", "far"],
+    "occlusions": ["none", "partial", "heavy"],
+    "plant_counts_by_repeat": [2, 3]
+  },
+  "zero_motion_eligibility": {
+    "minimum_stable_moveit_feasible_ripe_tracks": 2,
+    "runtime_truth_use": false,
+    "trajectory_execution_allowed": false
+  },
+  "runtime_acceptance": {
+    "required_terminal_runs": 5,
+    "required_clean_runs": 5,
+    "minimum_runs_with_two_harvests": 4,
+    "minimum_accepted_target_success_rate": 0.8,
+    "maximum_unripe_picks": 0,
+    "maximum_collisions": 0,
+    "maximum_joint_limit_violations": 0,
+    "maximum_unsafe_motion_attempts": 0,
+    "maximum_reobservations_per_target": 1
+  }
+}

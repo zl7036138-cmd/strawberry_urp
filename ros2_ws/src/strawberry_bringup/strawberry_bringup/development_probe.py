@@ -97,6 +97,8 @@ def build_probe_payload(
     *,
     outcome: str,
     events: list[dict],
+    selection_events: list[dict],
+    ground_truth_score_events: list[dict],
     elapsed_sec: float,
     startup_timeout_sec: float,
     idle_timeout_sec: float,
@@ -105,7 +107,7 @@ def build_probe_payload(
     """Build the auditable development receipt."""
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "scope": "GENERALIZED_DEVELOPMENT_RUNTIME_PROBE",
         "formal_acceptance": False,
         "formal_results_consumed": False,
@@ -120,6 +122,9 @@ def build_probe_payload(
             "hard": float(hard_timeout_sec),
         },
         "events": events,
+        "selection_events": selection_events,
+        "ground_truth_score_events": ground_truth_score_events,
+        "ground_truth_score_events_used_for_control": False,
     }
 
 
@@ -153,11 +158,22 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 options.hard_timeout,
             )
             self.events: list[dict] = []
+            self.selection_events: list[dict] = []
+            self.ground_truth_score_events: list[dict] = []
             self.client = self.create_client(
                 Trigger, "/strawberry/run_harvest"
             )
             self.create_subscription(
                 String, "/strawberry/harvest_status", self.on_status, 10
+            )
+            self.create_subscription(
+                String, "/strawberry/selection_status", self.on_selection, 10
+            )
+            self.create_subscription(
+                String,
+                "/strawberry/ground_truth/harvest_events",
+                self.on_ground_truth_score_event,
+                10,
             )
             self.timer = self.create_timer(0.1, self.tick)
             self.called = False
@@ -196,6 +212,38 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
             if event.get("state") == TERMINAL_STATE:
                 self.finish(str(event.get("outcome", "DONE")))
 
+        def on_selection(self, message) -> None:
+            try:
+                event = json.loads(message.data)
+            except (json.JSONDecodeError, TypeError):
+                return
+            if not isinstance(event, dict):
+                return
+            self.selection_events.append(
+                {
+                    "received_wall_offset_sec": (
+                        time.monotonic() - self.started_monotonic
+                    ),
+                    **event,
+                }
+            )
+
+        def on_ground_truth_score_event(self, message) -> None:
+            try:
+                event = json.loads(message.data)
+            except (json.JSONDecodeError, TypeError):
+                return
+            if not isinstance(event, dict):
+                return
+            self.ground_truth_score_events.append(
+                {
+                    "received_wall_offset_sec": (
+                        time.monotonic() - self.started_monotonic
+                    ),
+                    **event,
+                }
+            )
+
         def finish(self, outcome: str) -> None:
             if self.done:
                 return
@@ -204,6 +252,8 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
             payload = build_probe_payload(
                 outcome=outcome,
                 events=self.events,
+                selection_events=self.selection_events,
+                ground_truth_score_events=self.ground_truth_score_events,
                 elapsed_sec=time.monotonic() - self.started_monotonic,
                 startup_timeout_sec=options.startup_timeout,
                 idle_timeout_sec=options.idle_timeout,

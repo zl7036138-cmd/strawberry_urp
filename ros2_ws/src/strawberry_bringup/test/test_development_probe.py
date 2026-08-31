@@ -73,20 +73,35 @@ class ProbeReceiptTests(unittest.TestCase):
         payload = build_probe_payload(
             outcome="PARTIAL_SUCCESS",
             events=[{"state": "DONE", "outcome": "PARTIAL_SUCCESS"}],
+            selection_events=[
+                {
+                    "outcome": "TARGET_SELECTED",
+                    "track_id": 2,
+                    "moveit_rejections": [{"track_id": 1}],
+                }
+            ],
+            ground_truth_score_events=[
+                {"event": "PLACED", "target_id": 3, "maturity": "RIPE"}
+            ],
             elapsed_sec=90.0,
             startup_timeout_sec=120.0,
             idle_timeout_sec=180.0,
             hard_timeout_sec=900.0,
         )
 
-        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["schema_version"], 3)
         self.assertTrue(payload["terminal_status_received"])
         self.assertFalse(payload["formal_acceptance"])
+        self.assertEqual(payload["selection_events"][0]["track_id"], 2)
+        self.assertEqual(payload["ground_truth_score_events"][0]["target_id"], 3)
+        self.assertFalse(payload["ground_truth_score_events_used_for_control"])
 
     def test_timeout_receipt_is_nonterminal_and_nonzero(self):
         payload = build_probe_payload(
             outcome="HARD_TIMEOUT",
             events=[{"state": "PICKING", "outcome": "PICK_SENT"}],
+            selection_events=[],
+            ground_truth_score_events=[],
             elapsed_sec=900.0,
             startup_timeout_sec=120.0,
             idle_timeout_sec=180.0,
@@ -110,6 +125,10 @@ class ProbeReceiptTests(unittest.TestCase):
         self.assertIn('terminate_process_group "${launch_pgid}"', runner)
         self.assertIn('"outcome":"CLEAN"', runner)
         self.assertIn("STRAWBERRY_PROBE_CLEANUP_SMOKE_SEC", runner)
+        self.assertIn("STRAWBERRY_DEVELOPMENT_OUTPUT_DIR", runner)
+        self.assertIn("generalized_truth_isolation_audit", runner)
+        self.assertIn("generalized_development_score", runner)
+        self.assertNotIn("rm -f", runner)
         self.assertIn("trap cleanup EXIT", runner)
         self.assertIn("trap stop_on_signal INT TERM", runner)
         self.assertNotIn('kill -0 "${launch_pid}"', runner)

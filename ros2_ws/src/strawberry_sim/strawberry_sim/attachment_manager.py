@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import partial
 import inspect
+import json
 import signal
 import threading
 import time
@@ -195,6 +196,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 fruit.target_id: FruitRuntime(fruit.target_id)
                 for fruit in self._scene.ordered_fruits
             }
+            # This identity-bearing stream is evidence only.  Its truth
+            # namespace makes accidental use by perception/control visible to
+            # the ROS graph isolation audit.
+            self._score_event_publisher = self.create_publisher(
+                String,
+                "/strawberry/ground_truth/harvest_events",
+                10,
+            )
             self._managed_subscriptions: list[object] = []
             self._managed_services: list[object] = []
             self._initialization_attempts = 0
@@ -367,6 +376,22 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     "attachment backend disabled: attach, detach, and verification "
                     "services will reject requests safely"
                 )
+
+        def _publish_score_event(self, event: str, target_id: int) -> None:
+            fruit = self._scene.fruit(int(target_id))
+            message = String()
+            message.data = json.dumps(
+                {
+                    "schema_version": 1,
+                    "scope": "SIMULATION_GROUND_TRUTH_SCORING_ONLY",
+                    "event": str(event),
+                    "target_id": int(target_id),
+                    "maturity": fruit.maturity,
+                    "sim_time_sec": self._sim_time_sec(),
+                },
+                separators=(",", ":"),
+            )
+            self._score_event_publisher.publish(message)
 
         def _sim_time_sec(self) -> float:
             return self.get_clock().now().nanoseconds / 1_000_000_000.0
@@ -759,6 +784,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 if response.success:
                     self._contact_resolved_target_id = target_id
+                    self._publish_score_event("CONTACT_RESOLVED", target_id)
                     self.get_logger().info(
                         "physical bilateral contact resolved attachment to "
                         f"fruit entity {target_id}"
@@ -904,6 +930,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                             target_id,
                             self._sim_time_sec(),
                         ):
+                            self._publish_score_event("PLACED", target_id)
                             response.success = True
                             response.message = (
                                 "fruit maintained physical collection-bin contact "

@@ -401,6 +401,13 @@ The aggregate gate passes at a success rate of at least 90 percent.
 
 ## Generalized fixed-base harvest path
 
+This section is the current generalized mainline. Earlier Oracle, tabletop-v1,
+Blender-v2, and field-v3 passages above describe frozen historical contracts;
+they are not permission for generalized control to read truth. In particular,
+the complete `/strawberry/ground_truth/poses` collision-catalog synchronization
+described for the historical Oracle action path is replaced here by tracked
+fruit obstacles.
+
 The v2 extension adds `/strawberry/tracked_targets` as the multi-target data
 plane. Detection IDs remain acquisition-local; the localization tracker owns a
 run-stable `track_id`. Before publishing a target, the safety selector calls
@@ -424,10 +431,15 @@ re-observation; if it cannot be reacquired before scan timeout, the batch state
 machine records it as skipped and resumes scanning instead of ending the run.
 
 In generalized mode, MoveIt fruit obstacles are synchronized from tracked
-poses rather than the ground-truth catalog. Ground truth is retained only in a
-simulation adapter that resolves a perception-selected physical contact to the
-matching detachable Gazebo entity; it cannot select, rank, correct, or plan a
-target. The fixed v1/field-v3 paths retain their original routing contracts.
+poses rather than the ground-truth catalog. Localization defaults
+`ground_truth_association_enabled` to false and does not even create truth
+subscriptions in that state. Ground truth is retained only in simulation and
+post-run scoring boundaries: the attachment adapter resolves a physically
+contacted anonymous fruit to the detachable Gazebo entity, while scoring events
+measure the outcome after control decisions. Neither path can select, rank,
+correct, or plan a target. A no-motion ROS graph audit fails if localization,
+selection, orchestration, or manipulation control subscribes to a truth topic.
+The fixed v1/field-v3 paths retain their original routing contracts.
 
 The separate generalized development-capture executable may use Gazebo truth
 only to produce offline YOLO labels. Its train, validation, and qualification

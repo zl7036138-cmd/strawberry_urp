@@ -32,6 +32,16 @@ class DynamicAttachmentCapacityTests(unittest.TestCase):
             source,
         )
 
+    def test_attachment_manager_emits_scoring_only_physical_lifecycle_events(self):
+        source = (ROOT / "strawberry_sim" / "attachment_manager.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('"/strawberry/ground_truth/harvest_events"', source)
+        self.assertIn('"SIMULATION_GROUND_TRUTH_SCORING_ONLY"', source)
+        self.assertIn('_publish_score_event("CONTACT_RESOLVED"', source)
+        self.assertIn('_publish_score_event("PLACED"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

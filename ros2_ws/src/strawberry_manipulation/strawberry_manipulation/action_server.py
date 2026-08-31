@@ -15,6 +15,7 @@ from .core import (
     bounded_pregrasp_candidates_for_fruit_center,
     hand_pose_for_fruit_center,
     offset_pose,
+    rotate_about_base_z,
 )
 from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
@@ -607,23 +608,24 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     tool_center_offset_m=executor.tool_center_offset_m,
                     pregrasp_offset_m=executor.pregrasp_offset_m,
                 )
-                grasp = hand_pose_for_fruit_center(
+                primary_grasp = hand_pose_for_fruit_center(
                     target,
                     quaternion=executor.grasp_quaternion,
                     tool_center_offset_m=executor.tool_center_offset_m,
                 )
-                retreat = offset_pose(grasp, dz=executor.retreat_distance_m)
-                first = None
-                pregrasp = None
+                connected_routes = []
                 first_planning_time = 0.0
                 first_collision = False
                 first_joint_travel = 0.0
-                first_connected = None
-                for candidate in pregrasp_candidates:
+                for orientation_index, candidate in enumerate(
+                    pregrasp_candidates
+                ):
                     assessment = self._backend.evaluate_pose_sequence((candidate,))
                     first_planning_time += float(assessment[2])
                     first_collision = first_collision or bool(assessment[1])
-                    first_joint_travel = float(assessment[3])
+                    first_joint_travel = max(
+                        first_joint_travel, float(assessment[3])
+                    )
                     if not assessment[0]:
                         continue
                     connected = self._backend.preview_guarded_approach_from_current(
@@ -631,22 +633,23 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     )
                     first_planning_time += connected.planning_time_sec
                     first_collision = first_collision or bool(connected.collision)
-                    first_joint_travel = (
-                        float(assessment[3]) + connected.joint_travel_rad
+                    first_joint_travel = max(
+                        first_joint_travel,
+                        float(assessment[3]) + connected.joint_travel_rad,
                     )
                     if not connected.feasible:
                         continue
-                    first = assessment
-                    first_connected = connected
-                    pregrasp = candidate
-                    break
-                if first is None or pregrasp is None:
+                    connected_routes.append(
+                        (orientation_index, candidate, assessment, connected)
+                    )
+                if not connected_routes:
                     response.feasible = False
                     response.collision = first_collision
                     response.planning_time_sec = first_planning_time
                     response.joint_travel_rad = first_joint_travel
                     response.message = (
-                        "all bounded pregrasp IK or collision checks failed"
+                        "no connected pregrasp route among four bounded "
+                        "orientations"
                     )
                     return response
                 if not self._backend.allow_target_contact(target_id):
@@ -655,20 +658,56 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         "failed to open target contact corridor for evaluation"
                     )
                     return response
-                second = self._backend.evaluate_pose_sequence(
-                    (pregrasp, grasp, retreat)
+                route_collision = False
+                route_planning_time = 0.0
+                route_joint_travel = 0.0
+                for (
+                    orientation_index,
+                    pregrasp,
+                    _assessment,
+                    connected,
+                ) in connected_routes:
+                    grasp = rotate_about_base_z(
+                        primary_grasp,
+                        orientation_index * math.pi / 2.0,
+                    )
+                    retreat = offset_pose(
+                        grasp, dz=executor.retreat_distance_m
+                    )
+                    route = self._backend.evaluate_pose_sequence(
+                        (pregrasp, grasp, retreat)
+                    )
+                    route_planning_time += float(route[2])
+                    route_collision = route_collision or bool(route[1])
+                    route_joint_travel = max(
+                        route_joint_travel,
+                        float(route[3]) + connected.joint_travel_rad,
+                    )
+                    if not route[0]:
+                        continue
+                    response.feasible = True
+                    response.collision = False
+                    response.planning_time_sec = float(
+                        first_planning_time + route_planning_time
+                    )
+                    response.joint_travel_rad = float(
+                        route[3] + connected.joint_travel_rad
+                    )
+                    response.message = (
+                        "current state, pregrasp, grasp, and retreat are "
+                        "connected and feasible; bounded_orientation_index="
+                        f"{orientation_index}"
+                    )
+                    return response
+                response.feasible = False
+                response.collision = route_collision
+                response.planning_time_sec = float(
+                    first_planning_time + route_planning_time
                 )
-                response.feasible = bool(second[0])
-                response.collision = bool(second[1])
-                response.planning_time_sec = float(first_planning_time + second[2])
-                response.joint_travel_rad = float(
-                    second[3]
-                    + (first_connected.joint_travel_rad if first_connected else 0.0)
-                )
+                response.joint_travel_rad = float(route_joint_travel)
                 response.message = (
-                    "current state, pregrasp, grasp, and retreat are connected and feasible"
-                    if response.feasible
-                    else "grasp or retreat IK/collision check failed"
+                    "grasp or retreat IK/collision check failed for every "
+                    "connected bounded orientation"
                 )
                 return response
             except Exception as exc:

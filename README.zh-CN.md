@@ -23,6 +23,7 @@ MoveIt 2 碰撞检测与运动规划
 ## 快速导航
 
 - 新任务或新工作区接手项目：[`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md)
+- 团队成员自底向上全解析：[`docs/team-walkthrough-zh.md`](docs/team-walkthrough-zh.md)
 - 中文系统学习路线：[`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md)
 - 系统架构与接口：[`docs/architecture.md`](docs/architecture.md)
 - 环境复现说明：[`docs/reproduction.md`](docs/reproduction.md)
@@ -488,4 +489,4 @@ submission-v2 已完成以下检查：
 
 项目新增了一条独立的固定机械臂泛化路径，包括可复现的1～3株随机场景、多目标 RGB-D 跟踪、果实与收集箱间隙安全排序、动态腕部观察、MoveIt 预检查和连续采摘状态机。原有固定场景及历史证据保持不变。
 
-运行方法、ROS 接口、真值使用边界和30种子正式评测矩阵见 [`docs/generalized-harvest-v1.md`](docs/generalized-harvest-v1.md)。与正式种子零重叠的120场景开发集已完成采集；广义检测器 v2 在验证集达到成熟果精确率96.15%、召回率90.91%，随后使用完全相同的冻结参数在独立资格集达到精确率95.65%、召回率97.78%。完整回归为483项全通过。新开发种子的在线探针表明瓶颈已转移到多目标 RGB-D 定位与安全运动闭环，因此正式30种子仍未执行。只有运行时开发门通过、实际完成全部30个一次性运行并得到 `overall_pass: true` 后，才能声称达到计划中的泛化验收指标。
+运行方法、ROS 接口、真值使用边界和30种子正式评测矩阵见 [`docs/generalized-harvest-v1.md`](docs/generalized-harvest-v1.md)。与正式种子零重叠的120场景开发集已完成采集；广义检测器 v2 在验证集达到成熟果精确率96.15%、召回率90.91%，随后使用完全相同的冻结参数在独立资格集达到精确率95.65%、召回率97.78%。当前完整回归为735项纯 Python 测试（0失败、2项环境跳过）和617项 ROS/colcon 测试（0失败）。广义定位默认关闭真值关联，并在关闭时根本不创建真值订阅；真实 ROS 图无运动审计已经通过。开发发现种子45001～45018中只有1场同时形成两条稳定、成熟且 MoveIt 可行的轨迹，因此五场连续采摘开发门仍关闭，正式30种子也继续封存。只有开发门通过、实际完成全部30个一次性运行并让严格 schema-v2 汇总得到 `overall_pass: true` 后，才能声称达到计划中的泛化验收指标。

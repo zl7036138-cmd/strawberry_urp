@@ -460,12 +460,17 @@ evidence remain unchanged.
 
 See [`docs/generalized-harvest-v1.md`](docs/generalized-harvest-v1.md) for the
 runbook, ROS interfaces, truth boundary, and the frozen 30-seed acceptance
-matrix. All 483 regression tests pass. A 120-scene development-only capture,
-training, and qualification route is
+matrix. The current baseline passes 735 pure-Python tests (0 failures,
+2 environment skips) and 617 colcon/ROS tests (0 failures). A 120-scene
+development-only capture, training, and qualification route is
 seed-disjoint from that formal matrix. Generalized detector candidate v2 now
 passes both the validation gate (ripe P 96.15%, R 90.91%) and the independent
 qualification gate using the same frozen settings (ripe P 95.65%, R 97.78%).
-Fresh runtime probes still fail the end-to-end RGB-D localization/manipulation
-development gate, so the formal matrix has not been executed. No formal
-acceptance is claimed until all 30 one-attempt runtime receipts exist and the
-aggregate evaluator returns `overall_pass: true`.
+The runtime path defaults to no truth association and does not create truth
+subscriptions unless explicitly opted into a historical diagnostic. A live
+zero-motion ROS-graph audit passes, while discovery seeds 45001--45018 yielded
+only one scene with two stable, ripe, MoveIt-feasible targets. Therefore the
+five-scene behavior gate remains closed and the formal matrix has not been
+executed. No formal acceptance is claimed until the development gate passes,
+all 30 one-attempt runtime receipts exist, and the strict schema-v2 aggregate
+evaluator returns `overall_pass: true`.

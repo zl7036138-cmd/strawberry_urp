@@ -211,8 +211,14 @@ def bounded_pregrasp_candidates_for_fruit_center(
     quaternion: tuple[float, float, float, float] = DEFAULT_GRASP_QUATERNION,
     tool_center_offset_m: float = DEFAULT_TOOL_CENTER_OFFSET_M,
     pregrasp_offset_m: float = DEFAULT_PREGRASP_OFFSET_M,
-) -> tuple[Pose, Pose]:
-    """Return the exact bounded pregrasp orientations used by execution."""
+) -> tuple[Pose, Pose, Pose, Pose]:
+    """Return the four bounded finger orientations used by execution.
+
+    A quarter turn about base Z leaves the vertical tool axis unchanged while
+    giving the Panda wrist four deterministic IK branches.  Every candidate is
+    still planned and collision checked; this is pose coverage, not a relaxed
+    reachability or safety threshold.
+    """
 
     primary = pregrasp_pose_for_fruit_center(
         center,
@@ -220,7 +226,10 @@ def bounded_pregrasp_candidates_for_fruit_center(
         tool_center_offset_m=tool_center_offset_m,
         pregrasp_offset_m=pregrasp_offset_m,
     )
-    return primary, alternate_approach(primary)
+    return tuple(
+        rotate_about_base_z(primary, quarter_turn * math.pi / 2.0)
+        for quarter_turn in range(4)
+    )
 
 
 class PickAndPlaceExecutor:
@@ -425,7 +434,7 @@ class PickAndPlaceExecutor:
         mark("PLAN", 0.10)
         # The goal pose denotes the fruit centre. Convert it to the Panda hand
         # origin, then approach along the hand's local tool axis.
-        grasp_pose = self._hand_pose_for_fruit_center(
+        primary_grasp_pose = self._hand_pose_for_fruit_center(
             target_pose, self.grasp_quaternion
         )
         pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
@@ -434,26 +443,43 @@ class PickAndPlaceExecutor:
             tool_center_offset_m=self.tool_center_offset_m,
             pregrasp_offset_m=self.pregrasp_offset_m,
         )
-        pregrasp = pregrasp_candidates[0]
-        approach = self.backend.move_to(pregrasp, "APPROACH")
-        planning_time += approach.planning_time_sec
-        execution_time += approach.execution_time_sec
-        if not approach.success:
-            retry_pose = pregrasp_candidates[1]
-            retry = self.backend.move_to(retry_pose, "APPROACH_RETRY")
-            planning_time += retry.planning_time_sec
-            execution_time += retry.execution_time_sec
-            if not retry.success:
-                code = (
-                    FailureCode.COLLISION
-                    if retry.collision
-                    else FailureCode.PLANNING_FAILED
+        pregrasp = None
+        grasp_pose = None
+        last_approach = None
+        selected_orientation_index = None
+        for orientation_index, candidate in enumerate(pregrasp_candidates):
+            stage = "APPROACH" if orientation_index == 0 else (
+                "APPROACH_RETRY"
+                if orientation_index == 1
+                else f"APPROACH_RETRY_{orientation_index}"
+            )
+            approach = self.backend.move_to(candidate, stage)
+            planning_time += approach.planning_time_sec
+            execution_time += approach.execution_time_sec
+            last_approach = approach
+            if approach.success:
+                pregrasp = candidate
+                grasp_pose = rotate_about_base_z(
+                    primary_grasp_pose,
+                    orientation_index * math.pi / 2.0,
                 )
-                return fail(
-                    code,
-                    "approach planning failed after one alternate orientation",
-                    recover_home=False,
-                )
+                selected_orientation_index = orientation_index
+                break
+            # Once a controller moved, it is unsafe to search another branch
+            # from an unreviewed physical state.
+            if approach.execution_time_sec > 1.0e-6:
+                break
+        if pregrasp is None or grasp_pose is None:
+            code = (
+                FailureCode.COLLISION
+                if last_approach is not None and last_approach.collision
+                else FailureCode.PLANNING_FAILED
+            )
+            return fail(
+                code,
+                "approach planning failed after four bounded orientations",
+                recover_home=False,
+            )
 
         mark("APPROACH", 0.25)
         if self.target_pose_refiner is not None:
@@ -466,8 +492,12 @@ class PickAndPlaceExecutor:
                     FailureCode.STALE_DATA,
                     f"target pose refinement failed: {exc}",
                 )
-            grasp_pose = self._hand_pose_for_fruit_center(
+            primary_grasp_pose = self._hand_pose_for_fruit_center(
                 target_pose, self.grasp_quaternion
+            )
+            grasp_pose = rotate_about_base_z(
+                primary_grasp_pose,
+                int(selected_orientation_index) * math.pi / 2.0,
             )
         if not self.backend.allow_target_contact(target_id):
             return fail(
@@ -488,15 +518,23 @@ class PickAndPlaceExecutor:
             # valid. Keep the same vertical tool axis and inspect the three
             # remaining quarter-turn finger orientations. Every reorientation
             # and descent remains collision checked, and the search is bounded.
-            for quarter_turn in (1, 2, 3):
+            alternate_orientation_indices = tuple(
+                index
+                for index in range(4)
+                if index != selected_orientation_index
+            )
+            for retry_number, orientation_index in enumerate(
+                alternate_orientation_indices, start=1
+            ):
                 alternate_grasp_pose = rotate_about_base_z(
-                    grasp_pose, quarter_turn * math.pi / 2.0
+                    primary_grasp_pose,
+                    orientation_index * math.pi / 2.0,
                 )
-                alternate_pregrasp_pose = rotate_about_base_z(
-                    offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
-                    quarter_turn * math.pi / 2.0,
+                alternate_pregrasp_pose = offset_along_local_z(
+                    alternate_grasp_pose,
+                    -self.pregrasp_offset_m,
                 )
-                suffix = "" if quarter_turn == 1 else f"_{quarter_turn}"
+                suffix = "" if retry_number == 1 else f"_{retry_number}"
                 retry_preparation = self.backend.move_to(
                     alternate_pregrasp_pose,
                     f"GRASP_RETRY_PREP{suffix}",

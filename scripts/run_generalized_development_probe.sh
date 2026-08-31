@@ -12,7 +12,7 @@ seed="${1:-44012}"
 scene_dir="${2:-.codex_tmp/generalized_runtime_candidates_v1}"
 run_tag="${3:-development}"
 scene_stem="generalized_seed_$(printf '%06d' "${seed}")"
-run_dir=".codex_tmp/generalized_harvest_seed_${seed}_${run_tag}"
+run_dir="${STRAWBERRY_DEVELOPMENT_OUTPUT_DIR:-.codex_tmp/generalized_harvest_seed_${seed}_${run_tag}}"
 startup_timeout_sec="${STRAWBERRY_PROBE_STARTUP_TIMEOUT_SEC:-120}"
 idle_timeout_sec="${STRAWBERRY_PROBE_IDLE_TIMEOUT_SEC:-180}"
 hard_timeout_sec="${STRAWBERRY_PROBE_HARD_TIMEOUT_SEC:-900}"
@@ -23,10 +23,14 @@ if [[ ! "${cleanup_smoke_sec}" =~ ^[0-9]+$ ]]; then
 fi
 
 mkdir -p "${run_dir}"
-rm -f \
-  "${run_dir}/runtime_probe.json" \
-  "${run_dir}/runtime_probe.json.tmp" \
-  "${run_dir}/cleanup_probe.json"
+for output in \
+  runtime_probe.json runtime_probe.json.tmp cleanup_probe.json \
+  truth_isolation.json runtime_score.json launch.log; do
+  if [[ -e "${run_dir}/${output}" ]]; then
+    echo "refusing to overwrite ${run_dir}/${output}" >&2
+    exit 2
+  fi
+done
 setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   headless:=true \
   simulation_seed:="${seed}" \
@@ -91,6 +95,20 @@ if [[ "${ready}" -ne 1 ]]; then
   exit 1
 fi
 
+audit_status=0
+ros2 run strawberry_bringup generalized_truth_isolation_audit \
+  --output "${run_dir}/truth_isolation.json" \
+  --timeout 30 \
+  --required-node /strawberry_base_localization \
+  --required-node /strawberry_wrist_localization \
+  --required-node /strawberry_target_selector \
+  --required-node /strawberry_harvest_orchestrator \
+  --required-node /strawberry_pick_and_place || audit_status=$?
+if [[ "${audit_status}" -ne 0 ]]; then
+  echo "truth-isolation audit failed" >&2
+  exit 11
+fi
+
 if [[ "${cleanup_smoke_sec}" -gt 0 ]]; then
   sleep "${cleanup_smoke_sec}"
   cleanup_status=0
@@ -115,4 +133,16 @@ if [[ "${cleanup_status}" -ne 0 ]]; then
   echo "generalized runtime process group did not terminate" >&2
   exit 20
 fi
-exit "${recorder_status}"
+score_status=0
+if [[ -f "${run_dir}/runtime_probe.json" ]]; then
+  ros2 run strawberry_bringup generalized_development_score \
+    --receipt "${run_dir}/runtime_probe.json" \
+    --scene "${repo_root}/${scene_dir}/${scene_stem}.yaml" \
+    --cleanup "${run_dir}/cleanup_probe.json" \
+    --truth-audit "${run_dir}/truth_isolation.json" \
+    --output "${run_dir}/runtime_score.json" || score_status=$?
+fi
+if [[ "${recorder_status}" -ne 0 ]]; then
+  exit "${recorder_status}"
+fi
+exit "${score_status}"

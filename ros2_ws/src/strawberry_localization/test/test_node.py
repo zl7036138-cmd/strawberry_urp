@@ -32,6 +32,26 @@ from strawberry_localization.generalized_node import (  # noqa: E402
 
 
 class LocalizationNodeInputSelectionTests(unittest.TestCase):
+    def test_generalized_truth_association_is_opt_in_and_subscription_gated(self):
+        source = (
+            PACKAGE_ROOT
+            / "strawberry_localization"
+            / "generalized_node.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'declare_parameter("ground_truth_association_enabled", False)',
+            source,
+        )
+        self.assertIn('self._ground_truth_subscriptions = []', source)
+        self.assertIn(
+            'self.get_parameter("ground_truth_association_enabled").value',
+            source,
+        )
+        gate = source.index('self._ground_truth_subscriptions = []')
+        catalog = source.index('"/strawberry/ground_truth/catalog"', gate)
+        self.assertLess(gate, catalog)
+
     def test_track_last_seen_stamp_conversion_is_normalized(self):
         self.assertEqual(split_stamp_seconds(12.25), (12, 250_000_000))
         self.assertEqual(split_stamp_seconds(1.9999999996), (2, 0))

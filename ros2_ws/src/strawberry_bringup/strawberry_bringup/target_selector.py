@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from typing import Mapping
 
 from .harvest_planning import (
     HarvestCandidate,
@@ -46,6 +47,116 @@ class MoveItEvaluation:
             raise ValueError(
                 "evaluation motion metrics must be finite and non-negative"
             )
+
+
+@dataclass
+class MoveItSelectionBatch:
+    """Dependency-light coordinator for one sequential MoveIt preflight batch.
+
+    ROS callbacks only transport requests and responses.  This object owns the
+    ordering, epoch guard, pending identity, rejection audit, and terminal
+    decision so the asynchronous safety behavior can be tested directly.
+    """
+
+    epoch: int
+    now_sec: float
+    candidates: tuple[HarvestCandidate, ...]
+    ranked: tuple[HarvestCandidate, ...]
+    messages: Mapping[int, object]
+    selection_limits: Mapping[str, object]
+    index: int = 0
+    group: tuple[float, float, float] | None = None
+    feasible: list[HarvestCandidate] = field(default_factory=list)
+    evaluations: dict[int, MoveItEvaluation] = field(default_factory=dict)
+    evaluated_track_ids: list[int] = field(default_factory=list)
+    moveit_rejections: list[dict[str, object]] = field(default_factory=list)
+    pending_track_id: int | None = None
+    active: bool = True
+
+    def __post_init__(self) -> None:
+        if self.epoch <= 0:
+            raise ValueError("selection batch epoch must be positive")
+        if not math.isfinite(float(self.now_sec)):
+            raise ValueError("selection batch time must be finite")
+        self.candidates = tuple(self.candidates)
+        self.ranked = tuple(self.ranked)
+        if not self.ranked:
+            raise ValueError("selection batch requires ranked candidates")
+        self.group = moveit_priority_group(self.ranked[0])
+
+    def accepts(self, epoch: int, track_id: int | None = None) -> bool:
+        if not self.active or int(epoch) != self.epoch:
+            return False
+        return track_id is None or self.pending_track_id == int(track_id)
+
+    def next_step(
+        self, epoch: int
+    ) -> tuple[str, HarvestCandidate | None]:
+        """Return EVALUATE, SELECT, NO_PICK, WAIT, or STALE."""
+
+        if not self.accepts(epoch):
+            return "STALE", None
+        if self.pending_track_id is not None:
+            return "WAIT", None
+        if self.feasible and (
+            self.index >= len(self.ranked)
+            or moveit_priority_group(self.ranked[self.index]) != self.group
+        ):
+            return "SELECT", None
+        if self.index >= len(self.ranked):
+            return "NO_PICK", None
+        if (
+            not self.feasible
+            and moveit_priority_group(self.ranked[self.index]) != self.group
+        ):
+            self.group = moveit_priority_group(self.ranked[self.index])
+        candidate = self.ranked[self.index]
+        self.index += 1
+        self.pending_track_id = candidate.track_id
+        return "EVALUATE", candidate
+
+    def record(
+        self,
+        epoch: int,
+        candidate: HarvestCandidate,
+        evaluation: MoveItEvaluation,
+        *,
+        cached: bool,
+    ) -> bool:
+        """Record only the currently pending result; reject stale callbacks."""
+
+        if not self.accepts(epoch, candidate.track_id):
+            return False
+        self.pending_track_id = None
+        self.evaluated_track_ids.append(candidate.track_id)
+        self.evaluations[candidate.track_id] = evaluation
+        assessed = apply_moveit_evaluation(candidate, evaluation)
+        if evaluation.feasible:
+            self.feasible.append(assessed)
+        else:
+            self.moveit_rejections.append(
+                {
+                    "track_id": candidate.track_id,
+                    "collision": evaluation.collision,
+                    "planning_time_sec": evaluation.planning_time_sec,
+                    "joint_travel_rad": evaluation.joint_travel_rad,
+                    "message": evaluation.message,
+                    "cached": bool(cached),
+                }
+            )
+        return True
+
+    def selected(self) -> HarvestCandidate | None:
+        ranked = rank_safe_targets(
+            self.feasible,
+            now_sec=self.now_sec,
+            **self.selection_limits,
+        )
+        return ranked[0] if ranked else None
+
+    def invalidate(self) -> None:
+        self.active = False
+        self.pending_track_id = None
 
 
 def apply_moveit_evaluation(
@@ -180,6 +291,70 @@ def inside_observation_reach(position) -> bool:
     min_x, max_x, min_y, max_y, min_z, max_z = OBSERVATION_REACH_BOUNDS
     x, y, z = position
     return min_x <= x <= max_x and min_y <= y <= max_y and min_z <= z <= max_z
+
+
+def harvest_candidates_from_records(
+    records,
+    *,
+    fruit_radius_m: float,
+    bin_bounds,
+    static_obstacle_margin_m: float,
+) -> list[HarvestCandidate]:
+    """Build selector-identical candidates from dependency-light track records."""
+
+    radius = float(fruit_radius_m)
+    margin = float(static_obstacle_margin_m)
+    if not math.isfinite(radius) or radius <= 0.0:
+        raise ValueError("fruit radius must be finite and positive")
+    if not math.isfinite(margin) or margin < 0.0:
+        raise ValueError("static obstacle margin must be finite and non-negative")
+    normalized = tuple(dict(record) for record in records)
+    identities = [int(record["track_id"]) for record in normalized]
+    if any(identity <= 0 for identity in identities) or len(identities) != len(
+        set(identities)
+    ):
+        raise ValueError("track IDs must be positive and unique")
+    positions = {
+        int(record["track_id"]): tuple(float(value) for value in record["position"])
+        for record in normalized
+    }
+    if any(
+        len(position) != 3 or not all(math.isfinite(value) for value in position)
+        for position in positions.values()
+    ):
+        raise ValueError("track positions must be finite 3-D points")
+    candidates = []
+    for record in normalized:
+        track_id = int(record["track_id"])
+        position = positions[track_id]
+        neighbours = [
+            value for other_id, value in positions.items() if other_id != track_id
+        ]
+        reachable = inside_conservative_reach(position)
+        clearance = min(
+            geometric_clearance(position, neighbours, radius),
+            max(
+                0.0,
+                axis_aligned_box_clearance(position, bin_bounds) - margin,
+            ),
+        )
+        candidates.append(
+            HarvestCandidate(
+                track_id=track_id,
+                maturity=int(record["maturity"]),
+                position=position,
+                confidence=float(record["confidence"]),
+                sigma_m=float(record["sigma_m"]),
+                observation_count=int(record["observation_count"]),
+                last_seen_sec=float(record["last_seen_sec"]),
+                clearance_m=clearance,
+                joint_travel_rad=math.dist((0.0, 0.0, 0.55), position),
+                pregrasp_feasible=reachable,
+                grasp_feasible=reachable,
+                retreat_feasible=reachable,
+            )
+        )
+    return candidates
 
 
 def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
@@ -366,69 +541,44 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._evaluation_epoch += 1
             epoch = self._evaluation_epoch
             self._evaluation_active = True
-            self._evaluation_batch = {
-                "epoch": epoch,
-                "now_sec": now_sec,
-                "candidates": tuple(candidates),
-                "ranked": tuple(ranked),
-                "messages": messages_by_track_id,
-                "selection_limits": selection_limits,
-                "index": 0,
-                "group": moveit_priority_group(ranked[0]),
-                "feasible": [],
-                "evaluations": {},
-                "evaluated_track_ids": [],
-                "moveit_rejections": [],
-            }
+            self._evaluation_batch = MoveItSelectionBatch(
+                epoch=epoch,
+                now_sec=now_sec,
+                candidates=tuple(candidates),
+                ranked=tuple(ranked),
+                messages=messages_by_track_id,
+                selection_limits=selection_limits,
+            )
             self._advance_evaluation(epoch)
 
         def _build_candidates(self, message):
-            radius = float(self.get_parameter("fruit_radius_m").value)
-            positions = {
-                int(item.track_id): (
-                    float(item.pose.position.x),
-                    float(item.pose.position.y),
-                    float(item.pose.position.z),
-                )
-                for item in message.targets
-            }
             messages_by_track_id = {
                 int(item.track_id): item for item in message.targets
             }
-            candidates = []
-            for item in message.targets:
-                track_id = int(item.track_id)
-                position = positions[track_id]
-                neighbours = [
-                    value
-                    for other_id, value in positions.items()
-                    if other_id != track_id
-                ]
-                reachable = inside_conservative_reach(position)
-                clearance = min(
-                    geometric_clearance(position, neighbours, radius),
-                    max(
-                        0.0,
-                        axis_aligned_box_clearance(position, self._bin_bounds)
-                        - float(self.get_parameter("static_obstacle_margin_m").value),
+            records = (
+                {
+                    "track_id": int(item.track_id),
+                    "maturity": int(item.maturity),
+                    "position": (
+                        float(item.pose.position.x),
+                        float(item.pose.position.y),
+                        float(item.pose.position.z),
                     ),
-                )
-                candidates.append(
-                    HarvestCandidate(
-                        track_id=track_id,
-                        maturity=int(item.maturity),
-                        position=position,
-                        confidence=float(item.detection_confidence),
-                        sigma_m=float(item.position_sigma_m),
-                        observation_count=int(item.observation_count),
-                        last_seen_sec=self._seconds(item.header.stamp),
-                        clearance_m=clearance,
-                        joint_travel_rad=math.dist((0.0, 0.0, 0.55), position),
-                        pregrasp_feasible=reachable,
-                        grasp_feasible=reachable,
-                        retreat_feasible=reachable,
-                    )
-                )
+                    "confidence": float(item.detection_confidence),
+                    "sigma_m": float(item.position_sigma_m),
+                    "observation_count": int(item.observation_count),
+                    "last_seen_sec": self._seconds(item.header.stamp),
+                }
+                for item in message.targets
+            )
+            candidates = harvest_candidates_from_records(
+                records,
+                fruit_radius_m=float(self.get_parameter("fruit_radius_m").value),
+                bin_bounds=self._bin_bounds,
+                static_obstacle_margin_m=float(
+                    self.get_parameter("static_obstacle_margin_m").value
+                ),
+            )
             return candidates, messages_by_track_id
 
         def _selection_limits(self):
@@ -504,29 +654,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 not self._evaluation_active
                 or self._evaluation_batch is None
-                or int(self._evaluation_batch["epoch"]) != int(epoch)
+                or not self._evaluation_batch.accepts(epoch)
             ):
                 return
             batch = self._evaluation_batch
-            ranked = batch["ranked"]
-            index = int(batch["index"])
-            if batch["feasible"] and (
-                index >= len(ranked)
-                or moveit_priority_group(ranked[index]) != batch["group"]
-            ):
+            step, candidate = batch.next_step(epoch)
+            if step == "SELECT":
                 self._finish_evaluation_with_selection(epoch)
                 return
-            if index >= len(ranked):
+            if step == "NO_PICK":
                 self._finish_evaluation_without_selection(epoch)
                 return
-            if (
-                not batch["feasible"]
-                and moveit_priority_group(ranked[index]) != batch["group"]
-            ):
-                batch["group"] = moveit_priority_group(ranked[index])
-
-            candidate = ranked[index]
-            batch["index"] = index + 1
+            if step != "EVALUATE" or candidate is None:
+                return
             maximum_drift_m = float(
                 self.get_parameter("maximum_evaluation_pose_drift_m").value
             )
@@ -545,7 +685,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 return
 
-            item = batch["messages"][candidate.track_id]
+            item = batch.messages[candidate.track_id]
             request = EvaluateTarget.Request()
             request.target_id = candidate.track_id
             request.target_pose = PoseStamped()
@@ -563,7 +703,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 not self._evaluation_active
                 or self._evaluation_batch is None
-                or int(self._evaluation_batch["epoch"]) != int(epoch)
+                or not self._evaluation_batch.accepts(epoch, candidate.track_id)
             ):
                 return
             try:
@@ -600,26 +740,13 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 not self._evaluation_active
                 or self._evaluation_batch is None
-                or int(self._evaluation_batch["epoch"]) != int(epoch)
             ):
                 return
             batch = self._evaluation_batch
-            batch["evaluated_track_ids"].append(candidate.track_id)
-            batch["evaluations"][candidate.track_id] = evaluation
-            assessed = apply_moveit_evaluation(candidate, evaluation)
-            if evaluation.feasible:
-                batch["feasible"].append(assessed)
-            else:
-                batch["moveit_rejections"].append(
-                    {
-                        "track_id": candidate.track_id,
-                        "collision": evaluation.collision,
-                        "planning_time_sec": evaluation.planning_time_sec,
-                        "joint_travel_rad": evaluation.joint_travel_rad,
-                        "message": evaluation.message,
-                        "cached": bool(cached),
-                    }
-                )
+            if not batch.record(
+                epoch, candidate, evaluation, cached=bool(cached)
+            ):
+                return
             self._advance_evaluation(epoch)
 
         def _finish_evaluation_with_selection(self, epoch) -> None:
@@ -627,19 +754,14 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 not self._evaluation_active
                 or batch is None
-                or int(batch["epoch"]) != int(epoch)
+                or not batch.accepts(epoch)
             ):
                 return
-            ranked = rank_safe_targets(
-                batch["feasible"],
-                now_sec=batch["now_sec"],
-                **batch["selection_limits"],
-            )
-            if not ranked:
+            selected = batch.selected()
+            if selected is None:
                 self._finish_evaluation_without_selection(epoch)
                 return
-            selected = ranked[0]
-            evaluation = batch["evaluations"][selected.track_id]
+            evaluation = batch.evaluations[selected.track_id]
 
             latest = self._latest_targets_message
             latest_now = self.get_clock().now().nanoseconds * 1e-9
@@ -678,8 +800,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self._select_targets(latest)
                 return
 
-            evaluated_track_ids = tuple(batch["evaluated_track_ids"])
-            moveit_rejections = tuple(batch["moveit_rejections"])
+            evaluated_track_ids = tuple(batch.evaluated_track_ids)
+            moveit_rejections = tuple(batch.moveit_rejections)
+            batch.invalidate()
             self._evaluation_active = False
             self._evaluation_batch = None
             self._selected_track_id = selected.track_id
@@ -697,19 +820,20 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 not self._evaluation_active
                 or batch is None
-                or int(batch["epoch"]) != int(epoch)
+                or not batch.accepts(epoch)
             ):
                 return
+            batch.invalidate()
             self._evaluation_active = False
             self._evaluation_batch = None
             self._selected_track_id = None
             self._publish_no_pick(
-                batch["candidates"],
-                now_sec=batch["now_sec"],
-                selection_limits=batch["selection_limits"],
+                batch.candidates,
+                now_sec=batch.now_sec,
+                selection_limits=batch.selection_limits,
                 reason="NO_MOVEIT_FEASIBLE_TARGET",
-                moveit_rejections=batch["moveit_rejections"],
-                evaluated_track_ids=batch["evaluated_track_ids"],
+                moveit_rejections=batch.moveit_rejections,
+                evaluated_track_ids=batch.evaluated_track_ids,
             )
 
         def _defer_evaluation(self, epoch, detail) -> None:
@@ -717,19 +841,20 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if (
                 not self._evaluation_active
                 or batch is None
-                or int(batch["epoch"]) != int(epoch)
+                or not batch.accepts(epoch)
             ):
                 return
+            batch.invalidate()
             self._evaluation_epoch += 1
             self._evaluation_active = False
             self._evaluation_batch = None
             self._publish_no_pick(
-                batch["candidates"],
-                now_sec=batch["now_sec"],
-                selection_limits=batch["selection_limits"],
+                batch.candidates,
+                now_sec=batch.now_sec,
+                selection_limits=batch.selection_limits,
                 reason="MOVEIT_EVALUATION_DEFERRED",
-                moveit_rejections=batch["moveit_rejections"],
-                evaluated_track_ids=batch["evaluated_track_ids"],
+                moveit_rejections=batch.moveit_rejections,
+                evaluated_track_ids=batch.evaluated_track_ids,
             )
             self.get_logger().debug(
                 f"Target selection deferred until MoveIt is idle: {detail}"
@@ -821,6 +946,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     "schema_version": 1,
                     "outcome": "TARGET_SELECTED",
                     "track_id": selected.track_id,
+                    "maturity": selected.maturity,
+                    "position_m": list(selected.position),
+                    "confidence": selected.confidence,
+                    "sigma_m": selected.sigma_m,
                     "clearance_m": selected.clearance_m,
                     "view_joint_travel_rad": assessment.joint_travel_rad,
                     "observation_candidate_count": len(hand_views),

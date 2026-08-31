@@ -12,11 +12,13 @@ from strawberry_bringup.harvest_planning import (  # noqa: E402
 )
 from strawberry_bringup.target_selector import (  # noqa: E402
     MoveItEvaluation,
+    MoveItSelectionBatch,
     apply_moveit_evaluation,
     axis_aligned_box_clearance,
     evaluation_failure_is_transient,
     evaluation_matches_position,
     expanded_bin_bounds,
+    harvest_candidates_from_records,
     inside_conservative_reach,
     inside_observation_reach,
     moveit_priority_group,
@@ -44,6 +46,128 @@ def candidate(identity=1, **overrides):
 
 
 class TargetSelectorWorkspaceTests(unittest.TestCase):
+    @staticmethod
+    def selection_limits():
+        return {
+            "confidence_threshold": 0.60,
+            "maximum_sigma_m": 0.015,
+            "minimum_observations": 3,
+            "maximum_age_sec": 0.50,
+            "minimum_clearance_m": 0.02,
+            "excluded_track_ids": set(),
+        }
+
+    def test_async_batch_rejects_first_and_selects_second(self):
+        first = candidate(1)
+        second = candidate(2)
+        batch = MoveItSelectionBatch(
+            epoch=7,
+            now_sec=10.0,
+            candidates=(first, second),
+            ranked=(first, second),
+            messages={1: object(), 2: object()},
+            selection_limits=self.selection_limits(),
+        )
+
+        step, row = batch.next_step(7)
+        self.assertEqual((step, row.track_id), ("EVALUATE", 1))
+        self.assertTrue(
+            batch.record(
+                7,
+                row,
+                MoveItEvaluation(row.position, False, True, 0.2, 1.1, "blocked"),
+                cached=False,
+            )
+        )
+        step, row = batch.next_step(7)
+        self.assertEqual((step, row.track_id), ("EVALUATE", 2))
+        self.assertTrue(
+            batch.record(
+                7,
+                row,
+                MoveItEvaluation(row.position, True, False, 0.3, 1.3, "feasible"),
+                cached=False,
+            )
+        )
+        self.assertEqual(batch.next_step(7), ("SELECT", None))
+        self.assertEqual(batch.selected().track_id, 2)
+        self.assertEqual(batch.evaluated_track_ids, [1, 2])
+        self.assertEqual(batch.moveit_rejections[0]["track_id"], 1)
+
+    def test_async_batch_all_infeasible_finishes_no_pick(self):
+        rows = (candidate(1), candidate(2))
+        batch = MoveItSelectionBatch(
+            epoch=2,
+            now_sec=10.0,
+            candidates=rows,
+            ranked=rows,
+            messages={1: object(), 2: object()},
+            selection_limits=self.selection_limits(),
+        )
+        for expected in rows:
+            step, row = batch.next_step(2)
+            self.assertEqual((step, row.track_id), ("EVALUATE", expected.track_id))
+            self.assertTrue(
+                batch.record(
+                    2,
+                    row,
+                    MoveItEvaluation(row.position, False, True, 0.1, 0.8, "blocked"),
+                    cached=False,
+                )
+            )
+        self.assertEqual(batch.next_step(2), ("NO_PICK", None))
+        self.assertIsNone(batch.selected())
+
+    def test_async_batch_rejects_stale_epoch_and_identity(self):
+        row = candidate(3)
+        batch = MoveItSelectionBatch(
+            epoch=4,
+            now_sec=10.0,
+            candidates=(row,),
+            ranked=(row,),
+            messages={3: object()},
+            selection_limits=self.selection_limits(),
+        )
+        self.assertEqual(batch.next_step(4)[0], "EVALUATE")
+        result = MoveItEvaluation(row.position, True, False, 0.1, 0.4, "ok")
+        self.assertFalse(batch.record(3, row, result, cached=False))
+        self.assertFalse(batch.record(4, candidate(8), result, cached=False))
+        batch.invalidate()
+        self.assertFalse(batch.record(4, row, result, cached=False))
+        self.assertEqual(batch.next_step(4), ("STALE", None))
+
+    def test_shared_candidate_builder_matches_selector_clearance_contract(self):
+        records = [
+            {
+                "track_id": 1,
+                "maturity": 1,
+                "position": (0.50, 0.0, 0.55),
+                "confidence": 0.9,
+                "sigma_m": 0.01,
+                "observation_count": 4,
+                "last_seen_sec": 10.0,
+            },
+            {
+                "track_id": 2,
+                "maturity": 2,
+                "position": (0.60, 0.0, 0.55),
+                "confidence": 0.8,
+                "sigma_m": 0.01,
+                "observation_count": 4,
+                "last_seen_sec": 10.0,
+            },
+        ]
+        built = harvest_candidates_from_records(
+            records,
+            fruit_radius_m=0.026,
+            bin_bounds=(0.14, 0.56, -0.68, -0.22, 0.25, 0.55),
+            static_obstacle_margin_m=0.05,
+        )
+
+        self.assertEqual([row.track_id for row in built], [1, 2])
+        self.assertEqual([row.maturity for row in built], [1, 2])
+        self.assertTrue(all(row.clearance_m >= 0.0 for row in built))
+
     def test_moveit_result_replaces_geometric_path_assumption(self):
         evaluation = MoveItEvaluation(
             position=(0.50, 0.0, 0.55),
@@ -107,6 +231,7 @@ class TargetSelectorWorkspaceTests(unittest.TestCase):
         self.assertIn("self._evaluation_client.call_async(request)", source)
         self.assertIn("def _finish_evaluation_with_selection", source)
         self.assertIn('"MOVEIT_PATH_INFEASIBLE"', source)
+        self.assertIn('"position_m": list(selected.position)', source)
 
     def test_new_completion_is_recorded_once_without_cache_replay(self):
         excluded = set()

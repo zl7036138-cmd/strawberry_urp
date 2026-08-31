@@ -47,6 +47,9 @@
     "runtime_truth_use": false
   },
   "zero_motion_eligibility": {
+    "minimum_depth_visible_ripe_truth": 2,
+    "minimum_correctly_localized_ripe_truth": 2,
+    "maximum_false_ripe_localizations": 0,
     "minimum_stable_moveit_feasible_ripe_tracks": 2,
     "runtime_truth_use": false,
     "trajectory_execution_allowed": false

@@ -15,7 +15,7 @@ scene_stem="generalized_seed_$(printf '%06d' "${seed}")"
 run_dir="${STRAWBERRY_FEASIBILITY_OUTPUT_DIR:-.codex_tmp/generalized_feasibility_seed_${seed}_${run_tag}}"
 model_path="${STRAWBERRY_GENERALIZED_MODEL_PATH:-outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt}"
 mkdir -p "${run_dir}"
-for output in feasibility_probe.json truth_isolation.json cleanup_probe.json; do
+for output in feasibility_probe.json observability.json truth_isolation.json cleanup_probe.json; do
   if [[ -e "${run_dir}/${output}" ]]; then
     echo "refusing to overwrite ${run_dir}/${output}" >&2
     exit 2
@@ -90,6 +90,17 @@ ros2 run strawberry_bringup generalized_truth_isolation_audit \
 if [[ "${audit_status}" -ne 0 ]]; then
   echo "truth-isolation audit failed" >&2
   exit 11
+fi
+
+observability_status=0
+python scripts/diagnose_generalized_rgbd_frame.py \
+  --output "${run_dir}/observability.json" \
+  --timeout-sec 45 \
+  --minimum-detections 0 \
+  >"${run_dir}/observability.stdout.log" || observability_status=$?
+if [[ "${observability_status}" -ne 0 ]]; then
+  echo "base-camera observability diagnostic failed" >&2
+  exit 12
 fi
 
 probe_status=0

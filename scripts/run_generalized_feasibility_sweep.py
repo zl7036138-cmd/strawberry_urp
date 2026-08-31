@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "ros2_ws" / "src" / "strawberry_bringup"))
 
 from strawberry_bringup.feasibility_sweep import (  # noqa: E402
     load_json,
+    observability_receipt_is_eligible,
     receipt_file,
     scenario_rows,
     select_runtime_scenarios,
@@ -44,7 +45,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--matrix",
         type=Path,
-        default=ROOT / "config" / "generalized_runtime_development_matrix_v1.json",
+        default=ROOT / "config" / "generalized_runtime_development_matrix_v2.json",
     )
     parser.add_argument(
         "--formal-matrix",
@@ -83,8 +84,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     formal = load_json(options.formal_matrix)
     formal_seeds = [int(row["seed"]) for row in formal["scenarios"]]
     validate_development_matrix(config, formal_seeds=formal_seeds)
+    requires_observability_gate = int(config["schema_version"]) >= 2
     rows = scenario_rows(config, split=options.split, batch_index=options.batch_index)
     receipts = {}
+    observability_receipts = {}
     audit_rows = []
     for order, row in enumerate(rows, start=1):
         scenario_id = str(row["scenario_id"])
@@ -138,23 +141,38 @@ def main(argv: Sequence[str] | None = None) -> int:
                 env=environment,
             )
         probe_path = run_dir / "feasibility_probe.json"
+        observability_path = run_dir / "observability.json"
         cleanup_path = run_dir / "cleanup_probe.json"
         truth_path = run_dir / "truth_isolation.json"
         probe = load_json(probe_path) if probe_path.exists() else None
+        observability = (
+            load_json(observability_path) if observability_path.exists() else None
+        )
         cleanup = load_json(cleanup_path) if cleanup_path.exists() else None
         truth = load_json(truth_path) if truth_path.exists() else None
         scene_path = scenes_dir / f"generalized_seed_{seed:06d}.yaml"
         world_path = scenes_dir / f"generalized_seed_{seed:06d}.sdf"
         if probe is not None:
             receipts[scenario_id] = probe
+        if observability is not None:
+            observability_receipts[scenario_id] = observability
+        moveit_eligible = bool(
+            probe and probe.get("eligible_for_multi_fruit_runtime") is True
+        )
+        observability_eligible = observability_receipt_is_eligible(observability)
         audit_rows.append(
             {
                 "order": order,
                 **dict(row),
                 "materialize_exit_code": materialize_status,
                 "probe_exit_code": probe_status,
-                "eligible": bool(
-                    probe and probe.get("eligible_for_multi_fruit_runtime") is True
+                "moveit_eligible": moveit_eligible,
+                "observability_eligible": observability_eligible,
+                "eligible": moveit_eligible
+                and (
+                    observability_eligible
+                    if requires_observability_gate
+                    else True
                 ),
                 "cleanup_clean": bool(cleanup and cleanup.get("outcome") == "CLEAN"),
                 "truth_isolation_pass": bool(truth and truth.get("overall_pass") is True),
@@ -164,6 +182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         ("scene", scene_path),
                         ("world", world_path),
                         ("probe", probe_path),
+                        ("observability", observability_path),
                         ("cleanup", cleanup_path),
                         ("truth_isolation", truth_path),
                     )
@@ -186,6 +205,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     selected = select_runtime_scenarios(
         rows,
         receipts,
+        observability_receipts=(
+            observability_receipts if requires_observability_gate else None
+        ),
         count=int(config["qualification"]["selected_runtime_scenarios"]),
     )
     commit = subprocess.run(
@@ -209,6 +231,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "git_worktree_clean": not bool(git_status),
         "model_sha256": sha256_file(model),
         "scenario_count": len(rows),
+        "moveit_eligible_count": sum(row["moveit_eligible"] for row in audit_rows),
+        "observability_eligible_count": sum(
+            row["observability_eligible"] for row in audit_rows
+        ),
         "eligible_count": sum(row["eligible"] for row in audit_rows),
         "selected_runtime_scenario_ids": list(selected),
         "selection_complete": len(selected) == 5,

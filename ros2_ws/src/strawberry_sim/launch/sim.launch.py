@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import math
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
@@ -169,6 +170,21 @@ def _enforce_initial_positions(robot_description_xml: str, source: str) -> str:
     return ET.tostring(root, encoding="unicode")
 
 
+def _validated_three_vector(value: str, label: str) -> str:
+    """Normalize one launch-supplied XYZ/RPY triplet before passing it to xacro."""
+
+    parts = str(value).split()
+    if len(parts) != 3:
+        raise RuntimeError(f"{label} must contain exactly three numbers")
+    try:
+        numbers = tuple(float(part) for part in parts)
+    except ValueError as exc:
+        raise RuntimeError(f"{label} must contain only numbers") from exc
+    if not all(math.isfinite(number) for number in numbers):
+        raise RuntimeError(f"{label} must contain finite numbers")
+    return " ".join(f"{number:.12g}" for number in numbers)
+
+
 def _launch_nodes(context):
     package_share = get_package_share_directory("strawberry_sim")
     requested_world = LaunchConfiguration("world_file").perform(context).strip()
@@ -183,6 +199,18 @@ def _launch_nodes(context):
         raise RuntimeError("camera_mount must be fixed, wrist, or dual")
     if camera_mount in {"wrist", "dual"}:
         world_file = _world_without_fixed_camera(world_file)
+    base_camera_mast_xyz = _validated_three_vector(
+        LaunchConfiguration("base_camera_mast_xyz").perform(context),
+        "base_camera_mast_xyz",
+    )
+    base_camera_xyz = _validated_three_vector(
+        LaunchConfiguration("base_camera_xyz").perform(context),
+        "base_camera_xyz",
+    )
+    base_camera_rpy = _validated_three_vector(
+        LaunchConfiguration("base_camera_rpy").perform(context),
+        "base_camera_rpy",
+    )
     bridge_file = os.path.join(package_share, "config", "bridge.yaml")
     node_config = os.path.join(package_share, "config", "sim_nodes.yaml")
     requested_scene_config = (
@@ -279,6 +307,9 @@ def _launch_nodes(context):
             "enable_stem_attachment": "true" if generalized_scene else "false",
             "fruit_attachment_count": str(fruit_attachment_count),
             "camera_mount": camera_mount,
+            "base_camera_mast_xyz": base_camera_mast_xyz,
+            "base_camera_xyz": base_camera_xyz,
+            "base_camera_rpy": base_camera_rpy,
         },
     ).toxml()
     robot_description_xml = _enforce_initial_positions(
@@ -542,6 +573,24 @@ def generate_launch_description():
                     "Use the historical world-fixed RGB-D camera or the "
                     "eye-in-hand camera attached to panda_hand."
                 ),
+            ),
+            DeclareLaunchArgument(
+                "base_camera_mast_xyz",
+                default_value="-0.35 0.45 0.05",
+                description=(
+                    "Dual-mode eye-to-hand mast origin in panda_link0. This is "
+                    "a hardware-layout parameter, not a per-target control input."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "base_camera_xyz",
+                default_value="0 0 1.00",
+                description="Base RGB-D camera origin relative to its fixed mast.",
+            ),
+            DeclareLaunchArgument(
+                "base_camera_rpy",
+                default_value="0 0.543 -0.480",
+                description="Base RGB-D camera RPY relative to its fixed mast.",
             ),
             DeclareLaunchArgument(
                 "enable_attachment",

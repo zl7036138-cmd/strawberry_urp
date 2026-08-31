@@ -6,6 +6,9 @@
   <xacro:arg name="enable_stem_attachment" default="false"/>
   <xacro:arg name="fruit_attachment_count" default="3"/>
   <xacro:arg name="camera_mount" default="fixed"/>
+  <xacro:arg name="base_camera_mast_xyz" default="-0.35 0.45 0.05"/>
+  <xacro:arg name="base_camera_xyz" default="0 0 1.00"/>
+  <xacro:arg name="base_camera_rpy" default="0 0.543 -0.480"/>
   <xacro:property name="initial_positions"
                   value="${xacro.load_yaml('$(arg initial_positions_file)')['initial_positions']}"/>
   <xacro:property name="camera_mount_mode" value="$(arg camera_mount)"/>
@@ -129,7 +132,7 @@
       <child link="strawberry_base_camera_mast"/>
       <!-- Lateral offset keeps the verified ready arm out of the plant-core
            image region while preserving the complete conservative workspace. -->
-      <origin xyz="-0.35 0.45 0.05" rpy="0 0 0"/>
+      <origin xyz="$(arg base_camera_mast_xyz)" rpy="0 0 0"/>
     </joint>
     <gazebo reference="panda_base_camera_mast_joint">
       <preserveFixedJoint>true</preserveFixedJoint>
@@ -141,8 +144,8 @@
         joint_name="panda_base_camera_joint"
         optical_joint_name="strawberry_base_camera_optical_joint"
         parent_link="strawberry_base_camera_mast"
-        xyz="0 0 1.00"
-        rpy="0 0.543 -0.480"
+        xyz="$(arg base_camera_xyz)"
+        rpy="$(arg base_camera_rpy)"
         topic="/camera/base"
         sensor_name="base_rgbd"
         image_width="320"

@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -113,6 +114,20 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('"wrist_min_confidence": confidence_threshold', self.source)
         self.assertIn('"wrist_confirmation_timeout_sec": 3.0', self.source)
         self.assertIn('"minimum_reobservation_baseline_m": 0.04', self.source)
+
+    def test_base_camera_layout_is_global_and_forwarded_to_simulation(self):
+        for name, default in (
+            ("base_camera_mast_xyz", "-0.35 0.45 0.05"),
+            ("base_camera_xyz", "0 0 1.00"),
+            ("base_camera_rpy", "0 0.543 -0.480"),
+        ):
+            self.assertRegex(
+                self.source,
+                rf'DeclareLaunchArgument\(\s*"{name}",\s*default_value="{re.escape(default)}"',
+            )
+            self.assertIn(
+                f'"{name}": LaunchConfiguration("{name}")', self.source
+            )
 
 
 if __name__ == "__main__":

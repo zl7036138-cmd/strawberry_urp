@@ -46,6 +46,18 @@ def validate_development_matrix(
             raise ValueError("schema v2 must require two primary ripe spawn candidates")
         if generation.get("moveit_feasibility_guaranteed_by_generator") is not False:
             raise ValueError("scene generation may not claim MoveIt feasibility")
+        eligibility = config.get("zero_motion_eligibility")
+        if not isinstance(eligibility, Mapping) or (
+            int(eligibility.get("minimum_depth_visible_ripe_truth", 0)) != 2
+            or int(
+                eligibility.get("minimum_correctly_localized_ripe_truth", 0)
+            )
+            != 2
+            or int(eligibility.get("maximum_false_ripe_localizations", -1)) != 0
+        ):
+            raise ValueError(
+                "schema v2 requires two visible, correctly localized ripe truth targets"
+            )
     all_formal = {int(seed) for seed in formal_seeds}
     for split in ("discovery", "qualification"):
         for row in scenario_rows(config, split=split, batch_index=0):
@@ -113,6 +125,7 @@ def select_runtime_scenarios(
     rows: Sequence[Mapping[str, object]],
     receipts: Mapping[str, Mapping[str, object]],
     *,
+    observability_receipts: Mapping[str, Mapping[str, object]] | None = None,
     count: int = 5,
 ) -> tuple[str, ...]:
     """Select the first eligible receipts in frozen matrix order."""
@@ -125,15 +138,54 @@ def select_runtime_scenarios(
         receipt = receipts.get(scenario_id)
         if receipt is None:
             continue
+        observability = (
+            None
+            if observability_receipts is None
+            else observability_receipts.get(scenario_id)
+        )
         if (
             receipt.get("eligible_for_multi_fruit_runtime") is True
             and receipt.get("runtime_truth_use") is False
             and receipt.get("trajectory_execution_allowed") is False
+            and (
+                observability_receipts is None
+                or observability_receipt_is_eligible(observability)
+            )
         ):
             selected.append(scenario_id)
             if len(selected) == count:
                 break
     return tuple(selected)
+
+
+def observability_receipt_is_eligible(
+    receipt: Mapping[str, object] | None,
+) -> bool:
+    """Require two genuinely visible, correctly localized ripe truth targets."""
+
+    if not isinstance(receipt, Mapping):
+        return False
+    metrics = receipt.get("observability_metrics")
+    if not isinstance(metrics, Mapping):
+        return False
+    try:
+        visible = int(metrics.get("visible_ripe_truth_count", 0))
+        localized = int(metrics.get("localized_ripe_truth_count", 0))
+        accepted = int(metrics.get("accepted_ripe_prediction_count", -1))
+        true_predictions = int(metrics.get("true_ripe_prediction_count", -1))
+        return (
+            int(receipt.get("schema_version", 0)) == 3
+            and receipt.get("kind") == "generalized_rgbd_frame_diagnostic"
+            and receipt.get("runtime_truth_use") is False
+            and int(receipt.get("commands_published", -1)) == 0
+            and visible >= 2
+            and 2 <= localized <= visible
+            and accepted >= localized
+            and true_predictions >= localized
+            and accepted == true_predictions
+        )
+    except (TypeError, ValueError):
+        return False
 
 
 def sha256_file(path: Path) -> str:

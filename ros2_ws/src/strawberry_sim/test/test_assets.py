@@ -320,6 +320,24 @@ class SimulationAssetTests(unittest.TestCase):
         argument = root.find(f"./{xacro_namespace}arg[@name='camera_mount']")
         self.assertIsNotNone(argument)
         self.assertEqual(argument.attrib["default"], "fixed")
+        camera_layout_defaults = {
+            name: root.find(f"./{xacro_namespace}arg[@name='{name}']").attrib[
+                "default"
+            ]
+            for name in (
+                "base_camera_mast_xyz",
+                "base_camera_xyz",
+                "base_camera_rpy",
+            )
+        }
+        self.assertEqual(
+            camera_layout_defaults,
+            {
+                "base_camera_mast_xyz": "-0.35 0.45 0.05",
+                "base_camera_xyz": "0 0 1.00",
+                "base_camera_rpy": "0 0.543 -0.480",
+            },
+        )
 
         camera_macro = root.find(
             f"./{xacro_namespace}macro[@name='strawberry_rgbd_mount']"
@@ -379,12 +397,13 @@ class SimulationAssetTests(unittest.TestCase):
         self.assertEqual(mast_joint.find("parent").attrib["link"], "panda_link0")
         self.assertEqual(
             mast_joint.find("origin").attrib,
-            {"xyz": "-0.35 0.45 0.05", "rpy": "0 0 0"},
+            {"xyz": "$(arg base_camera_mast_xyz)", "rpy": "0 0 0"},
         )
         base_camera = next(
             call for call in mount_calls if call.attrib["topic"] == "/camera/base"
         )
-        self.assertEqual(base_camera.attrib["rpy"], "0 0.543 -0.480")
+        self.assertEqual(base_camera.attrib["xyz"], "$(arg base_camera_xyz)")
+        self.assertEqual(base_camera.attrib["rpy"], "$(arg base_camera_rpy)")
 
     def test_panda_has_gazebo_control_contact_and_attachment_plugins(self):
         root = ET.parse(PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro").getroot()

@@ -44,6 +44,15 @@ from strawberry_localization.generalized_depth import (  # noqa: E402
     retain_support_ranked_geometry_layer,
 )
 
+SIM_SOURCE = REPO_ROOT / "ros2_ws" / "src" / "strawberry_sim"
+if str(SIM_SOURCE) not in sys.path:
+    sys.path.insert(0, str(SIM_SOURCE))
+
+from strawberry_sim.generalized_capture_core import (  # noqa: E402
+    depth_visible_yolo_labels,
+)
+from strawberry_sim.observability import score_observability  # noqa: E402
+
 
 def _stamp_s(message: Any) -> float:
     return float(message.header.stamp.sec) + float(message.header.stamp.nanosec) * 1e-9
@@ -263,13 +272,26 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
     parser.add_argument("--sync-tolerance-sec", type=float, default=0.05)
     parser.add_argument("--timeout-sec", type=float, default=45.0)
     parser.add_argument("--minimum-detections", type=int, default=1)
+    parser.add_argument("--maximum-localization-error-m", type=float, default=0.03)
+    parser.add_argument("--fruit-radius-m", type=float, default=0.026)
+    parser.add_argument("--minimum-visible-pixels", type=int, default=12)
+    parser.add_argument("--minimum-visible-fraction", type=float, default=0.02)
+    parser.add_argument("--depth-surface-padding-m", type=float, default=0.012)
     options = parser.parse_args()
     if options.output.exists():
         raise SystemExit("refusing to overwrite an RGB-D diagnostic output")
-    if options.timeout_sec <= 0.0 or options.sync_tolerance_sec <= 0.0:
+    if (
+        options.timeout_sec <= 0.0
+        or options.sync_tolerance_sec <= 0.0
+        or options.maximum_localization_error_m <= 0.0
+        or options.fruit_radius_m <= 0.0
+        or options.minimum_visible_pixels <= 0
+        or not 0.0 < options.minimum_visible_fraction <= 1.0
+        or options.depth_surface_padding_m <= 0.0
+    ):
         raise SystemExit("timeouts must be positive")
-    if options.minimum_detections <= 0:
-        raise SystemExit("minimum detections must be positive")
+    if options.minimum_detections < 0:
+        raise SystemExit("minimum detections must be non-negative")
 
     parameters = _load_parameters(options.config)
     rclpy.init()
@@ -282,6 +304,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
     detections: OrderedDict[float, Any] = OrderedDict()
     camera_infos: dict[str, Any] = {}
     truth_order: list[int] = []
+    truth_maturity: dict[int, int] = {}
     truth_points: dict[int, np.ndarray] = {}
 
     def on_depth(message: Any) -> None:
@@ -297,13 +320,26 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
         camera_infos[str(message.header.frame_id)] = message
 
     def on_catalog(message: Any) -> None:
-        nonlocal truth_order
+        nonlocal truth_order, truth_maturity
         try:
             payload = json.loads(message.data)
             order = [int(value) for value in payload["pose_array_order"]]
-            truth_order = order if int(payload["schema_version"]) == 1 else []
+            maturity_codes = {"RIPE": 1, "UNRIPE": 2, "UNKNOWN": 0}
+            maturity = {
+                int(row["target_id"]): maturity_codes[str(row["maturity"]).upper()]
+                for row in payload["fruits"]
+            }
+            if (
+                int(payload["schema_version"]) != 1
+                or set(order) != set(maturity)
+                or any(value not in {0, 1, 2} for value in maturity.values())
+            ):
+                raise ValueError("ground-truth catalog is inconsistent")
+            truth_order = order
+            truth_maturity = maturity
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             truth_order = []
+            truth_maturity = {}
 
     def on_truth(message: Any) -> None:
         nonlocal truth_points
@@ -564,6 +600,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
             truth_reports.append(
                 {
                     "target_id": int(target_id),
+                    "maturity": int(truth_maturity[target_id]),
                     "base_point_m": truth.tolist(),
                     "camera_point_m": camera_point.tolist(),
                     "projected_center_uv_px": [u, v],
@@ -576,8 +613,62 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 }
             )
 
+        visibility_rows = [
+            {
+                "target_id": int(row["target_id"]),
+                "center_camera_m": list(row["camera_point_m"]),
+                "radius_m": float(options.fruit_radius_m),
+                "maturity": "RIPE" if int(row["maturity"]) == 1 else "UNRIPE",
+            }
+            for row in truth_reports
+        ]
+        visible_labels, visibility_excluded = depth_visible_yolo_labels(
+            visibility_rows,
+            depth_image_m=depth,
+            intrinsics=(intrinsics.fx, intrinsics.fy, intrinsics.cx, intrinsics.cy),
+            image_size=(int(depth.shape[1]), int(depth.shape[0])),
+            minimum_visible_pixels=options.minimum_visible_pixels,
+            minimum_visible_fraction=options.minimum_visible_fraction,
+            depth_surface_padding_m=options.depth_surface_padding_m,
+        )
+        visible_by_id = {
+            int(row["target_id"]): row for row in visible_labels
+        }
+        excluded_by_id = {
+            int(row["target_id"]): row for row in visibility_excluded
+        }
+
+        def visibility_record(target_id: int) -> dict[str, Any]:
+            return visible_by_id.get(target_id) or excluded_by_id[target_id]
+
+        truth_reports = [
+            row
+            | {
+                "depth_visible": int(row["target_id"]) in visible_by_id,
+                "depth_visible_pixels": int(
+                    visibility_record(int(row["target_id"])).get("visible_pixels", 0)
+                ),
+                "depth_visible_fraction": float(
+                    visibility_record(int(row["target_id"])).get(
+                        "visible_fraction", 0.0
+                    )
+                ),
+                "depth_visibility_reason": (
+                    "VISIBLE"
+                    if int(row["target_id"]) in visible_by_id
+                    else str(excluded_by_id[int(row["target_id"])]["reason"])
+                ),
+            }
+            for row in truth_reports
+        ]
+        truth_reports, observability_metrics = score_observability(
+            truth_reports,
+            detection_reports,
+            maximum_localization_error_m=options.maximum_localization_error_m,
+        )
+
         payload = {
-            "schema_version": 1,
+            "schema_version": 3,
             "kind": "generalized_rgbd_frame_diagnostic",
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "scope": "DEVELOPMENT_ONLY_READ_ONLY_TRUTH_SCORED_DIAGNOSTIC",
@@ -600,8 +691,15 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 intrinsics.cy,
             ],
             "parameters": parameters,
+            "visibility_parameters": {
+                "fruit_radius_m": options.fruit_radius_m,
+                "minimum_visible_pixels": options.minimum_visible_pixels,
+                "minimum_visible_fraction": options.minimum_visible_fraction,
+                "depth_surface_padding_m": options.depth_surface_padding_m,
+            },
             "detections": detection_reports,
             "truth_projection_scoring": truth_reports,
+            "observability_metrics": observability_metrics,
         }
         options.output.parent.mkdir(parents=True, exist_ok=True)
         options.output.write_text(

@@ -37,6 +37,9 @@ def generate_launch_description():
             "world_file": world_file,
             "scene_config_file": scene_config,
             "simulation_seed": LaunchConfiguration("simulation_seed"),
+            "base_camera_mast_xyz": LaunchConfiguration("base_camera_mast_xyz"),
+            "base_camera_xyz": LaunchConfiguration("base_camera_xyz"),
+            "base_camera_rpy": LaunchConfiguration("base_camera_rpy"),
             "camera_mount": "dual",
             "enable_attachment": "true",
             "enable_pose_control": "true",
@@ -54,6 +57,13 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("headless", default_value="true"),
             DeclareLaunchArgument("simulation_seed", default_value="17036"),
+            DeclareLaunchArgument(
+                "base_camera_mast_xyz", default_value="-0.35 0.45 0.05"
+            ),
+            DeclareLaunchArgument("base_camera_xyz", default_value="0 0 1.00"),
+            DeclareLaunchArgument(
+                "base_camera_rpy", default_value="0 0.543 -0.480"
+            ),
             DeclareLaunchArgument(
                 "world_file",
                 default_value=PathJoinSubstitution(

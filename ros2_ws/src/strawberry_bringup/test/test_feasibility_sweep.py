@@ -9,6 +9,7 @@ ROOT = PACKAGE.parents[2]
 sys.path.insert(0, str(PACKAGE))
 
 from strawberry_bringup.feasibility_sweep import (  # noqa: E402
+    observability_receipt_is_eligible,
     scenario_rows,
     select_runtime_scenarios,
     validate_development_matrix,
@@ -85,6 +86,12 @@ class FeasibilitySweepTests(unittest.TestCase):
         self.assertEqual(generation["minimum_primary_ripe_by_construction"], 2)
         self.assertFalse(generation["moveit_feasibility_guaranteed_by_generator"])
         self.assertFalse(generation["runtime_truth_use"])
+        eligibility = self.config_v2["zero_motion_eligibility"]
+        self.assertEqual(eligibility["minimum_depth_visible_ripe_truth"], 2)
+        self.assertEqual(
+            eligibility["minimum_correctly_localized_ripe_truth"], 2
+        )
+        self.assertEqual(eligibility["maximum_false_ripe_localizations"], 0)
 
     def test_first_five_eligible_are_selected_without_score_cherry_pick(self):
         rows = scenario_rows(self.config, split="qualification")
@@ -116,6 +123,50 @@ class FeasibilitySweepTests(unittest.TestCase):
         }
         self.assertEqual(select_runtime_scenarios(rows, receipts), ())
 
+    def test_v2_selection_requires_two_visible_correctly_localized_ripe_targets(self):
+        rows = scenario_rows(self.config_v2, split="qualification")
+        feasibility = {
+            row["scenario_id"]: {
+                "eligible_for_multi_fruit_runtime": True,
+                "runtime_truth_use": False,
+                "trajectory_execution_allowed": False,
+            }
+            for row in rows[:2]
+        }
+
+        def observability(localized, accepted=None, true=None):
+            accepted = localized if accepted is None else accepted
+            true = localized if true is None else true
+            return {
+                "schema_version": 3,
+                "kind": "generalized_rgbd_frame_diagnostic",
+                "runtime_truth_use": False,
+                "commands_published": 0,
+                "observability_metrics": {
+                    "visible_ripe_truth_count": 2,
+                    "localized_ripe_truth_count": localized,
+                    "accepted_ripe_prediction_count": accepted,
+                    "true_ripe_prediction_count": true,
+                },
+            }
+
+        observations = {
+            rows[0]["scenario_id"]: observability(1),
+            rows[1]["scenario_id"]: observability(2),
+        }
+        self.assertEqual(
+            select_runtime_scenarios(
+                rows,
+                feasibility,
+                observability_receipts=observations,
+                count=1,
+            ),
+            (rows[1]["scenario_id"],),
+        )
+        self.assertFalse(observability_receipt_is_eligible(observability(2, 3, 2)))
+        self.assertFalse(observability_receipt_is_eligible(observability(3, 3, 3)))
+        self.assertFalse(observability_receipt_is_eligible(observability(2, -1, -1)))
+
     def test_qualification_tools_freeze_code_and_materialized_scenes(self):
         sweep = (ROOT / "scripts/run_generalized_feasibility_sweep.py").read_text(
             encoding="utf-8"
@@ -125,6 +176,10 @@ class FeasibilitySweepTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn('options.split == "qualification" and git_status', sweep)
+        self.assertIn(
+            'default=ROOT / "config" / "generalized_runtime_development_matrix_v2.json"',
+            sweep,
+        )
         self.assertIn('("scene", scene_path)', sweep)
         self.assertIn('("world", world_path)', sweep)
         self.assertIn('str(row["layout_contract"])', sweep)

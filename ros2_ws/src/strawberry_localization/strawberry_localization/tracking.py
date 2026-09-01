@@ -34,11 +34,14 @@ def fuse_smoothed_position_sigma(
 ) -> float:
     """Propagate uncertainty for the same exponential position smoother.
 
-    The first two terms are the variance of the weighted prior and new
-    measurement.  The innovation term prevents repeated but spatially
-    inconsistent detections from appearing more certain merely because more
-    frames arrived.  A non-zero floor represents camera calibration and model
-    systematics that correlated video frames cannot average away.
+    Consecutive frames from one fixed RGB-D viewpoint share calibration,
+    quantization, occlusion, and depth-layer systematics.  Treating their
+    reported sigmas as independent variances makes a stable but biased depth
+    surface look arbitrarily precise.  Until the tracker is explicitly reset
+    for a new viewpoint, retain the largest reported uncertainty or position
+    innovation.  This prevents alternating low/high geometry residuals from
+    letting a risky track slip below the control threshold, while the maximum
+    rule also avoids accumulating small detector-box jitter without bound.
     """
 
     prior_sigma = _finite(prior_sigma_m, "prior_sigma_m")
@@ -50,13 +53,13 @@ def fuse_smoothed_position_sigma(
         raise ValueError("tracking uncertainty inputs are invalid")
     if not 0.0 < alpha <= 1.0 or floor < 0.0:
         raise ValueError("tracking uncertainty bounds are invalid")
-    retained = 1.0 - alpha
-    variance = (
-        retained * retained * prior_sigma * prior_sigma
-        + alpha * alpha * observation_sigma * observation_sigma
-        + alpha * retained * innovation * innovation
+    return max(
+        floor,
+        prior_sigma,
+        observation_sigma,
+        innovation,
+        1e-6,
     )
-    return max(floor, math.sqrt(variance), 1e-6)
 
 
 @dataclass(frozen=True)

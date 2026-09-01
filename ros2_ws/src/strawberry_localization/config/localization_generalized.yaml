@@ -50,6 +50,10 @@
     # The detector box center is more stable than the visible depth-layer
     # centroid under one-sided leaf occlusion. Depth still supplies range.
     use_bbox_center_bearing: true
+    # Base-camera size residual is a safety/systematic bound. Do not halve it:
+    # the 18-scene observability sweep found 52-90 mm biased depth layers that
+    # otherwise appeared to be below the 15 mm control uncertainty gate.
+    geometry_size_residual_sigma_weight: 1.0
     # Truth remains available to benchmark scorers only, never to control.
     ground_truth_association_enabled: false
     tracking_association_distance_m: 0.06

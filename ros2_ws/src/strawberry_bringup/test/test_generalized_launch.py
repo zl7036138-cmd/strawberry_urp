@@ -24,8 +24,15 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         )
         self.assertIn('"require_target_hint": True', self.source)
         self.assertEqual(
-            self.source.count('"geometry_size_residual_sigma_weight": 0.5'), 2
+            self.source.count('"geometry_size_residual_sigma_weight": 0.5'), 1
         )
+        localization_config = (
+            ROOT.parent
+            / "strawberry_localization"
+            / "config"
+            / "localization_generalized.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("geometry_size_residual_sigma_weight: 1.0", localization_config)
         self.assertIn('"completed_track_topic": ""', self.source)
 
     def test_generalized_control_disables_truth_association(self):

@@ -18,15 +18,22 @@ def observation(identity, x, maturity=1, confidence=0.9, sigma=0.01):
 
 
 class MultiTargetTrackerTests(unittest.TestCase):
-    def test_consistent_observations_reduce_fused_position_uncertainty(self):
+    def test_correlated_observations_do_not_erase_reported_uncertainty(self):
         tracker = MultiTargetTracker(minimum_observations=3, uncertainty_floor_m=0.005)
         first = tracker.update([observation(1, 0.4, sigma=0.018)], stamp_sec=0.0)
         second = tracker.update([observation(2, 0.4, sigma=0.018)], stamp_sec=0.1)
         third = tracker.update([observation(3, 0.4, sigma=0.018)], stamp_sec=0.2)
         self.assertEqual(first[0].sigma_m, 0.018)
-        self.assertLess(second[0].sigma_m, first[0].sigma_m)
-        self.assertLess(third[0].sigma_m, 0.015)
-        self.assertGreaterEqual(third[0].sigma_m, 0.005)
+        self.assertAlmostEqual(second[0].sigma_m, 0.018)
+        self.assertAlmostEqual(third[0].sigma_m, 0.018)
+
+    def test_lower_sigma_same_view_observations_do_not_erase_prior_risk(self):
+        tracker = MultiTargetTracker(minimum_observations=3, uncertainty_floor_m=0.005)
+        first = tracker.update([observation(1, 0.4, sigma=0.018)], stamp_sec=0.0)
+        second = tracker.update([observation(2, 0.4, sigma=0.010)], stamp_sec=0.1)
+        third = tracker.update([observation(3, 0.4, sigma=0.010)], stamp_sec=0.2)
+        self.assertAlmostEqual(second[0].sigma_m, first[0].sigma_m)
+        self.assertAlmostEqual(third[0].sigma_m, first[0].sigma_m)
 
     def test_position_disagreement_prevents_false_uncertainty_reduction(self):
         consistent = fuse_smoothed_position_sigma(
@@ -124,6 +131,20 @@ class MultiTargetTrackerTests(unittest.TestCase):
         tracks = tracker.update([observation(9, 0.6)], stamp_sec=1.2)
         self.assertEqual([item.track_id for item in tracks], [1])
         self.assertEqual(tracker.snapshot(stamp_sec=1.2, stable_only=True), ())
+
+    def test_viewpoint_reset_clears_prior_systematic_uncertainty(self):
+        tracker = MultiTargetTracker(minimum_observations=1)
+        high_risk = tracker.update(
+            [observation(1, 0.4, sigma=0.024)], stamp_sec=1.0
+        )
+        self.assertEqual(high_risk[0].sigma_m, 0.024)
+
+        tracker.reset()
+
+        fresh_view = tracker.update(
+            [observation(2, 0.4, sigma=0.008)], stamp_sec=1.1
+        )
+        self.assertEqual(fresh_view[0].sigma_m, 0.008)
 
     def test_invalid_observation_fails_closed(self):
         with self.assertRaises(ValueError):

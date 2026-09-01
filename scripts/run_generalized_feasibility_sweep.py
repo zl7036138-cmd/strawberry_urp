@@ -15,8 +15,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ros2_ws" / "src" / "strawberry_bringup"))
 
 from strawberry_bringup.feasibility_sweep import (  # noqa: E402
+    BASE_CAMERA_RESOLUTIONS,
     load_json,
     observability_receipt_is_eligible,
+    observability_resolution_matches,
+    parse_base_camera_resolution,
     receipt_file,
     scenario_rows,
     select_runtime_scenarios,
@@ -54,8 +57,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--split", choices=("discovery", "qualification"), required=True)
     parser.add_argument("--batch-index", type=int, default=0)
+    parser.add_argument(
+        "--base-camera-resolution",
+        choices=tuple(BASE_CAMERA_RESOLUTIONS),
+        default="320x240",
+        help="One fixed overview-camera profile for the complete sweep.",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     options = parser.parse_args(argv)
+    base_camera_width, base_camera_height = parse_base_camera_resolution(
+        options.base_camera_resolution
+    )
     output_dir = options.output_dir.resolve()
     try:
         output_dir.relative_to(ROOT.resolve())
@@ -128,6 +140,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if materialize_status == 0:
             environment = os.environ.copy()
             environment["STRAWBERRY_FEASIBILITY_OUTPUT_DIR"] = str(run_dir)
+            environment["STRAWBERRY_BASE_CAMERA_RESOLUTION"] = (
+                options.base_camera_resolution
+            )
             probe_status = run_logged(
                 [
                     "bash",
@@ -159,7 +174,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         moveit_eligible = bool(
             probe and probe.get("eligible_for_multi_fruit_runtime") is True
         )
-        observability_eligible = observability_receipt_is_eligible(observability)
+        resolution_matches = observability_resolution_matches(
+            observability, options.base_camera_resolution
+        )
+        observability_eligible = (
+            resolution_matches
+            and observability_receipt_is_eligible(observability)
+        )
         audit_rows.append(
             {
                 "order": order,
@@ -167,6 +188,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "materialize_exit_code": materialize_status,
                 "probe_exit_code": probe_status,
                 "moveit_eligible": moveit_eligible,
+                "camera_resolution_matches_requested": resolution_matches,
                 "observability_eligible": observability_eligible,
                 "eligible": moveit_eligible
                 and (
@@ -206,7 +228,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         rows,
         receipts,
         observability_receipts=(
-            observability_receipts if requires_observability_gate else None
+            {
+                scenario_id: receipt
+                for scenario_id, receipt in observability_receipts.items()
+                if observability_resolution_matches(
+                    receipt, options.base_camera_resolution
+                )
+            }
+            if requires_observability_gate
+            else None
         ),
         count=int(config["qualification"]["selected_runtime_scenarios"]),
     )
@@ -230,6 +260,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         "git_commit": commit,
         "git_worktree_clean": not bool(git_status),
         "model_sha256": sha256_file(model),
+        "localization_config_sha256": sha256_file(
+            ROOT
+            / "ros2_ws/src/strawberry_localization/config/localization_generalized.yaml"
+        ),
+        "base_camera_resolution": options.base_camera_resolution,
+        "base_camera_image_shape_hw": [
+            base_camera_height,
+            base_camera_width,
+        ],
         "scenario_count": len(rows),
         "moveit_eligible_count": sum(row["moveit_eligible"] for row in audit_rows),
         "observability_eligible_count": sum(

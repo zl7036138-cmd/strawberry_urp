@@ -24,6 +24,12 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 
+_BASE_CAMERA_RESOLUTIONS = {
+    "320x240": (320, 240),
+    "640x480": (640, 480),
+}
+
+
 def _world_without_fixed_camera(source: str) -> str:
     """Materialize a temporary world without the historical static camera."""
     tree = ET.parse(source)
@@ -185,6 +191,19 @@ def _validated_three_vector(value: str, label: str) -> str:
     return " ".join(f"{number:.12g}" for number in numbers)
 
 
+def _validated_base_camera_resolution(value: str) -> tuple[int, int]:
+    """Resolve one frozen overview-camera measurement profile."""
+
+    profile = str(value).strip().lower()
+    try:
+        return _BASE_CAMERA_RESOLUTIONS[profile]
+    except KeyError as exc:
+        supported = ", ".join(_BASE_CAMERA_RESOLUTIONS)
+        raise RuntimeError(
+            f"base_camera_resolution must be one of: {supported}"
+        ) from exc
+
+
 def _launch_nodes(context):
     package_share = get_package_share_directory("strawberry_sim")
     requested_world = LaunchConfiguration("world_file").perform(context).strip()
@@ -210,6 +229,11 @@ def _launch_nodes(context):
     base_camera_rpy = _validated_three_vector(
         LaunchConfiguration("base_camera_rpy").perform(context),
         "base_camera_rpy",
+    )
+    base_camera_image_width, base_camera_image_height = (
+        _validated_base_camera_resolution(
+            LaunchConfiguration("base_camera_resolution").perform(context)
+        )
     )
     bridge_file = os.path.join(package_share, "config", "bridge.yaml")
     node_config = os.path.join(package_share, "config", "sim_nodes.yaml")
@@ -310,6 +334,8 @@ def _launch_nodes(context):
             "base_camera_mast_xyz": base_camera_mast_xyz,
             "base_camera_xyz": base_camera_xyz,
             "base_camera_rpy": base_camera_rpy,
+            "base_camera_image_width": str(base_camera_image_width),
+            "base_camera_image_height": str(base_camera_image_height),
         },
     ).toxml()
     robot_description_xml = _enforce_initial_positions(
@@ -591,6 +617,15 @@ def generate_launch_description():
                 "base_camera_rpy",
                 default_value="0 0.543 -0.480",
                 description="Base RGB-D camera RPY relative to its fixed mast.",
+            ),
+            DeclareLaunchArgument(
+                "base_camera_resolution",
+                default_value="320x240",
+                choices=list(_BASE_CAMERA_RESOLUTIONS),
+                description=(
+                    "Global base RGB-D measurement profile. Use one frozen "
+                    "value for an entire development or qualification batch."
+                ),
             ),
             DeclareLaunchArgument(
                 "enable_attachment",

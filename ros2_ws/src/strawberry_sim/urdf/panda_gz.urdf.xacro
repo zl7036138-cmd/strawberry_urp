@@ -9,6 +9,8 @@
   <xacro:arg name="base_camera_mast_xyz" default="-0.35 0.45 0.05"/>
   <xacro:arg name="base_camera_xyz" default="0 0 1.00"/>
   <xacro:arg name="base_camera_rpy" default="0 0.543 -0.480"/>
+  <xacro:arg name="base_camera_image_width" default="320"/>
+  <xacro:arg name="base_camera_image_height" default="240"/>
   <xacro:property name="initial_positions"
                   value="${xacro.load_yaml('$(arg initial_positions_file)')['initial_positions']}"/>
   <xacro:property name="camera_mount_mode" value="$(arg camera_mount)"/>
@@ -148,8 +150,8 @@
         rpy="$(arg base_camera_rpy)"
         topic="/camera/base"
         sensor_name="base_rgbd"
-        image_width="320"
-        image_height="240"
+        image_width="$(arg base_camera_image_width)"
+        image_height="$(arg base_camera_image_height)"
         update_rate="10"/>
     <xacro:strawberry_rgbd_mount
         link_name="strawberry_wrist_camera_link"

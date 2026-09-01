@@ -14,6 +14,14 @@ run_tag="${3:-zero_motion}"
 scene_stem="generalized_seed_$(printf '%06d' "${seed}")"
 run_dir="${STRAWBERRY_FEASIBILITY_OUTPUT_DIR:-.codex_tmp/generalized_feasibility_seed_${seed}_${run_tag}}"
 model_path="${STRAWBERRY_GENERALIZED_MODEL_PATH:-outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt}"
+base_camera_resolution="${STRAWBERRY_BASE_CAMERA_RESOLUTION:-320x240}"
+case "${base_camera_resolution}" in
+  320x240|640x480) ;;
+  *)
+    echo "unsupported STRAWBERRY_BASE_CAMERA_RESOLUTION: ${base_camera_resolution}" >&2
+    exit 2
+    ;;
+esac
 mkdir -p "${run_dir}"
 for output in feasibility_probe.json observability.json truth_isolation.json cleanup_probe.json; do
   if [[ -e "${run_dir}/${output}" ]]; then
@@ -25,6 +33,7 @@ done
 setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   headless:=true \
   harvest_control_enabled:=false \
+  base_camera_resolution:="${base_camera_resolution}" \
   simulation_seed:="${seed}" \
   world_file:="${repo_root}/${scene_dir}/${scene_stem}.sdf" \
   scene_config_file:="${repo_root}/${scene_dir}/${scene_stem}.yaml" \

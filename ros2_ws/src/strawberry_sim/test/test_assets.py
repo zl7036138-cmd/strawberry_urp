@@ -328,6 +328,8 @@ class SimulationAssetTests(unittest.TestCase):
                 "base_camera_mast_xyz",
                 "base_camera_xyz",
                 "base_camera_rpy",
+                "base_camera_image_width",
+                "base_camera_image_height",
             )
         }
         self.assertEqual(
@@ -336,6 +338,8 @@ class SimulationAssetTests(unittest.TestCase):
                 "base_camera_mast_xyz": "-0.35 0.45 0.05",
                 "base_camera_xyz": "0 0 1.00",
                 "base_camera_rpy": "0 0.543 -0.480",
+                "base_camera_image_width": "320",
+                "base_camera_image_height": "240",
             },
         )
 
@@ -383,7 +387,15 @@ class SimulationAssetTests(unittest.TestCase):
                 )
                 for call in mount_calls
             ],
-            [("640", "480", "30"), ("320", "240", "10"), ("640", "480", "30")],
+            [
+                ("640", "480", "30"),
+                (
+                    "$(arg base_camera_image_width)",
+                    "$(arg base_camera_image_height)",
+                    "10",
+                ),
+                ("640", "480", "30"),
+            ],
         )
         dual_condition = root.find(
             f"./{xacro_namespace}if[@value=\"${{camera_mount_mode == 'dual'}}\"]"
@@ -753,6 +765,40 @@ class SimulationAssetTests(unittest.TestCase):
                     self.assertIsNotNone(
                         robot.find("./link[@name='strawberry_base_camera_mast']")
                     )
+
+    @unittest.skipUnless(
+        shutil.which("xacro"),
+        "xacro is required for the camera-resolution expansion check",
+    )
+    def test_dual_base_camera_resolution_profile_expands_into_sensor(self):
+        try:
+            from ament_index_python.packages import get_package_share_directory
+
+            get_package_share_directory("strawberry_sim")
+        except (ImportError, LookupError):
+            self.skipTest("strawberry_sim is not present in the ament index")
+        xacro_path = PACKAGE_ROOT / "urdf" / "panda_gz.urdf.xacro"
+        initial_positions = PACKAGE_ROOT / "config" / "panda_initial_positions.yaml"
+        expanded = subprocess.run(
+            [
+                "xacro",
+                str(xacro_path),
+                f"initial_positions_file:={initial_positions}",
+                "enable_attachment:=false",
+                "camera_mount:=dual",
+                "base_camera_image_width:=640",
+                "base_camera_image_height:=480",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        robot = ET.fromstring(expanded)
+        sensor = robot.find(
+            "./gazebo[@reference='strawberry_base_camera_link']/sensor"
+        )
+        self.assertEqual(sensor.findtext("camera/image/width"), "640")
+        self.assertEqual(sensor.findtext("camera/image/height"), "480")
 
 
 if __name__ == "__main__":

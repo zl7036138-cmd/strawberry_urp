@@ -8,6 +8,45 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 
+BASE_CAMERA_RESOLUTIONS = {
+    "320x240": (320, 240),
+    "640x480": (640, 480),
+}
+
+
+def parse_base_camera_resolution(value: object) -> tuple[int, int]:
+    """Return width and height for an allowed fixed batch configuration."""
+
+    profile = str(value).strip().lower()
+    try:
+        return BASE_CAMERA_RESOLUTIONS[profile]
+    except KeyError as exc:
+        supported = ", ".join(BASE_CAMERA_RESOLUTIONS)
+        raise ValueError(f"base camera resolution must be one of: {supported}") from exc
+
+
+def observability_resolution_matches(
+    receipt: Mapping[str, object] | None, resolution: object
+) -> bool:
+    """Prove that the diagnostic frame used the requested measurement profile."""
+
+    if not isinstance(receipt, Mapping):
+        return False
+    width, height = parse_base_camera_resolution(resolution)
+    shape = receipt.get("image_shape_hw")
+    if (
+        not isinstance(shape, list)
+        or len(shape) != 2
+        or any(isinstance(value, bool) for value in shape)
+    ):
+        return False
+    try:
+        actual = tuple(int(value) for value in shape)
+    except (TypeError, ValueError):
+        return False
+    return actual == (height, width)
+
+
 def validate_development_matrix(
     config: Mapping[str, object], *, formal_seeds: Sequence[int]
 ) -> None:

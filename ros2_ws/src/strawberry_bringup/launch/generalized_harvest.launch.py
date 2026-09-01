@@ -40,6 +40,9 @@ def generate_launch_description():
             "base_camera_mast_xyz": LaunchConfiguration("base_camera_mast_xyz"),
             "base_camera_xyz": LaunchConfiguration("base_camera_xyz"),
             "base_camera_rpy": LaunchConfiguration("base_camera_rpy"),
+            "base_camera_resolution": LaunchConfiguration(
+                "base_camera_resolution"
+            ),
             "camera_mount": "dual",
             "enable_attachment": "true",
             "enable_pose_control": "true",
@@ -63,6 +66,11 @@ def generate_launch_description():
             DeclareLaunchArgument("base_camera_xyz", default_value="0 0 1.00"),
             DeclareLaunchArgument(
                 "base_camera_rpy", default_value="0 0.543 -0.480"
+            ),
+            DeclareLaunchArgument(
+                "base_camera_resolution",
+                default_value="320x240",
+                choices=["320x240", "640x480"],
             ),
             DeclareLaunchArgument(
                 "world_file",

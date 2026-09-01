@@ -127,13 +127,15 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             ("base_camera_mast_xyz", "-0.35 0.45 0.05"),
             ("base_camera_xyz", "0 0 1.00"),
             ("base_camera_rpy", "0 0.543 -0.480"),
+            ("base_camera_resolution", "320x240"),
         ):
             self.assertRegex(
                 self.source,
                 rf'DeclareLaunchArgument\(\s*"{name}",\s*default_value="{re.escape(default)}"',
             )
-            self.assertIn(
-                f'"{name}": LaunchConfiguration("{name}")', self.source
+            self.assertRegex(
+                self.source,
+                rf'"{name}": LaunchConfiguration\(\s*"{name}"\s*\)',
             )
 
 

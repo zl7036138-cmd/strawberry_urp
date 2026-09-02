@@ -129,6 +129,27 @@ def joint_samples_are_stationary(
     )
 
 
+def joint_positions_match_reference(
+    current: Sequence[float],
+    reference: Sequence[float],
+    *,
+    maximum_error_rad: float,
+) -> bool:
+    """Gate fixed-camera tracking while the arm can occlude the crop row."""
+
+    if not math.isfinite(maximum_error_rad) or maximum_error_rad <= 0.0:
+        raise ValueError("joint reference error bound must be positive and finite")
+    if not current or len(current) != len(reference):
+        raise ValueError("current and reference joints must have equal non-zero width")
+    values = tuple(float(value) for value in (*current, *reference))
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("joint reference values must be finite")
+    return all(
+        abs(float(observed) - float(expected)) <= maximum_error_rad
+        for observed, expected in zip(current, reference, strict=True)
+    )
+
+
 def localization_retry_is_fresh(
     *,
     detection_stamp_s: float,
@@ -333,6 +354,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from rclpy.duration import Duration
         from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
         from rclpy.node import Node
+        from rclpy.parameter import Parameter
         from rclpy.time import Time
         from rclpy.qos import (
             DurabilityPolicy,
@@ -439,6 +461,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("tracking_minimum_observations", 3)
             self.declare_parameter("tracking_smoothing_alpha", 0.35)
             self.declare_parameter("tracking_uncertainty_floor_m", 0.005)
+            self.declare_parameter("tracking_reference_gate_enabled", False)
+            self.declare_parameter(
+                "tracking_reference_joint_positions_rad",
+                Parameter.Type.DOUBLE_ARRAY,
+            )
+            self.declare_parameter("tracking_reference_joint_tolerance_rad", 0.03)
             self.declare_parameter("deferred_retry_enabled", False)
             self.declare_parameter("deferred_retry_period_sec", 0.05)
             self.declare_parameter("pending_detection_capacity", 8)
@@ -500,6 +528,35 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("tracking_uncertainty_floor_m").value
                 ),
             )
+            tracking_reference = tuple(
+                float(value)
+                for value in self.get_parameter(
+                    "tracking_reference_joint_positions_rad"
+                ).value
+            )
+            tracking_reference_tolerance = float(
+                self.get_parameter("tracking_reference_joint_tolerance_rad").value
+            )
+            if len(tracking_reference) not in {0, len(self._arm_joint_names)}:
+                raise RuntimeError(
+                    "tracking reference must be empty or contain seven arm joints"
+                )
+            if (
+                not math.isfinite(tracking_reference_tolerance)
+                or tracking_reference_tolerance <= 0.0
+            ):
+                raise RuntimeError("tracking reference tolerance must be positive")
+            tracking_reference_enabled = bool(
+                self.get_parameter("tracking_reference_gate_enabled").value
+            )
+            if tracking_reference_enabled and not tracking_reference:
+                raise RuntimeError(
+                    "enabled tracking reference gate needs seven arm joints"
+                )
+            self._tracking_reference = (
+                tracking_reference if tracking_reference_enabled else ()
+            )
+            self._tracking_reference_tolerance = tracking_reference_tolerance
             sensor_qos = QoSProfile(
                 depth=validate_sensor_qos_depth(
                     self.get_parameter("sensor_qos_depth").value
@@ -695,6 +752,28 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     ),
                 )
 
+        def _arm_allows_tracking_update(self) -> bool:
+            if not self._tracking_reference:
+                return True
+            with self._joint_lock:
+                if (
+                    self._last_joint_state_wall_sec is None
+                    or not self._joint_samples
+                    or time.monotonic() - self._last_joint_state_wall_sec
+                    > float(
+                        self.get_parameter(
+                            "stationary_tf_joint_state_wall_timeout_sec"
+                        ).value
+                    )
+                ):
+                    return False
+                current = self._joint_samples[-1]
+            return joint_positions_match_reference(
+                current,
+                self._tracking_reference,
+                maximum_error_rad=self._tracking_reference_tolerance,
+            )
+
         def _joint_state_wall_age_sec(self) -> float | None:
             with self._joint_lock:
                 if self._last_joint_state_wall_sec is None:
@@ -852,6 +931,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._process_detections(message, is_retry=False)
 
         def _process_detections(self, message, *, is_retry: bool) -> None:
+            # The overview camera is fixed, but the arm can pass through its
+            # fruit rays during observation and picking. Preserve the last
+            # clean global-scan tracks instead of permanently charging those
+            # transient occlusions to their uncertainty.
+            if not self._arm_allows_tracking_update():
+                return
             threshold = float(self.get_parameter("confidence_threshold").value)
             try:
                 selection_roi = validate_selection_roi(

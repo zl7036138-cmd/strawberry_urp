@@ -77,5 +77,11 @@
     tracking_smoothing_alpha: 0.35
     # Correlated video frames cannot average away calibration/model bias.
     tracking_uncertainty_floor_m: 0.005
+    # Update overview tracks only at the collision-checked global scan pose.
+    # Arm motion and stationary wrist views can otherwise occlude a second
+    # fruit and permanently inflate its conservative sigma.
+    tracking_reference_gate_enabled: true
+    tracking_reference_joint_positions_rad: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
+    tracking_reference_joint_tolerance_rad: 0.03
     allow_stationary_latest_tf_fallback: false
     allow_stationary_sensor_sync_fallback: false

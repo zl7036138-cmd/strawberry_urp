@@ -26,6 +26,9 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertEqual(
             self.source.count('"geometry_size_residual_sigma_weight": 0.5'), 1
         )
+        self.assertEqual(
+            self.source.count('"geometry_target_radius_m": 0.0235'), 1
+        )
         localization_config = (
             ROOT.parent
             / "strawberry_localization"
@@ -48,6 +51,14 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             1,
         )
         self.assertIn('"completed_track_topic": ""', self.source)
+        self.assertEqual(
+            self.source.count('"tracking_reference_gate_enabled": False'), 1
+        )
+        self.assertIn("tracking_reference_gate_enabled: true", localization_config)
+        self.assertIn(
+            "tracking_reference_joint_positions_rad: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]",
+            localization_config,
+        )
 
     def test_generalized_control_disables_truth_association(self):
         self.assertGreaterEqual(
@@ -86,6 +97,10 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('Trigger, "/strawberry/move_home"', orchestrator)
         self.assertIn('"/strawberry/move_home"', manipulation)
+        self.assertIn(
+            '"home_joint_trajectory_velocity_rad_per_sec", 0.08',
+            manipulation,
+        )
         self.assertIn('"scene_config_file": scene_config', self.source)
         self.assertNotIn("oracle_target_provider", self.source)
         simulation = (

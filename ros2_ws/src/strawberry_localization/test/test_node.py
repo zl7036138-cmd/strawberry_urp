@@ -24,6 +24,7 @@ from strawberry_localization.node import (  # noqa: E402
     validate_selection_roi,
 )
 from strawberry_localization.generalized_node import (  # noqa: E402
+    joint_positions_match_reference,
     newest_pending_detection,
     select_candidate_detections,
     select_stable_ripe_track,
@@ -244,6 +245,40 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
             joint_samples_are_stationary(
                 moving, minimum_samples=5, maximum_delta_rad=0.002
             )
+        )
+
+    def test_tracking_reference_rejects_arm_occlusion_motion(self):
+        reference = (0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785)
+        self.assertTrue(
+            joint_positions_match_reference(
+                (0.0, -0.79, 0.0, -2.35, 0.0, 1.57, 0.79),
+                reference,
+                maximum_error_rad=0.03,
+            )
+        )
+        self.assertFalse(
+            joint_positions_match_reference(
+                (0.0, -0.79, 0.0, -2.35, 0.0, 1.57, 0.90),
+                reference,
+                maximum_error_rad=0.03,
+            )
+        )
+        with self.assertRaises(ValueError):
+            joint_positions_match_reference(
+                (0.0,), reference, maximum_error_rad=0.03
+            )
+
+    def test_tracking_reference_parameter_declares_double_array_type(self):
+        source = (
+            PACKAGE_ROOT
+            / "strawberry_localization"
+            / "generalized_node.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Parameter.Type.DOUBLE_ARRAY", source)
+        self.assertNotIn(
+            'declare_parameter("tracking_reference_joint_positions_rad", [])',
+            source,
         )
 
     def test_attention_roi_selects_lower_confidence_candidate_inside_region(self):

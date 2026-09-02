@@ -169,11 +169,19 @@ def generate_launch_description():
                         "tracked_targets_topic": "/strawberry/wrist/tracked_targets",
                         "target_pose_topic": "/strawberry/wrist/target_pose",
                         "completed_track_topic": "",
+                        # Wrist tracking is intentionally performed away from
+                        # the global scan pose; only the fixed base pipeline
+                        # uses the arm-clear reference gate from the YAML.
+                        "tracking_reference_gate_enabled": False,
                         "ground_truth_association_enabled": False,
                         "confidence_threshold": confidence_threshold,
                         "allow_stationary_latest_tf_fallback": True,
                         "allow_stationary_sensor_sync_fallback": True,
-                        "geometry_target_radius_m": 0.020,
+                        # The visual mesh has a 23.4-23.7 mm horizontal radius
+                        # before the scene's 0.92-1.08 scale. A 20 mm prior
+                        # falsely charged correct close views with 17-32 mm
+                        # apparent-size uncertainty.
+                        "geometry_target_radius_m": 0.0235,
                         "geometry_size_residual_sigma_weight": 0.5,
                         "geometry_max_selected_centroid_distance_fraction": 1.0,
                         "center_layer_fallback_enabled": False,

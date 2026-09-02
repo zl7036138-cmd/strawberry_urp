@@ -141,7 +141,7 @@ class MoveItBackend:
         joint_trajectory_velocity_rad_per_sec: float = 0.30,
         grasp_joint_trajectory_velocity_rad_per_sec: float = 0.25,
         home_joint_trajectory_velocity_rad_per_sec: float = 0.05,
-        home_joint_trajectory_segment_duration_sec: float = 4.0,
+        home_joint_trajectory_segment_duration_sec: float = 3.0,
         joint_trajectory_start_tolerance_rad: float = 0.05,
         minimum_joint_limit_margin_rad: float = 0.01,
         observation_joint_limit_margin_rad: float = 0.02,

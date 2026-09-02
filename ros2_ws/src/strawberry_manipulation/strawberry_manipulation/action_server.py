@@ -161,7 +161,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "home_joint_trajectory_velocity_rad_per_sec", 0.05
             )
             self.declare_parameter(
-                "home_joint_trajectory_segment_duration_sec", 4.0
+                # Development 45507 completed one nine-segment recovery route,
+                # but controller tracking failed by 0.000508-0.000735 rad on
+                # later 3.715-3.943 s segments. A shorter segment bound keeps
+                # the same route and speed while adding more measured settle
+                # gates before tracking lag can accumulate.
+                "home_joint_trajectory_segment_duration_sec", 3.0
             )
             self.declare_parameter("joint_trajectory_start_tolerance_rad", 0.05)
             self.declare_parameter("minimum_joint_limit_margin_rad", 0.01)

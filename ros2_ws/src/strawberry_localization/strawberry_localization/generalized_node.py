@@ -21,12 +21,14 @@ from .core import (
     SensorFrameCache,
     associate_nearest_target,
     localize_bbox,
+    project_pixel_to_camera,
     validate_bbox_within_image,
     validate_sensor_metadata,
 )
 from .generalized_depth import (
     adjust_point_along_optical_ray,
     calibrate_runtime_geometry_uncertainty,
+    center_seeded_geometry_layer_depth,
     expand_bounding_box,
     point_on_pixel_bearing,
     retain_foreground_depth_band,
@@ -384,6 +386,18 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("geometry_foreground_min_band_fraction", 0.20)
             self.declare_parameter("geometry_bbox_padding_px", 1)
             self.declare_parameter("geometry_target_radius_m", 0.026)
+            self.declare_parameter("center_layer_fallback_enabled", False)
+            self.declare_parameter("center_layer_min_support_fraction", 0.14)
+            self.declare_parameter(
+                "center_layer_max_centroid_distance_fraction", 0.25
+            )
+            self.declare_parameter(
+                "center_layer_max_geometry_residual_m", 0.30
+            )
+            self.declare_parameter(
+                "center_layer_ambiguity_margin_fraction", 0.05
+            )
+            self.declare_parameter("center_layer_min_sigma_m", 0.015)
             self.declare_parameter("use_bbox_center_bearing", False)
             # Generalized control is truth-free by default.  Historical
             # localization configs that intentionally use simulator identity
@@ -1049,14 +1063,16 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     return
 
             try:
-                depth = matched.depth.image
+                raw_depth = matched.depth.image
+                depth = raw_depth
                 camera_info = matched.camera_info
-                box = BoundingBox(
+                raw_box = BoundingBox(
                     x=int(roi.x_offset),
                     y=int(roi.y_offset),
                     width=int(roi.width),
                     height=int(roi.height),
                 )
+                box = raw_box
                 depth_estimator_mode = str(
                     self.get_parameter("depth_estimator_mode").value
                 )
@@ -1214,7 +1230,78 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         cx=camera_info.intrinsics.cx,
                         cy=camera_info.intrinsics.cy,
                     )
-            except (LocalizationError, TypeError, ValueError) as exc:
+            except LocalizationError as primary_exc:
+                if (
+                    depth_estimator_mode != "geometry_layer"
+                    or not bool(
+                        self.get_parameter(
+                            "center_layer_fallback_enabled"
+                        ).value
+                    )
+                ):
+                    self.get_logger().warning(str(primary_exc))
+                    return
+                try:
+                    estimate = center_seeded_geometry_layer_depth(
+                        raw_depth,
+                        box,
+                        raw_box,
+                        fx=camera_info.intrinsics.fx,
+                        fy=camera_info.intrinsics.fy,
+                        target_radius_m=float(
+                            self.get_parameter("geometry_target_radius_m").value
+                        ),
+                        min_depth_m=float(self.get_parameter("min_depth_m").value),
+                        max_depth_m=float(self.get_parameter("max_depth_m").value),
+                        min_layer_pixels=int(
+                            self.get_parameter("min_valid_pixels").value
+                        ),
+                        layer_gap_m=float(
+                            self.get_parameter("geometry_layer_gap_m").value
+                        ),
+                        minimum_support_fraction=float(
+                            self.get_parameter(
+                                "center_layer_min_support_fraction"
+                            ).value
+                        ),
+                        maximum_centroid_distance_fraction=float(
+                            self.get_parameter(
+                                "center_layer_max_centroid_distance_fraction"
+                            ).value
+                        ),
+                        maximum_geometry_residual_m=float(
+                            self.get_parameter(
+                                "center_layer_max_geometry_residual_m"
+                            ).value
+                        ),
+                        ambiguity_margin_fraction=float(
+                            self.get_parameter(
+                                "center_layer_ambiguity_margin_fraction"
+                            ).value
+                        ),
+                        minimum_sigma_m=float(
+                            self.get_parameter("center_layer_min_sigma_m").value
+                        ),
+                    )
+                    point = project_pixel_to_camera(
+                        estimate.center_u,
+                        estimate.center_v,
+                        estimate.depth_m,
+                        camera_info.intrinsics,
+                    )
+                    point = adjust_point_along_optical_ray(
+                        point,
+                        float(
+                            self.get_parameter("surface_to_center_offset_m").value
+                        ),
+                    )
+                except (LocalizationError, TypeError, ValueError) as fallback_exc:
+                    self.get_logger().warning(
+                        f"primary geometry rejected: {primary_exc}; "
+                        f"center fallback rejected: {fallback_exc}"
+                    )
+                    return
+            except (TypeError, ValueError) as exc:
                 self.get_logger().warning(str(exc))
                 return
 

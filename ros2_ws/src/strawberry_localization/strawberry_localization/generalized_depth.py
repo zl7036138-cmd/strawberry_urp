@@ -36,6 +36,158 @@ def calibrate_runtime_geometry_uncertainty(
     )
 
 
+def center_seeded_geometry_layer_depth(
+    depth_image_m: np.ndarray,
+    search_box: BoundingBox,
+    bearing_box: BoundingBox,
+    *,
+    fx: float,
+    fy: float,
+    target_radius_m: float,
+    min_depth_m: float,
+    max_depth_m: float,
+    min_layer_pixels: int,
+    layer_gap_m: float,
+    minimum_support_fraction: float,
+    maximum_centroid_distance_fraction: float,
+    maximum_geometry_residual_m: float,
+    ambiguity_margin_fraction: float,
+    minimum_sigma_m: float,
+) -> DepthEstimate:
+    """Estimate a bounded fallback layer anchored at the detector centre.
+
+    This is used only after the primary apparent-size estimator fails.  It can
+    recover a fruit surface behind foreground foliage when the detector centre
+    still lands on supported fruit pixels.  Weak, off-centre, geometrically
+    implausible, or centre-ambiguous layers fail closed.
+    """
+
+    if depth_image_m.ndim != 2:
+        raise LocalizationError("depth image must be a two-dimensional array")
+    values = (
+        fx,
+        fy,
+        target_radius_m,
+        min_depth_m,
+        max_depth_m,
+        layer_gap_m,
+        minimum_support_fraction,
+        maximum_centroid_distance_fraction,
+        maximum_geometry_residual_m,
+        ambiguity_margin_fraction,
+        minimum_sigma_m,
+    )
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("center-seeded layer parameters must be finite")
+    if fx <= 0.0 or fy <= 0.0 or target_radius_m <= 0.0:
+        raise ValueError("center-seeded geometry scale must be positive")
+    if min_depth_m <= 0.0 or max_depth_m <= min_depth_m:
+        raise ValueError("depth limits must satisfy 0 < min_depth < max_depth")
+    if isinstance(min_layer_pixels, bool) or min_layer_pixels <= 0:
+        raise ValueError("minimum layer-pixel count must be positive")
+    if layer_gap_m <= 0.0 or maximum_geometry_residual_m <= 0.0:
+        raise ValueError("center-seeded depth limits must be positive")
+    if not 0.0 < minimum_support_fraction <= 1.0:
+        raise ValueError("minimum center-layer support must be in (0, 1]")
+    if not 0.0 < maximum_centroid_distance_fraction <= 1.0:
+        raise ValueError("maximum center-layer distance must be in (0, 1]")
+    if not 0.0 <= ambiguity_margin_fraction <= 1.0:
+        raise ValueError("center-layer ambiguity margin must be in [0, 1]")
+    if minimum_sigma_m <= 0.0:
+        raise ValueError("minimum center-layer sigma must be positive")
+
+    height, width = depth_image_m.shape
+    for box in (search_box, bearing_box):
+        if (
+            box.x < 0
+            or box.y < 0
+            or box.width <= 0
+            or box.height <= 0
+            or box.x + box.width > width
+            or box.y + box.height > height
+        ):
+            raise LocalizationError("center-seeded box is outside the depth image")
+
+    crop = np.asarray(
+        depth_image_m[
+            search_box.y : search_box.y + search_box.height,
+            search_box.x : search_box.x + search_box.width,
+        ],
+        dtype=np.float64,
+    )
+    valid_mask = (
+        np.isfinite(crop) & (crop >= min_depth_m) & (crop <= max_depth_m)
+    )
+    valid_y, valid_x = np.nonzero(valid_mask)
+    depths = crop[valid_mask]
+    if depths.size < min_layer_pixels:
+        raise LocalizationError("too few valid pixels for center-seeded depth")
+    order = np.argsort(depths, kind="stable")
+    boundaries = np.flatnonzero(np.diff(depths[order]) > layer_gap_m) + 1
+    effective_focal_px = math.sqrt(fx * fy)
+    apparent_radius_px = 0.5 * math.sqrt(
+        float(search_box.width * search_box.height)
+    )
+    expected_surface_m = target_radius_m * math.sqrt(
+        1.0 + (effective_focal_px / apparent_radius_px) ** 2
+    ) - target_radius_m
+    bearing_u = bearing_box.x + 0.5 * bearing_box.width
+    bearing_v = bearing_box.y + 0.5 * bearing_box.height
+    candidates = []
+    for indices in np.split(order, boundaries):
+        if indices.size < min_layer_pixels:
+            continue
+        selected_depths = depths[indices]
+        median = float(np.median(selected_depths))
+        centroid_u = float(search_box.x + np.mean(valid_x[indices]))
+        centroid_v = float(search_box.y + np.mean(valid_y[indices]))
+        centroid_distance = math.hypot(
+            (centroid_u - bearing_u) / bearing_box.width,
+            (centroid_v - bearing_v) / bearing_box.height,
+        )
+        candidates.append(
+            {
+                "centroid_distance": centroid_distance,
+                "support_fraction": float(indices.size) / float(crop.size),
+                "geometry_residual_m": abs(median - expected_surface_m),
+                "median": median,
+                "mad": float(np.median(np.abs(selected_depths - median))),
+                "pixel_count": int(indices.size),
+            }
+        )
+    if not candidates:
+        raise LocalizationError("no supported center-seeded depth layer")
+    candidates.sort(
+        key=lambda item: (
+            item["centroid_distance"],
+            -item["support_fraction"],
+            item["geometry_residual_m"],
+            item["median"],
+        )
+    )
+    best = candidates[0]
+    if best["support_fraction"] < minimum_support_fraction:
+        raise LocalizationError("center-seeded depth layer has weak support")
+    if best["centroid_distance"] > maximum_centroid_distance_fraction:
+        raise LocalizationError("center-seeded depth layer is off-centre")
+    if best["geometry_residual_m"] > maximum_geometry_residual_m:
+        raise LocalizationError("center-seeded depth layer is geometrically implausible")
+    if any(
+        candidate["support_fraction"] >= minimum_support_fraction
+        and candidate["centroid_distance"] - best["centroid_distance"]
+        < ambiguity_margin_fraction
+        for candidate in candidates[1:]
+    ):
+        raise LocalizationError("multiple center-seeded depth layers are ambiguous")
+    return DepthEstimate(
+        depth_m=float(best["median"]),
+        sigma_m=max(minimum_sigma_m, 1.4826 * float(best["mad"])),
+        valid_pixels=int(best["pixel_count"]),
+        center_u=float(bearing_u),
+        center_v=float(bearing_v),
+    )
+
+
 def retain_support_ranked_geometry_layer(
     depth_image_m: np.ndarray,
     box: BoundingBox,

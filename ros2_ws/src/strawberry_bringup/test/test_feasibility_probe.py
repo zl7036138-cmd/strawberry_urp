@@ -7,8 +7,10 @@ PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
 
 from strawberry_bringup.feasibility_probe import (  # noqa: E402
+    FreshMessageRetryGate,
     build_feasibility_payload,
     probe_exit_code,
+    tracked_snapshot_priority,
 )
 from strawberry_bringup.target_selector import harvest_candidates_from_records  # noqa: E402
 
@@ -36,6 +38,43 @@ def record(identity: int, maturity: int = 1):
 
 
 class FeasibilityProbeTests(unittest.TestCase):
+    def test_snapshot_priority_keeps_richer_safe_inventory(self):
+        rich = tracked_snapshot_priority(
+            ranked_count=2, candidate_count=4, observations=20, sequence=5
+        )
+        transient_empty = tracked_snapshot_priority(
+            ranked_count=0, candidate_count=0, observations=0, sequence=6
+        )
+        equally_rich_newer = tracked_snapshot_priority(
+            ranked_count=2, candidate_count=4, observations=20, sequence=7
+        )
+
+        self.assertGreater(rich, transient_empty)
+        self.assertGreater(equally_rich_newer, rich)
+
+    def test_transient_retry_waits_for_a_new_perception_snapshot(self):
+        gate = FreshMessageRetryGate(maximum_recoveries=3, wait_timeout_sec=5.0)
+
+        self.assertTrue(gate.defer(message_sequence=8, now_sec=10.0))
+        self.assertEqual(
+            gate.decision(message_sequence=8, now_sec=10.5), "WAIT"
+        )
+        self.assertEqual(
+            gate.decision(message_sequence=9, now_sec=10.6), "REFRESH"
+        )
+        self.assertEqual(
+            gate.decision(message_sequence=9, now_sec=10.7), "READY"
+        )
+
+    def test_transient_retry_is_bounded_by_timeout_and_count(self):
+        gate = FreshMessageRetryGate(maximum_recoveries=1, wait_timeout_sec=2.0)
+
+        self.assertTrue(gate.defer(message_sequence=3, now_sec=4.0))
+        self.assertEqual(
+            gate.decision(message_sequence=3, now_sec=6.0), "EXHAUSTED"
+        )
+        self.assertFalse(gate.defer(message_sequence=3, now_sec=6.1))
+
     def test_runner_is_zero_motion_and_truth_audited(self):
         runner = (PACKAGE.parents[2] / "scripts" / "run_generalized_feasibility_probe.sh").read_text(
             encoding="utf-8"
@@ -73,6 +112,7 @@ class FeasibilityProbeTests(unittest.TestCase):
         self.assertTrue(payload["eligible_for_multi_fruit_runtime"])
         self.assertFalse(payload["runtime_truth_use"])
         self.assertFalse(payload["trajectory_execution_allowed"])
+        self.assertEqual(payload["transient_recoveries"], [])
         self.assertEqual(probe_exit_code(payload), 0)
 
     def test_one_feasible_track_is_not_eligible(self):

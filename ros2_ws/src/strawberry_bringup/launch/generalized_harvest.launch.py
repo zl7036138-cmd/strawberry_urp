@@ -175,6 +175,7 @@ def generate_launch_description():
                         "allow_stationary_sensor_sync_fallback": True,
                         "geometry_target_radius_m": 0.020,
                         "geometry_size_residual_sigma_weight": 0.5,
+                        "center_layer_fallback_enabled": False,
                         "use_bbox_center_bearing": True,
                         "target_hint_topic": "/strawberry/wrist/target_hint",
                         "target_hint_max_distance_m": 0.05,

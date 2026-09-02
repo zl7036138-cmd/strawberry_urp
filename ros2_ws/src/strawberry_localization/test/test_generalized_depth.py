@@ -18,6 +18,7 @@ from strawberry_localization.core import (  # noqa: E402
 from strawberry_localization.generalized_depth import (  # noqa: E402
     adjust_point_along_optical_ray,
     calibrate_runtime_geometry_uncertainty,
+    center_seeded_geometry_layer_depth,
     expand_bounding_box,
     point_on_pixel_bearing,
     retain_foreground_depth_band,
@@ -26,6 +27,60 @@ from strawberry_localization.generalized_depth import (  # noqa: E402
 
 
 class GeneralizedDepthBandTests(unittest.TestCase):
+    @staticmethod
+    def _center_seeded(depth):
+        return center_seeded_geometry_layer_depth(
+            depth,
+            BoundingBox(0, 0, 26, 26),
+            BoundingBox(1, 1, 24, 24),
+            fx=554.256,
+            fy=554.256,
+            target_radius_m=0.026,
+            min_depth_m=0.05,
+            max_depth_m=5.0,
+            min_layer_pixels=9,
+            layer_gap_m=0.015,
+            minimum_support_fraction=0.14,
+            maximum_centroid_distance_fraction=0.25,
+            maximum_geometry_residual_m=0.30,
+            ambiguity_margin_fraction=0.05,
+            minimum_sigma_m=0.015,
+        )
+
+    def test_center_seeded_fallback_selects_supported_central_fruit_layer(self):
+        depth = np.full((26, 26), np.nan, dtype=np.float32)
+        depth[:, :8] = 0.85
+        depth[:, 18:] = 1.30
+        depth[8:18, 8:18] = 1.03
+
+        estimate = self._center_seeded(depth)
+
+        self.assertAlmostEqual(estimate.depth_m, 1.03, places=5)
+        self.assertEqual(estimate.valid_pixels, 100)
+        self.assertEqual(estimate.sigma_m, 0.015)
+
+    def test_center_seeded_fallback_rejects_weak_central_layer(self):
+        depth = np.full((26, 26), np.nan, dtype=np.float32)
+        depth[:, :10] = 0.85
+        depth[:, 16:] = 1.30
+        depth[10:16, 10:16] = 1.03
+
+        with self.assertRaisesRegex(LocalizationError, "weak support"):
+            self._center_seeded(depth)
+
+    def test_center_seeded_fallback_rejects_implausible_or_ambiguous_layer(self):
+        implausible = np.full((26, 26), np.nan, dtype=np.float32)
+        implausible[:, :8] = 0.85
+        implausible[8:18, 8:18] = 1.50
+        with self.assertRaisesRegex(LocalizationError, "geometrically implausible"):
+            self._center_seeded(implausible)
+
+        ambiguous = np.full((26, 26), np.nan, dtype=np.float32)
+        ambiguous[:, 4:13] = 1.02
+        ambiguous[:, 13:22] = 1.08
+        with self.assertRaisesRegex(LocalizationError, "ambiguous"):
+            self._center_seeded(ambiguous)
+
     def test_support_ranker_prefers_dominant_near_tie(self):
         depth = np.full((21, 23), 0.765, dtype=np.float32)
         flattened = depth.reshape(-1)

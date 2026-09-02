@@ -33,6 +33,10 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             / "localization_generalized.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("geometry_size_residual_sigma_weight: 1.0", localization_config)
+        self.assertIn("center_layer_fallback_enabled: true", localization_config)
+        self.assertEqual(
+            self.source.count('"center_layer_fallback_enabled": False'), 1
+        )
         self.assertIn('"completed_track_topic": ""', self.source)
 
     def test_generalized_control_disables_truth_association(self):

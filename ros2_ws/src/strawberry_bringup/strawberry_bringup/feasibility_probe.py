@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import json
 import math
 from pathlib import Path
@@ -15,6 +16,54 @@ from .target_selector import (
     expanded_bin_bounds,
     harvest_candidates_from_records,
 )
+
+
+@dataclass
+class FreshMessageRetryGate:
+    """Bound transient MoveIt retries to newly observed perception state.
+
+    Repeating the same request against the same stale collision inventory only
+    hammers the backend and cannot make the request safer.  A retry is released
+    only after another tracked-target message has arrived; callers must then
+    rebuild the complete candidate snapshot before evaluating again.
+    """
+
+    maximum_recoveries: int
+    wait_timeout_sec: float
+    recovery_count: int = 0
+    waiting_after_sequence: int | None = None
+    waiting_since_sec: float | None = None
+
+    def defer(self, *, message_sequence: int, now_sec: float) -> bool:
+        self.recovery_count += 1
+        if self.recovery_count > self.maximum_recoveries:
+            return False
+        self.waiting_after_sequence = int(message_sequence)
+        self.waiting_since_sec = float(now_sec)
+        return True
+
+    def decision(self, *, message_sequence: int, now_sec: float) -> str:
+        if self.waiting_after_sequence is None:
+            return "READY"
+        if (
+            self.waiting_since_sec is None
+            or float(now_sec) - self.waiting_since_sec >= self.wait_timeout_sec
+        ):
+            return "EXHAUSTED"
+        if int(message_sequence) <= self.waiting_after_sequence:
+            return "WAIT"
+        self.waiting_after_sequence = None
+        self.waiting_since_sec = None
+        return "REFRESH"
+
+
+def tracked_snapshot_priority(*, ranked_count, candidate_count, observations, sequence):
+    """Prefer the richest safe snapshot, then the newest equivalent one."""
+
+    values = (ranked_count, candidate_count, observations, sequence)
+    if any(int(value) < 0 for value in values):
+        raise ValueError("tracked snapshot priority values must be non-negative")
+    return tuple(int(value) for value in values)
 
 
 def seconds(stamp) -> float:
@@ -51,6 +100,7 @@ def build_feasibility_payload(
     selection_limits,
     elapsed_sec: float,
     minimum_feasible_ripe: int,
+    transient_recoveries=(),
 ) -> dict[str, object]:
     evaluated = {int(row["track_id"]): dict(row) for row in evaluations}
     candidate_rows = []
@@ -96,6 +146,7 @@ def build_feasibility_payload(
         "observed_track_records": [dict(record) for record in records],
         "candidates": candidate_rows,
         "evaluations": [dict(row) for row in evaluations],
+        "transient_recoveries": [dict(row) for row in transient_recoveries],
         "feasible_ripe_track_ids": feasible_ids,
         "eligible_for_multi_fruit_runtime": eligible,
     }
@@ -118,6 +169,8 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
     parser.add_argument("--observation-window", type=float, default=15.0)
     parser.add_argument("--startup-timeout", type=float, default=90.0)
     parser.add_argument("--evaluation-timeout", type=float, default=30.0)
+    parser.add_argument("--transient-recovery-timeout", type=float, default=15.0)
+    parser.add_argument("--maximum-transient-recoveries", type=int, default=3)
     parser.add_argument("--hard-timeout", type=float, default=240.0)
     parser.add_argument("--minimum-feasible-ripe", type=int, default=2)
     parser.add_argument("--confidence-threshold", type=float, default=0.20524564385414124)
@@ -134,6 +187,7 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
         options.observation_window,
         options.startup_timeout,
         options.evaluation_timeout,
+        options.transient_recovery_timeout,
         options.hard_timeout,
     )
     if not all(math.isfinite(value) and value > 0.0 for value in finite_positive):
@@ -142,6 +196,8 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
         raise ValueError("hard timeout must cover startup timeout")
     if options.minimum_feasible_ripe < 2:
         raise ValueError("multi-fruit probe requires at least two feasible ripe targets")
+    if options.maximum_transient_recoveries < 0:
+        raise ValueError("maximum transient recoveries must be non-negative")
 
     try:
         import rclpy
@@ -181,16 +237,22 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
             self.started = time.monotonic()
             self.first_message_wall = None
             self.latest_message = None
+            self.best_message = None
+            self.best_message_priority = None
+            self.message_sequence = 0
             self.records = ()
             self.candidates = ()
             self.messages_by_id = {}
             self.ranked = ()
             self.evaluations = []
+            self.transient_recoveries = []
             self.index = 0
             self.current = None
             self.request_started = None
-            self.retry_count = 0
-            self.retry_after = 0.0
+            self.retry_gate = FreshMessageRetryGate(
+                maximum_recoveries=options.maximum_transient_recoveries,
+                wait_timeout_sec=options.transient_recovery_timeout,
+            )
             self.done = False
             self.outcome = "RECORDER_STOPPED"
             self.payload = None
@@ -202,15 +264,51 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
 
         def on_tracks(self, message) -> None:
             self.latest_message = message
+            self.message_sequence += 1
             if self.first_message_wall is None:
                 self.first_message_wall = time.monotonic()
-
-        def prepare(self) -> None:
-            if self.latest_message is None:
+            try:
+                records = records_from_tracked_message(message)
+                candidates = harvest_candidates_from_records(
+                    records,
+                    fruit_radius_m=options.fruit_radius,
+                    bin_bounds=bin_bounds,
+                    static_obstacle_margin_m=options.static_obstacle_margin,
+                )
+                now_sec = max(
+                    (candidate.last_seen_sec for candidate in candidates),
+                    default=0.0,
+                )
+                ranked = rank_safe_targets(candidates, now_sec=now_sec, **limits)
+                priority = tracked_snapshot_priority(
+                    ranked_count=len(ranked),
+                    candidate_count=len(candidates),
+                    observations=sum(
+                        max(0, int(record["observation_count"]))
+                        for record in records
+                    ),
+                    sequence=self.message_sequence,
+                )
+            except (KeyError, TypeError, ValueError):
                 return
-            self.records = records_from_tracked_message(self.latest_message)
+            if (
+                self.best_message_priority is None
+                or priority > self.best_message_priority
+            ):
+                self.best_message = message
+                self.best_message_priority = priority
+
+        def prepare(self, *, require_latest: bool = False) -> None:
+            selected_message = (
+                self.latest_message
+                if require_latest
+                else (self.best_message or self.latest_message)
+            )
+            if selected_message is None:
+                return
+            self.records = records_from_tracked_message(selected_message)
             self.messages_by_id = {
-                int(item.track_id): item for item in self.latest_message.targets
+                int(item.track_id): item for item in selected_message.targets
             }
             try:
                 candidates = harvest_candidates_from_records(
@@ -226,6 +324,8 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 (candidate.last_seen_sec for candidate in candidates), default=0.0
             )
             self.candidates = tuple(candidates)
+            self.evaluations = []
+            self.index = 0
             self.ranked = tuple(
                 rank_safe_targets(candidates, now_sec=now_sec, **limits)
             )
@@ -257,8 +357,23 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 ):
                     self.finish("EVALUATION_TIMEOUT")
                 return
-            if now < self.retry_after:
+            retry_decision = self.retry_gate.decision(
+                message_sequence=self.message_sequence,
+                now_sec=now,
+            )
+            if retry_decision == "EXHAUSTED":
+                self.finish("EVALUATION_DEFERRED")
                 return
+            if retry_decision == "WAIT":
+                return
+            if retry_decision == "REFRESH":
+                # The initial best snapshot prevents a momentary empty array at
+                # the observation boundary from creating a false negative.  A
+                # transient MoveIt response is different: only the newest
+                # inventory can re-establish a live collision-scene contract.
+                self.prepare(require_latest=True)
+                if self.done:
+                    return
             if self.index >= len(self.ranked):
                 self.finish("COMPLETED")
                 return
@@ -304,13 +419,22 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
             if not evaluation.feasible and evaluation_failure_is_transient(
                 evaluation.message
             ):
-                self.retry_count += 1
+                recovery_index = self.retry_gate.recovery_count + 1
+                self.transient_recoveries.append(
+                    {
+                        "recovery_index": recovery_index,
+                        "track_id": candidate.track_id,
+                        "message_sequence": self.message_sequence,
+                        "message": evaluation.message,
+                    }
+                )
                 self.current = None
                 self.request_started = None
-                if self.retry_count > 3:
+                if not self.retry_gate.defer(
+                    message_sequence=self.message_sequence,
+                    now_sec=time.monotonic(),
+                ):
                     self.finish("EVALUATION_DEFERRED")
-                else:
-                    self.retry_after = time.monotonic() + 0.5
                 return
             self.evaluations.append(
                 {
@@ -325,7 +449,6 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
             self.index += 1
             self.current = None
             self.request_started = None
-            self.retry_count = 0
 
         def finish(self, outcome: str) -> None:
             if self.done:
@@ -345,6 +468,7 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 selection_limits=limits,
                 elapsed_sec=time.monotonic() - self.started,
                 minimum_feasible_ripe=options.minimum_feasible_ripe,
+                transient_recoveries=self.transient_recoveries,
             )
             options.output.parent.mkdir(parents=True, exist_ok=True)
             temporary = options.output.with_suffix(options.output.suffix + ".tmp")

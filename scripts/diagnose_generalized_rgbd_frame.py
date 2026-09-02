@@ -34,10 +34,12 @@ from strawberry_localization.core import (  # noqa: E402
     CameraIntrinsics,
     LocalizationError,
     localize_bbox,
+    project_pixel_to_camera,
 )
 from strawberry_localization.generalized_depth import (  # noqa: E402
     adjust_point_along_optical_ray,
     calibrate_runtime_geometry_uncertainty,
+    center_seeded_geometry_layer_depth,
     expand_bounding_box,
     point_on_pixel_bearing,
     retain_foreground_depth_band,
@@ -209,6 +211,12 @@ def _load_parameters(path: Path) -> dict[str, Any]:
         "geometry_bbox_padding_px",
         "geometry_target_radius_m",
         "use_bbox_center_bearing",
+        "center_layer_fallback_enabled",
+        "center_layer_min_support_fraction",
+        "center_layer_max_centroid_distance_fraction",
+        "center_layer_max_geometry_residual_m",
+        "center_layer_ambiguity_margin_fraction",
+        "center_layer_min_sigma_m",
     )
     result = {name: source[name] for name in names if name in source}
     # The base runtime inherits this node default; the wrist launch overrides
@@ -564,6 +572,7 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                 report.update(
                     {
                         "localization_status": "ACCEPTED",
+                        "depth_estimator_source": "geometry_layer",
                         "depth_m": float(estimate.depth_m),
                         "sigma_m": float(estimate.sigma_m),
                         "camera_point_m": point.tolist(),
@@ -572,7 +581,100 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                         "nearest_truth_error_m": error_m,
                     }
                 )
-            except (LocalizationError, TypeError, ValueError) as exc:
+            except LocalizationError as primary_exc:
+                if not bool(parameters.get("center_layer_fallback_enabled", False)):
+                    report.update(
+                        {
+                            "localization_status": "REJECTED",
+                            "rejection_reason": str(primary_exc),
+                        }
+                    )
+                else:
+                    try:
+                        estimate = center_seeded_geometry_layer_depth(
+                            depth,
+                            box,
+                            raw_box,
+                            fx=intrinsics.fx,
+                            fy=intrinsics.fy,
+                            target_radius_m=float(
+                                parameters["geometry_target_radius_m"]
+                            ),
+                            min_depth_m=float(parameters["min_depth_m"]),
+                            max_depth_m=float(parameters["max_depth_m"]),
+                            min_layer_pixels=int(parameters["min_valid_pixels"]),
+                            layer_gap_m=float(parameters["geometry_layer_gap_m"]),
+                            minimum_support_fraction=float(
+                                parameters["center_layer_min_support_fraction"]
+                            ),
+                            maximum_centroid_distance_fraction=float(
+                                parameters[
+                                    "center_layer_max_centroid_distance_fraction"
+                                ]
+                            ),
+                            maximum_geometry_residual_m=float(
+                                parameters["center_layer_max_geometry_residual_m"]
+                            ),
+                            ambiguity_margin_fraction=float(
+                                parameters[
+                                    "center_layer_ambiguity_margin_fraction"
+                                ]
+                            ),
+                            minimum_sigma_m=float(
+                                parameters["center_layer_min_sigma_m"]
+                            ),
+                        )
+                        point = project_pixel_to_camera(
+                            estimate.center_u,
+                            estimate.center_v,
+                            estimate.depth_m,
+                            intrinsics,
+                        )
+                        point = adjust_point_along_optical_ray(
+                            point,
+                            float(parameters["surface_to_center_offset_m"]),
+                        )
+                        base_point = _camera_to_base(point, transform)
+                        target_id, error_m = min(
+                            (
+                                (
+                                    target_id,
+                                    float(np.linalg.norm(base_point - truth)),
+                                )
+                                for target_id, truth in truth_points.items()
+                            ),
+                            key=lambda pair: (pair[1], pair[0]),
+                        )
+                        report.update(
+                            {
+                                "localization_status": "ACCEPTED",
+                                "depth_estimator_source": (
+                                    "center_seeded_geometry_fallback"
+                                ),
+                                "primary_rejection_reason": str(primary_exc),
+                                "depth_m": float(estimate.depth_m),
+                                "sigma_m": float(estimate.sigma_m),
+                                "camera_point_m": point.tolist(),
+                                "base_point_m": base_point.tolist(),
+                                "nearest_truth_target_id": int(target_id),
+                                "nearest_truth_error_m": error_m,
+                            }
+                        )
+                    except (
+                        LocalizationError,
+                        TypeError,
+                        ValueError,
+                    ) as fallback_exc:
+                        report.update(
+                            {
+                                "localization_status": "REJECTED",
+                                "rejection_reason": (
+                                    f"primary geometry rejected: {primary_exc}; "
+                                    f"center fallback rejected: {fallback_exc}"
+                                ),
+                            }
+                        )
+            except (TypeError, ValueError) as exc:
                 report.update(
                     {
                         "localization_status": "REJECTED",

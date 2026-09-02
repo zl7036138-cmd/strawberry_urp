@@ -54,6 +54,15 @@
     # the 18-scene observability sweep found 52-90 mm biased depth layers that
     # otherwise appeared to be below the 15 mm control uncertainty gate.
     geometry_size_residual_sigma_weight: 1.0
+    # If apparent-size geometry rejects an occluded box, permit one bounded
+    # detector-centre fallback. It remains at the 15 mm control limit and must
+    # still pass stable tracking, MoveIt and wrist-camera confirmation.
+    center_layer_fallback_enabled: true
+    center_layer_min_support_fraction: 0.14
+    center_layer_max_centroid_distance_fraction: 0.25
+    center_layer_max_geometry_residual_m: 0.30
+    center_layer_ambiguity_margin_fraction: 0.05
+    center_layer_min_sigma_m: 0.015
     # Truth remains available to benchmark scorers only, never to control.
     ground_truth_association_enabled: false
     tracking_association_distance_m: 0.06

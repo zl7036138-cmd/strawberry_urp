@@ -153,9 +153,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 # path tolerance by 0.000851 rad at 0.10 rad/s. Development
                 # 45401 v3 still exceeded it by 0.000435-0.001838 rad at
                 # 0.08 rad/s, and 45504 exceeded it by 0.000151-0.000570 rad
-                # at 0.06 rad/s. Slowing the same collision-checked route keeps
-                # every safety bound and leaves the 0.05 rad tolerance intact.
-                "home_joint_trajectory_velocity_rad_per_sec", 0.04
+                # at 0.06 rad/s. Development 45505 showed that 0.04 rad/s
+                # stretches the same route to 70.807 s and therefore violates
+                # the unchanged 60 s whole-route bound. 0.05 rad/s is the
+                # smallest practical setting with explicit duration margin;
+                # every other safety bound remains unchanged.
+                "home_joint_trajectory_velocity_rad_per_sec", 0.05
             )
             self.declare_parameter(
                 "home_joint_trajectory_segment_duration_sec", 4.0

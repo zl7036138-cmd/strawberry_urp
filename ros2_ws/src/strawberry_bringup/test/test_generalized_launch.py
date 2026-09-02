@@ -101,6 +101,10 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             '"home_joint_trajectory_velocity_rad_per_sec", 0.08',
             manipulation,
         )
+        self.assertIn(
+            '"grasp_joint_trajectory_velocity_rad_per_sec", 0.25',
+            manipulation,
+        )
         self.assertIn('"scene_config_file": scene_config', self.source)
         self.assertNotIn("oracle_target_provider", self.source)
         simulation = (

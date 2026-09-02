@@ -139,6 +139,7 @@ class MoveItBackend:
         maximum_joint_trajectory_travel_rad: float = 40.0,
         maximum_joint_trajectory_points: int = 512,
         joint_trajectory_velocity_rad_per_sec: float = 0.30,
+        grasp_joint_trajectory_velocity_rad_per_sec: float = 0.25,
         home_joint_trajectory_velocity_rad_per_sec: float = 0.10,
         home_joint_trajectory_segment_duration_sec: float = 4.0,
         joint_trajectory_start_tolerance_rad: float = 0.05,
@@ -246,10 +247,14 @@ class MoveItBackend:
         if (
             not math.isfinite(joint_trajectory_velocity_rad_per_sec)
             or joint_trajectory_velocity_rad_per_sec <= 0.0
+            or not math.isfinite(grasp_joint_trajectory_velocity_rad_per_sec)
+            or grasp_joint_trajectory_velocity_rad_per_sec <= 0.0
+            or grasp_joint_trajectory_velocity_rad_per_sec
+            > joint_trajectory_velocity_rad_per_sec
             or not math.isfinite(home_joint_trajectory_velocity_rad_per_sec)
             or home_joint_trajectory_velocity_rad_per_sec <= 0.0
             or home_joint_trajectory_velocity_rad_per_sec
-            > joint_trajectory_velocity_rad_per_sec
+            > grasp_joint_trajectory_velocity_rad_per_sec
             or not math.isfinite(home_joint_trajectory_segment_duration_sec)
             or home_joint_trajectory_segment_duration_sec <= 0.0
             or home_joint_trajectory_segment_duration_sec
@@ -356,6 +361,9 @@ class MoveItBackend:
         self.maximum_joint_trajectory_points = int(maximum_joint_trajectory_points)
         self.joint_trajectory_velocity_rad_per_sec = float(
             joint_trajectory_velocity_rad_per_sec
+        )
+        self.grasp_joint_trajectory_velocity_rad_per_sec = float(
+            grasp_joint_trajectory_velocity_rad_per_sec
         )
         self.home_joint_trajectory_velocity_rad_per_sec = float(
             home_joint_trajectory_velocity_rad_per_sec
@@ -1664,6 +1672,7 @@ class MoveItBackend:
         target: Pose,
         *,
         intermediate_endpoint: bool = False,
+        velocity_rad_per_sec: float | None = None,
     ) -> MotionOutcome:
         """Execute a collision-checked Cartesian approximation without RRT."""
 
@@ -1684,8 +1693,15 @@ class MoveItBackend:
                     execution_time,
                     collision=True,
                 )
+            execute_kwargs = (
+                {}
+                if velocity_rad_per_sec is None
+                else {"velocity_rad_per_sec": velocity_rad_per_sec}
+            )
             executed, attempt_execution = self._execute_joint_path(
-                start_positions, joint_path
+                start_positions,
+                joint_path,
+                **execute_kwargs,
             )
             execution_time += attempt_execution
             if not executed or not self._wait_until_arm_settled():
@@ -1718,8 +1734,17 @@ class MoveItBackend:
             current = self._current_link_pose()
         return MotionOutcome(False, planning_time, execution_time)
 
-    def _move_to_segmented(self, target: Pose) -> MotionOutcome:
-        return self._move_segmented_between(self._current_link_pose(), target)
+    def _move_to_segmented(
+        self,
+        target: Pose,
+        *,
+        velocity_rad_per_sec: float | None = None,
+    ) -> MotionOutcome:
+        return self._move_segmented_between(
+            self._current_link_pose(),
+            target,
+            velocity_rad_per_sec=velocity_rad_per_sec,
+        )
 
     def _guarded_approach_waypoints(
         self, current: Pose, target: Pose
@@ -2222,7 +2247,12 @@ class MoveItBackend:
             "CONTACT_CENTERING_GRASP",
             "RETREAT",
         } or stage.startswith(("GRASP_RETRY_PREP_", "GRASP_POSE_RETRY_")):
-            return self._move_to_segmented(pose)
+            if stage == "RETREAT":
+                return self._move_to_segmented(pose)
+            return self._move_to_segmented(
+                pose,
+                velocity_rad_per_sec=self.grasp_joint_trajectory_velocity_rad_per_sec,
+            )
         if stage == "PLACE":
             return self._move_guarded_place(pose)
         return self._plan_and_execute(pose=pose)

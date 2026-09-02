@@ -763,15 +763,66 @@ class MoveItBackendStaticTests(unittest.TestCase):
     def test_grasp_retry_uses_checked_cartesian_segments(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.grasp_joint_trajectory_velocity_rad_per_sec = 0.25
         expected = MotionOutcome(True, 0.1, 0.2)
         requested = []
-        backend._move_to_segmented = lambda pose: requested.append(pose) or expected
+        backend._move_to_segmented = (
+            lambda pose, **kwargs: requested.append((pose, kwargs)) or expected
+        )
 
         preparation = Pose(0.42, -0.12, 0.7054, qy=1.0, qw=0.0)
         grasp = Pose(0.42, -0.12, 0.5554, qy=1.0, qw=0.0)
         self.assertIs(backend.move_to(preparation, "GRASP_RETRY_PREP"), expected)
         self.assertIs(backend.move_to(grasp, "GRASP_POSE_RETRY"), expected)
-        self.assertEqual(requested, [preparation, grasp])
+        self.assertEqual(
+            requested,
+            [
+                (preparation, {"velocity_rad_per_sec": 0.25}),
+                (grasp, {"velocity_rad_per_sec": 0.25}),
+            ],
+        )
+
+    def test_grasp_segment_forwards_contact_bound_velocity(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.cartesian_endpoint_retry_limit = 0
+        backend.intermediate_position_tolerance_m = 0.02
+        backend.intermediate_orientation_tolerance_rad = math.radians(8.0)
+        backend.pose_link = "panda_hand"
+        backend._dense_pose_waypoints = lambda current, target: (target,)
+        backend._solve_cartesian_joint_path = lambda waypoints: (
+            (0.0,),
+            ((0.1,),),
+            False,
+            0.01,
+        )
+        executions = []
+        backend._execute_joint_path = (
+            lambda initial, path, **kwargs: executions.append(kwargs)
+            or (True, 0.02)
+        )
+        backend._wait_until_arm_settled = lambda: True
+        backend._pose_is_within_tolerance = lambda *args, **kwargs: True
+        observed = SimpleNamespace()
+
+        class ReadOnly:
+            def __enter__(self):
+                return SimpleNamespace(
+                    current_state=SimpleNamespace(get_pose=lambda link: observed)
+                )
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+        backend._planning_scene_monitor = SimpleNamespace(read_only=lambda: ReadOnly())
+        outcome = backend._move_segmented_between(
+            Pose(0.0, 0.0, 0.0),
+            Pose(0.1, 0.0, 0.0),
+            velocity_rad_per_sec=0.25,
+        )
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(executions, [{"velocity_rad_per_sec": 0.25}])
 
     def test_wrist_observation_uses_startup_verified_action_path(self):
         backend = MoveItBackend.__new__(MoveItBackend)

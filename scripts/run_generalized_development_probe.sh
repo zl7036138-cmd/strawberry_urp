@@ -17,10 +17,18 @@ startup_timeout_sec="${STRAWBERRY_PROBE_STARTUP_TIMEOUT_SEC:-120}"
 idle_timeout_sec="${STRAWBERRY_PROBE_IDLE_TIMEOUT_SEC:-180}"
 hard_timeout_sec="${STRAWBERRY_PROBE_HARD_TIMEOUT_SEC:-900}"
 cleanup_smoke_sec="${STRAWBERRY_PROBE_CLEANUP_SMOKE_SEC:-0}"
+base_camera_resolution="${STRAWBERRY_BASE_CAMERA_RESOLUTION:-320x240}"
 if [[ ! "${cleanup_smoke_sec}" =~ ^[0-9]+$ ]]; then
   echo "STRAWBERRY_PROBE_CLEANUP_SMOKE_SEC must be a non-negative integer" >&2
   exit 2
 fi
+case "${base_camera_resolution}" in
+  320x240|640x480) ;;
+  *)
+    echo "unsupported STRAWBERRY_BASE_CAMERA_RESOLUTION: ${base_camera_resolution}" >&2
+    exit 2
+    ;;
+esac
 
 mkdir -p "${run_dir}"
 for output in \
@@ -36,6 +44,7 @@ setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   simulation_seed:="${seed}" \
   world_file:="${repo_root}/${scene_dir}/${scene_stem}.sdf" \
   scene_config_file:="${repo_root}/${scene_dir}/${scene_stem}.yaml" \
+  base_camera_resolution:="${base_camera_resolution}" \
   model_path:="${repo_root}/outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt" \
   device:=0 \
   > "${run_dir}/launch.log" 2>&1 &

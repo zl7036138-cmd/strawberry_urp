@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "ros2_ws/src/strawberry_bringup"))
 
 from strawberry_bringup.development_gate import summarize_runtime_gate  # noqa: E402
 from strawberry_bringup.feasibility_sweep import (  # noqa: E402
+    BASE_CAMERA_RESOLUTIONS,
     load_json,
     receipt_file,
     sha256_file,
@@ -36,6 +37,18 @@ def _write_new_json(path: Path, payload: dict) -> None:
     with path.open("x", encoding="utf-8", newline="\n") as stream:
         json.dump(payload, stream, indent=2, sort_keys=True)
         stream.write("\n")
+
+
+def _verify_receipt(binding: dict, expected_path: Path) -> None:
+    bound_path = (ROOT / str(binding.get("path", ""))).resolve()
+    if bound_path != expected_path.resolve():
+        raise ValueError(f"qualification binding points at another file: {expected_path}")
+    if not expected_path.is_file():
+        raise ValueError(f"qualification input is missing: {expected_path}")
+    if int(binding.get("size_bytes", -1)) != expected_path.stat().st_size:
+        raise ValueError(f"qualification input size changed: {expected_path}")
+    if str(binding.get("sha256", "")) != sha256_file(expected_path):
+        raise ValueError(f"qualification input hash changed: {expected_path}")
 
 
 def main(argv=None) -> int:
@@ -68,6 +81,11 @@ def main(argv=None) -> int:
     commit = _git(("rev-parse", "HEAD"))
     if sweep.get("git_commit") != commit:
         raise ValueError("qualification sweep Git binding no longer matches HEAD")
+    if sweep.get("git_worktree_clean") is not True:
+        raise ValueError("qualification sweep was not produced from a clean Git tree")
+    base_camera_resolution = str(sweep.get("base_camera_resolution", ""))
+    if base_camera_resolution not in BASE_CAMERA_RESOLUTIONS:
+        raise ValueError("qualification sweep has an unsupported base-camera profile")
     scenario_rows = {
         str(row["scenario_id"]): row for row in sweep.get("scenarios", [])
     }
@@ -86,11 +104,37 @@ def main(argv=None) -> int:
     scores = []
     for order, scenario_id in enumerate(selected, start=1):
         row = scenario_rows[scenario_id]
+        if not (
+            row.get("eligible") is True
+            and row.get("moveit_eligible") is True
+            and row.get("observability_eligible") is True
+            and row.get("camera_resolution_matches_requested") is True
+            and row.get("truth_isolation_pass") is True
+            and row.get("cleanup_clean") is True
+        ):
+            raise ValueError(
+                f"selected scene did not pass every qualification gate: {scenario_id}"
+            )
         seed = int(row["seed"])
+        scene_path = scene_dir / f"generalized_seed_{seed:06d}.yaml"
+        world_path = scene_dir / f"generalized_seed_{seed:06d}.sdf"
+        files = row.get("files")
+        if not isinstance(files, dict):
+            raise ValueError(
+                f"selected scene has no immutable file bindings: {scenario_id}"
+            )
+        for name, expected_path in (("scene", scene_path), ("world", world_path)):
+            binding = files.get(name)
+            if not isinstance(binding, dict):
+                raise ValueError(
+                    f"selected scene has no {name} binding: {scenario_id}"
+                )
+            _verify_receipt(binding, expected_path)
         run_dir = runs_dir / scenario_id
         run_dir.mkdir()
         environment = os.environ.copy()
         environment["STRAWBERRY_DEVELOPMENT_OUTPUT_DIR"] = str(run_dir)
+        environment["STRAWBERRY_BASE_CAMERA_RESOLUTION"] = base_camera_resolution
         with (run_dir / "runner.stdout.log").open(
             "x", encoding="utf-8", newline="\n"
         ) as stdout, (run_dir / "runner.stderr.log").open(
@@ -161,7 +205,7 @@ def main(argv=None) -> int:
         "ros2_ws/src/strawberry_bringup/strawberry_bringup/target_selector.py",
         "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/action_server.py",
         "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/core.py",
-        "config/generalized_runtime_development_matrix_v1.json",
+        "config/generalized_runtime_development_matrix_v2.json",
     ):
         path = ROOT / relative
         runtime_bindings[relative] = sha256_file(path)
@@ -171,7 +215,9 @@ def main(argv=None) -> int:
         "formal_acceptance": False,
         "formal_results_consumed": False,
         "git_commit": commit,
+        "git_worktree_clean": True,
         "sweep_summary": receipt_file(sweep_path, ROOT),
+        "base_camera_resolution": base_camera_resolution,
         "model_sha256": sweep.get("model_sha256"),
         "runtime_bindings": runtime_bindings,
         "selected_runtime_scenario_ids": selected,

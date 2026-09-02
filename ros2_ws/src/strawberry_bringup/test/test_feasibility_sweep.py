@@ -211,6 +211,28 @@ class FeasibilitySweepTests(unittest.TestCase):
         self.assertIn('if _git(("status", "--porcelain"))', runtime)
         self.assertIn('or len(selected) != 5', runtime)
         self.assertIn("summarize_runtime_gate(scores)", runtime)
+        self.assertIn(
+            'environment["STRAWBERRY_BASE_CAMERA_RESOLUTION"] = base_camera_resolution',
+            runtime,
+        )
+        self.assertIn(
+            'row.get("camera_resolution_matches_requested") is True', runtime
+        )
+        self.assertIn("_verify_receipt(binding, expected_path)", runtime)
+        self.assertIn(
+            '"config/generalized_runtime_development_matrix_v2.json"', runtime
+        )
+
+        development_probe = (
+            ROOT / "scripts/run_generalized_development_probe.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'base_camera_resolution="${STRAWBERRY_BASE_CAMERA_RESOLUTION:-320x240}"',
+            development_probe,
+        )
+        self.assertIn(
+            'base_camera_resolution:="${base_camera_resolution}"', development_probe
+        )
 
 
 if __name__ == "__main__":

@@ -150,9 +150,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter(
                 # Qualification 46204 exceeded the controller's 0.05 rad
-                # path tolerance by 0.000851 rad at 0.10 rad/s. Slowing the
-                # same collision-checked route keeps every safety bound.
-                "home_joint_trajectory_velocity_rad_per_sec", 0.08
+                # path tolerance by 0.000851 rad at 0.10 rad/s. Development
+                # 45401 v3 still exceeded it by 0.000435-0.001838 rad at
+                # 0.08 rad/s. Slowing the same collision-checked route keeps
+                # every safety bound and leaves the 0.05 rad tolerance intact.
+                "home_joint_trajectory_velocity_rad_per_sec", 0.06
             )
             self.declare_parameter(
                 "home_joint_trajectory_segment_duration_sec", 4.0

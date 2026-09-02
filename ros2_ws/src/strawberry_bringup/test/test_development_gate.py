@@ -144,6 +144,64 @@ class DevelopmentRuntimeGateTests(unittest.TestCase):
         self.assertFalse(result["evidence_integrity_pass"])
         self.assertFalse(result["run_safety_pass"])
 
+    def test_pre_motion_collision_rejection_is_not_scored_as_collision(self):
+        receipt = passing_receipt()
+        receipt["events"].insert(
+            -1,
+            {
+                "state": "SCANNING",
+                "outcome": "TARGET_SKIPPED",
+                "current_target_id": None,
+                "state_history": [
+                    {
+                        "state": "SCANNING",
+                        "target_id": 30,
+                        "outcome": "FINAL_PICK_FEASIBILITY_FAILED_SKIPPED",
+                        "detail": "connected path intersects a collision object",
+                    }
+                ],
+            },
+        )
+        receipt["events"][-1]["failures"] = [
+            {
+                "target_id": 30,
+                "failure_code": 7,
+                "message": "connected path intersects a collision object",
+            }
+        ]
+
+        result = score_runtime_run(
+            receipt,
+            scene(),
+            {"outcome": "CLEAN"},
+            {"overall_pass": True},
+        )
+
+        self.assertEqual(result["collision_count"], 0)
+        self.assertEqual(result["collision_rejection_count"], 1)
+        self.assertTrue(result["run_safety_pass"])
+
+    def test_action_collision_without_pre_motion_rejection_is_scored(self):
+        receipt = passing_receipt()
+        receipt["events"][-1]["failures"] = [
+            {
+                "target_id": 10,
+                "failure_code": 7,
+                "message": "collision during manipulation action",
+            }
+        ]
+
+        result = score_runtime_run(
+            receipt,
+            scene(),
+            {"outcome": "CLEAN"},
+            {"overall_pass": True},
+        )
+
+        self.assertEqual(result["collision_count"], 1)
+        self.assertEqual(result["collision_rejection_count"], 0)
+        self.assertFalse(result["run_safety_pass"])
+
     def test_five_two_fruit_runs_pass_the_aggregate_gate(self):
         run = score_runtime_run(
             passing_receipt(),

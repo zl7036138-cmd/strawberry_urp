@@ -202,12 +202,34 @@ def score_runtime_run(
     failures = terminal.get("failures", [])
     if not isinstance(failures, list):
         raise ValueError("terminal failures must be a list")
+    safe_collision_rejection_target_ids = set()
+    for raw in events:
+        event = _mapping(raw, "harvest event")
+        state_history = event.get("state_history", [])
+        if not isinstance(state_history, list):
+            raise ValueError("harvest event state_history must be a list")
+        for raw_transition in state_history:
+            transition = _mapping(raw_transition, "harvest state transition")
+            if transition.get("outcome") != "FINAL_PICK_FEASIBILITY_FAILED_SKIPPED":
+                continue
+            safe_collision_rejection_target_ids.add(
+                _positive_int(
+                    transition.get("target_id"), "collision rejection target_id"
+                )
+            )
     collision_count = 0
+    collision_rejection_count = 0
     joint_limit_violation_count = 0
     for raw in failures:
         failure = _mapping(raw, "failure")
         if int(failure.get("failure_code", 0)) == 7:
-            collision_count += 1
+            target_id = _positive_int(
+                failure.get("target_id"), "collision failure target_id"
+            )
+            if target_id in safe_collision_rejection_target_ids:
+                collision_rejection_count += 1
+            else:
+                collision_count += 1
         if "joint limit" in str(failure.get("message", "")).lower():
             joint_limit_violation_count += 1
     reobservations = {}
@@ -268,6 +290,7 @@ def score_runtime_run(
         "unripe_pick_count": len(unripe_pick_ids),
         "unripe_pick_sim_target_ids": unripe_pick_ids,
         "collision_count": collision_count,
+        "collision_rejection_count": collision_rejection_count,
         "joint_limit_violation_count": joint_limit_violation_count,
         "unsafe_motion_attempt_count": len(unsafe_motion_tracks),
         "unsafe_motion_track_ids": unsafe_motion_tracks,

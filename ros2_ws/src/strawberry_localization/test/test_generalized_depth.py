@@ -23,10 +23,27 @@ from strawberry_localization.generalized_depth import (  # noqa: E402
     point_on_pixel_bearing,
     retain_foreground_depth_band,
     retain_support_ranked_geometry_layer,
+    validate_geometry_layer_centroid,
 )
 
 
 class GeneralizedDepthBandTests(unittest.TestCase):
+    def test_geometry_layer_centroid_gate_is_detector_anchored(self):
+        box = BoundingBox(100, 60, 40, 20)
+        accepted = DepthEstimate(0.8, 0.01, 20, 124.0, 71.0)
+        rejected = DepthEstimate(0.8, 0.01, 20, 132.0, 78.0)
+
+        self.assertLess(
+            validate_geometry_layer_centroid(
+                accepted, box, maximum_distance_fraction=0.15
+            ),
+            0.15,
+        )
+        with self.assertRaisesRegex(LocalizationError, "off-centre"):
+            validate_geometry_layer_centroid(
+                rejected, box, maximum_distance_fraction=0.15
+            )
+
     @staticmethod
     def _center_seeded(depth):
         return center_seeded_geometry_layer_depth(

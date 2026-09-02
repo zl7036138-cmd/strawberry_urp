@@ -44,6 +44,7 @@ from strawberry_localization.generalized_depth import (  # noqa: E402
     point_on_pixel_bearing,
     retain_foreground_depth_band,
     retain_support_ranked_geometry_layer,
+    validate_geometry_layer_centroid,
 )
 
 SIM_SOURCE = REPO_ROOT / "ros2_ws" / "src" / "strawberry_sim"
@@ -205,6 +206,7 @@ def _load_parameters(path: Path) -> dict[str, Any]:
         "geometry_ambiguity_margin_m",
         "geometry_ambiguity_min_support_ratio",
         "geometry_bbox_quantization_margin_px",
+        "geometry_max_selected_centroid_distance_fraction",
         "geometry_size_residual_sigma_weight",
         "geometry_foreground_band_m",
         "geometry_foreground_min_band_fraction",
@@ -538,6 +540,15 @@ def main() -> int:  # pragma: no cover - exercised in ROS integration
                     ),
                     geometry_bbox_quantization_margin_px=float(
                         parameters["geometry_bbox_quantization_margin_px"]
+                    ),
+                )
+                validate_geometry_layer_centroid(
+                    estimate,
+                    raw_box,
+                    maximum_distance_fraction=float(
+                        parameters[
+                            "geometry_max_selected_centroid_distance_fraction"
+                        ]
                     ),
                 )
                 estimate = calibrate_runtime_geometry_uncertainty(

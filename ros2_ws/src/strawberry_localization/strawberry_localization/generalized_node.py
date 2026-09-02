@@ -33,6 +33,7 @@ from .generalized_depth import (
     point_on_pixel_bearing,
     retain_foreground_depth_band,
     retain_support_ranked_geometry_layer,
+    validate_geometry_layer_centroid,
 )
 from .tracking import LocalizedObservation, MultiTargetTracker
 
@@ -380,6 +381,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter(
                 "geometry_bbox_quantization_margin_px", 0.0
+            )
+            self.declare_parameter(
+                "geometry_max_selected_centroid_distance_fraction", 1.0
             )
             self.declare_parameter("geometry_size_residual_sigma_weight", 1.0)
             self.declare_parameter("geometry_foreground_band_m", 0.06)
@@ -1208,6 +1212,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     ),
                 )
                 if depth_estimator_mode == "geometry_layer":
+                    validate_geometry_layer_centroid(
+                        estimate,
+                        raw_box,
+                        maximum_distance_fraction=float(
+                            self.get_parameter(
+                                "geometry_max_selected_centroid_distance_fraction"
+                            ).value
+                        ),
+                    )
                     estimate = calibrate_runtime_geometry_uncertainty(
                         estimate,
                         weight=float(

@@ -188,6 +188,44 @@ def center_seeded_geometry_layer_depth(
     )
 
 
+def validate_geometry_layer_centroid(
+    estimate: DepthEstimate,
+    bearing_box: BoundingBox,
+    *,
+    maximum_distance_fraction: float,
+) -> float:
+    """Reject a primary depth layer whose support sits off the detector.
+
+    Apparent size alone can make a similarly sized leaf patch look like the
+    fruit surface.  This gate supplies an independent detector-centre cue.  It
+    never substitutes another depth; callers may separately attempt a bounded
+    centre-seeded fallback after rejection.
+    """
+
+    if not isinstance(estimate, DepthEstimate):
+        raise TypeError("geometry layer estimate must be a DepthEstimate")
+    if bearing_box.width <= 0 or bearing_box.height <= 0:
+        raise ValueError("geometry centroid bearing box must be non-empty")
+    if (
+        not math.isfinite(maximum_distance_fraction)
+        or not 0.0 < maximum_distance_fraction <= 1.0
+    ):
+        raise ValueError("maximum geometry centroid distance must be in (0, 1]")
+    center_u = bearing_box.x + 0.5 * bearing_box.width
+    center_v = bearing_box.y + 0.5 * bearing_box.height
+    distance = math.hypot(
+        (estimate.center_u - center_u) / bearing_box.width,
+        (estimate.center_v - center_v) / bearing_box.height,
+    )
+    if distance > maximum_distance_fraction:
+        raise LocalizationError(
+            "selected geometry layer is off-centre: "
+            f"distance_fraction={distance:.3f}, "
+            f"limit={maximum_distance_fraction:.3f}"
+        )
+    return float(distance)
+
+
 def retain_support_ranked_geometry_layer(
     depth_image_m: np.ndarray,
     box: BoundingBox,

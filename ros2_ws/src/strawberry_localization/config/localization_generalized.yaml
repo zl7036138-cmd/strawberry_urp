@@ -38,6 +38,9 @@
     geometry_ambiguity_margin_m: 0.040
     geometry_ambiguity_min_support_ratio: 0.50
     geometry_bbox_quantization_margin_px: 2.0
+    # A primary layer at the detector edge is usually foreground foliage. It
+    # must fail into the independently gated centre-seeded fallback.
+    geometry_max_selected_centroid_distance_fraction: 0.15
     # Reject planter/table layers well behind a supported fruit/leaf surface.
     geometry_foreground_band_m: 0.06
     # A lone leaf sliver must not truncate a substantially supported fruit

@@ -115,6 +115,13 @@ class FruitSpec:
 
 
 @dataclass(frozen=True)
+class PlantSpec:
+    plant_id: int
+    model_name: str
+    position_m: tuple[float, float, float]
+
+
+@dataclass(frozen=True)
 class BinBounds:
     min_x: float
     max_x: float
@@ -147,6 +154,7 @@ class SceneConfig:
     static_collision_profile: str
     fruit_collision_radius_m: float
     fruits: tuple[FruitSpec, ...]
+    plants: tuple[PlantSpec, ...]
     bin_bounds: BinBounds
     bin_stability_sec: float
 
@@ -172,6 +180,14 @@ class SceneConfig:
             raise ValueError("target_id values must be unique")
         if len(model_names) != len(set(model_names)):
             raise ValueError("fruit model names must be unique")
+        plant_ids = [plant.plant_id for plant in self.plants]
+        plant_model_names = [plant.model_name for plant in self.plants]
+        if any(plant_id <= 0 for plant_id in plant_ids):
+            raise ValueError("plant_id values must be positive")
+        if len(plant_ids) != len(set(plant_ids)):
+            raise ValueError("plant_id values must be unique")
+        if len(plant_model_names) != len(set(plant_model_names)):
+            raise ValueError("plant model names must be unique")
         if self.bin_stability_sec <= 0.0:
             raise ValueError("bin stability duration must be positive")
 
@@ -200,6 +216,35 @@ def scene_config_from_mapping(data: Mapping[str, Any]) -> SceneConfig:
     fruit_rows = data.get("fruits")
     if not isinstance(fruit_rows, list):
         raise ValueError("fruits must be a list")
+
+    plant_rows = data.get("plants")
+    if plant_rows is None:
+        legacy_plant = data.get("plant")
+        plant_rows = [] if legacy_plant is None else [legacy_plant]
+    if not isinstance(plant_rows, list):
+        raise ValueError("plants must be a list")
+
+    plants: list[PlantSpec] = []
+    for index, raw in enumerate(plant_rows):
+        row = _mapping(raw, f"plants[{index}]")
+        model_name = str(row.get("model_name", "")).strip()
+        if not model_name:
+            raise ValueError(f"plants[{index}].model_name must be non-empty")
+        pose = row.get("pose_in_robot_base")
+        if not isinstance(pose, (list, tuple)) or len(pose) not in (3, 6, 7):
+            raise ValueError(
+                f"plants[{index}].pose_in_robot_base must contain 3, 6, or 7 values"
+            )
+        plants.append(
+            PlantSpec(
+                plant_id=int(row.get("plant_id", index + 1)),
+                model_name=model_name,
+                position_m=tuple(
+                    _finite(value, f"plants[{index}].pose_in_robot_base")
+                    for value in pose[:3]
+                ),
+            )
+        )
 
     fruits: list[FruitSpec] = []
     for index, raw in enumerate(fruit_rows):
@@ -243,6 +288,7 @@ def scene_config_from_mapping(data: Mapping[str, Any]) -> SceneConfig:
             "fruit_collision_radius_m",
         ),
         fruits=tuple(fruits),
+        plants=tuple(plants),
         bin_bounds=bounds,
         bin_stability_sec=_finite(
             bin_data.get("required_stability_sec"), "bin.required_stability_sec"

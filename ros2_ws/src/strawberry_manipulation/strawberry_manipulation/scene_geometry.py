@@ -9,11 +9,13 @@ ROS 2.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 
 Vector3 = tuple[float, float, float]
 TABLE_TOP_PADDING_M = 0.05
 FRUIT_COLLISION_RADIUS_M = 0.026
+PLANT_CROWN_CENTER_OFFSET_Z_M = 0.012
 
 
 @dataclass(frozen=True)
@@ -212,13 +214,55 @@ STATIC_COLLISION_PROFILES = {
 
 def static_collision_objects(
     profile_id: str,
+    *,
+    plant_positions_m: tuple[Vector3, ...] | None = None,
 ) -> tuple[CollisionObjectSpec, ...]:
     """Resolve a fail-closed, scene-bound static collision profile."""
 
     normalized = str(profile_id).strip()
     try:
-        return STATIC_COLLISION_PROFILES[normalized]
+        profile = STATIC_COLLISION_PROFILES[normalized]
     except KeyError as exc:
         raise ValueError(
             f"unknown static collision profile: {profile_id!r}"
         ) from exc
+    if plant_positions_m is None:
+        return profile
+    positions = tuple(tuple(float(value) for value in row) for row in plant_positions_m)
+    if any(
+        len(row) != 3 or not all(math.isfinite(value) for value in row)
+        for row in positions
+    ):
+        raise ValueError("plant positions must contain finite xyz triples")
+    crown_templates = tuple(
+        specification
+        for specification in profile
+        if specification.object_id == "strawberry_plant_crown"
+    )
+    if not positions:
+        return profile
+    if len(crown_templates) != 1 or len(crown_templates[0].boxes) != 1:
+        raise ValueError("static collision profile must contain one plant crown box")
+    crown_size = crown_templates[0].boxes[0].size_m
+    resolved: list[CollisionObjectSpec] = []
+    for specification in profile:
+        if specification.object_id != "strawberry_plant_crown":
+            resolved.append(specification)
+            continue
+        for index, (x, y, z) in enumerate(positions, start=1):
+            resolved.append(
+                CollisionObjectSpec(
+                    object_id=(
+                        "strawberry_plant_crown"
+                        if len(positions) == 1
+                        else f"strawberry_plant_crown_{index}"
+                    ),
+                    boxes=(
+                        BoxPrimitive(
+                            center_m=(x, y, z + PLANT_CROWN_CENTER_OFFSET_Z_M),
+                            size_m=crown_size,
+                        ),
+                    ),
+                )
+            )
+    return tuple(resolved)

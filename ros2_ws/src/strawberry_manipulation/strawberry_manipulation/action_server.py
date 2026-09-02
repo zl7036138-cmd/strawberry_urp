@@ -433,7 +433,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 fruit_collision_radius_m=scene.fruit_collision_radius_m,
                 static_collision_objects=static_collision_objects(
-                    scene.static_collision_profile
+                    scene.static_collision_profile,
+                    plant_positions_m=tuple(
+                        plant.position_m for plant in scene.plants
+                    ),
                 ),
                 fruit_pose_provider=(
                     self._fruit_pose_snapshot

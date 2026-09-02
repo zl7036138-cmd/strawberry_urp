@@ -32,6 +32,11 @@ LAYOUT_CONTRACTS = ("legacy_random_v1", "multi_pick_v2")
 # Blender-v2 uses a 26 mm fruit collision radius.  A 54 mm centre distance
 # preserves a small initial gap without rejecting adjacent authored pedicels.
 MIN_FRUIT_SEPARATION_M = 0.054
+# A collision-free fruit pair can still be impossible to enter with an 80 mm
+# gripper.  Keep every multi-pick primary target conservatively separated from
+# all neighbouring fruit, including unripe fruit that perception may not track
+# reliably enough to become a live MoveIt obstacle.
+MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M = 0.085
 MAX_FRUIT_SCALE = 1.08
 MIN_INITIAL_STATIC_COLLISION_GAP_M = 0.002
 CONSERVATIVE_REACH_BOUNDS_M = {
@@ -346,6 +351,7 @@ def generate_scene(
     plants: list[dict[str, Any]] = []
     fruit_drafts: list[dict[str, Any]] = []
     positions: list[tuple[float, float, float]] = []
+    primary_flags: list[bool] = []
 
     for plant_index, spec in enumerate(plant_specs, start=1):
         centre = spec["centre"]
@@ -374,10 +380,18 @@ def generate_scene(
         if required_slot_index is not None:
             slot_indices.remove(int(required_slot_index))
             slot_indices.insert(0, int(required_slot_index))
-        for slot_index in slot_indices[:fruit_count]:
+        accepted_fruit_count = 0
+        for slot_index in slot_indices:
+            if accepted_fruit_count >= fruit_count:
+                break
             offset, orientation = FRUIT_SLOTS[slot_index]
             rotated_x, rotated_y = _rotate_xy(offset[0], offset[1], yaw)
             scale = round(rng.uniform(0.92, MAX_FRUIT_SCALE), 6)
+            is_multi_pick_primary = bool(
+                layout_contract == "multi_pick_v2"
+                and required_slot_index is not None
+                and slot_index == int(required_slot_index)
+            )
             required_bin_clearance = (
                 fruit_collision_radius_m * scale + MIN_INITIAL_STATIC_COLLISION_GAP_M
             )
@@ -392,8 +406,15 @@ def generate_scene(
                 )
                 if (
                     all(
-                        _distance_xyz(candidate, previous) >= MIN_FRUIT_SEPARATION_M
-                        for previous in positions
+                        _distance_xyz(candidate, previous)
+                        >= (
+                            MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M
+                            if is_multi_pick_primary or previous_is_primary
+                            else MIN_FRUIT_SEPARATION_M
+                        )
+                        for previous, previous_is_primary in zip(
+                            positions, primary_flags
+                        )
                     )
                     and _axis_aligned_box_clearance(candidate, bin_exclusion_bounds)
                     >= required_bin_clearance
@@ -406,6 +427,8 @@ def generate_scene(
                 # geometrically valid for this plant placement.
                 continue
             positions.append(position)
+            primary_flags.append(is_multi_pick_primary)
+            accepted_fruit_count += 1
             draft = {
                 "plant_id": plant_index,
                 "slot_id": slot_index + 1,
@@ -420,8 +443,7 @@ def generate_scene(
             if layout_contract == "multi_pick_v2":
                 draft["layout_role"] = str(spec["layout_role"])
                 draft["multi_pick_primary"] = (
-                    required_slot_index is not None
-                    and slot_index == int(required_slot_index)
+                    is_multi_pick_primary
                 )
             fruit_drafts.append(draft)
 
@@ -493,6 +515,9 @@ def generate_scene(
             "primary_upper": {"slot_id": 1},
             "primary_lower": {"slot_id": 2},
         }
+        result["generator"]["minimum_multi_pick_primary_neighbor_separation_m"] = (
+            MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M
+        )
     result["condition"] = {"occlusion": selected_occlusion, "lighting": light_level}
     result["plants"] = plants
     result["plant"] = plants[0]
@@ -661,6 +686,29 @@ def validate_generated_scene(scene: Mapping[str, Any]) -> None:
         )
         if recorded_primary_ids != expected_primary_ids:
             raise ValueError("multi-pick primary evaluation IDs are inconsistent")
+        recorded_primary_separation = float(
+            generator.get(
+                "minimum_multi_pick_primary_neighbor_separation_m", -1.0
+            )
+        )
+        if not math.isclose(
+            recorded_primary_separation,
+            MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M,
+            abs_tol=1e-9,
+        ):
+            raise ValueError("multi-pick primary neighbour clearance drifted")
+        for primary_row in primary:
+            if any(
+                int(other["target_id"]) != int(primary_row["target_id"])
+                and _distance_xyz(
+                    primary_row["initial_pose_m"], other["initial_pose_m"]
+                )
+                < MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M
+                for other in fruits
+            ):
+                raise ValueError(
+                    "multi-pick primary fruit lacks conservative gripper clearance"
+                )
     if profile == "mixed":
         if sum(row["maturity"] == "RIPE" for row in fruits) < 2 or not any(
             row["maturity"] == "UNRIPE" for row in fruits

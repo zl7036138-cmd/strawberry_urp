@@ -82,6 +82,35 @@ class SimulationCoreTests(unittest.TestCase):
         ):
             self.assertTrue(all(not token[:1].isdigit() for token in topic.split("/")))
 
+    def test_scene_parses_legacy_and_multi_plant_positions(self):
+        legacy = scene_mapping()
+        legacy["plant"] = {
+            "model_name": "plant_legacy",
+            "pose_in_robot_base": [0.50, 0.0, 0.47, 0.0, 0.0, 0.2],
+        }
+        legacy_scene = scene_config_from_mapping(legacy)
+        self.assertEqual(legacy_scene.plants[0].plant_id, 1)
+        self.assertEqual(legacy_scene.plants[0].position_m, (0.50, 0.0, 0.47))
+
+        generalized = scene_mapping()
+        generalized["plants"] = [
+            {
+                "plant_id": 1,
+                "model_name": "plant_1",
+                "pose_in_robot_base": [0.40, -0.10, 0.47, 0.0, 0.0, 0.1],
+            },
+            {
+                "plant_id": 2,
+                "model_name": "plant_2",
+                "pose_in_robot_base": [0.46, 0.20, 0.47, 0.0, 0.0, -0.1],
+            },
+        ]
+        generalized_scene = scene_config_from_mapping(generalized)
+        self.assertEqual(
+            [plant.position_m for plant in generalized_scene.plants],
+            [(0.40, -0.10, 0.47), (0.46, 0.20, 0.47)],
+        )
+
     def test_scene_requires_positive_fruit_collision_radius(self):
         mapping = scene_mapping()
         mapping["fruit_collision_radius_m"] = 0.0

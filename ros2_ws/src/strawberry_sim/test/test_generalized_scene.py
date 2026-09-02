@@ -14,6 +14,7 @@ sys.path.insert(0, str(PACKAGE))
 from strawberry_sim.generalized_scene import (  # noqa: E402
     FRUIT_COUNT_RANGE,
     MIN_INITIAL_STATIC_COLLISION_GAP_M,
+    MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M,
     MIN_STATIC_OBSTACLE_CENTER_CLEARANCE_M,
     MULTI_PICK_V2_ANCHORS,
     MULTI_PICK_V2_PRIMARY_YAW_RANGE_RAD,
@@ -123,6 +124,22 @@ class GeneralizedSceneTests(unittest.TestCase):
                     self.assertTrue(
                         all(row["reachable_by_construction"] for row in primary)
                     )
+                    for primary_row in primary:
+                        self.assertTrue(
+                            all(
+                                other["target_id"] == primary_row["target_id"]
+                                or sum(
+                                    (float(left) - float(right)) ** 2
+                                    for left, right in zip(
+                                        primary_row["initial_pose_m"],
+                                        other["initial_pose_m"],
+                                    )
+                                )
+                                ** 0.5
+                                >= MIN_MULTI_PICK_PRIMARY_NEIGHBOR_SEPARATION_M
+                                for other in scene["fruits"]
+                            )
+                        )
                     self.assertTrue(
                         any(
                             row["maturity"] == "UNRIPE" for row in scene["fruits"]
@@ -170,6 +187,21 @@ class GeneralizedSceneTests(unittest.TestCase):
         primary["maturity"] = "UNRIPE"
         primary["asset"] = "strawberry_unripe_generalized"
         with self.assertRaisesRegex(ValueError, "multi-pick primary"):
+            validate_generated_scene(broken)
+
+        broken = deepcopy(scene)
+        primary = next(row for row in broken["fruits"] if row["multi_pick_primary"])
+        neighbour = next(
+            row
+            for row in broken["fruits"]
+            if row["target_id"] != primary["target_id"]
+        )
+        neighbour["initial_pose_m"] = [
+            primary["initial_pose_m"][0] + 0.060,
+            primary["initial_pose_m"][1],
+            primary["initial_pose_m"][2],
+        ]
+        with self.assertRaisesRegex(ValueError, "gripper clearance"):
             validate_generated_scene(broken)
 
     def test_multi_pick_v2_policy_matches_hash_bound_development_diagnostic(self):

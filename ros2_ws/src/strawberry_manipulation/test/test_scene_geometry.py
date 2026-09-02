@@ -64,6 +64,30 @@ class SceneGeometryTests(unittest.TestCase):
         ):
             static_collision_objects("missing")
 
+    def test_randomized_plant_crowns_follow_every_scene_plant(self):
+        objects = static_collision_objects(
+            "blender_v2",
+            plant_positions_m=((0.40, -0.10, 0.47), (0.46, 0.20, 0.47)),
+        )
+        crowns = {
+            specification.object_id: specification.boxes[0]
+            for specification in objects
+            if specification.object_id.startswith("strawberry_plant_crown")
+        }
+        self.assertEqual(
+            set(crowns),
+            {"strawberry_plant_crown_1", "strawberry_plant_crown_2"},
+        )
+        self.assertEqual(
+            crowns["strawberry_plant_crown_1"].center_m, (0.40, -0.10, 0.482)
+        )
+        self.assertEqual(
+            crowns["strawberry_plant_crown_2"].center_m, (0.46, 0.20, 0.482)
+        )
+        self.assertEqual(
+            len({specification.object_id for specification in objects}), len(objects)
+        )
+
     def test_field_v3_geometry_matches_gazebo_sdf(self):
         world_root = ET.parse(
             SIM_ROOT / "worlds" / "strawberry_field_v3.sdf"

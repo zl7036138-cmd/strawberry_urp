@@ -426,8 +426,15 @@ class SimulationAssetTests(unittest.TestCase):
         )
         self.assertIsNotNone(gazebo_control_plugin)
         self.assertEqual(
-            gazebo_control_plugin.findtext("position_proportional_gain"), "1.0"
+            gazebo_control_plugin.findtext("position_proportional_gain"),
+            "$(arg position_proportional_gain)",
         )
+        xacro_namespace = "{http://www.ros.org/wiki/xacro}"
+        gain_argument = root.find(
+            f"./{xacro_namespace}arg[@name='position_proportional_gain']"
+        )
+        self.assertIsNotNone(gain_argument)
+        self.assertEqual(gain_argument.attrib["default"], "1.0")
         root_gazebo = root.find("./gazebo[@reference='world']")
         self.assertIsNotNone(root_gazebo)
         self.assertEqual(root_gazebo.findtext("static"), "true")

@@ -102,7 +102,7 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             manipulation,
         )
         self.assertIn(
-            '"home_joint_trajectory_segment_duration_sec", 3.0',
+            '"home_joint_trajectory_segment_duration_sec", 4.0',
             manipulation,
         )
         self.assertIn(

@@ -336,6 +336,13 @@ def _launch_nodes(context):
             "base_camera_rpy": base_camera_rpy,
             "base_camera_image_width": str(base_camera_image_width),
             "base_camera_image_height": str(base_camera_image_height),
+            # At the generalized home speed of 0.05 rad/s, gain 1.0 produced
+            # a repeatable ~0.05 rad following error. Doubling only the
+            # generalized simulator gain keeps the frozen legacy dynamics and
+            # the unchanged 0.05 rad controller tolerance.
+            "position_proportional_gain": (
+                "2.0" if generalized_scene else "1.0"
+            ),
         },
     ).toxml()
     robot_description_xml = _enforce_initial_positions(

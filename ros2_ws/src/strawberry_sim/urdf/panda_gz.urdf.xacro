@@ -11,6 +11,7 @@
   <xacro:arg name="base_camera_rpy" default="0 0.543 -0.480"/>
   <xacro:arg name="base_camera_image_width" default="320"/>
   <xacro:arg name="base_camera_image_height" default="240"/>
+  <xacro:arg name="position_proportional_gain" default="1.0"/>
   <xacro:property name="initial_positions"
                   value="${xacro.load_yaml('$(arg initial_positions_file)')['initial_positions']}"/>
   <xacro:property name="camera_mount_mode" value="$(arg camera_mount)"/>
@@ -283,8 +284,10 @@
       </ros>
       <parameters>$(find strawberry_sim)/config/panda_controllers.yaml</parameters>
       <!-- The upstream 0.1 default leaves the simulated arm several centimetres
-           behind short Cartesian trajectories near the edge of its workspace. -->
-      <position_proportional_gain>1.0</position_proportional_gain>
+           behind short Cartesian trajectories near the edge of its workspace.
+           The launch file preserves 1.0 for the historical scene and supplies
+           the separately tested generalized-scene value. -->
+      <position_proportional_gain>$(arg position_proportional_gain)</position_proportional_gain>
     </plugin>
 
     <xacro:if value="$(arg enable_attachment)">

@@ -220,6 +220,11 @@ def generate_launch_description():
                         "fruit_pose_source": "tracked",
                         "tracked_targets_topic": "/strawberry/tracked_targets",
                         "target_refinement_topic": "",
+                        # The GPU-heavy generalized simulation has run at
+                        # roughly 0.24 real-time factor. Preserve the strict
+                        # 0.002 rad / 0.5 s settle gate, but give it enough wall
+                        # time to observe the corresponding simulated motion.
+                        "settle_timeout_sec": 4.0,
                     }
                 ],
             ),

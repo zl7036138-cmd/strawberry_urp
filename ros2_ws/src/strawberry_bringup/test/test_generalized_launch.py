@@ -105,6 +105,7 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             '"home_joint_trajectory_segment_duration_sec", 4.0',
             manipulation,
         )
+        self.assertIn('"settle_timeout_sec": 4.0', self.source)
         self.assertIn(
             '"grasp_joint_trajectory_velocity_rad_per_sec", 0.25',
             manipulation,

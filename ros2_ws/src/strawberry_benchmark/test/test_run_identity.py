@@ -16,6 +16,7 @@ from strawberry_benchmark.run_identity import (  # noqa: E402
     RUN_IDENTITY_KIND,
     authorize_resource_use,
     fingerprint,
+    validate_inherited_change_ledger,
     validate_resource_ledger,
     validate_run_identity,
 )
@@ -152,6 +153,12 @@ class RunIdentityTests(unittest.TestCase):
             verify_current_source=True,
         )
         self.assertEqual("PASS", report["status"])
+        self.assertEqual(
+            "PASS",
+            validate_inherited_change_ledger(
+                ledger, repository_root=self.root
+            )["status"],
+        )
 
         (self.root / "configuration.json").write_text("surprise\n", encoding="utf-8")
         report = validate_run_identity(

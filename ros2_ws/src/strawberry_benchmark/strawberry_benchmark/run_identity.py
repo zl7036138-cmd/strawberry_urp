@@ -200,6 +200,18 @@ def validate_declared_dirty_tree(
                 raise ValueError(f"declared base blob changed at HEAD: {relative}")
 
 
+def validate_inherited_change_ledger(
+    payload: Mapping[str, object], *, repository_root: Path
+) -> dict[str, object]:
+    """Return a structured result for an inherited dirty-tree declaration."""
+
+    try:
+        validate_declared_dirty_tree(payload, repository_root)
+    except (OSError, subprocess.CalledProcessError, TypeError, ValueError) as exc:
+        return _report([str(exc)], [])
+    return _report([], [])
+
+
 def _report(
     errors: Sequence[str], unknowns: Sequence[str], warnings: Sequence[str] = ()
 ) -> dict[str, object]:
@@ -410,7 +422,11 @@ def _load(path: Path) -> Mapping[str, object]:
 
 
 def _exit_code(report: Mapping[str, object]) -> int:
-    return 0 if report.get("status") == "PASS" else 2 if report.get("status") == "INDETERMINATE" else 1
+    if report.get("status") == "PASS":
+        return 0
+    if report.get("status") == "INDETERMINATE":
+        return 2
+    return 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -423,6 +439,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--verify-current-source", action="store_true")
     ledger_parser = subparsers.add_parser("validate-ledger")
     ledger_parser.add_argument("ledger", type=Path)
+    dirty_parser = subparsers.add_parser("validate-dirty")
+    dirty_parser.add_argument("ledger", type=Path)
+    dirty_parser.add_argument("--repository-root", type=Path, required=True)
     access_parser = subparsers.add_parser("check-resource")
     access_parser.add_argument("ledger", type=Path)
     access_parser.add_argument("--resource-id", required=True)
@@ -437,6 +456,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     elif options.command == "validate-ledger":
         report = validate_resource_ledger(_load(options.ledger))
+    elif options.command == "validate-dirty":
+        report = validate_inherited_change_ledger(
+            _load(options.ledger), repository_root=options.repository_root
+        )
     else:
         report = authorize_resource_use(
             _load(options.ledger),

@@ -18,6 +18,10 @@ strawberry-evidence-contract validate-run RUN_IDENTITY.json \
 strawberry-evidence-contract validate-ledger \
   docs/p0/protected_resource_ledger_v1.json
 
+strawberry-evidence-contract validate-dirty \
+  docs/p0/inherited_change_ledger_2026-09-09.json \
+  --repository-root REPOSITORY
+
 strawberry-evidence-contract check-resource \
   docs/p0/protected_resource_ledger_v1.json \
   --resource-id formal-simulation-generalized-v1-30-scenes \

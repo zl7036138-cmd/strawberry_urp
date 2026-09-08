@@ -17,6 +17,15 @@ result remain mandatory file bindings.
 Examples from an installed or source overlay:
 
 ```text
+strawberry-evidence-contract capture-run \
+  --repository-root REPOSITORY --output RESULT_DIR/run_identity.json \
+  --run-id RUN_ID --run-type BEHAVIOR --purpose PURPOSE \
+  --tree-state declared_dirty \
+  --inherited-change-ledger docs/p0/inherited_change_ledger_2026-09-09.json \
+  --model MODEL --configuration CONFIG --environment ENVIRONMENT \
+  --scene-or-resource SCENE --runner RUNNER --scorer SCORER \
+  --protocol PROTOCOL --result RESULT
+
 strawberry-evidence-contract validate-run RUN_IDENTITY.json \
   --repository-root REPOSITORY --verify-files --verify-current-source
 

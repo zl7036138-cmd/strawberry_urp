@@ -8,6 +8,7 @@ lets historical evidence be classified without rewriting it.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -317,6 +318,80 @@ def validate_run_identity(
     return _report(errors, unknowns)
 
 
+def build_run_identity(
+    *,
+    repository_root: Path,
+    run_id: str,
+    run_type: str,
+    purpose: str,
+    tree_state: str,
+    bindings: Mapping[str, Path | None],
+    inherited_change_ledger: Path | None = None,
+    captured_at_utc: str | None = None,
+) -> dict[str, object]:
+    """Capture and self-verify one new result identity.
+
+    A missing model or scene is represented explicitly and is accepted only
+    for ``ENGINEERING_TEST`` by :func:`validate_run_identity`.
+    """
+
+    root = repository_root.resolve()
+    if run_type not in RUN_TYPES:
+        raise ValueError("run_type is unsupported")
+    if tree_state not in {"clean", "declared_dirty"}:
+        raise ValueError("new run identity requires clean or declared_dirty source")
+    missing = sorted(set(REQUIRED_BINDINGS) - set(bindings))
+    if missing:
+        raise ValueError(f"run identity is missing required bindings: {missing}")
+    source: dict[str, object] = {
+        "commit": str(_git(root, ("rev-parse", "HEAD"))).strip(),
+        "branch": str(_git(root, ("branch", "--show-current"))).strip(),
+        "tree_state": tree_state,
+    }
+    if tree_state == "declared_dirty":
+        if inherited_change_ledger is None:
+            raise ValueError("declared_dirty source requires an inherited change ledger")
+        if not inherited_change_ledger.is_absolute():
+            inherited_change_ledger = root / inherited_change_ledger
+        source["inherited_change_ledger"] = fingerprint(
+            inherited_change_ledger, root
+        )
+    captured_bindings: dict[str, object] = {}
+    for name in REQUIRED_BINDINGS:
+        path = bindings[name]
+        if path is None:
+            captured_bindings[name] = {
+                "status": "NOT_APPLICABLE",
+                "reason": (
+                    f"{name} is not used by this engineering-only provenance test."
+                ),
+            }
+        else:
+            if not path.is_absolute():
+                path = root / path
+            captured_bindings[name] = fingerprint(path, root)
+    payload = {
+        "schema_version": 1,
+        "kind": RUN_IDENTITY_KIND,
+        "run_id": _nonempty(run_id, "run_id"),
+        "captured_at_utc": captured_at_utc
+        or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "purpose": _nonempty(purpose, "purpose"),
+        "run_type": run_type,
+        "source": source,
+        "bindings": captured_bindings,
+    }
+    report = validate_run_identity(
+        payload,
+        repository_root=root,
+        verify_files=True,
+        verify_current_source=True,
+    )
+    if report["status"] != "PASS":
+        raise ValueError(f"captured run identity did not verify: {report}")
+    return payload
+
+
 def validate_resource_ledger(payload: Mapping[str, object]) -> dict[str, object]:
     """Validate resource states and reject duplicate or protected consumption."""
 
@@ -451,6 +526,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_parser.add_argument("--repository-root", type=Path)
     run_parser.add_argument("--verify-files", action="store_true")
     run_parser.add_argument("--verify-current-source", action="store_true")
+    capture_parser = subparsers.add_parser("capture-run")
+    capture_parser.add_argument("--repository-root", type=Path, required=True)
+    capture_parser.add_argument("--output", type=Path, required=True)
+    capture_parser.add_argument("--run-id", required=True)
+    capture_parser.add_argument("--run-type", choices=sorted(RUN_TYPES), required=True)
+    capture_parser.add_argument("--purpose", required=True)
+    capture_parser.add_argument(
+        "--tree-state", choices=("clean", "declared_dirty"), required=True
+    )
+    capture_parser.add_argument("--inherited-change-ledger", type=Path)
+    for name in REQUIRED_BINDINGS:
+        capture_parser.add_argument(
+            f"--{name.replace('_', '-')}",
+            type=Path,
+            required=name not in {"model", "scene_or_resource"},
+        )
     ledger_parser = subparsers.add_parser("validate-ledger")
     ledger_parser.add_argument("ledger", type=Path)
     dirty_parser = subparsers.add_parser("validate-dirty")
@@ -461,7 +552,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     access_parser.add_argument("--resource-id", required=True)
     access_parser.add_argument("--consumption-id", required=True)
     options = parser.parse_args(argv)
-    if options.command == "validate-run":
+    if options.command == "capture-run":
+        output = options.output.resolve()
+        if output.exists():
+            raise FileExistsError(f"refusing to overwrite {output}")
+        bindings = {
+            name: getattr(options, name) for name in REQUIRED_BINDINGS
+        }
+        payload = build_run_identity(
+            repository_root=options.repository_root,
+            run_id=options.run_id,
+            run_type=options.run_type,
+            purpose=options.purpose,
+            tree_state=options.tree_state,
+            bindings=bindings,
+            inherited_change_ledger=options.inherited_change_ledger,
+        )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("x", encoding="utf-8", newline="\n") as stream:
+            json.dump(payload, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+        report = _report([], [])
+        report["identity"] = str(output)
+    elif options.command == "validate-run":
         report = validate_run_identity(
             _load(options.identity),
             repository_root=options.repository_root,

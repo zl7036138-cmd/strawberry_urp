@@ -15,6 +15,7 @@ from strawberry_benchmark.run_identity import (  # noqa: E402
     RESOURCE_LEDGER_KIND,
     RUN_IDENTITY_KIND,
     authorize_resource_use,
+    build_run_identity,
     fingerprint,
     validate_inherited_change_ledger,
     validate_resource_ledger,
@@ -193,6 +194,30 @@ class RunIdentityTests(unittest.TestCase):
         report = validate_run_identity(identity)
         self.assertEqual("FAIL", report["status"])
         self.assertIn("cannot be NOT_APPLICABLE", report["errors"][0])
+
+    def test_builder_captures_and_verifies_a_clean_engineering_result(self):
+        bindings = {
+            "model": None,
+            "configuration": self.root / "configuration.json",
+            "environment": self.root / "environment.json",
+            "scene_or_resource": None,
+            "runner": self.root / "runner.py",
+            "scorer": self.root / "scorer.py",
+            "protocol": self.root / "protocol.json",
+            "result": self.root / "result.json",
+        }
+        identity = build_run_identity(
+            repository_root=self.root,
+            run_id="builder-test",
+            run_type="ENGINEERING_TEST",
+            purpose="prove the capture helper",
+            tree_state="clean",
+            bindings=bindings,
+        )
+        self.assertEqual("clean", identity["source"]["tree_state"])
+        self.assertEqual(
+            "NOT_APPLICABLE", identity["bindings"]["model"]["status"]
+        )
 
 
 class ProtectedResourceLedgerTests(unittest.TestCase):

@@ -9,6 +9,11 @@ eight artifact bindings verify and the current Git tree is either clean or
 exactly matches the inherited-change ledger. `unknown` source state is reported
 as `INDETERMINATE`, never `PASS`.
 
+Behavior and perception runs must bind a real model and scene/resource.
+Engineering-only tests may mark only those two fields `NOT_APPLICABLE`, with an
+explicit reason; the configuration, environment, runner, scorer, protocol, and
+result remain mandatory file bindings.
+
 Examples from an installed or source overlay:
 
 ```text

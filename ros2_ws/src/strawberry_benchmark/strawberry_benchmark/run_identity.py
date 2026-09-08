@@ -34,6 +34,7 @@ REQUIRED_BINDINGS = (
 TREE_STATES = {"clean", "declared_dirty", "unknown"}
 RESOURCE_STATES = {"AVAILABLE", "PROTECTED", "CONSUMED", "EXHAUSTED", "UNKNOWN"}
 IDENTITY_STATUSES = {"BOUND", "LEGACY_INCOMPLETE"}
+RUN_TYPES = {"BEHAVIOR", "PERCEPTION", "EVALUATION_ONLY", "ENGINEERING_TEST"}
 
 
 def sha256_file(path: Path) -> str:
@@ -89,8 +90,14 @@ def _validate_artifact_binding(
     *,
     repository_root: Path | None,
     verify_file: bool,
+    allow_not_applicable: bool = False,
 ) -> None:
     binding = _mapping(value, label)
+    if binding.get("status") == "NOT_APPLICABLE":
+        if not allow_not_applicable:
+            raise ValueError(f"{label} cannot be NOT_APPLICABLE for this run")
+        _nonempty(binding.get("reason"), f"{label}.reason")
+        return
     relative = _artifact_path(binding.get("path"), label)
     digest = str(binding.get("sha256", ""))
     if not SHA256.fullmatch(digest):
@@ -246,6 +253,9 @@ def validate_run_identity(
         _nonempty(payload.get("run_id"), "run_id")
         _nonempty(payload.get("captured_at_utc"), "captured_at_utc")
         _nonempty(payload.get("purpose"), "purpose")
+        run_type = str(payload.get("run_type", ""))
+        if run_type not in RUN_TYPES:
+            raise ValueError("run_type is unsupported")
         source = _mapping(payload.get("source"), "source")
         commit = str(source.get("commit", "")).lower()
         if not GIT_OBJECT.fullmatch(commit):
@@ -266,6 +276,10 @@ def validate_run_identity(
                 f"bindings.{name}",
                 repository_root=repository_root,
                 verify_file=verify_files,
+                allow_not_applicable=(
+                    run_type == "ENGINEERING_TEST"
+                    and name in {"model", "scene_or_resource"}
+                ),
             )
         if tree_state == "declared_dirty":
             _validate_artifact_binding(

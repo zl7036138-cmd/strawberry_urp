@@ -73,6 +73,7 @@ class RunIdentityTests(unittest.TestCase):
             "run_id": "test-run-001",
             "captured_at_utc": "2026-09-08T00:00:00Z",
             "purpose": "unit-test provenance",
+            "run_type": "BEHAVIOR",
             "source": {
                 "commit": _git(self.root, "rev-parse", "HEAD"),
                 "branch": _git(self.root, "branch", "--show-current"),
@@ -174,6 +175,24 @@ class RunIdentityTests(unittest.TestCase):
         report = validate_run_identity(identity)
         self.assertEqual("INDETERMINATE", report["status"])
         self.assertTrue(report["unknowns"])
+
+    def test_engineering_test_may_explicitly_mark_model_and_scene_not_applicable(self):
+        identity = self.identity()
+        identity["run_type"] = "ENGINEERING_TEST"
+        for name in ("model", "scene_or_resource"):
+            identity["bindings"][name] = {
+                "status": "NOT_APPLICABLE",
+                "reason": "The run only validates provenance code.",
+            }
+        report = validate_run_identity(
+            identity, repository_root=self.root, verify_files=True
+        )
+        self.assertEqual("PASS", report["status"])
+
+        identity["run_type"] = "BEHAVIOR"
+        report = validate_run_identity(identity)
+        self.assertEqual("FAIL", report["status"])
+        self.assertIn("cannot be NOT_APPLICABLE", report["errors"][0])
 
 
 class ProtectedResourceLedgerTests(unittest.TestCase):

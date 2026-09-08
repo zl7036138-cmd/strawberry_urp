@@ -10,6 +10,7 @@
     "run_id",
     "captured_at_utc",
     "purpose",
+    "run_type",
     "source",
     "bindings"
   ],
@@ -19,6 +20,9 @@
     "run_id": {"type": "string", "minLength": 1},
     "captured_at_utc": {"type": "string", "minLength": 1},
     "purpose": {"type": "string", "minLength": 1},
+    "run_type": {
+      "enum": ["BEHAVIOR", "PERCEPTION", "EVALUATION_ONLY", "ENGINEERING_TEST"]
+    },
     "source": {
       "type": "object",
       "required": ["commit", "branch", "tree_state"],
@@ -55,10 +59,20 @@
         "result"
       ],
       "properties": {
-        "model": {"$ref": "#/$defs/artifact"},
+        "model": {
+          "oneOf": [
+            {"$ref": "#/$defs/artifact"},
+            {"$ref": "#/$defs/not_applicable"}
+          ]
+        },
         "configuration": {"$ref": "#/$defs/artifact"},
         "environment": {"$ref": "#/$defs/artifact"},
-        "scene_or_resource": {"$ref": "#/$defs/artifact"},
+        "scene_or_resource": {
+          "oneOf": [
+            {"$ref": "#/$defs/artifact"},
+            {"$ref": "#/$defs/not_applicable"}
+          ]
+        },
         "runner": {"$ref": "#/$defs/artifact"},
         "scorer": {"$ref": "#/$defs/artifact"},
         "protocol": {"$ref": "#/$defs/artifact"},
@@ -79,6 +93,15 @@
         },
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "size_bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "not_applicable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": {"const": "NOT_APPLICABLE"},
+        "reason": {"type": "string", "minLength": 1}
       }
     }
   }

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "kind": "strawberry_urp_inherited_change_ledger",
+  "ledger_id": "p0-inherited-dirty-2026-09-09",
+  "captured_at_utc": "2026-09-08T23:26:41Z",
+  "base_commit": "6f25868b0d946f7ce1a73206d3676889121f6712",
+  "observed_on_branch": "codex/wrist-readiness-diagnostics",
+  "continued_on_branch": "codex/p0-evidence-foundation",
+  "ownership": "INHERITED_PRE_P0_USER_WORK",
+  "disposition": "preserve_unstaged_and_exclude_from_P0_credit",
+  "git_diff_object_id": "db4b99a095e0615d47014b310017593a073cbe69",
+  "entries": [
+    {
+      "path": "ros2_ws/src/strawberry_bringup/launch/generalized_harvest.launch.py",
+      "status": "modified",
+      "base_blob": "99f89e2dc2be1ee0403aff9ee96f778f45762c15",
+      "working_sha256": "b24bbe48d6a1fd7fbae7ab529349526163871eb98c043baf7d6e65e32e7a819a",
+      "added_lines": 0,
+      "deleted_lines": 5
+    },
+    {
+      "path": "ros2_ws/src/strawberry_bringup/test/test_generalized_launch.py",
+      "status": "modified",
+      "base_blob": "1bd902a7be46525e45ca3f8ef7e32a0ceef144e6",
+      "working_sha256": "6a53b3734d2925b258e69ed986aa3118752c7f84ae38042ae2a5414c9a55b3b4",
+      "added_lines": 9,
+      "deleted_lines": 2
+    },
+    {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/action_server.py",
+      "status": "modified",
+      "base_blob": "0c15915c470ae9327a4d42a533f3d37cbb66071c",
+      "working_sha256": "bf262251c6cee9beb475b1ab72441f7b008c2cae6397c7675e48cbd8cb6a30f5",
+      "added_lines": 17,
+      "deleted_lines": 15
+    },
+    {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/moveit_backend.py",
+      "status": "modified",
+      "base_blob": "e7c8e7ce68b7211ad6dad413aad69e1de899081b",
+      "working_sha256": "e85d788a6e693af0a2bc7ff99563a1be993456ee09bb536803d8a522175b6d50",
+      "added_lines": 103,
+      "deleted_lines": 25
+    },
+    {
+      "path": "ros2_ws/src/strawberry_manipulation/test/test_moveit_backend.py",
+      "status": "modified",
+      "base_blob": "1309a9b4a0e583fabe461d2d6622381c0eaa8400",
+      "working_sha256": "bd64cdb830d6565a21e04f2cc62e1c8b773f42b32592ac129239050be6f4bdfd",
+      "added_lines": 17,
+      "deleted_lines": 0
+    },
+    {
+      "path": "ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "status": "modified",
+      "base_blob": "1ab73e3887a3549ad6260880bae5aaecffafb449",
+      "working_sha256": "249a13e4e06b071c6ca8ca595f6c44bd3622093921b6a3958802342c7f811f49",
+      "added_lines": 0,
+      "deleted_lines": 7
+    },
+    {
+      "path": "ros2_ws/src/strawberry_sim/test/test_assets.py",
+      "status": "modified",
+      "base_blob": "af19d5171d87d7a87e5ebff79da12b8413a3a7c0",
+      "working_sha256": "ba1764653bf1fa0784a0cc6e5c814b8b6878b55fb54a22410b5904f762534fe7",
+      "added_lines": 1,
+      "deleted_lines": 8
+    },
+    {
+      "path": "ros2_ws/src/strawberry_sim/test/test_dynamic_attachment_capacity.py",
+      "status": "modified",
+      "base_blob": "ab11ca888bef9a1ee6af16779c33451943cb165f",
+      "working_sha256": "cd4cb83b60c5b5f590f58599f1d1767f3f1242b04cfdf5b5255f237fe259e5bf",
+      "added_lines": 0,
+      "deleted_lines": 8
+    },
+    {
+      "path": "ros2_ws/src/strawberry_sim/urdf/panda_gz.urdf.xacro",
+      "status": "modified",
+      "base_blob": "c85558a132212b9a35ebfaead954c2c1127434cd",
+      "working_sha256": "b4fdfb75663690fc810e17ab7890202864f0a37d63824e595d0d0bb34ab59fc9",
+      "added_lines": 2,
+      "deleted_lines": 4
+    }
+  ],
+  "notes": [
+    "The audit observed these same nine paths before P0 started.",
+    "The ledger records current bytes and HEAD blobs; it does not endorse or test the behavioral changes.",
+    "Line-ending normalization warnings for sim.launch.py make the per-file SHA-256 authoritative for current working bytes."
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://strawberry-urp.invalid/schemas/run-identity-v1.json",
+  "title": "Strawberry URP run identity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "run_id",
+    "captured_at_utc",
+    "purpose",
+    "source",
+    "bindings"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "strawberry_urp_run_identity"},
+    "run_id": {"type": "string", "minLength": 1},
+    "captured_at_utc": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1},
+    "source": {
+      "type": "object",
+      "required": ["commit", "branch", "tree_state"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "branch": {"type": "string", "minLength": 1},
+        "tree_state": {
+          "enum": ["clean", "declared_dirty", "unknown"]
+        },
+        "inherited_change_ledger": {"$ref": "#/$defs/artifact"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"tree_state": {"const": "declared_dirty"}},
+            "required": ["tree_state"]
+          },
+          "then": {"required": ["inherited_change_ledger"]}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "configuration",
+        "environment",
+        "scene_or_resource",
+        "runner",
+        "scorer",
+        "protocol",
+        "result"
+      ],
+      "properties": {
+        "model": {"$ref": "#/$defs/artifact"},
+        "configuration": {"$ref": "#/$defs/artifact"},
+        "environment": {"$ref": "#/$defs/artifact"},
+        "scene_or_resource": {"$ref": "#/$defs/artifact"},
+        "runner": {"$ref": "#/$defs/artifact"},
+        "scorer": {"$ref": "#/$defs/artifact"},
+        "protocol": {"$ref": "#/$defs/artifact"},
+        "result": {"$ref": "#/$defs/artifact"}
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+        },
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

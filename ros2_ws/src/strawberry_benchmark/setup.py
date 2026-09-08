@@ -29,6 +29,7 @@ setup(
             "claim-generalized-harvest = strawberry_benchmark.generalized_claim:main",
             "generalized-detector-eval = strawberry_benchmark.generalized_detector_eval:main",
             "materialize-generalized-harvest = strawberry_benchmark.materialize_generalized:main",
+            "strawberry-evidence-contract = strawberry_benchmark.run_identity:main",
         ],
     },
 )

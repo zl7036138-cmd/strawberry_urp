@@ -10,10 +10,22 @@ from pathlib import Path
 import re
 from typing import Mapping, Sequence
 
+from .run_identity import fingerprint, validate_run_identity
+
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
 GIT_COMMIT = re.compile(r"[0-9a-f]{40,64}")
 OUTCOMES = {"SUCCESS", "PARTIAL_SUCCESS", "NO_PICK", "FAILED"}
+EVIDENCE_PASS = "PASS"
+EVIDENCE_FAIL = "FAIL"
+EVIDENCE_INDETERMINATE = "INDETERMINATE"
+REQUIRED_IDENTITY_FILES = {
+    "scene_or_resource",
+    "scorer",
+    "protocol",
+    "result",
+}
+PROJECT_LOCALIZATION_MEDIAN_MAX_M = 0.015
 
 
 def sha256_file(path: Path) -> str:
@@ -104,6 +116,69 @@ def _finite_nonnegative_list(row: Mapping[str, object], name: str) -> list[float
     return values
 
 
+def validate_formal_run_identity(
+    identity: Mapping[str, object] | None,
+    *,
+    repository_root: Path | None,
+    result_bindings: Mapping[str, object],
+    required_files: Mapping[str, Path] | None = None,
+) -> None:
+    """Require a real, file-verified behavior-run identity for formal scoring."""
+
+    if identity is None or repository_root is None:
+        raise ValueError(
+            "a verified run identity and repository_root are required for formal scoring"
+        )
+    report = validate_run_identity(
+        identity,
+        repository_root=repository_root,
+        verify_files=True,
+        verify_current_source=True,
+    )
+    if report.get("status") != "PASS":
+        details = list(report.get("errors", [])) + list(report.get("unknowns", []))
+        raise ValueError(
+            "formal run identity did not verify: " + "; ".join(map(str, details))
+        )
+    if identity.get("run_type") != "BEHAVIOR":
+        raise ValueError("formal generalized scoring requires a BEHAVIOR run identity")
+    source = identity.get("source")
+    identity_bindings = identity.get("bindings")
+    if not isinstance(source, Mapping) or not isinstance(identity_bindings, Mapping):
+        raise ValueError("formal run identity source or bindings are missing")
+    expected_commit = str(result_bindings.get("git_commit", ""))
+    if str(source.get("commit", "")) != expected_commit:
+        raise ValueError("run identity source binding does not match results git_commit")
+    for identity_name, result_name in (
+        ("model", "model_sha256"),
+        ("configuration", "runtime_config_sha256"),
+    ):
+        binding = identity_bindings.get(identity_name)
+        if not isinstance(binding, Mapping) or binding.get("sha256") != result_bindings.get(
+            result_name
+        ):
+            raise ValueError(
+                f"run identity {identity_name} binding does not match results {result_name}"
+            )
+    if required_files is None or set(required_files) != REQUIRED_IDENTITY_FILES:
+        raise ValueError(
+            "formal scoring requires exact scene, scorer, protocol, and result files"
+        )
+    for name, path in required_files.items():
+        if identity_bindings.get(name) != fingerprint(path, repository_root):
+            raise ValueError(f"run identity {name} binding does not match scored file")
+
+
+def _load_bound_json(path: Path, label: str) -> Mapping[str, object]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"bound {label} is not readable JSON") from exc
+    if not isinstance(value, Mapping):
+        raise ValueError(f"bound {label} must contain a JSON object")
+    return value
+
+
 def validate_results_payload(
     matrix: Mapping[str, object],
     manifest: Mapping[str, object],
@@ -111,6 +186,9 @@ def validate_results_payload(
     *,
     matrix_sha256: str,
     manifest_sha256: str,
+    run_identity: Mapping[str, object] | None = None,
+    repository_root: Path | None = None,
+    required_identity_files: Mapping[str, Path] | None = None,
 ) -> tuple[dict[str, object], ...]:
     scenarios = validate_matrix(matrix)
     materialized = validate_materialization_manifest(matrix, manifest)
@@ -129,6 +207,24 @@ def validate_results_payload(
         _sha256(bindings.get(name), f"bindings.{name}")
     if not GIT_COMMIT.fullmatch(str(bindings.get("git_commit", "")).lower()):
         raise ValueError("bindings.git_commit must be a full Git object ID")
+    validate_formal_run_identity(
+        run_identity,
+        repository_root=repository_root,
+        result_bindings=bindings,
+        required_files=required_identity_files,
+    )
+    assert required_identity_files is not None
+    protocol_path = required_identity_files["protocol"]
+    manifest_path = required_identity_files["scene_or_resource"]
+    result_path = required_identity_files["result"]
+    if sha256_file(protocol_path) != matrix_sha256:
+        raise ValueError("bound protocol file does not match matrix hash")
+    if sha256_file(manifest_path) != manifest_sha256:
+        raise ValueError("bound scene/resource file does not match manifest hash")
+    if _load_bound_json(protocol_path, "protocol") != matrix:
+        raise ValueError("bound protocol content does not match scored matrix")
+    if _load_bound_json(manifest_path, "scene/resource") != manifest:
+        raise ValueError("bound scene/resource content does not match manifest")
     rows = payload.get("results")
     if not isinstance(rows, list):
         raise ValueError("formal results list is missing")
@@ -181,23 +277,75 @@ def validate_results_payload(
             raise ValueError(f"{scenario_id} harvested count exceeds reachable truth")
         if values["successful_accepted_target_count"] > values["accepted_target_count"]:
             raise ValueError(f"{scenario_id} successful accepted targets exceed accepted targets")
+        if values["successful_accepted_target_count"] != values["harvested_reachable_ripe_count"]:
+            raise ValueError(
+                f"{scenario_id} successful accepted target count must equal harvested count"
+            )
         localization_errors = _finite_nonnegative_list(row, "localization_errors_m")
         sigmas = _finite_nonnegative_list(row, "accepted_sigmas_m")
+        if len(localization_errors) != values["ripe_true_positive_count"]:
+            raise ValueError(
+                f"{scenario_id} localization error sample count must equal true positives"
+            )
+        if len(sigmas) != values["accepted_target_count"]:
+            raise ValueError(
+                f"{scenario_id} accepted sigma sample count must equal accepted targets"
+            )
         if not isinstance(row.get("scene_complete"), bool):
             raise ValueError("scene_complete must be a boolean")
+        outcome = str(row["outcome"])
+        scene_complete = bool(row["scene_complete"])
+        successes = values["successful_accepted_target_count"]
+        if outcome == "SUCCESS" and not scene_complete:
+            raise ValueError(
+                f"{scenario_id} outcome SUCCESS requires scene_complete true"
+            )
+        if outcome == "SUCCESS" and successes == 0:
+            raise ValueError(f"{scenario_id} outcome SUCCESS requires a successful target")
+        if outcome == "PARTIAL_SUCCESS" and (scene_complete or successes == 0):
+            raise ValueError(
+                f"{scenario_id} outcome PARTIAL_SUCCESS requires a partial, incomplete scene"
+            )
+        if outcome in {"NO_PICK", "FAILED"} and scene_complete:
+            raise ValueError(
+                f"{scenario_id} outcome {outcome} contradicts scene_complete true"
+            )
+        if outcome in {"NO_PICK", "FAILED"} and successes:
+            raise ValueError(
+                f"{scenario_id} outcome {outcome} contradicts successful targets"
+            )
+        if scene_complete and (
+            values["reachable_ripe_truth_count"] == 0
+            or values["harvested_reachable_ripe_count"]
+            != values["reachable_ripe_truth_count"]
+        ):
+            raise ValueError(
+                f"{scenario_id} scene_complete contradicts reachable harvest counts"
+            )
         normalized.append(
             {
                 **dict(row),
                 **values,
                 "localization_errors_m": localization_errors,
                 "accepted_sigmas_m": sigmas,
-                "evidence_complete": (
+                "terminal_cleanup_receipt_complete": (
                     attempts == 1
                     and row["terminal_status_received"] is True
                     and row["cleanup_outcome"] == "CLEAN"
                 ),
+                # Schema-v2 contains only aggregate counts and booleans.  It
+                # has no identified operation chain or independent monitor
+                # coverage, so it remains diagnosable but cannot qualify.
+                "evidence_status": EVIDENCE_INDETERMINATE,
+                "evidence_unknowns": [
+                    "schema-v2 lacks identified per-target and per-operation evidence",
+                    "schema-v2 lacks independent physical safety monitor coverage",
+                ],
+                "evidence_complete": False,
             }
         )
+    if _load_bound_json(result_path, "result") != payload:
+        raise ValueError("bound result content does not match scored payload")
     return tuple(normalized)
 
 
@@ -224,6 +372,9 @@ def summarize_results(
     *,
     matrix_sha256: str,
     manifest_sha256: str,
+    run_identity: Mapping[str, object] | None = None,
+    repository_root: Path | None = None,
+    required_identity_files: Mapping[str, Path] | None = None,
 ) -> dict[str, object]:
     scenarios = validate_matrix(matrix)
     ordered = validate_results_payload(
@@ -232,6 +383,9 @@ def summarize_results(
         payload,
         matrix_sha256=matrix_sha256,
         manifest_sha256=manifest_sha256,
+        run_identity=run_identity,
+        repository_root=repository_root,
+        required_identity_files=required_identity_files,
     )
     expected = {str(row["scenario_id"]): row for row in scenarios}
     localization_errors = [value for row in ordered for value in row["localization_errors_m"]]
@@ -249,6 +403,9 @@ def summarize_results(
         "visible_ripe_recall": _ratio(true_positive, visible_truth),
         "ripe_precision": _ratio(true_positive, predicted),
         "identity_switch_rate": _ratio(switches, associations),
+        "localization_sample_count": len(localization_errors),
+        "localization_coverage": _ratio(true_positive, visible_truth),
+        "localization_median_m": _quantile(localization_errors, 0.50),
         "localization_p95_m": _quantile(localization_errors, 0.95),
         "sigma_pass_fraction": _ratio(sum(value <= float(matrix["acceptance"]["maximum_sigma_m"]) for value in sigmas), len(sigmas)),
         "unripe_pick_count": sum(row["unripe_pick_count"] for row in ordered),
@@ -258,13 +415,21 @@ def summarize_results(
         "negative_safe_no_pick_rate": _ratio(sum(row["outcome"] == "NO_PICK" for row in negative), len(negative)),
         "reachable_target_success_rate": _ratio(harvested, reachable),
         "positive_scene_completion_rate": _ratio(sum(bool(row["scene_complete"]) for row in positive), len(positive)),
-        "complete_evidence_rate": _ratio(sum(bool(row["evidence_complete"]) for row in ordered), len(ordered)),
+        "terminal_cleanup_receipt_rate": _ratio(
+            sum(
+                bool(row["terminal_cleanup_receipt_complete"])
+                for row in ordered
+            ),
+            len(ordered),
+        ),
+        "complete_evidence_rate": 0.0,
     }
     thresholds = matrix["acceptance"]
-    gates = {
+    raw_threshold_checks = {
         "visible_ripe_recall": metrics["visible_ripe_recall"] >= float(thresholds["minimum_visible_ripe_recall"]),
         "ripe_precision": metrics["ripe_precision"] >= float(thresholds["minimum_ripe_precision"]),
         "identity_switch_rate": metrics["identity_switch_rate"] <= float(thresholds["maximum_identity_switch_rate"]),
+        "localization_median_m": metrics["localization_median_m"] <= PROJECT_LOCALIZATION_MEDIAN_MAX_M,
         "localization_p95_m": metrics["localization_p95_m"] <= float(thresholds["maximum_localization_p95_m"]),
         "sigma_pass_fraction": metrics["sigma_pass_fraction"] >= float(thresholds["minimum_sigma_pass_fraction"]),
         "unripe_pick_count": metrics["unripe_pick_count"] <= int(thresholds["maximum_unripe_picks"]),
@@ -276,14 +441,32 @@ def summarize_results(
         "positive_scene_completion_rate": metrics["positive_scene_completion_rate"] >= float(thresholds["minimum_positive_scene_completion_rate"]),
         "evidence_integrity": metrics["complete_evidence_rate"] == 1.0,
     }
+    gate_statuses = {
+        name: (EVIDENCE_INDETERMINATE if passed else EVIDENCE_FAIL)
+        for name, passed in raw_threshold_checks.items()
+        if name != "evidence_integrity"
+    }
+    gate_statuses["evidence_integrity"] = EVIDENCE_INDETERMINATE
+    gates = {
+        name: status == EVIDENCE_PASS for name, status in gate_statuses.items()
+    }
+    overall_status = (
+        EVIDENCE_FAIL
+        if EVIDENCE_FAIL in gate_statuses.values()
+        else EVIDENCE_INDETERMINATE
+    )
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "matrix_id": matrix["matrix_id"],
         "bindings": dict(payload["bindings"]),
         "scenario_count": len(ordered),
+        "input_evidence_schema_status": "LEGACY_AGGREGATE_INDETERMINATE",
         "metrics": metrics,
+        "raw_threshold_checks": raw_threshold_checks,
+        "gate_statuses": gate_statuses,
         "gates": gates,
-        "overall_pass": all(gates.values()),
+        "overall_status": overall_status,
+        "overall_pass": False,
     }
 
 
@@ -292,6 +475,8 @@ def main(args: Sequence[str] | None = None) -> int:
     parser.add_argument("--matrix", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True)
+    parser.add_argument("--run-identity", type=Path, required=True)
+    parser.add_argument("--repository-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     options = parser.parse_args(args)
     if options.output.exists():
@@ -299,12 +484,21 @@ def main(args: Sequence[str] | None = None) -> int:
     matrix = json.loads(options.matrix.read_text(encoding="utf-8"))
     manifest = json.loads(options.manifest.read_text(encoding="utf-8"))
     payload = json.loads(options.results.read_text(encoding="utf-8"))
+    run_identity = json.loads(options.run_identity.read_text(encoding="utf-8"))
     summary = summarize_results(
         matrix,
         manifest,
         payload,
         matrix_sha256=sha256_file(options.matrix),
         manifest_sha256=sha256_file(options.manifest),
+        run_identity=run_identity,
+        repository_root=options.repository_root,
+        required_identity_files={
+            "scene_or_resource": options.manifest,
+            "scorer": Path(__file__),
+            "protocol": options.matrix,
+            "result": options.results,
+        },
     )
     options.output.parent.mkdir(parents=True, exist_ok=True)
     options.output.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")

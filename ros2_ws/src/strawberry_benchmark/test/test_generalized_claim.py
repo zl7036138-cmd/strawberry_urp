@@ -176,6 +176,15 @@ class GeneralizedClaimTests(unittest.TestCase):
                 resume=False,
             )
 
+    def test_wrong_formal_resource_id_is_rejected(self):
+        with self.assertRaisesRegex(PermissionError, "exact resource_id"):
+            authorize_claim_resource_use(
+                self.ledger(),
+                resource_id="formal-real-image-test-v1-115-images",
+                consumption_id="wrong-resource-run",
+                resume=False,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

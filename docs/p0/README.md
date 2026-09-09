@@ -49,3 +49,16 @@ Historical evidence remains classified as `LEGACY_PARTIAL` or
 `INDETERMINATE` where source, dirty diff, environment, model, configuration,
 runner, scorer, protocol, or result bindings are absent. File timestamps and
 directory names are intentionally not accepted as substitutes.
+
+P0 evaluation semantics and close-out artifacts:
+
+- `METRIC_DICTIONARY_V1.md`: frozen units, full task funnel, denominators,
+  reachability reference, retained thresholds, and tri-state gate rules.
+- `EVIDENCE_SCHEMA_V1.md`: event envelope, per-operation identity/physical
+  lifecycle, independent-monitor obligations, and P1/P2 ownership boundaries.
+- `HISTORICAL_RECOMPUTATION_DIFF.md`: non-overwriting P3, 462xx, and 455xx
+  recomputation findings with a machine-result/run-identity index.
+- `WP-01_COMPLETION_REPORT.md`: implementation and adversarial-test result.
+- `PHASE_P0_REVIEW_PACKET.md`: the G0 decision packet.
+- `NEXT_PHASE_HANDOFF.md`: approved interface boundary for P1/P2 if G0 is
+  accepted.

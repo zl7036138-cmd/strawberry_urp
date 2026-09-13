@@ -1369,6 +1369,23 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertAlmostEqual(duration, 0.15)
         self.assertAlmostEqual(velocity_limited_duration, 0.20)
 
+    def test_joint_path_timing_honors_each_joint_velocity_limit(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.minimum_joint_waypoint_duration_sec = 0.05
+
+        duration = backend._joint_path_nominal_duration(
+            ((0.0, 0.0), (0.08, 0.04)),
+            joint_velocity_limits_rad_per_sec=(0.08, 0.02),
+        )
+
+        self.assertAlmostEqual(duration, 2.0)
+        with self.assertRaisesRegex(ValueError, "scalar or per-joint"):
+            backend._joint_path_nominal_duration(
+                ((0.0, 0.0), (0.08, 0.04)),
+                velocity_rad_per_sec=0.08,
+                joint_velocity_limits_rad_per_sec=(0.08, 0.02),
+            )
+
     def test_cartesian_endpoint_miss_gets_exactly_one_measured_correction(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         logger = self.Logger()

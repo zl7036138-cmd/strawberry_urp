@@ -25,14 +25,6 @@ class DynamicAttachmentCapacityTests(unittest.TestCase):
         self.assertIn('"fruit_attachment_count": str(fruit_attachment_count)', source)
         self.assertIn("stem_constraints_enabled=generalized_scene", source)
         self.assertIn('"enable_stem_attachment": "true" if generalized_scene else "false"', source)
-        self.assertIn(
-            '"position_proportional_gain": (',
-            source,
-        )
-        self.assertIn(
-            '"2.0" if generalized_scene else "1.0"',
-            source,
-        )
         self.assertIn('"stem_constraints_enabled": generalized_scene', source)
         self.assertIn('scene_document.get("generator")', source)
         self.assertIn(

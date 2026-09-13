@@ -140,7 +140,10 @@ class MoveItBackend:
         maximum_joint_trajectory_points: int = 512,
         joint_trajectory_velocity_rad_per_sec: float = 0.30,
         grasp_joint_trajectory_velocity_rad_per_sec: float = 0.25,
-        home_joint_trajectory_velocity_rad_per_sec: float = 0.05,
+        home_joint_trajectory_velocity_rad_per_sec: float = 0.08,
+        home_joint_trajectory_velocity_limits_rad_per_sec: tuple[
+            float, ...
+        ] = (0.08, 0.08, 0.08, 0.04, 0.08, 0.08, 0.08),
         home_joint_trajectory_segment_duration_sec: float = 4.0,
         joint_trajectory_start_tolerance_rad: float = 0.05,
         minimum_joint_limit_margin_rad: float = 0.01,
@@ -276,6 +279,18 @@ class MoveItBackend:
         ):
             raise ValueError("joint trajectory timing parameters must be positive")
         if (
+            len(home_joint_trajectory_velocity_limits_rad_per_sec) != 7
+            or any(
+                not math.isfinite(value)
+                or value <= 0.0
+                or value > grasp_joint_trajectory_velocity_rad_per_sec
+                for value in home_joint_trajectory_velocity_limits_rad_per_sec
+            )
+        ):
+            raise ValueError(
+                "home joint velocity limits must contain seven positive values"
+            )
+        if (
             settle_timeout_sec <= 0.0
             or settle_window_sec <= 0.0
             or settle_window_sec >= settle_timeout_sec
@@ -367,6 +382,10 @@ class MoveItBackend:
         )
         self.home_joint_trajectory_velocity_rad_per_sec = float(
             home_joint_trajectory_velocity_rad_per_sec
+        )
+        self.home_joint_trajectory_velocity_limits_rad_per_sec = tuple(
+            float(value)
+            for value in home_joint_trajectory_velocity_limits_rad_per_sec
         )
         self.home_joint_trajectory_segment_duration_sec = float(
             home_joint_trajectory_segment_duration_sec
@@ -1098,6 +1117,7 @@ class MoveItBackend:
         positions: tuple[tuple[float, ...], ...],
         *,
         velocity_rad_per_sec: float | None = None,
+        joint_velocity_limits_rad_per_sec: tuple[float, ...] | None = None,
     ) -> bool:
         if len(positions) < 2:
             self.node.get_logger().error(
@@ -1124,6 +1144,9 @@ class MoveItBackend:
         duration = self._joint_path_nominal_duration(
             positions,
             velocity_rad_per_sec=velocity_rad_per_sec,
+            joint_velocity_limits_rad_per_sec=(
+                joint_velocity_limits_rad_per_sec
+            ),
         )
         if duration > self.maximum_joint_trajectory_duration_sec:
             self.node.get_logger().error(
@@ -1207,19 +1230,46 @@ class MoveItBackend:
         positions: tuple[tuple[float, ...], ...],
         *,
         velocity_rad_per_sec: float | None = None,
+        joint_velocity_limits_rad_per_sec: tuple[float, ...] | None = None,
     ) -> float:
-        velocity = (
-            self.joint_trajectory_velocity_rad_per_sec
-            if velocity_rad_per_sec is None
-            else float(velocity_rad_per_sec)
-        )
-        if not math.isfinite(velocity) or velocity <= 0.0:
-            raise ValueError("joint trajectory velocity must be positive")
+        if joint_velocity_limits_rad_per_sec is None:
+            velocity = (
+                self.joint_trajectory_velocity_rad_per_sec
+                if velocity_rad_per_sec is None
+                else float(velocity_rad_per_sec)
+            )
+            if not math.isfinite(velocity) or velocity <= 0.0:
+                raise ValueError("joint trajectory velocity must be positive")
+            velocity_limits = None
+        else:
+            if velocity_rad_per_sec is not None:
+                raise ValueError(
+                    "specify scalar or per-joint velocity limits, not both"
+                )
+            velocity_limits = tuple(
+                float(value) for value in joint_velocity_limits_rad_per_sec
+            )
+            joint_count = len(positions[0]) if positions else 0
+            if (
+                joint_count == 0
+                or len(velocity_limits) != joint_count
+                or any(len(row) != joint_count for row in positions)
+                or any(
+                    not math.isfinite(value) or value <= 0.0
+                    for value in velocity_limits
+                )
+            ):
+                raise ValueError(
+                    "per-joint trajectory velocity limits must match the path"
+                )
         return sum(
             max(
                 self.minimum_joint_waypoint_duration_sec,
-                max(abs(current - prior) for current, prior in zip(right, left))
-                / velocity,
+                max(
+                    abs(current - prior)
+                    / (velocity if velocity_limits is None else velocity_limits[index])
+                    for index, (current, prior) in enumerate(zip(right, left))
+                ),
             )
             for left, right in zip(positions, positions[1:])
         )
@@ -1228,7 +1278,8 @@ class MoveItBackend:
         self,
         positions: tuple[tuple[float, ...], ...],
         *,
-        velocity_rad_per_sec: float,
+        velocity_rad_per_sec: float | None = None,
+        joint_velocity_limits_rad_per_sec: tuple[float, ...] | None = None,
         maximum_segment_duration_sec: float,
     ) -> tuple[tuple[tuple[float, ...], ...], ...]:
         """Split a planned path at existing waypoints without changing its route."""
@@ -1242,6 +1293,9 @@ class MoveItBackend:
             edge_duration = self._joint_path_nominal_duration(
                 positions[right_index - 1 : right_index + 1],
                 velocity_rad_per_sec=velocity_rad_per_sec,
+                joint_velocity_limits_rad_per_sec=(
+                    joint_velocity_limits_rad_per_sec
+                ),
             )
             if edge_duration > maximum_segment_duration_sec + 1.0e-9:
                 raise ValueError(
@@ -1560,6 +1614,7 @@ class MoveItBackend:
         joint_path: tuple[tuple[float, ...], ...],
         *,
         velocity_rad_per_sec: float | None = None,
+        joint_velocity_limits_rad_per_sec: tuple[float, ...] | None = None,
     ) -> tuple[bool, float]:
         if not joint_path:
             return False, 0.0
@@ -1585,11 +1640,14 @@ class MoveItBackend:
                     f"{self.joint_trajectory_start_tolerance_rad:.6f} rad limit"
                 )
                 return False, 0.0
-        velocity = (
-            self.joint_trajectory_velocity_rad_per_sec
-            if velocity_rad_per_sec is None
-            else float(velocity_rad_per_sec)
-        )
+        if joint_velocity_limits_rad_per_sec is None:
+            velocity = (
+                self.joint_trajectory_velocity_rad_per_sec
+                if velocity_rad_per_sec is None
+                else float(velocity_rad_per_sec)
+            )
+        else:
+            velocity = None
         if not self._joint_path_within_limit_margin(
             all_positions,
             margin_rad=getattr(
@@ -1600,11 +1658,17 @@ class MoveItBackend:
         if not self._joint_path_within_safety_limits(
             all_positions,
             velocity_rad_per_sec=velocity,
+            joint_velocity_limits_rad_per_sec=(
+                joint_velocity_limits_rad_per_sec
+            ),
         ):
             return False, 0.0
         nominal_duration = self._joint_path_nominal_duration(
             all_positions,
             velocity_rad_per_sec=velocity,
+            joint_velocity_limits_rad_per_sec=(
+                joint_velocity_limits_rad_per_sec
+            ),
         )
         cumulative_travel = self._joint_path_travel(all_positions)
         self.node.get_logger().info(
@@ -1624,12 +1688,12 @@ class MoveItBackend:
         previous = start_positions
         elapsed = 0.0
         for positions in joint_path:
-            maximum_delta = max(
-                abs(current - prior) for current, prior in zip(positions, previous)
-            )
-            elapsed += max(
-                self.minimum_joint_waypoint_duration_sec,
-                maximum_delta / velocity,
+            elapsed += self._joint_path_nominal_duration(
+                (previous, positions),
+                velocity_rad_per_sec=velocity,
+                joint_velocity_limits_rad_per_sec=(
+                    joint_velocity_limits_rad_per_sec
+                ),
             )
             point = self._JointTrajectoryPoint()
             point.positions = list(positions)
@@ -2178,17 +2242,31 @@ class MoveItBackend:
             if velocity_rad_per_sec is None
             else float(velocity_rad_per_sec)
         )
+        home_velocity_limits = (
+            getattr(
+                self,
+                "home_joint_trajectory_velocity_limits_rad_per_sec",
+                None,
+            )
+            if velocity_rad_per_sec is None
+            else None
+        )
+        timing_kwargs = (
+            {"joint_velocity_limits_rad_per_sec": home_velocity_limits}
+            if home_velocity_limits is not None
+            else {"velocity_rad_per_sec": velocity}
+        )
         # Validate the complete plan before partitioning so segmentation cannot
         # bypass the global point, travel, duration, or joint-limit bounds.
         if not self._joint_path_within_safety_limits(
             positions,
-            velocity_rad_per_sec=velocity,
+            **timing_kwargs,
         ):
             return MotionOutcome(False, planning_time, 0.0)
         try:
             segments = self._partition_joint_path_by_duration(
                 positions,
-                velocity_rad_per_sec=velocity,
+                **timing_kwargs,
                 maximum_segment_duration_sec=(
                     self.home_joint_trajectory_segment_duration_sec
                 ),
@@ -2208,7 +2286,7 @@ class MoveItBackend:
             executed, segment_execution_time = self._execute_joint_path(
                 segment[0],
                 segment[1:],
-                velocity_rad_per_sec=velocity,
+                **timing_kwargs,
             )
             execution_time += segment_execution_time
             if not executed or not self._wait_until_arm_settled():

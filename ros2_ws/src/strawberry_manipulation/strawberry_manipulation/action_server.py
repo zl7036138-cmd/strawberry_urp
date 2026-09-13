@@ -149,23 +149,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 "grasp_joint_trajectory_velocity_rad_per_sec", 0.25
             )
             self.declare_parameter(
-                # Qualification 46204 exceeded the controller's 0.05 rad
-                # path tolerance by 0.000851 rad at 0.10 rad/s. Development
-                # 45401 v3 still exceeded it by 0.000435-0.001838 rad at
-                # 0.08 rad/s, and 45504 exceeded it by 0.000151-0.000570 rad
-                # at 0.06 rad/s. Development 45505 showed that 0.04 rad/s
-                # stretches the same route to 70.807 s and therefore violates
-                # the unchanged 60 s whole-route bound. 0.05 rad/s is the
-                # smallest practical setting with explicit duration margin;
-                # every other safety bound remains unchanged.
-                "home_joint_trajectory_velocity_rad_per_sec", 0.05
+                # Only Panda joint 4 exceeded the unchanged controller path
+                # tolerance in development. Retain the previously safe 0.08
+                # rad/s bound for the other joints and apply the slower value
+                # through the per-joint profile below.
+                "home_joint_trajectory_velocity_rad_per_sec", 0.08
             )
             self.declare_parameter(
-                # Development 45508 showed that 3.0 s segments avoid the
-                # tracking violation but create 15 stop-and-settle segments
-                # and exceed the runtime inactivity bound. Generalized Gazebo
-                # now addresses the measured first-order lag at its source;
-                # retain the proven four-second endpoint verification cadence.
+                "home_joint_trajectory_velocity_limits_rad_per_sec",
+                [0.08, 0.08, 0.08, 0.04, 0.08, 0.08, 0.08],
+            )
+            self.declare_parameter(
+                # Four seconds retains measured endpoint verification without
+                # the 15-segment inactivity timeout observed at three seconds.
                 "home_joint_trajectory_segment_duration_sec", 4.0
             )
             self.declare_parameter("joint_trajectory_start_tolerance_rad", 0.05)
@@ -370,6 +366,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 home_joint_trajectory_velocity_rad_per_sec=float(
                     self.get_parameter(
                         "home_joint_trajectory_velocity_rad_per_sec"
+                    ).value
+                ),
+                home_joint_trajectory_velocity_limits_rad_per_sec=tuple(
+                    float(value)
+                    for value in self.get_parameter(
+                        "home_joint_trajectory_velocity_limits_rad_per_sec"
                     ).value
                 ),
                 home_joint_trajectory_segment_duration_sec=float(

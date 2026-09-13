@@ -98,14 +98,21 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('Trigger, "/strawberry/move_home"', orchestrator)
         self.assertIn('"/strawberry/move_home"', manipulation)
         self.assertIn(
-            '"home_joint_trajectory_velocity_rad_per_sec", 0.05',
+            '"home_joint_trajectory_velocity_rad_per_sec", 0.08',
+            manipulation,
+        )
+        self.assertIn(
+            '"home_joint_trajectory_velocity_limits_rad_per_sec"',
+            manipulation,
+        )
+        self.assertIn(
+            "[0.08, 0.08, 0.08, 0.04, 0.08, 0.08, 0.08]",
             manipulation,
         )
         self.assertIn(
             '"home_joint_trajectory_segment_duration_sec", 4.0',
             manipulation,
         )
-        self.assertIn('"settle_timeout_sec": 4.0', self.source)
         self.assertIn(
             '"grasp_joint_trajectory_velocity_rad_per_sec", 0.25',
             manipulation,

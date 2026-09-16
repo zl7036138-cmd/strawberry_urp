@@ -40,13 +40,20 @@ def _load_xacro_text() -> str:
 
 
 class EffortInterfaceContractTests(unittest.TestCase):
-    def test_urdf_declares_effort_command_interface_for_every_arm_joint(self):
+    def test_urdf_declares_effort_only_command_interface_for_arm_joints(self):
+        """v17: an unclaimed position command interface fights the effort PID.
+
+        With both interfaces declared, the unclaimed position path still
+        applies stale commands and joint7 relay-oscillated at the velocity
+        clamp in every effort-mode run (v14-v17). Effort must be the only
+        arm command interface.
+        """
         text = _load_xacro_text()
         macro_start = text.index('<xacro:macro name="arm_control_joint"')
         macro_end = text.index("</xacro:macro>", macro_start)
         macro = text[macro_start:macro_end]
         self.assertIn('<command_interface name="effort"/>', macro)
-        self.assertIn('<command_interface name="position"/>', macro)
+        self.assertNotIn('<command_interface name="position"/>', macro)
 
     def test_arm_controller_commands_effort(self):
         config = _load_controllers_yaml()

@@ -284,8 +284,14 @@
       <parameters>$(find strawberry_sim)/config/panda_controllers.yaml</parameters>
       <!-- The upstream 0.1 default leaves the simulated arm several centimetres
            behind short Cartesian trajectories near the edge of its workspace.
-           Keep this at the documented non-oscillating upper bound. -->
-      <position_proportional_gain>1.0</position_proportional_gain>
+           v10 telemetry (commit 3995b86, seed 45504): with the fruit attached,
+           joint5 tracked OPPOSITE the commanded setpoint at ~0.13 rad/s and the
+           recovery home sagged away from a held setpoint; both aborts match a
+           stiffness-limited position controller, not waypoint discretisation
+           (the v10 edge-subdivision variable did not change the outcome).
+           Raised 1.0 -> 3.0 as the next single variable; verify no stationary
+           oscillation before any probe run. -->
+      <position_proportional_gain>3.0</position_proportional_gain>
     </plugin>
 
     <xacro:if value="$(arg enable_attachment)">

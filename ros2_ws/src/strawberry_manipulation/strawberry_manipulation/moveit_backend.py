@@ -1494,10 +1494,6 @@ class MoveItBackend:
                 })
                 self.node.get_logger().error("Panda arm stop rejected repeated or regressing acquisition stamp")
                 return False
-            if (previous_acquisition_ns is not None
-                    and acquisition_ns - previous_acquisition_ns >= self.settle_window_sec * 1e9):
-                anchor = None
-                stable_samples = 0
             previous_acquisition_ns = acquisition_ns
             sample_monotonic = time.monotonic()
             if (
@@ -1523,8 +1519,7 @@ class MoveItBackend:
                         and sample_monotonic - anchor_monotonic
                         >= self.settle_window_sec
                         and anchor_acquisition_ns is not None
-                        and acquisition_ns - anchor_acquisition_ns
-                        >= round(self.settle_window_sec * 1e9)
+                        and acquisition_ns > anchor_acquisition_ns
                     ):
                         self._emit_motion_evidence("STOP_GATE_POSITION_WINDOW", {
                             "first_acquisition_stamp_ns": anchor_acquisition_ns,

@@ -239,6 +239,43 @@ class ArmSettleGateTests(unittest.TestCase):
 
         self.assertFalse(self.run_gate(backend, FakeClock(deliver)))
 
+    def test_slow_real_time_factor_does_not_starve_the_settle_gate(self):
+        """Sim-time runs ~3x slower than wall; the gate must not time out.
+
+        v8 evidence (RTF 0.27-0.32): the acquisition-span requirement needed
+        ~1.7s wall while settle_timeout_sec allowed only 1.5s, so every gate
+        attempt expired with a stationary arm. The stable window is a span
+        across received samples, so it must be measured on the same clock
+        domain as the timeout: wall receipt time.
+        """
+        backend, _ = self.make_backend()
+        sim_ns = [1_000_000_000]
+        sequence = [0]
+        positions = (0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785)
+
+        def snap():
+            sequence[0] += 1
+            sim_ns[0] += 15_000_000  # RTF 0.3: 0.05s wall -> 0.015s sim
+            return ArmStateSnapshot(
+                sequence=sequence[0],
+                positions=positions,
+                feedback_json=(
+                    '{"acquisition_stamp_ns":' + str(sim_ns[0]) + '}'
+                ),
+                receipt_monotonic_ns=int(
+                    1_000_000_000 + round(clock_now[0] * 1_000_000_000)
+                ),
+            )
+
+        clock_now = [0.0]
+
+        def on_sleep(now):
+            clock_now[0] = now
+
+        backend._latest_live_arm_snapshot = snap
+        backend._evidence_ros_now_ns = lambda: sim_ns[0]
+        self.assertTrue(self.run_gate(backend, FakeClock(on_sleep)))
+
     def test_gap_restarts_window_before_recovered_stream_can_pass(self):
         backend, _ = self.make_backend()
         self.emit_positions(backend)

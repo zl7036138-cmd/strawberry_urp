@@ -11,6 +11,8 @@ cd "${repo_root}"
 seed="${1:-44012}"
 scene_dir="${2:-.codex_tmp/generalized_runtime_candidates_v1}"
 run_tag="${3:-development}"
+motion_evidence_run_id="${STRAWBERRY_MOTION_EVIDENCE_RUN_ID:-generalized_dev_seed_${seed}_${run_tag}_$(date -u +%Y%m%dT%H%M%SZ)}"
+motion_evidence_scenario_id="${STRAWBERRY_MOTION_EVIDENCE_SCENARIO_ID:-generalized_seed_$(printf '%06d' "${seed}")}"
 scene_stem="generalized_seed_$(printf '%06d' "${seed}")"
 run_dir="${STRAWBERRY_DEVELOPMENT_OUTPUT_DIR:-.codex_tmp/generalized_harvest_seed_${seed}_${run_tag}}"
 startup_timeout_sec="${STRAWBERRY_PROBE_STARTUP_TIMEOUT_SEC:-120}"
@@ -46,6 +48,8 @@ setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   scene_config_file:="${repo_root}/${scene_dir}/${scene_stem}.yaml" \
   base_camera_resolution:="${base_camera_resolution}" \
   model_path:="${repo_root}/outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt" \
+  motion_evidence_run_id:="${motion_evidence_run_id}" \
+  motion_evidence_scenario_id:="${motion_evidence_scenario_id}" \
   device:=0 \
   > "${run_dir}/launch.log" 2>&1 &
 launch_pid=$!

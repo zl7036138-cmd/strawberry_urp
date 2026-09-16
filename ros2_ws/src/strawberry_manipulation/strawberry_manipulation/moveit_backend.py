@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+import json
 import math
 import threading
 import time
 from types import MappingProxyType
 from typing import Callable, Mapping
 
-from .core import CONTACT_CLASS_UNAVAILABLE, MotionOutcome, Pose
+from .core import CONTACT_CLASS_UNAVAILABLE, MotionOutcome, Pose, rotate_about_base_z
+from .motion_evidence import MotionEvidence, serialize_joint_feedback, serialize_trajectory
 from .moveit_scene import (
     apply_fruit_collision_scene,
     apply_static_collision_scene,
@@ -49,6 +51,29 @@ def joint_limit_margin_violation(
         if not math.isfinite(value) or not safe_lower <= value <= safe_upper:
             return index, float(value), safe_lower, safe_upper
     return None
+
+
+@dataclass(frozen=True)
+class ArmStateSnapshot:
+    """One complete arm sample published atomically by the joint callback."""
+
+    sequence: int
+    positions: tuple[float, ...]
+    feedback_json: str
+    receipt_monotonic_ns: int
+
+    @property
+    def feedback(self) -> dict:
+        return json.loads(self.feedback_json)
+
+
+@dataclass(frozen=True)
+class ArmTrajectoryWaitResult:
+    """One explicit terminal state for an action result wait."""
+
+    kind: str
+    result: object | None = None
+    detail: str | None = None
 
 
 @dataclass(frozen=True)
@@ -176,6 +201,9 @@ class MoveItBackend:
         maximum_cached_collision_scene_age_sec: float = 120.0,
         maximum_cached_target_drift_m: float = 0.05,
         config_dict: dict | None = None,
+        evidence_sink: Callable | None = None,
+        evidence_run_id: str | None = None,
+        evidence_scenario_id: str | None = None,
     ) -> None:
         try:
             from control_msgs.action import (
@@ -338,6 +366,20 @@ class MoveItBackend:
         fruit_manifest = self._build_fruit_manifest(fruit_obstacles or {})
 
         self.node = node
+        evidence_run_id = str(evidence_run_id or "").strip()
+        evidence_scenario_id = str(evidence_scenario_id or "").strip()
+        if bool(evidence_run_id) != bool(evidence_scenario_id):
+            raise ValueError(
+                "motion evidence run_id and scenario_id must be configured together"
+            )
+        self._motion_evidence = (
+            MotionEvidence(evidence_sink, run_id=evidence_run_id,
+                           scenario_id=evidence_scenario_id,
+                           ros_now_ns=self._evidence_ros_now_ns)
+            if evidence_sink is not None and evidence_run_id else None
+        )
+        self._latest_arm_feedback = None
+        self._latest_arm_snapshot = None
         self.planning_group = planning_group
         self.pose_link = pose_link
         self.base_frame = base_frame
@@ -524,29 +566,87 @@ class MoveItBackend:
                 + ", ".join(self.fruit_collision_ids)
             )
 
+    def _evidence_ros_now_ns(self):
+        try:
+            return self.node.get_clock().now().nanoseconds
+        except AttributeError:
+            return None
+
+    def _emit_motion_evidence(self, event_type, payload, *, command_id=None):
+        evidence = getattr(self, "_motion_evidence", None)
+        if evidence is not None:
+            try:
+                evidence.emit(event_type, payload, command_id=command_id)
+            except Exception as exc:
+                # Recording is diagnostic: a missing event is an evidence gap,
+                # never a reason to report motion success or start a fallback.
+                self.node.get_logger().error(f"motion evidence emission failed: {exc}")
+
     def _on_gripper_joint_state(self, message) -> None:
+        receipt_ns = time.monotonic_ns()
+        ros_now_ns = self._evidence_ros_now_ns()
+        feedback = serialize_joint_feedback(
+            message, receipt_monotonic_ns=receipt_ns,
+            received_ros_ns=ros_now_ns,
+        )
         observed_arm_positions: dict[str, float] = {}
         with self._gripper_state_lock:
             for name, position in zip(message.name, message.position, strict=False):
                 joint_name = str(name)
                 if joint_name in self.gripper_joints:
-                    self._latest_gripper_positions_m[joint_name] = float(position)
+                    try:
+                        value = float(position)
+                    except (TypeError, ValueError, OverflowError):
+                        continue
+                    if math.isfinite(value):
+                        self._latest_gripper_positions_m[joint_name] = value
                 if joint_name in self._latest_arm_positions_rad:
-                    observed_arm_positions[joint_name] = float(position)
-            if set(observed_arm_positions) == set(self._arm_joint_names):
+                    try:
+                        observed_arm_positions[joint_name] = float(position)
+                    except (TypeError, ValueError, OverflowError):
+                        observed_arm_positions[joint_name] = math.nan
+            required_invalid = any(
+                issue.startswith(
+                    ("acquisition_stamp_ns", "joint_names", "positions")
+                )
+                for issue in feedback["invalid_fields"]
+            )
+            if (
+                not required_invalid
+                and set(observed_arm_positions) == set(self._arm_joint_names)
+                and all(math.isfinite(value) for value in observed_arm_positions.values())
+            ):
+                ordered = tuple(
+                    observed_arm_positions[name] for name in self._arm_joint_names
+                )
                 self._latest_arm_positions_rad.update(observed_arm_positions)
                 self._arm_state_sequence += 1
+                # Publish one immutable tuple while holding the same lock used
+                # for every constituent field. Readers can never mix samples.
+                snapshot = ArmStateSnapshot(
+                    sequence=int(self._arm_state_sequence),
+                    positions=ordered,
+                    feedback_json=json.dumps(
+                        feedback, allow_nan=False, separators=(",", ":")
+                    ),
+                    receipt_monotonic_ns=receipt_ns,
+                )
+                self._latest_arm_snapshot = snapshot
+                self._latest_arm_feedback = feedback
+                self._latest_arm_complete_monotonic_ns = receipt_ns
 
-    def _latest_live_arm_positions(self) -> tuple[int, tuple[float, ...]] | None:
-        positions = getattr(self, "_latest_arm_positions_rad", None)
+    def _latest_live_arm_snapshot(self):
         lock = getattr(self, "_gripper_state_lock", None)
-        if positions is None or lock is None:
+        if lock is None:
             return None
         with lock:
-            ordered = tuple(positions.get(name) for name in self._arm_joint_names)
-            if any(value is None for value in ordered):
-                return None
-            return int(self._arm_state_sequence), tuple(float(value) for value in ordered)
+            return getattr(self, "_latest_arm_snapshot", None)
+
+    def _latest_live_arm_positions(self) -> tuple[int, tuple[float, ...]] | None:
+        snapshot = self._latest_live_arm_snapshot()
+        if snapshot is None:
+            return None
+        return snapshot.sequence, snapshot.positions
 
     @staticmethod
     def _build_fruit_manifest(fruit_obstacles) -> MappingProxyType:
@@ -1187,10 +1287,11 @@ class MoveItBackend:
                 return False
         return True
 
-    def _wait_arm_trajectory_result(self, future, timeout_sec: float):
-        """Wait while fail-closing on a fresh live-joint limit excursion."""
+    def _wait_arm_trajectory_result(
+        self, future, timeout_sec: float
+    ) -> ArmTrajectoryWaitResult:
+        """Wait while classifying terminal, timeout, monitor and future errors."""
 
-        self._arm_trajectory_limit_abort = False
         event = threading.Event()
         future.add_done_callback(lambda _: event.set())
         deadline = time.monotonic() + float(timeout_sec)
@@ -1206,23 +1307,28 @@ class MoveItBackend:
                         getattr(self, "execution_joint_limit_margin_rad", 0.02),
                     )
                     if violation is not None:
-                        self._arm_trajectory_limit_abort = True
                         joint_index, value, lower, upper = violation
-                        self.node.get_logger().error(
-                            "live arm limit monitor rejected trajectory: "
+                        detail = (
                             f"panda_joint{joint_index} reached {value:.6f} rad "
-                            f"outside the execution [{lower:.6f}, {upper:.6f}] "
-                            "rad bounds"
+                            f"outside [{lower:.6f}, {upper:.6f}] rad"
                         )
-                        return None
+                        self.node.get_logger().error(
+                            "live arm limit monitor rejected trajectory: " + detail
+                        )
+                        return ArmTrajectoryWaitResult(
+                            "LIVE_JOINT_LIMIT_ABORT", detail=detail
+                        )
             if event.is_set():
                 try:
-                    return future.result()
-                except Exception:
-                    return None
+                    return ArmTrajectoryWaitResult("TERMINAL", result=future.result())
+                except Exception as exc:
+                    return ArmTrajectoryWaitResult(
+                        "RESULT_FUTURE_ERROR",
+                        detail=f"{type(exc).__name__}: {exc}",
+                    )
             remaining = deadline - time.monotonic()
             if remaining <= 0.0:
-                return None
+                return ArmTrajectoryWaitResult("WALL_TIMEOUT")
             event.wait(min(0.01, remaining))
 
     def _joint_path_nominal_duration(
@@ -1320,24 +1426,91 @@ class MoveItBackend:
         anchor = None
         anchor_monotonic = None
         previous_sequence = None
+        previous_sample_monotonic = None
+        previous_acquisition_ns = None
+        anchor_acquisition_ns = None
         stable_samples = 0
         while time.monotonic() < deadline:
-            live = self._latest_live_arm_positions()
-            if live is not None:
-                sequence, positions = live
-                if sequence == previous_sequence:
-                    time.sleep(self.settle_sample_period_sec)
-                    continue
-                previous_sequence = sequence
-            else:
-                with self._planning_scene_monitor.read_only() as scene:
-                    positions = tuple(
-                        float(value)
-                        for value in scene.current_state.get_joint_group_positions(
-                            self.planning_group
-                        )
-                    )
+            snapshot = self._latest_live_arm_snapshot()
+            if snapshot is None:
+                # The planning scene may be stale or merely mirror the last
+                # commanded state.  It is not an independent physical-stop
+                # observation, so never use it to satisfy this gate.
+                anchor = None
+                anchor_monotonic = None
+                stable_samples = 0
+                time.sleep(self.settle_sample_period_sec)
+                continue
+            sequence = snapshot.sequence
+            positions = snapshot.positions
+            feedback = snapshot.feedback
+            complete_receipt_ns = snapshot.receipt_monotonic_ns
+            if (
+                not positions
+                or len(positions) != len(self._arm_joint_names)
+                or not all(math.isfinite(value) for value in positions)
+            ):
+                self.node.get_logger().error(
+                    "Panda arm stop confirmation rejected invalid joint feedback"
+                )
+                return False
+            if previous_sequence is not None and sequence <= previous_sequence:
+                time.sleep(self.settle_sample_period_sec)
+                continue
+            previous_sequence = sequence
+            acquisition_ns = feedback.get("acquisition_stamp_ns")
+            if acquisition_ns is None or complete_receipt_ns is None:
+                anchor = None
+                anchor_monotonic = None
+                anchor_acquisition_ns = None
+                stable_samples = 0
+                time.sleep(self.settle_sample_period_sec)
+                continue
+            now_monotonic_ns = time.monotonic_ns()
+            ros_now_ns = self._evidence_ros_now_ns()
+            receipt_age_ns = now_monotonic_ns - complete_receipt_ns
+            acquisition_age_ns = (
+                None if ros_now_ns is None else ros_now_ns - acquisition_ns
+            )
+            freshness_limit_ns = round(self.settle_window_sec * 1e9)
+            if (
+                receipt_age_ns < 0
+                or receipt_age_ns > freshness_limit_ns
+                or acquisition_age_ns is None
+                or acquisition_age_ns < 0
+                or acquisition_age_ns > freshness_limit_ns
+            ):
+                anchor = None
+                anchor_monotonic = None
+                anchor_acquisition_ns = None
+                stable_samples = 0
+                time.sleep(self.settle_sample_period_sec)
+                continue
+            if previous_acquisition_ns is not None and acquisition_ns <= previous_acquisition_ns:
+                self._emit_motion_evidence("STOP_GATE_REJECTED", {
+                    "reason": "ACQUISITION_STAMP_NOT_ADVANCING",
+                    "sample": feedback,
+                    "previous_acquisition_stamp_ns": previous_acquisition_ns,
+                })
+                self.node.get_logger().error("Panda arm stop rejected repeated or regressing acquisition stamp")
+                return False
+            if (previous_acquisition_ns is not None
+                    and acquisition_ns - previous_acquisition_ns >= self.settle_window_sec * 1e9):
+                anchor = None
+                stable_samples = 0
+            previous_acquisition_ns = acquisition_ns
             sample_monotonic = time.monotonic()
+            if (
+                previous_sample_monotonic is not None
+                and sample_monotonic - previous_sample_monotonic
+                >= self.settle_window_sec
+            ):
+                # Time without feedback cannot prove a stable interval.  A
+                # gap as long as the required window starts a new observation.
+                anchor = None
+                anchor_monotonic = None
+                stable_samples = 0
+            previous_sample_monotonic = sample_monotonic
             if anchor is not None and len(positions) == len(anchor):
                 maximum_delta = max(
                     abs(current - initial) for current, initial in zip(positions, anchor)
@@ -1349,15 +1522,27 @@ class MoveItBackend:
                         and anchor_monotonic is not None
                         and sample_monotonic - anchor_monotonic
                         >= self.settle_window_sec
+                        and anchor_acquisition_ns is not None
+                        and acquisition_ns - anchor_acquisition_ns
+                        >= round(self.settle_window_sec * 1e9)
                     ):
+                        self._emit_motion_evidence("STOP_GATE_POSITION_WINDOW", {
+                            "first_acquisition_stamp_ns": anchor_acquisition_ns,
+                            "last_sample": feedback, "samples": stable_samples,
+                            "window_sec": self.settle_window_sec,
+                            "position_delta_rad": self.settle_delta_rad,
+                            "independent_stop_evidence_required": True,
+                        })
                         return True
                 else:
                     anchor = positions
                     anchor_monotonic = sample_monotonic
+                    anchor_acquisition_ns = acquisition_ns
                     stable_samples = 1
             else:
                 anchor = positions
                 anchor_monotonic = sample_monotonic
+                anchor_acquisition_ns = acquisition_ns
                 stable_samples = 1
             time.sleep(self.settle_sample_period_sec)
         self.node.get_logger().error(
@@ -1399,6 +1584,17 @@ class MoveItBackend:
             ):
                 return MotionOutcome(False, planning_time, 0.0)
 
+        evidence = getattr(self, "_motion_evidence", None)
+        command_id = None
+        if evidence is not None:
+            try:
+                trajectory_message = plan_result.trajectory.get_robot_trajectory_msg()
+                command_id = evidence.start_command("MOVEIT_EXECUTE", {
+                    "trajectory": serialize_trajectory(trajectory_message.joint_trajectory),
+                    "latest_joint_feedback": getattr(self, "_latest_arm_feedback", None),
+                })
+            except Exception as exc:
+                self.node.get_logger().error(f"motion evidence emission failed: {exc}")
         execution_started = time.perf_counter()
         try:
             execution_result = self._moveit.execute(
@@ -1406,11 +1602,20 @@ class MoveItBackend:
             )
         except Exception as exc:
             self.node.get_logger().error(f"MoveIt execution exception: {exc}")
+            self._emit_motion_evidence("MOVEIT_EXECUTION_EXCEPTION", {
+                "error": str(exc), "physical_state": "UNKNOWN",
+            }, command_id=command_id)
             return MotionOutcome(
                 False, planning_time, time.perf_counter() - execution_started
             )
         execution_time = time.perf_counter() - execution_started
         execution_succeeded = self._execution_succeeded(execution_result)
+        self._emit_motion_evidence("MOVEIT_EXECUTION_RETURNED", {
+            "return_type": type(execution_result).__name__,
+            "normalized_success": execution_succeeded,
+            "action_accepted": None,
+            "physical_state": "AWAITING_INDEPENDENT_OBSERVATION",
+        }, command_id=command_id)
         if execution_succeeded and pose is not None:
             if not self._wait_until_arm_settled():
                 execution_succeeded = False
@@ -1700,28 +1905,77 @@ class MoveItBackend:
             point.time_from_start = self._Duration(seconds=elapsed).to_msg()
             goal.trajectory.points.append(point)
             previous = positions
+        evidence = getattr(self, "_motion_evidence", None)
+        command_id = None
+        if evidence is not None:
+            try:
+                command_id = evidence.start_command("DIRECT_ARM_TRAJECTORY", {
+                    "trajectory": serialize_trajectory(goal.trajectory),
+                    "planned_start_positions_rad": list(start_positions),
+                    "latest_joint_feedback": getattr(self, "_latest_arm_feedback", None),
+                    "nominal_duration_sec": elapsed,
+                })
+            except Exception as exc:
+                self.node.get_logger().error(f"motion evidence emission failed: {exc}")
         execution_started = time.perf_counter()
         goal_handle = self._wait_future(
             self._arm_action_probe.send_goal_async(goal),
             self.request_timeout_sec,
         )
         if goal_handle is None or not goal_handle.accepted:
+            self._emit_motion_evidence(
+                "ACTION_ACCEPTANCE_UNKNOWN" if goal_handle is None else "ACTION_REJECTED",
+                {"physical_state": "UNKNOWN"}, command_id=command_id,
+            )
             return False, time.perf_counter() - execution_started
-        wrapped = self._wait_arm_trajectory_result(
+        goal_uuid = getattr(getattr(goal_handle, "goal_id", None), "uuid", None)
+        self._emit_motion_evidence("ACTION_ACCEPTED", {
+            "goal_uuid": bytes(goal_uuid).hex() if goal_uuid is not None else None,
+            "physical_motion_started": None,
+        }, command_id=command_id)
+        wait_result = self._wait_arm_trajectory_result(
             goal_handle.get_result_async(),
             4.0 * elapsed + self.trajectory_timeout_margin_sec,
         )
         execution_time = time.perf_counter() - execution_started
-        if wrapped is None:
-            if not getattr(self, "_arm_trajectory_limit_abort", False):
+        if wait_result.kind != "TERMINAL":
+            event_type = {
+                "LIVE_JOINT_LIMIT_ABORT": "ACTION_LIVE_JOINT_LIMIT_ABORT",
+                "RESULT_FUTURE_ERROR": "ACTION_RESULT_FUTURE_ERROR",
+                "WALL_TIMEOUT": "ACTION_RESULT_TIMEOUT",
+            }[wait_result.kind]
+            if wait_result.kind == "WALL_TIMEOUT":
                 self.node.get_logger().error(
                     "Cartesian arm trajectory exceeded its wall-time deadline; "
                     "requesting cancellation"
                 )
+            elif wait_result.kind == "RESULT_FUTURE_ERROR":
+                self.node.get_logger().error(
+                    "Cartesian arm trajectory result future failed: "
+                    f"{wait_result.detail}"
+                )
+            self._emit_motion_evidence(event_type, {
+                "wait_outcome": wait_result.kind,
+                "detail": wait_result.detail,
+                "physical_state": "UNKNOWN",
+            }, command_id=command_id)
             cancel_future = goal_handle.cancel_goal_async()
-            self._wait_future(cancel_future, self.request_timeout_sec)
+            cancel_response = self._wait_future(cancel_future, self.request_timeout_sec)
+            self._emit_motion_evidence("CANCEL_RESPONSE", {
+                "reason": wait_result.kind,
+                "response_received": cancel_response is not None,
+                "return_code": getattr(cancel_response, "return_code", None),
+                "physical_state": "UNKNOWN",
+            }, command_id=command_id)
             return False, execution_time
+        wrapped = wait_result.result
         error_code = int(wrapped.result.error_code)
+        self._emit_motion_evidence("ACTION_TERMINAL", {
+            "result_status": getattr(wrapped, "status", None),
+            "error_code": error_code, "error_string": wrapped.result.error_string,
+            "latest_joint_feedback": getattr(self, "_latest_arm_feedback", None),
+            "physical_state": "AWAITING_INDEPENDENT_OBSERVATION",
+        }, command_id=command_id)
         succeeded = error_code == int(self._FollowJointTrajectory.Result.SUCCESSFUL)
         if not succeeded:
             self.node.get_logger().error(
@@ -2069,18 +2323,26 @@ class MoveItBackend:
             current = self._current_link_pose()
         return MotionOutcome(True, planning_time, execution_time)
 
-    def _move_guarded_place(self, target: Pose) -> MotionOutcome:
-        """Enter the open collection bin vertically instead of through a wall."""
+    def _guarded_place_waypoints(
+        self, current: Pose, target: Pose
+    ) -> tuple[tuple[str, Pose], ...]:
+        """Build a connected plant-to-bin route with a clear transit corridor.
 
-        current = self._current_link_pose()
-        safe_z = max(current.z, target.z) + self.place_transit_clearance_m
-        waypoints = (
+        The high lift is used only while leaving the plant.  Keeping that same
+        height all the way to the bin can put the arm outside its Cartesian IK
+        envelope, so the route lowers to the configured bin clearance only
+        after reaching the obstacle-free corridor.
+        """
+
+        lift_z = max(current.z, target.z) + self.place_transit_clearance_m
+        bin_transit_z = target.z + self.place_transit_clearance_m
+        return (
             (
                 "vertical lift",
                 Pose(
                     current.x,
                     current.y,
-                    safe_z,
+                    lift_z,
                     current.qx,
                     current.qy,
                     current.qz,
@@ -2088,11 +2350,47 @@ class MoveItBackend:
                 ),
             ),
             (
-                "in-place reorientation",
+                "move to clear corridor",
                 Pose(
                     current.x,
-                    current.y,
-                    safe_z,
+                    self.safe_transit_corridor_y_m,
+                    lift_z,
+                    current.qx,
+                    current.qy,
+                    current.qz,
+                    current.qw,
+                ),
+            ),
+            (
+                "corridor reorientation",
+                Pose(
+                    current.x,
+                    self.safe_transit_corridor_y_m,
+                    lift_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
+            (
+                "lower to bin transit height",
+                Pose(
+                    current.x,
+                    self.safe_transit_corridor_y_m,
+                    bin_transit_z,
+                    target.qx,
+                    target.qy,
+                    target.qz,
+                    target.qw,
+                ),
+            ),
+            (
+                "corridor translation",
+                Pose(
+                    target.x,
+                    self.safe_transit_corridor_y_m,
+                    bin_transit_z,
                     target.qx,
                     target.qy,
                     target.qz,
@@ -2104,7 +2402,7 @@ class MoveItBackend:
                 Pose(
                     target.x,
                     target.y,
-                    safe_z,
+                    bin_transit_z,
                     target.qx,
                     target.qy,
                     target.qz,
@@ -2113,8 +2411,69 @@ class MoveItBackend:
             ),
             ("vertical descent", target),
         )
+
+    def preview_guarded_place_from_current(self, target: Pose) -> PathAssessment:
+        """Prove the entire place route without sending a controller command."""
+
+        current = self._current_link_pose()
+        waypoints = tuple(
+            pose for _label, pose in self._guarded_place_waypoints(current, target)
+        )
+        return self.preview_cartesian_segments(
+            current,
+            self._current_joint_positions(),
+            waypoints,
+        )
+
+    @staticmethod
+    def _bounded_place_orientation_candidates(target: Pose) -> tuple[Pose, ...]:
+        """Keep the downward tool axis while offering four wrist-roll branches."""
+
+        return tuple(
+            rotate_about_base_z(target, quarter_turn * math.pi / 2.0)
+            for quarter_turn in range(4)
+        )
+
+    def _move_guarded_place(self, target: Pose) -> MotionOutcome:
+        """Enter the open collection bin vertically instead of through a wall."""
+
+        current = self._current_link_pose()
+        selected_target = None
+        preview = None
+        collision_rejected = False
         planning_time = 0.0
+        for orientation_index, candidate in enumerate(
+            self._bounded_place_orientation_candidates(target)
+        ):
+            candidate_preview = self.preview_guarded_place_from_current(candidate)
+            planning_time += candidate_preview.planning_time_sec
+            collision_rejected = collision_rejected or candidate_preview.collision
+            if not candidate_preview.feasible:
+                self.node.get_logger().info(
+                    "MoveIt guarded place orientation rejected by connected "
+                    f"preview: index={orientation_index}"
+                )
+                continue
+            selected_target = candidate
+            preview = candidate_preview
+            self.node.get_logger().info(
+                "MoveIt guarded place selected bounded wrist-roll orientation: "
+                f"index={orientation_index}"
+            )
+            break
+        if selected_target is None or preview is None:
+            self.node.get_logger().warning(
+                "Guarded place rejected before motion because all four "
+                "connected Cartesian wrist-roll previews failed"
+            )
+            return MotionOutcome(
+                False,
+                planning_time,
+                0.0,
+                collision=collision_rejected,
+            )
         execution_time = 0.0
+        waypoints = self._guarded_place_waypoints(current, selected_target)
         for label, waypoint in waypoints:
             self.node.get_logger().info(f"MoveIt guarded place phase: {label}")
             outcome = self._move_segmented_between(
@@ -2297,14 +2656,23 @@ class MoveItBackend:
                 return MotionOutcome(False, planning_time, execution_time)
             measured = self._current_joint_positions()
             endpoint = segment[-1]
-            if len(measured) != len(endpoint) or any(
-                abs(observed - expected) > self.home_joint_tolerance_rad
+            deviations = tuple(
+                abs(observed - expected)
                 for observed, expected in zip(measured, endpoint)
+            )
+            if len(measured) != len(endpoint) or any(
+                deviation > self.home_joint_tolerance_rad
+                for deviation in deviations
             ):
+                deviation_detail = ", ".join(
+                    f"joint{index}={deviation:.6f}"
+                    for index, deviation in enumerate(deviations, start=1)
+                )
                 self.node.get_logger().error(
                     "named-configuration route stopped because bounded segment "
                     f"{segment_index}/{len(segments)} did not reach its verified "
-                    "joint endpoint"
+                    "joint endpoint; absolute_errors_rad=["
+                    f"{deviation_detail}]"
                 )
                 return MotionOutcome(False, planning_time, execution_time)
         return MotionOutcome(True, planning_time, execution_time)

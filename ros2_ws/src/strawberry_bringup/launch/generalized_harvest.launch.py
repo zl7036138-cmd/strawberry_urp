@@ -60,6 +60,8 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("headless", default_value="true"),
             DeclareLaunchArgument("simulation_seed", default_value="17036"),
+            DeclareLaunchArgument("motion_evidence_run_id", default_value=""),
+            DeclareLaunchArgument("motion_evidence_scenario_id", default_value=""),
             DeclareLaunchArgument(
                 "base_camera_mast_xyz", default_value="-0.35 0.45 0.05"
             ),
@@ -217,9 +219,23 @@ def generate_launch_description():
                         "use_sim_time": True,
                         "scene_config_file": scene_config,
                         "camera_mount": "dual",
+                        "motion_evidence_run_id": LaunchConfiguration("motion_evidence_run_id"),
+                        "motion_evidence_scenario_id": LaunchConfiguration("motion_evidence_scenario_id"),
                         "fruit_pose_source": "tracked",
                         "tracked_targets_topic": "/strawberry/tracked_targets",
                         "target_refinement_topic": "",
+                        # Match the live endpoint verifier to the unchanged
+                        # 0.05 rad trajectory-controller goal tolerance.  A
+                        # stricter 0.03 rad second opinion could contradict a
+                        # successful controller result and stop an otherwise
+                        # completed post-place return route.
+                        "home_joint_tolerance_rad": 0.05,
+                        # The collection-bin wall reaches 0.53 m.  The 20 mm
+                        # generic default let Panda link 4 sweep the wall while
+                        # changing from the grasp orientation to the downward
+                        # release orientation.  Use the scene-proven elevated
+                        # transit clearance without changing collision limits.
+                        "place_transit_clearance_m": 0.12,
                     }
                 ],
             ),

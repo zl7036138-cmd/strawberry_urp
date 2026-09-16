@@ -117,6 +117,11 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             '"grasp_joint_trajectory_velocity_rad_per_sec", 0.25',
             manipulation,
         )
+        for parameter in ("motion_evidence_run_id", "motion_evidence_scenario_id"):
+            self.assertIn(f'DeclareLaunchArgument("{parameter}", default_value="")', self.source)
+            self.assertIn(f'"{parameter}": LaunchConfiguration("{parameter}")', self.source)
+        self.assertIn('"home_joint_tolerance_rad": 0.05', self.source)
+        self.assertIn('"place_transit_clearance_m": 0.12', self.source)
         self.assertIn('"scene_config_file": scene_config', self.source)
         self.assertNotIn("oracle_target_provider", self.source)
         simulation = (

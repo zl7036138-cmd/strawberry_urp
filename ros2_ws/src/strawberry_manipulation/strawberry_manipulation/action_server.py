@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import json
 import os
 import signal
 import sys
@@ -49,6 +50,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from strawberry_interfaces.srv import EvaluateTarget, MoveToObservation
         from strawberry_sim.core import load_scene_config
         from std_srvs.srv import Trigger
+        from std_msgs.msg import String
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
 
@@ -208,6 +210,17 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self.declare_parameter("shutdown_timeout_sec", 60.0)
             self.declare_parameter("moveit_teardown_workaround", True)
+            self.declare_parameter("motion_evidence_run_id", "")
+            self.declare_parameter("motion_evidence_scenario_id", "")
+            self._motion_evidence_publisher = self.create_publisher(
+                String, "/strawberry/motion_evidence", 100
+            )
+
+            def publish_motion_evidence(event):
+                message = String()
+                message.data = json.dumps(event, allow_nan=False, separators=(",", ":"))
+                self._motion_evidence_publisher.publish(message)
+
             base_frame = str(self.get_parameter("base_frame").value)
             if scene.base_frame != base_frame:
                 raise RuntimeError(
@@ -301,6 +314,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
             backend = MoveItBackend(
                 self,
+                evidence_sink=publish_motion_evidence,
+                evidence_run_id=str(self.get_parameter("motion_evidence_run_id").value),
+                evidence_scenario_id=str(self.get_parameter("motion_evidence_scenario_id").value),
                 planning_group=str(self.get_parameter("planning_group").value),
                 pose_link=str(self.get_parameter("pose_link").value),
                 base_frame=base_frame,

@@ -26,6 +26,8 @@ MoveIt 2 碰撞检测与运动规划
 - 团队成员自底向上全解析：[`docs/team-walkthrough-zh.md`](docs/team-walkthrough-zh.md)
 - 中文系统学习路线：[`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md)
 - 系统架构与接口：[`docs/architecture.md`](docs/architecture.md)
+- 停稳判定修复与 v7 失败诊断：[`docs/p0/ARM_SETTLE_GATE_REVIEW_2026-09-14.md`](docs/p0/ARM_SETTLE_GATE_REVIEW_2026-09-14.md)
+- 轨迹/时间戳/证据审计与 P1/P2 修复：[`docs/p0/MOTION_EVIDENCE_AUDIT_FIXES_2026-09-15.md`](docs/p0/MOTION_EVIDENCE_AUDIT_FIXES_2026-09-15.md)
 - 环境复现说明：[`docs/reproduction.md`](docs/reproduction.md)
 - field-v3 场景集成：[`docs/field-v3-integration.md`](docs/field-v3-integration.md)
 - 最终项目总结：[`docs/submission-report.md`](docs/submission-report.md)

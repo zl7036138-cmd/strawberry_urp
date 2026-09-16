@@ -12,6 +12,7 @@ PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
 from strawberry_manipulation.moveit_backend import (  # noqa: E402
+    ArmStateSnapshot,
     MoveItBackend,
     PathAssessment,
     gripper_result_allows_command,
@@ -54,11 +55,36 @@ class MoveItBackendStaticTests(unittest.TestCase):
             (0.0, -1.75, 0.0, -1.5, 0.0, 1.5, 0.0),
         )
 
-        self.assertIsNone(
-            backend._wait_arm_trajectory_result(PendingFuture(), 1.0)
-        )
-        self.assertTrue(backend._arm_trajectory_limit_abort)
+        outcome = backend._wait_arm_trajectory_result(PendingFuture(), 1.0)
+        self.assertEqual(outcome.kind, "LIVE_JOINT_LIMIT_ABORT")
+        self.assertIsNone(outcome.result)
         self.assertIn("live arm limit monitor", logger.errors[-1])
+
+    def test_arm_result_wait_distinguishes_future_error_and_timeout(self):
+        class BrokenFuture:
+            def add_done_callback(self, callback):
+                callback(self)
+
+            def result(self):
+                raise RuntimeError("broken")
+
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._latest_live_arm_positions = lambda: None
+        broken = backend._wait_arm_trajectory_result(BrokenFuture(), 1.0)
+        self.assertEqual(broken.kind, "RESULT_FUTURE_ERROR")
+        self.assertIsNone(broken.result)
+
+        class PendingFuture:
+            def add_done_callback(self, callback):
+                self.callback = callback
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            side_effect=(0.0, 2.0),
+        ):
+            timeout = backend._wait_arm_trajectory_result(PendingFuture(), 1.0)
+        self.assertEqual(timeout.kind, "WALL_TIMEOUT")
+        self.assertIsNone(timeout.result)
 
     def test_bin_verification_uses_dedicated_wall_timeout(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -372,9 +398,18 @@ class MoveItBackendStaticTests(unittest.TestCase):
             joint_name: None for joint_name in backend._arm_joint_names
         }
         backend._arm_state_sequence = 0
+        backend._latest_arm_snapshot = None
+        backend.node = SimpleNamespace(
+            get_clock=lambda: SimpleNamespace(
+                now=lambda: SimpleNamespace(nanoseconds=1_000_000_000)
+            )
+        )
 
         backend._on_gripper_joint_state(
             SimpleNamespace(
+                header=SimpleNamespace(
+                    stamp=SimpleNamespace(sec=1, nanosec=0), frame_id="base"
+                ),
                 name=[
                     "panda_joint1",
                     "panda_joint2",
@@ -387,6 +422,8 @@ class MoveItBackendStaticTests(unittest.TestCase):
                     "panda_finger_joint2",
                 ],
                 position=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.031, 0.032],
+                velocity=[0.0] * 9,
+                effort=[],
             )
         )
         self.assertEqual(
@@ -394,7 +431,15 @@ class MoveItBackendStaticTests(unittest.TestCase):
             (1, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)),
         )
         backend._on_gripper_joint_state(
-            SimpleNamespace(name=["panda_joint1"], position=[0.15])
+            SimpleNamespace(
+                header=SimpleNamespace(
+                    stamp=SimpleNamespace(sec=1, nanosec=50_000_000)
+                ),
+                name=["panda_joint1"],
+                position=[0.15],
+                velocity=[0.0],
+                effort=[],
+            )
         )
         self.assertEqual(
             backend._latest_live_arm_positions(),
@@ -703,11 +748,15 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
         backend.safe_transit_clearance_m = 0.02
+        backend.safe_transit_corridor_y_m = -0.10
         backend.place_transit_clearance_m = 0.13
         state = [Pose(0.42, -0.12, 0.70, qx=1.0, qw=0.0)]
         segments = []
 
         backend._current_link_pose = lambda: state[-1]
+        backend.preview_guarded_place_from_current = lambda _target: PathAssessment(
+            True, False, 0.07, 0.3, (0.1, 0.2)
+        )
 
         def move_segment(start, target, *, intermediate_endpoint=False):
             self.assertEqual(start, state[-1])
@@ -720,14 +769,83 @@ class MoveItBackendStaticTests(unittest.TestCase):
         outcome = backend._move_guarded_place(target)
 
         self.assertTrue(outcome.success)
-        self.assertEqual(len(segments), 4)
+        self.assertEqual(len(segments), 7)
         self.assertAlmostEqual(segments[0][0].z, 0.83)
         self.assertEqual(
-            (segments[2][0].x, segments[2][0].y, segments[2][0].z),
-            (0.35, -0.45, 0.83),
+            (segments[1][0].x, segments[1][0].y, segments[1][0].z),
+            (0.42, -0.10, 0.83),
+        )
+        self.assertEqual(
+            (segments[4][0].x, segments[4][0].y, segments[4][0].z),
+            (0.35, -0.10, 0.6854),
+        )
+        self.assertEqual(
+            (segments[5][0].x, segments[5][0].y, segments[5][0].z),
+            (0.35, -0.45, 0.6854),
         )
         self.assertEqual(segments[-1], (target, False))
         self.assertTrue(all(intermediate for _, intermediate in segments[:-1]))
+
+    def test_guarded_place_preview_failure_is_zero_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._current_link_pose = lambda: Pose(0.20, 0.0, 0.70)
+        backend.preview_guarded_place_from_current = lambda _target: PathAssessment(
+            False, True, 0.04, 0.2, (0.1, 0.2)
+        )
+        segments = []
+        backend._move_segmented_between = lambda *args, **kwargs: segments.append(
+            (args, kwargs)
+        )
+
+        outcome = backend._move_guarded_place(
+            Pose(0.35, -0.45, 0.5554, qx=1.0, qw=0.0)
+        )
+
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.collision)
+        self.assertEqual(outcome.execution_time_sec, 0.0)
+        self.assertEqual(segments, [])
+
+    def test_guarded_place_uses_first_fully_feasible_wrist_roll(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.safe_transit_corridor_y_m = -0.10
+        backend.place_transit_clearance_m = 0.12
+        state = [Pose(0.42, -0.12, 0.70, qx=1.0, qw=0.0)]
+        previews = []
+        segments = []
+        backend._current_link_pose = lambda: state[-1]
+
+        def preview(candidate):
+            previews.append(candidate)
+            return PathAssessment(
+                len(previews) == 2,
+                False,
+                0.01,
+                0.2,
+                (0.1, 0.2),
+            )
+
+        def move_segment(start, target, *, intermediate_endpoint=False):
+            self.assertEqual(start, state[-1])
+            segments.append((target, intermediate_endpoint))
+            state.append(target)
+            return MotionOutcome(True, 0.01, 0.02)
+
+        backend.preview_guarded_place_from_current = preview
+        backend._move_segmented_between = move_segment
+        target = Pose(0.35, -0.45, 0.5554, qx=1.0, qw=0.0)
+
+        outcome = backend._move_guarded_place(target)
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(len(previews), 2)
+        self.assertAlmostEqual(previews[1].qx, math.sqrt(0.5))
+        self.assertAlmostEqual(previews[1].qy, math.sqrt(0.5))
+        self.assertAlmostEqual(segments[-1][0].qx, math.sqrt(0.5))
+        self.assertAlmostEqual(segments[-1][0].qy, math.sqrt(0.5))
+        self.assertEqual(segments[-1][1], False)
 
     def test_guarded_approach_preview_failure_is_zero_motion(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -1242,8 +1360,12 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.node = SimpleNamespace(get_logger=lambda: logger)
         backend._arm_joint_names = ("panda_joint1",)
         backend._gripper_state_lock = threading.Lock()
-        backend._latest_arm_positions_rad = {"panda_joint1": 0.20}
-        backend._arm_state_sequence = 1
+        backend._latest_arm_snapshot = ArmStateSnapshot(
+            sequence=1,
+            positions=(0.20,),
+            feedback_json='{"acquisition_stamp_ns":1}',
+            receipt_monotonic_ns=1,
+        )
         backend.joint_trajectory_start_tolerance_rad = 0.05
         backend._arm_action_probe = SimpleNamespace(
             wait_for_server=lambda timeout_sec: self.fail(
@@ -1268,11 +1390,26 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.settle_sample_period_sec = 0.05
         backend.settle_delta_rad = 0.002
         backend.settle_stable_samples = 3
+        backend._arm_joint_names = ("panda_joint1",)
         samples = iter(
             (index, (0.001 * index,))
             for index in range(1, 30)
         )
-        backend._latest_live_arm_positions = lambda: next(samples)
+        backend._gripper_state_lock = threading.Lock()
+
+        def next_sample():
+            sequence, positions = next(samples)
+            stamp_ns = sequence * 100_000_000
+            return ArmStateSnapshot(
+                sequence=sequence,
+                positions=positions,
+                feedback_json=(
+                    '{"acquisition_stamp_ns":' + str(stamp_ns) + '}'
+                ),
+                receipt_monotonic_ns=int(__import__("time").monotonic_ns()),
+            )
+
+        backend._latest_live_arm_snapshot = next_sample
         clock = iter(index * 0.05 for index in range(100))
 
         with patch(
@@ -1286,16 +1423,35 @@ class MoveItBackendStaticTests(unittest.TestCase):
     def test_settle_gate_accepts_fresh_samples_stable_for_complete_window(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.node.get_clock = lambda: SimpleNamespace(
+            now=lambda: SimpleNamespace(nanoseconds=backend._latest_complete_stamp_ns)
+        )
         backend.settle_timeout_sec = 1.0
         backend.settle_window_sec = 0.4
         backend.settle_sample_period_sec = 0.05
         backend.settle_delta_rad = 0.002
         backend.settle_stable_samples = 3
+        backend._arm_joint_names = ("panda_joint1",)
         samples = iter(
             (index, (0.5 + (0.0001 if index % 2 else 0.0),))
             for index in range(1, 30)
         )
-        backend._latest_live_arm_positions = lambda: next(samples)
+        backend._gripper_state_lock = threading.Lock()
+
+        def next_sample():
+            sequence, positions = next(samples)
+            stamp_ns = sequence * 100_000_000
+            backend._latest_complete_stamp_ns = stamp_ns
+            return ArmStateSnapshot(
+                sequence=sequence,
+                positions=positions,
+                feedback_json=(
+                    '{"acquisition_stamp_ns":' + str(stamp_ns) + '}'
+                ),
+                receipt_monotonic_ns=int(__import__("time").monotonic_ns()),
+            )
+
+        backend._latest_live_arm_snapshot = next_sample
         clock = iter(index * 0.05 for index in range(100))
 
         with patch(

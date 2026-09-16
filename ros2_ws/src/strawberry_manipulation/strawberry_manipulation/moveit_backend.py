@@ -188,6 +188,7 @@ class MoveItBackend:
         max_grasp_segment_m: float = 0.01,
         max_orientation_segment_rad: float = math.radians(10.0),
         max_collision_joint_step_rad: float = 0.01,
+        max_joint_edge_step_rad: float = 0.02,
         safe_transit_clearance_m: float = 0.02,
         place_transit_clearance_m: float | None = None,
         safe_transit_corridor_y_m: float = -0.10,
@@ -346,6 +347,11 @@ class MoveItBackend:
             raise ValueError("orientation segment angle must be positive")
         if max_collision_joint_step_rad <= 0.0:
             raise ValueError("collision-check joint step must be positive")
+        if (
+            not math.isfinite(max_joint_edge_step_rad)
+            or max_joint_edge_step_rad <= 0.0
+        ):
+            raise ValueError("joint edge step cap must be positive")
         if safe_transit_clearance_m <= 0.0:
             raise ValueError("safe transit clearance must be positive")
         if place_transit_clearance_m is None:
@@ -462,6 +468,7 @@ class MoveItBackend:
         self.max_grasp_segment_m = float(max_grasp_segment_m)
         self.max_orientation_segment_rad = float(max_orientation_segment_rad)
         self.max_collision_joint_step_rad = float(max_collision_joint_step_rad)
+        self.max_joint_edge_step_rad = float(max_joint_edge_step_rad)
         self.safe_transit_clearance_m = float(safe_transit_clearance_m)
         self.place_transit_clearance_m = float(place_transit_clearance_m)
         self.safe_transit_corridor_y_m = float(safe_transit_corridor_y_m)
@@ -1331,6 +1338,53 @@ class MoveItBackend:
                 return ArmTrajectoryWaitResult("WALL_TIMEOUT")
             event.wait(min(0.01, remaining))
 
+    def _subdivide_joint_path_by_step(
+        self,
+        positions: tuple[tuple[float, ...], ...],
+        max_step_rad: float | None = None,
+    ) -> tuple[tuple[float, ...], ...]:
+        """Insert intermediate points so no edge exceeds a joint-step cap.
+
+        v9 evidence: near the bin-edge singularity one Cartesian segment
+        produced a joint5 edge larger than the 0.05 rad controller path
+        tolerance; the simulation lagged and the goal aborted (code -4).
+        Subdividing such edges keeps every commanded step strictly inside
+        the tracking envelope without changing the route or its endpoints.
+        """
+
+        if max_step_rad is None:
+            max_step_rad = getattr(self, "max_joint_edge_step_rad", None)
+        if (
+            not isinstance(max_step_rad, (int, float))
+            or isinstance(max_step_rad, bool)
+            or not math.isfinite(max_step_rad)
+            or max_step_rad <= 0.0
+        ):
+            raise ValueError("joint edge step cap must be positive")
+        if len(positions) < 2:
+            return positions
+        if any(
+            len(row) != len(positions[0]) for row in positions
+        ):
+            return positions
+        subdivided: list[tuple[float, ...]] = [tuple(positions[0])]
+        for left, right in zip(positions, positions[1:]):
+            maximum_step = max(
+                abs(a - b) for a, b in zip(right, left)
+            )
+            count = 1
+            if maximum_step > max_step_rad:
+                count = int(math.ceil(maximum_step / max_step_rad))
+            for index in range(1, count + 1):
+                fraction = index / count
+                subdivided.append(
+                    tuple(
+                        a + fraction * (b - a)
+                        for a, b in zip(left, right)
+                    )
+                )
+        return tuple(subdivided)
+
     def _joint_path_nominal_duration(
         self,
         positions: tuple[tuple[float, ...], ...],
@@ -1883,6 +1937,18 @@ class MoveItBackend:
                 "Panda arm trajectory action server became unavailable"
             )
             return False, 0.0
+        configured_step_cap = getattr(
+            self, "max_joint_edge_step_rad", None
+        )
+        if (
+            isinstance(configured_step_cap, (int, float))
+            and not isinstance(configured_step_cap, bool)
+            and math.isfinite(configured_step_cap)
+            and configured_step_cap > 0.0
+        ):
+            joint_path = self._subdivide_joint_path_by_step(
+                tuple(joint_path)
+            )
         goal = self._FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = list(self._arm_joint_names)
         previous = start_positions

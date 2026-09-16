@@ -1525,6 +1525,49 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertAlmostEqual(duration, 0.15)
         self.assertAlmostEqual(velocity_limited_duration, 0.20)
 
+    def test_joint_path_edges_above_controller_tolerance_are_subdivided(self):
+        """v9 evidence: a 0.05+ rad single-edge step aborted the controller.
+
+        The align-above-bin segment near the bin-edge singularity produced a
+        joint5 edge larger than the 0.05 rad path tolerance; the simulation
+        lagged one sample and the goal aborted with code -4. Edges must be
+        subdivided so no single command step can reach the tolerance bound.
+        """
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.max_joint_edge_step_rad = 0.02
+
+        subdivided = backend._subdivide_joint_path_by_step(
+            ((0.0,), (0.045,), (0.047,))
+        )
+
+        self.assertEqual(subdivided[0], (0.0,))
+        self.assertEqual(subdivided[-1], (0.047,))
+        for left, right in zip(subdivided, subdivided[1:]):
+            maximum_step = max(
+                abs(a - b) for a, b in zip(right, left)
+            )
+            self.assertLessEqual(
+                maximum_step, 0.02 + 1e-12,
+                "subdivided path still contains an edge above the cap",
+            )
+
+    def test_joint_path_edges_within_tolerance_are_unchanged(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.max_joint_edge_step_rad = 0.02
+
+        original = ((0.0, 1.0), (0.01, 0.99))
+        self.assertEqual(
+            backend._subdivide_joint_path_by_step(original), original
+        )
+
+    def test_joint_edge_step_cap_is_validated(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        with self.assertRaises(ValueError):
+            backend._subdivide_joint_path_by_step(((0.0,), (0.01,)), None)
+        backend.max_joint_edge_step_rad = 0.0
+        with self.assertRaises(ValueError):
+            backend._subdivide_joint_path_by_step(((0.0,), (0.01,)))
+
     def test_joint_path_timing_honors_each_joint_velocity_limit(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.minimum_joint_waypoint_duration_sec = 0.05

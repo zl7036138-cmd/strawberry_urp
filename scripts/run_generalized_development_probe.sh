@@ -13,6 +13,8 @@ scene_dir="${2:-.codex_tmp/generalized_runtime_candidates_v1}"
 run_tag="${3:-development}"
 motion_evidence_run_id="${STRAWBERRY_MOTION_EVIDENCE_RUN_ID:-generalized_dev_seed_${seed}_${run_tag}_$(date -u +%Y%m%dT%H%M%SZ)}"
 motion_evidence_scenario_id="${STRAWBERRY_MOTION_EVIDENCE_SCENARIO_ID:-generalized_seed_$(printf '%06d' "${seed}")}"
+export STRAWBERRY_MOTION_EVIDENCE_RUN_ID="${motion_evidence_run_id}"
+export STRAWBERRY_MOTION_EVIDENCE_SCENARIO_ID="${motion_evidence_scenario_id}"
 scene_stem="generalized_seed_$(printf '%06d' "${seed}")"
 run_dir="${STRAWBERRY_DEVELOPMENT_OUTPUT_DIR:-.codex_tmp/generalized_harvest_seed_${seed}_${run_tag}}"
 startup_timeout_sec="${STRAWBERRY_PROBE_STARTUP_TIMEOUT_SEC:-120}"
@@ -33,6 +35,8 @@ case "${base_camera_resolution}" in
 esac
 
 mkdir -p "${run_dir}"
+printf '%s\n' "${motion_evidence_run_id}" > "${run_dir}/motion_evidence_run_id"
+printf '%s\n' "${motion_evidence_scenario_id}" > "${run_dir}/motion_evidence_scenario_id"
 for output in \
   runtime_probe.json runtime_probe.json.tmp cleanup_probe.json \
   truth_isolation.json runtime_score.json launch.log; do

@@ -183,6 +183,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("max_grasp_segment_m", 0.01)
             self.declare_parameter("max_orientation_segment_rad", 0.174533)
             self.declare_parameter("max_collision_joint_step_rad", 0.01)
+            self.declare_parameter("max_joint_edge_step_rad", 0.02)
             self.declare_parameter("safe_transit_clearance_m", 0.02)
             self.declare_parameter("place_transit_clearance_m", 0.02)
             self.declare_parameter("safe_transit_corridor_y_m", -0.10)
@@ -445,6 +446,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 max_collision_joint_step_rad=float(
                     self.get_parameter("max_collision_joint_step_rad").value
+                ),
+                max_joint_edge_step_rad=float(
+                    self.get_parameter("max_joint_edge_step_rad").value
                 ),
                 safe_transit_clearance_m=float(
                     self.get_parameter("safe_transit_clearance_m").value

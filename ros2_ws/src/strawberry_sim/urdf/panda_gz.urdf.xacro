@@ -244,6 +244,11 @@
     </hardware>
     <xacro:macro name="arm_control_joint" params="name">
       <joint name="${name}">
+        <!-- Effort is the claimed command interface: the trajectory controller
+             runs closed-loop PID with velocity feedforward, which balances the
+             attached-fruit gravity torque at steady state (the position-only
+             velocity law could not: v9/v10 aborted at 0.0531 rad vs 0.05). -->
+        <command_interface name="effort"/>
         <command_interface name="position"/>
         <state_interface name="position">
           <param name="initial_value">${initial_positions[name]}</param>

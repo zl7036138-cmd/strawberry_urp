@@ -25,8 +25,21 @@ panda_arm_controller:
       - panda_joint5
       - panda_joint6
       - panda_joint7
-    command_interfaces: [position]
+    # Effort command interface: Jazzy JTC runs closed-loop PID per joint with
+    # velocity feedforward. This balances the attached-fruit gravity torque
+    # (gravity compensation by feedback) instead of the gz_ros2_control
+    # position-interface velocity law that sagged past tolerance in v9/v10
+    # and limit-cycled at gain 3.0 in v11.
+    command_interfaces: [effort]
     state_interfaces: [position, velocity]
+    gains:
+      panda_joint1: {p: 300.0, i: 0.0, d: 10.0, ff_velocity_scale: 1.0}
+      panda_joint2: {p: 300.0, i: 0.0, d: 10.0, ff_velocity_scale: 1.0}
+      panda_joint3: {p: 300.0, i: 0.0, d: 10.0, ff_velocity_scale: 1.0}
+      panda_joint4: {p: 300.0, i: 0.0, d: 10.0, ff_velocity_scale: 1.0}
+      panda_joint5: {p: 60.0, i: 0.0, d: 3.0, ff_velocity_scale: 1.0}
+      panda_joint6: {p: 60.0, i: 0.0, d: 3.0, ff_velocity_scale: 1.0}
+      panda_joint7: {p: 60.0, i: 0.0, d: 3.0, ff_velocity_scale: 1.0}
     allow_nonzero_velocity_at_trajectory_end: true
     # A position-only Gazebo system can lag the time-parameterized command.
     # Require the real joint state to converge before reporting success instead

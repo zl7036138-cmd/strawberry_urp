@@ -149,7 +149,10 @@ class MoveItBackend:
         gripper_action: str = "/panda_gripper_controller/gripper_cmd",
         gripper_secondary_action: str = ("/panda_gripper_right_controller/gripper_cmd"),
         arm_action: str = "/panda_arm_controller/follow_joint_trajectory",
-        wrist_roll_action: str = "/panda_wrist_roll_controller/follow_joint_trajectory",
+        zero_velocity_band_rad_per_sec: float = 0.05,
+        zero_velocity_required_samples: int = 3,
+        zero_velocity_sample_period_sec: float = 0.02,
+        zero_velocity_timeout_sec: float = 2.0,
         gripper_joint: str = "panda_finger_joint1",
         gripper_secondary_joint: str = "panda_finger_joint2",
         open_width_m: float = 0.04,
@@ -457,6 +460,24 @@ class MoveItBackend:
         self.settle_sample_period_sec = float(settle_sample_period_sec)
         self.settle_delta_rad = float(settle_delta_rad)
         self.settle_stable_samples = int(settle_stable_samples)
+        if zero_velocity_band_rad_per_sec <= 0.0:
+            raise ValueError("zero-velocity band must be positive")
+        if zero_velocity_required_samples < 1:
+            raise ValueError("zero-velocity sample count must be >= 1")
+        if zero_velocity_sample_period_sec < 0.0:
+            raise ValueError("zero-velocity sample period must be >= 0")
+        if zero_velocity_timeout_sec < 0.0:
+            raise ValueError("zero-velocity timeout must be >= 0")
+        self.zero_velocity_band_rad_per_sec = float(
+            zero_velocity_band_rad_per_sec
+        )
+        self.zero_velocity_required_samples = int(
+            zero_velocity_required_samples
+        )
+        self.zero_velocity_sample_period_sec = float(
+            zero_velocity_sample_period_sec
+        )
+        self.zero_velocity_timeout_sec = float(zero_velocity_timeout_sec)
         self.pose_position_tolerance_m = float(pose_position_tolerance_m)
         self.pose_orientation_tolerance_rad = float(pose_orientation_tolerance_rad)
         self.intermediate_position_tolerance_m = float(
@@ -514,12 +535,6 @@ class MoveItBackend:
             node,
             FollowJointTrajectory,
             arm_action,
-            callback_group=self._callback_group,
-        )
-        self._wrist_action_probe = ActionClient(
-            node,
-            FollowJointTrajectory,
-            wrist_roll_action,
             callback_group=self._callback_group,
         )
         self._gripper = ActionClient(
@@ -1869,6 +1884,56 @@ class MoveItBackend:
             time.perf_counter() - planning_started,
         )
 
+    def _latest_arm_velocities_rad_per_sec(self) -> tuple[float, ...]:
+        """Return the freshest reported joint velocities (fail-closed empty)."""
+
+        feedback = getattr(self, "_latest_arm_feedback", None) or {}
+        velocities = feedback.get("velocities") or []
+        if len(velocities) != len(self._arm_joint_names):
+            return ()
+        return tuple(
+            float(value) if value is not None else float("nan")
+            for value in velocities
+        )
+
+    def _wait_for_zero_velocity_between_goals(self) -> bool:
+        """Block until reported joint velocities settle near zero.
+
+        v20 receipt: the gz_ros2_control effort path injected velocity kicks
+        at goal boundaries and mid-goal; plan A returns the arm to the
+        position interface (v10 baseline) and guards the surviving
+        goal-boundary kick by refusing to send the next goal until every
+        reported joint velocity stays inside a small band for the required
+        consecutive samples, bounded by a timeout (fail-closed).
+        """
+
+        deadline = time.monotonic() + self.zero_velocity_timeout_sec
+        settled = 0
+        while time.monotonic() < deadline:
+            velocities = self._latest_arm_velocities_rad_per_sec()
+            if (
+                velocities
+                and all(math.isfinite(value) for value in velocities)
+                and all(
+                    abs(value) <= self.zero_velocity_band_rad_per_sec
+                    for value in velocities
+                )
+            ):
+                settled += 1
+                if settled >= self.zero_velocity_required_samples:
+                    return True
+            else:
+                settled = 0
+            time.sleep(self.zero_velocity_sample_period_sec)
+        node = getattr(self, "node", None)
+        if node is not None:
+            node.get_logger().error(
+                "Arm velocities did not settle inside the zero-velocity band "
+                f"(+/-{self.zero_velocity_band_rad_per_sec} rad/s) within "
+                f"{self.zero_velocity_timeout_sec:.2f} s; withholding the next goal"
+            )
+        return False
+
     def _split_arm_goal(
         self,
         joint_names: tuple[str, ...],
@@ -1969,6 +2034,19 @@ class MoveItBackend:
             ),
         ):
             return False, 0.0
+        # Zero-velocity confirmation window (plan A): the position interface
+        # still kicks the joint at goal boundaries (v9/v10, v20 receipt), so
+        # never send a new goal while any reported joint velocity is outside
+        # the settled band. Fail closed: the caller treats False as failure.
+        window_timeout = getattr(self, "zero_velocity_timeout_sec", None)
+        if (
+            isinstance(window_timeout, (int, float))
+            and not isinstance(window_timeout, bool)
+            and math.isfinite(window_timeout)
+            and window_timeout > 0.0
+            and not self._wait_for_zero_velocity_between_goals()
+        ):
+            return False, 0.0
         nominal_duration = self._joint_path_nominal_duration(
             all_positions,
             velocity_rad_per_sec=velocity,
@@ -2014,25 +2092,13 @@ class MoveItBackend:
             )
             timed_points.append((tuple(positions), elapsed))
             previous = positions
-        arm_names, wrist_names, arm_points, wrist_points = (
-            self._split_arm_goal(
-                tuple(self._arm_joint_names), tuple(timed_points)
-            )
-        )
         goal = self._FollowJointTrajectory.Goal()
-        goal.trajectory.joint_names = list(arm_names)
-        for positions, stamp in arm_points:
+        goal.trajectory.joint_names = list(self._arm_joint_names)
+        for positions, stamp in timed_points:
             point = self._JointTrajectoryPoint()
             point.positions = list(positions)
             point.time_from_start = self._Duration(seconds=stamp).to_msg()
             goal.trajectory.points.append(point)
-        wrist_goal = self._FollowJointTrajectory.Goal()
-        wrist_goal.trajectory.joint_names = list(wrist_names)
-        for positions, stamp in wrist_points:
-            point = self._JointTrajectoryPoint()
-            point.positions = list(positions)
-            point.time_from_start = self._Duration(seconds=stamp).to_msg()
-            wrist_goal.trajectory.points.append(point)
         evidence = getattr(self, "_motion_evidence", None)
         command_id = None
         if evidence is not None:
@@ -2046,16 +2112,6 @@ class MoveItBackend:
             except Exception as exc:
                 self.node.get_logger().error(f"motion evidence emission failed: {exc}")
         execution_started = time.perf_counter()
-        wrist_handle = self._wait_future(
-            self._wrist_action_probe.send_goal_async(wrist_goal),
-            self.request_timeout_sec,
-        )
-        if wrist_handle is None or not wrist_handle.accepted:
-            self._emit_motion_evidence(
-                "ACTION_ACCEPTANCE_UNKNOWN" if wrist_handle is None else "ACTION_REJECTED",
-                {"physical_state": "UNKNOWN", "segment": "wrist_roll"},
-            )
-            return False, time.perf_counter() - execution_started
         goal_handle = self._wait_future(
             self._arm_action_probe.send_goal_async(goal),
             self.request_timeout_sec,
@@ -2120,29 +2176,7 @@ class MoveItBackend:
                 f"Cartesian arm trajectory failed with controller code "
                 f"{error_code}: {wrapped.result.error_string}"
             )
-            cancel_future = wrist_handle.cancel_goal_async()
-            self._wait_future(cancel_future, self.request_timeout_sec)
-            return False, execution_time
-        wrist_wait = self._wait_arm_trajectory_result(
-            wrist_handle.get_result_async(),
-            4.0 * elapsed + self.trajectory_timeout_margin_sec,
-        )
-        if wrist_wait.kind != "TERMINAL":
-            self.node.get_logger().error(
-                f"Wrist roll trajectory did not reach a terminal state: "
-                f"{wrist_wait.kind}"
-            )
-            return False, execution_time
-        wrist_code = int(wrist_wait.result.result.error_code)
-        wrist_succeeded = wrist_code == int(
-            self._FollowJointTrajectory.Result.SUCCESSFUL
-        )
-        if not wrist_succeeded:
-            self.node.get_logger().error(
-                f"Wrist roll trajectory failed with controller code "
-                f"{wrist_code}: {wrist_wait.result.result.error_string}"
-            )
-        return wrist_succeeded, execution_time
+        return succeeded, execution_time
 
     def _move_segmented_between(
         self,

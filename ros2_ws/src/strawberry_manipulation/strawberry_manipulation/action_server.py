@@ -108,10 +108,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter(
                 "arm_action", "/panda_arm_controller/follow_joint_trajectory"
             )
-            self.declare_parameter(
-                "wrist_roll_action",
-                "/panda_wrist_roll_controller/follow_joint_trajectory"
-            )
             self.declare_parameter("gripper_joint", "panda_finger_joint1")
             self.declare_parameter("gripper_secondary_joint", "panda_finger_joint2")
             # DART does not enforce the Panda mimic constraint. Two
@@ -340,9 +336,6 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("gripper_secondary_action").value
                 ),
                 arm_action=str(self.get_parameter("arm_action").value),
-                wrist_roll_action=str(
-                    self.get_parameter("wrist_roll_action").value
-                ),
                 gripper_joint=str(self.get_parameter("gripper_joint").value),
                 gripper_secondary_joint=str(
                     self.get_parameter("gripper_secondary_joint").value

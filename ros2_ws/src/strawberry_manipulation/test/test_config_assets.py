@@ -48,16 +48,10 @@ def test_arm_controller_keeps_strict_bounded_tracking_tolerances():
     constraints = controllers["panda_arm_controller"]["ros__parameters"][
         "constraints"
     ]
-    wrist_constraints = controllers["panda_wrist_roll_controller"][
-        "ros__parameters"
-    ]["constraints"]
-    for joint_index in range(1, 7):
+    for joint_index in range(1, 8):
         tolerance = constraints[f"panda_joint{joint_index}"]
         assert tolerance["goal"] == 0.05
         assert tolerance["trajectory"] == 0.05
-    wrist_tolerance = wrist_constraints["panda_joint7"]
-    assert wrist_tolerance["goal"] == 0.05
-    assert wrist_tolerance["trajectory"] == 0.05
 
 
 def test_moveit_py_uses_sim_time_and_bounded_planning():

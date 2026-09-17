@@ -1560,6 +1560,46 @@ class MoveItBackendStaticTests(unittest.TestCase):
             backend._subdivide_joint_path_by_step(original), original
         )
 
+    def test_zero_velocity_window_blocks_next_goal_until_velocities_settle(self):
+        """v20 receipt: effort kicks hit j4 at goal boundaries AND mid-goal.
+
+        Plan A returns the arm to the position interface (v10 baseline) and
+        guards the surviving v9/v10 goal-boundary kick with an explicit
+        zero-velocity confirmation window: after a goal terminal, the next
+        goal may only be sent once every reported joint velocity stays
+        within a small band for the required consecutive samples, bounded
+        by a timeout (fail-closed).
+        """
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._arm_joint_names = tuple(f"panda_joint{i}" for i in range(1, 8))
+        backend.zero_velocity_band_rad_per_sec = 0.05
+        backend.zero_velocity_required_samples = 3
+        backend.zero_velocity_sample_period_sec = 0.0
+        backend.zero_velocity_timeout_sec = 1.0
+        samples = iter([
+            # two noisy samples, then three settled samples
+            [0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, -0.3, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.01, 0.0, 0.0, 0.0, -0.01],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        ])
+        backend._latest_arm_velocities_rad_per_sec = lambda: next(samples)
+
+        self.assertTrue(backend._wait_for_zero_velocity_between_goals())
+
+    def test_zero_velocity_window_times_out_fail_closed(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._arm_joint_names = tuple(f"panda_joint{i}" for i in range(1, 8))
+        backend.zero_velocity_band_rad_per_sec = 0.05
+        backend.zero_velocity_required_samples = 2
+        backend.zero_velocity_sample_period_sec = 0.0
+        backend.zero_velocity_timeout_sec = 0.0
+        backend._latest_arm_velocities_rad_per_sec = lambda: [0.5] * 7
+
+        self.assertFalse(backend._wait_for_zero_velocity_between_goals())
+
     def test_arm_goal_splits_into_six_joint_and_wrist_goals(self):
         """Hybrid control: j1-j6 effort JTC, j7 position JTC (v19 receipt).
 

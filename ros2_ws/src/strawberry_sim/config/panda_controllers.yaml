@@ -6,9 +6,6 @@ controller_manager:
     panda_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
-    panda_wrist_roll_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
-
     panda_gripper_controller:
       type: parallel_gripper_action_controller/GripperActionController
 
@@ -27,20 +24,13 @@ panda_arm_controller:
       - panda_joint4
       - panda_joint5
       - panda_joint6
-    # Effort command interface: Jazzy JTC runs closed-loop PID per joint with
-    # velocity feedforward. This balances the attached-fruit gravity torque
-    # (gravity compensation by feedback) instead of the gz_ros2_control
-    # position-interface velocity law that sagged past tolerance in v9/v10
-    # and limit-cycled at gain 3.0 in v11.
-    command_interfaces: [effort]
+      - panda_joint7
+    # Position command interface (plan A, v20 receipt): the plugin's effort
+    # path injects velocity kicks scaled by inverse joint inertia; the
+    # position velocity law tracks cleanly. The goal-boundary kick is
+    # guarded by the backend zero-velocity confirmation window.
+    command_interfaces: [position]
     state_interfaces: [position, velocity]
-    gains:
-      panda_joint1: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint2: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint3: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint4: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint5: {p: 60.0, i: 40.0, d: 3.0, ff_velocity_scale: 1.0}
-      panda_joint6: {p: 60.0, i: 40.0, d: 3.0, ff_velocity_scale: 1.0}
     allow_nonzero_velocity_at_trajectory_end: true
     # A position-only Gazebo system can lag the time-parameterized command.
     # Require the real joint state to converge before reporting success instead
@@ -56,20 +46,6 @@ panda_arm_controller:
       panda_joint4: {trajectory: 0.05, goal: 0.05}
       panda_joint5: {trajectory: 0.05, goal: 0.05}
       panda_joint6: {trajectory: 0.05, goal: 0.05}
-
-panda_wrist_roll_controller:
-  ros__parameters:
-    joints:
-      - panda_joint7
-    # Position interface: the plugin's position velocity law handles this
-    # near-zero-gravity axis fine (v9-v11 tracked it perfectly) and cannot
-    # saturate - unlike the effort path (v19 receipt).
-    command_interfaces: [position]
-    state_interfaces: [position, velocity]
-    allow_nonzero_velocity_at_trajectory_end: true
-    constraints:
-      goal_time: 8.0
-      stopped_velocity_tolerance: 0.02
       panda_joint7: {trajectory: 0.05, goal: 0.05}
 
 panda_gripper_controller:

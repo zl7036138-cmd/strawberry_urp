@@ -357,6 +357,9 @@ def _launch_nodes(context):
         panda_xacro,
         mappings={
             "initial_positions_file": initial_positions,
+            "gz_ros2_control_plugin_file": os.environ.get(
+                "STRAWBERRY_GC_PLUGIN_FILE", "gz_ros2_control-system"
+            ),
             "enable_attachment": enable_attachment,
             "enable_stem_attachment": "true" if generalized_scene else "false",
             "fruit_attachment_count": str(fruit_attachment_count),

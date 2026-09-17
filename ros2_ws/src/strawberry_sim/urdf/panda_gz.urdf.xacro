@@ -2,6 +2,10 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="panda">
   <xacro:arg name="initial_positions_file"
              default="$(find strawberry_sim)/config/panda_initial_positions.yaml"/>
+  <!-- Plugin file override: set STRAWBERRY_GC_PLUGIN_FILE to the absolute path of the
+       gravity-compensating build (see scripts/build_gc_plugin.sh). Empty default keeps
+       the plain name resolved through the normal search paths. -->
+  <xacro:arg name="gz_ros2_control_plugin_file" default="gz_ros2_control-system"/>
   <xacro:arg name="enable_attachment" default="false"/>
   <xacro:arg name="enable_stem_attachment" default="false"/>
   <xacro:arg name="fruit_attachment_count" default="3"/>
@@ -282,7 +286,7 @@
   </ros2_control>
 
   <gazebo>
-    <plugin filename="gz_ros2_control-system"
+    <plugin filename="$(arg gz_ros2_control_plugin_file)"
             name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <robot_param>robot_description</robot_param>
       <robot_param_node>panda_robot_state_publisher</robot_param_node>

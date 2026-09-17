@@ -434,6 +434,16 @@ def _launch_nodes(context):
                     package="controller_manager",
                     executable="spawner",
                     arguments=[
+                        "panda_wrist_roll_controller",
+                        "--controller-manager-timeout",
+                        "30",
+                    ],
+                    output="screen",
+                ),
+                Node(
+                    package="controller_manager",
+                    executable="spawner",
+                    arguments=[
                         "panda_gripper_controller",
                         "--controller-manager-timeout",
                         "30",

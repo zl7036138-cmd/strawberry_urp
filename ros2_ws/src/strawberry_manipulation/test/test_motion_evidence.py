@@ -157,6 +157,11 @@ class BackendEvidenceTests(unittest.TestCase):
                     get_result_async=lambda: "result-future")
         backend._arm_action_probe = NS(wait_for_server=lambda **kw: True,
             send_goal_async=lambda goal: sent.append(goal) or handle)
+        wrist_sent = []
+        wrist_handle = NS(accepted=True, goal_id=NS(uuid=list(range(16))),
+                          get_result_async=lambda: "wrist-result-future")
+        backend._wrist_action_probe = NS(wait_for_server=lambda **kw: True,
+            send_goal_async=lambda goal: wrist_sent.append(goal) or wrist_handle)
         backend._wait_future = lambda future, timeout: future
         from strawberry_manipulation.moveit_backend import ArmTrajectoryWaitResult
         backend._wait_arm_trajectory_result = lambda *a: ArmTrajectoryWaitResult(
@@ -216,6 +221,10 @@ class BackendEvidenceTests(unittest.TestCase):
                     cancel_goal_async=lambda: NS(return_code=0),
                 )
                 backend._arm_action_probe = NS(
+                    wait_for_server=lambda **kw: True,
+                    send_goal_async=lambda goal: handle,
+                )
+                backend._wrist_action_probe = NS(
                     wait_for_server=lambda **kw: True,
                     send_goal_async=lambda goal: handle,
                 )

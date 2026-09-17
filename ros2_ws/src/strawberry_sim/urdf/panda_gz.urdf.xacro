@@ -261,7 +261,16 @@
     <xacro:arm_control_joint name="panda_joint4"/>
     <xacro:arm_control_joint name="panda_joint5"/>
     <xacro:arm_control_joint name="panda_joint6"/>
-    <xacro:arm_control_joint name="panda_joint7"/>
+    <!-- joint7 runs its own position-interface JTC (hybrid control): its tiny
+         inertia saturates the effort path's velocity clamp in one 100 Hz cycle
+         for any nonzero torque (v12-v19, receipt v19_findings_receipt.json). -->
+    <joint name="panda_joint7">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">${initial_positions["panda_joint7"]}</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
     <joint name="panda_finger_joint1">
       <command_interface name="position"/>
       <state_interface name="position"><param name="initial_value">0.04</param></state_interface>

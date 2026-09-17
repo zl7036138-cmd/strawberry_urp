@@ -471,6 +471,12 @@ class SimulationAssetTests(unittest.TestCase):
         for joint_name in parameters["joints"]:
             self.assertEqual(constraints[joint_name]["goal"], 0.05)
             self.assertEqual(constraints[joint_name]["trajectory"], 0.05)
+        wrist = config["panda_wrist_roll_controller"]["ros__parameters"]
+        self.assertEqual(wrist["joints"], ["panda_joint7"])
+        self.assertEqual(wrist["command_interfaces"], ["position"])
+        self.assertEqual(
+            wrist["constraints"]["panda_joint7"]["trajectory"], 0.05
+        )
 
     def test_gripper_stall_window_allows_first_measured_motion(self):
         config = yaml.safe_load(

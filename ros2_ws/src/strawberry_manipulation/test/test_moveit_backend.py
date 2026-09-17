@@ -1560,6 +1560,54 @@ class MoveItBackendStaticTests(unittest.TestCase):
             backend._subdivide_joint_path_by_step(original), original
         )
 
+    def test_arm_goal_splits_into_six_joint_and_wrist_goals(self):
+        """Hybrid control: j1-j6 effort JTC, j7 position JTC (v19 receipt).
+
+        One FollowJointTrajectory action cannot mix command interfaces, and
+        joint7's tiny inertia saturates the effort path's velocity clamp in
+        every run (v12-v19). The backend must split each 7-joint goal into a
+        six-joint arm goal and a single-joint wrist goal with identical
+        timing, so both controllers finish together.
+        """
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._arm_joint_names = tuple(
+            f"panda_joint{i}" for i in range(1, 8)
+        )
+
+        arm_names, wrist_names, arm_points, wrist_points = (
+            backend._split_arm_goal(
+                tuple(f"panda_joint{i}" for i in range(1, 8)),
+                (
+                    ((0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7), 0.05),
+                    ((0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.9), 0.10),
+                ),
+            )
+        )
+
+        self.assertEqual(
+            arm_names, tuple(f"panda_joint{i}" for i in range(1, 7))
+        )
+        self.assertEqual(wrist_names, ("panda_joint7",))
+        self.assertEqual(
+            arm_points,
+            (
+                ((0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 0.05),
+                ((0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 0.10),
+            ),
+        )
+        self.assertEqual(
+            wrist_points, (((0.7,), 0.05), ((0.9,), 0.10))
+        )
+
+    def test_wrist_split_rejects_foreign_joint_names(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._arm_joint_names = ("panda_joint1", "panda_joint2")
+        with self.assertRaises(ValueError):
+            backend._split_arm_goal(
+                ("panda_joint1", "other_joint"),
+                (((0.1, 0.2), 0.05),),
+            )
+
     def test_joint_edge_step_cap_is_validated(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         with self.assertRaises(ValueError):

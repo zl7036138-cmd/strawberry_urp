@@ -149,6 +149,7 @@ class MoveItBackend:
         gripper_action: str = "/panda_gripper_controller/gripper_cmd",
         gripper_secondary_action: str = ("/panda_gripper_right_controller/gripper_cmd"),
         arm_action: str = "/panda_arm_controller/follow_joint_trajectory",
+        wrist_roll_action: str = "/panda_wrist_roll_controller/follow_joint_trajectory",
         gripper_joint: str = "panda_finger_joint1",
         gripper_secondary_joint: str = "panda_finger_joint2",
         open_width_m: float = 0.04,
@@ -513,6 +514,12 @@ class MoveItBackend:
             node,
             FollowJointTrajectory,
             arm_action,
+            callback_group=self._callback_group,
+        )
+        self._wrist_action_probe = ActionClient(
+            node,
+            FollowJointTrajectory,
+            wrist_roll_action,
             callback_group=self._callback_group,
         )
         self._gripper = ActionClient(
@@ -1862,6 +1869,51 @@ class MoveItBackend:
             time.perf_counter() - planning_started,
         )
 
+    def _split_arm_goal(
+        self,
+        joint_names: tuple[str, ...],
+        timed_points: tuple[tuple[tuple[float, ...], float], ...],
+    ) -> tuple[
+        tuple[str, ...],
+        tuple[str, ...],
+        tuple[tuple[float, ...], float],
+        tuple[tuple[float, ...], float],
+    ]:
+        """Split a 7-joint goal into (j1-j6 arm, j7 wrist) timed points.
+
+        Hybrid control (v19 receipt): joint1-6 run the effort JTC with
+        integral gravity compensation; joint7's tiny inertia saturates the
+        effort path's velocity clamp regardless of gains, so it runs its own
+        position-interface JTC. One action cannot mix interfaces, so every
+        goal is split with identical timing on both halves.
+        """
+
+        configured = getattr(self, "_arm_joint_names", None)
+        if configured is not None and tuple(joint_names) != tuple(configured):
+            raise ValueError(
+                "arm goal joint names do not match the configured arm joints"
+            )
+        if not timed_points or any(
+            len(positions) != len(joint_names)
+            for positions, _ in timed_points
+        ):
+            raise ValueError(
+                "arm goal points do not match the goal joint names"
+            )
+        if len(joint_names) < 2:
+            raise ValueError("arm goal has no wrist joint to split off")
+        arm_names = tuple(joint_names[:-1])
+        wrist_names = (joint_names[-1],)
+        arm_points = tuple(
+            (tuple(positions[:-1]), stamp)
+            for positions, stamp in timed_points
+        )
+        wrist_points = tuple(
+            ((positions[-1],), stamp)
+            for positions, stamp in timed_points
+        )
+        return arm_names, wrist_names, arm_points, wrist_points
+
     def _execute_joint_path(
         self,
         start_positions: tuple[float, ...],
@@ -1949,8 +2001,7 @@ class MoveItBackend:
             joint_path = self._subdivide_joint_path_by_step(
                 tuple(joint_path)
             )
-        goal = self._FollowJointTrajectory.Goal()
-        goal.trajectory.joint_names = list(self._arm_joint_names)
+        timed_points = []
         previous = start_positions
         elapsed = 0.0
         for positions in joint_path:
@@ -1961,11 +2012,27 @@ class MoveItBackend:
                     joint_velocity_limits_rad_per_sec
                 ),
             )
+            timed_points.append((tuple(positions), elapsed))
+            previous = positions
+        arm_names, wrist_names, arm_points, wrist_points = (
+            self._split_arm_goal(
+                tuple(self._arm_joint_names), tuple(timed_points)
+            )
+        )
+        goal = self._FollowJointTrajectory.Goal()
+        goal.trajectory.joint_names = list(arm_names)
+        for positions, stamp in arm_points:
             point = self._JointTrajectoryPoint()
             point.positions = list(positions)
-            point.time_from_start = self._Duration(seconds=elapsed).to_msg()
+            point.time_from_start = self._Duration(seconds=stamp).to_msg()
             goal.trajectory.points.append(point)
-            previous = positions
+        wrist_goal = self._FollowJointTrajectory.Goal()
+        wrist_goal.trajectory.joint_names = list(wrist_names)
+        for positions, stamp in wrist_points:
+            point = self._JointTrajectoryPoint()
+            point.positions = list(positions)
+            point.time_from_start = self._Duration(seconds=stamp).to_msg()
+            wrist_goal.trajectory.points.append(point)
         evidence = getattr(self, "_motion_evidence", None)
         command_id = None
         if evidence is not None:
@@ -1979,6 +2046,16 @@ class MoveItBackend:
             except Exception as exc:
                 self.node.get_logger().error(f"motion evidence emission failed: {exc}")
         execution_started = time.perf_counter()
+        wrist_handle = self._wait_future(
+            self._wrist_action_probe.send_goal_async(wrist_goal),
+            self.request_timeout_sec,
+        )
+        if wrist_handle is None or not wrist_handle.accepted:
+            self._emit_motion_evidence(
+                "ACTION_ACCEPTANCE_UNKNOWN" if wrist_handle is None else "ACTION_REJECTED",
+                {"physical_state": "UNKNOWN", "segment": "wrist_roll"},
+            )
+            return False, time.perf_counter() - execution_started
         goal_handle = self._wait_future(
             self._arm_action_probe.send_goal_async(goal),
             self.request_timeout_sec,
@@ -2043,7 +2120,29 @@ class MoveItBackend:
                 f"Cartesian arm trajectory failed with controller code "
                 f"{error_code}: {wrapped.result.error_string}"
             )
-        return succeeded, execution_time
+            cancel_future = wrist_handle.cancel_goal_async()
+            self._wait_future(cancel_future, self.request_timeout_sec)
+            return False, execution_time
+        wrist_wait = self._wait_arm_trajectory_result(
+            wrist_handle.get_result_async(),
+            4.0 * elapsed + self.trajectory_timeout_margin_sec,
+        )
+        if wrist_wait.kind != "TERMINAL":
+            self.node.get_logger().error(
+                f"Wrist roll trajectory did not reach a terminal state: "
+                f"{wrist_wait.kind}"
+            )
+            return False, execution_time
+        wrist_code = int(wrist_wait.result.result.error_code)
+        wrist_succeeded = wrist_code == int(
+            self._FollowJointTrajectory.Result.SUCCESSFUL
+        )
+        if not wrist_succeeded:
+            self.node.get_logger().error(
+                f"Wrist roll trajectory failed with controller code "
+                f"{wrist_code}: {wrist_wait.result.result.error_string}"
+            )
+        return wrist_succeeded, execution_time
 
     def _move_segmented_between(
         self,

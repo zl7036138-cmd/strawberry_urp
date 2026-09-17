@@ -40,13 +40,12 @@ def _load_xacro_text() -> str:
 
 
 class EffortInterfaceContractTests(unittest.TestCase):
-    def test_urdf_declares_effort_only_command_interface_for_arm_joints(self):
+    def test_urdf_declares_effort_only_command_interface_for_j1_to_j6(self):
         """v17: an unclaimed position command interface fights the effort PID.
 
         With both interfaces declared, the unclaimed position path still
-        applies stale commands and joint7 relay-oscillated at the velocity
-        clamp in every effort-mode run (v14-v17). Effort must be the only
-        arm command interface.
+        applies stale commands. Effort is the only command interface in the
+        shared j1-j6 macro.
         """
         text = _load_xacro_text()
         macro_start = text.index('<xacro:macro name="arm_control_joint"')
@@ -55,17 +54,44 @@ class EffortInterfaceContractTests(unittest.TestCase):
         self.assertIn('<command_interface name="effort"/>', macro)
         self.assertNotIn('<command_interface name="position"/>', macro)
 
+    def test_joint7_runs_its_own_position_interface_joint(self):
+        """v19: j7's tiny inertia saturates the effort path's velocity clamp.
+
+        Four gain variants produced identical bang-bang signatures. The
+        hybrid contract gives joint7 its own position-interface joint in the
+        URDF, driven by a dedicated single-joint JTC.
+        """
+        text = _load_xacro_text()
+        self.assertIn('<joint name="panda_joint7">', text)
+        j7_start = text.index('<joint name="panda_joint7">')
+        j7_end = text.index("</joint>", j7_start)
+        j7_block = text[j7_start:j7_end]
+        self.assertIn('<command_interface name="position"/>', j7_block)
+        self.assertNotIn('<command_interface name="effort"/>', j7_block)
+
+    def test_controllers_split_six_effort_and_one_position(self):
+        config = _load_controllers_yaml()
+        arm = config["panda_arm_controller"]["ros__parameters"]
+        wrist = config["panda_wrist_roll_controller"]["ros__parameters"]
+        self.assertEqual(
+            arm["joints"], [f"panda_joint{i}" for i in range(1, 7)]
+        )
+        self.assertEqual(arm["command_interfaces"], ["effort"])
+        self.assertEqual(wrist["joints"], ["panda_joint7"])
+        self.assertEqual(wrist["command_interfaces"], ["position"])
+
     def test_arm_controller_commands_effort(self):
         config = _load_controllers_yaml()
         arm = config["panda_arm_controller"]["ros__parameters"]
         self.assertEqual(arm["command_interfaces"], ["effort"])
-        self.assertEqual(list(arm["joints"]), list(ARM_JOINTS))
+        self.assertEqual(list(arm["joints"]), list(ARM_JOINTS[:6]))
 
-    def test_arm_controller_declares_pid_gains_for_every_joint(self):
+    def test_arm_controller_declares_pid_gains_for_every_effort_joint(self):
         config = _load_controllers_yaml()
         arm = config["panda_arm_controller"]["ros__parameters"]
         gains = arm["gains"]
-        for joint in ARM_JOINTS:
+        for joint in ARM_JOINTS[:6]:
+            self.assertIn(joint, gains)
             self.assertIn(joint, gains)
             proportional = float(gains[joint]["p"])
             self.assertGreater(proportional, 0.0)
@@ -74,7 +100,7 @@ class EffortInterfaceContractTests(unittest.TestCase):
     def test_arm_controller_keeps_velocity_feedforward_enabled(self):
         config = _load_controllers_yaml()
         arm = config["panda_arm_controller"]["ros__parameters"]
-        for joint in ARM_JOINTS:
+        for joint in ARM_JOINTS[:6]:
             self.assertGreaterEqual(
                 float(arm["gains"][joint]["ff_velocity_scale"]), 0.0
             )

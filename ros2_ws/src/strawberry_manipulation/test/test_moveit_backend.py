@@ -1589,6 +1589,33 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         self.assertTrue(backend._wait_for_zero_velocity_between_goals())
 
+    def test_zero_velocity_window_maps_velocities_by_joint_name(self):
+        """v21 finding: /joint_states has 9 joints (fingers + arm).
+
+        The window previously required the velocities list length to equal
+        the 7 arm joints and returned empty forever, withholding every goal
+        (40 withholds, zero goals in the v21 probe). Velocities must be
+        mapped by joint name.
+        """
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._arm_joint_names = tuple(f"panda_joint{i}" for i in range(1, 8))
+        backend.zero_velocity_band_rad_per_sec = 0.05
+        backend.zero_velocity_required_samples = 2
+        backend.zero_velocity_sample_period_sec = 0.0
+        backend.zero_velocity_timeout_sec = 1.0
+        names = [
+            "panda_finger_joint1", "panda_finger_joint2",
+            "panda_joint1", "panda_joint2", "panda_joint3",
+            "panda_joint4", "panda_joint5", "panda_joint6", "panda_joint7",
+        ]
+        feedbacks = iter([
+            {"joint_names": names, "velocities": [0.0] * 9},
+            {"joint_names": names, "velocities": [0.0] * 9},
+        ])
+        backend._latest_arm_feedback = next(feedbacks)
+
+        self.assertTrue(backend._wait_for_zero_velocity_between_goals())
+
     def test_zero_velocity_window_times_out_fail_closed(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend._arm_joint_names = tuple(f"panda_joint{i}" for i in range(1, 8))
@@ -1596,7 +1623,10 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.zero_velocity_required_samples = 2
         backend.zero_velocity_sample_period_sec = 0.0
         backend.zero_velocity_timeout_sec = 0.0
-        backend._latest_arm_velocities_rad_per_sec = lambda: [0.5] * 7
+        backend._latest_arm_feedback = {
+            "joint_names": list(backend._arm_joint_names),
+            "velocities": [0.5] * 7,
+        }
 
         self.assertFalse(backend._wait_for_zero_velocity_between_goals())
 

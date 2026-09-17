@@ -1885,16 +1885,31 @@ class MoveItBackend:
         )
 
     def _latest_arm_velocities_rad_per_sec(self) -> tuple[float, ...]:
-        """Return the freshest reported joint velocities (fail-closed empty)."""
+        """Return arm-joint velocities mapped by name (fail-closed empty).
+
+        /joint_states carries fingers and arm joints in arbitrary order; the
+        zero-velocity window only judges the seven arm joints, looked up by
+        name from the freshest feedback sample.
+        """
 
         feedback = getattr(self, "_latest_arm_feedback", None) or {}
+        names = feedback.get("joint_names") or []
         velocities = feedback.get("velocities") or []
-        if len(velocities) != len(self._arm_joint_names):
+        if len(velocities) != len(names):
             return ()
-        return tuple(
-            float(value) if value is not None else float("nan")
-            for value in velocities
-        )
+        by_name = dict(zip(names, velocities))
+        if not set(self._arm_joint_names) <= set(by_name):
+            return ()
+        ordered = []
+        for name in self._arm_joint_names:
+            value = by_name[name]
+            if value is None:
+                return ()
+            value = float(value)
+            if not math.isfinite(value):
+                return ()
+            ordered.append(value)
+        return tuple(ordered)
 
     def _wait_for_zero_velocity_between_goals(self) -> bool:
         """Block until reported joint velocities settle near zero.

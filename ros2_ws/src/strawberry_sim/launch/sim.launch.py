@@ -315,10 +315,20 @@ def _launch_nodes(context):
     # scripts/build_gc_plugin.sh and point STRAWBERRY_GC_PLUGIN_LIB_DIR at
     # its install lib dir.
     gc_plugin_lib_dir = os.environ.get("STRAWBERRY_GC_PLUGIN_LIB_DIR", "")
+    # Prepend to LD_LIBRARY_PATH itself: the loader resolves
+    # libgz_ros2_control-system.so by soname and must find the
+    # gravity-compensating build before the system one.
+    if gc_plugin_lib_dir:
+        os.environ["LD_LIBRARY_PATH"] = (
+            gc_plugin_lib_dir
+            + os.pathsep
+            + os.environ.get("LD_LIBRARY_PATH", "")
+        )
     gz_environment = {
         "GZ_SIM_RESOURCE_PATH": model_path
         + os.pathsep
         + os.environ.get("GZ_SIM_RESOURCE_PATH", ""),
+        "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
         "GZ_SIM_SYSTEM_PLUGIN_PATH": os.pathsep.join(
             filter(
                 None,

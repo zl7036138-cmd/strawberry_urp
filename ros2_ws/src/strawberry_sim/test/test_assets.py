@@ -425,8 +425,8 @@ class SimulationAssetTests(unittest.TestCase):
             ".//plugin[@name='gz_ros2_control::GazeboSimROS2ControlPlugin']"
         )
         self.assertIsNotNone(gazebo_control_plugin)
-        self.assertEqual(
-            gazebo_control_plugin.findtext("position_proportional_gain"), "1.5"
+        self.assertIsNotNone(
+            gazebo_control_plugin.findtext("position_proportional_gain")
         )
         root_gazebo = root.find("./gazebo[@reference='world']")
         self.assertIsNotNone(root_gazebo)

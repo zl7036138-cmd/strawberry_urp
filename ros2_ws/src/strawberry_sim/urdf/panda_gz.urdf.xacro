@@ -244,12 +244,15 @@
     </hardware>
     <xacro:macro name="arm_control_joint" params="name">
       <joint name="${name}">
-        <!-- Position interface (plan A, v20 receipt): the plugin's effort path
-             injects velocity kicks scaled by inverse inertia (j7 bang-bang at
-             the clamp, j4 kicked 0.09 rad); the position velocity law tracks
-             cleanly. The surviving goal-boundary kick is guarded by the
-             backend zero-velocity confirmation window. -->
-        <command_interface name="position"/>
+        <!-- Effort interface with upstream gravity compensation
+             (gz_ros2_control add/gravity_compensation build): the plugin adds
+             the measured load torque (gravity + attached fruit) to the
+             commanded effort every cycle - the setLoad semantics. The v12-v20
+             kicks came from running effort WITHOUT this compensation; with it
+             the commanded torque only tracks the trajectory. -->
+        <command_interface name="effort">
+          <param name="compensate_gravity">true</param>
+        </command_interface>
         <state_interface name="position">
           <param name="initial_value">${initial_positions[name]}</param>
         </state_interface>

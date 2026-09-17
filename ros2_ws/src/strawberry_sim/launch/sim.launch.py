@@ -309,6 +309,12 @@ def _launch_nodes(context):
     if simulation_seed is not None:
         gz_command.extend(["--seed", str(simulation_seed)])
     gz_command.extend([world_file, "--force-version", "8"])
+    # The gravity-compensating gz_ros2_control build (upstream branch
+    # add/gravity_compensation) shadows the system plugin when its lib dir is
+    # first on the plugin path (same soname). Build it once with
+    # scripts/build_gc_plugin.sh and point STRAWBERRY_GC_PLUGIN_LIB_DIR at
+    # its install lib dir.
+    gc_plugin_lib_dir = os.environ.get("STRAWBERRY_GC_PLUGIN_LIB_DIR", "")
     gz_environment = {
         "GZ_SIM_RESOURCE_PATH": model_path
         + os.pathsep
@@ -317,6 +323,7 @@ def _launch_nodes(context):
             filter(
                 None,
                 (
+                    gc_plugin_lib_dir,
                     os.environ.get("GZ_SIM_SYSTEM_PLUGIN_PATH", ""),
                     os.environ.get("LD_LIBRARY_PATH", ""),
                 ),

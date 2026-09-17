@@ -28,20 +28,12 @@ panda_arm_controller:
       - panda_joint5
       - panda_joint6
       - panda_joint7
-    # Effort command interface + upstream per-joint gravity compensation
-    # (compensate_gravity param in the URDF, add/gravity_compensation build):
-    # the plugin adds the measured load torque to the commanded effort, so the
-    # JTC PID only tracks the trajectory. PID gains are the v14-proven set.
-    command_interfaces: [effort]
+    # Position command interface (plan A final, v32 receipt): effort gravity
+    # compensation requires the hardware_interface parameters feature that
+    # Jazzy lacks; residual home drift is a documented plugin limitation,
+    # guarded by the zero-velocity confirmation window.
+    command_interfaces: [position]
     state_interfaces: [position, velocity]
-    gains:
-      panda_joint1: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint2: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint3: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint4: {p: 300.0, i: 150.0, d: 10.0, ff_velocity_scale: 1.0}
-      panda_joint5: {p: 60.0, i: 40.0, d: 3.0, ff_velocity_scale: 1.0}
-      panda_joint6: {p: 60.0, i: 40.0, d: 3.0, ff_velocity_scale: 1.0}
-      panda_joint7: {p: 60.0, i: 40.0, d: 3.0, ff_velocity_scale: 1.0}
     allow_nonzero_velocity_at_trajectory_end: true
     # A position-only Gazebo system can lag the time-parameterized command.
     # Require the real joint state to converge before reporting success instead

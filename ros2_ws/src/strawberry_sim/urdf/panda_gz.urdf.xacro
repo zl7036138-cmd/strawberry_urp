@@ -248,15 +248,13 @@
     </hardware>
     <xacro:macro name="arm_control_joint" params="name">
       <joint name="${name}">
-        <!-- Effort interface with upstream gravity compensation
-             (gz_ros2_control add/gravity_compensation build): the plugin adds
-             the measured load torque (gravity + attached fruit) to the
-             commanded effort every cycle - the setLoad semantics. The v12-v20
-             kicks came from running effort WITHOUT this compensation; with it
-             the commanded torque only tracks the trajectory. -->
-        <command_interface name="effort">
-          <param name="compensate_gravity">true</param>
-        </command_interface>
+        <!-- Position interface (plan A final, v32 receipt): effort gravity
+             compensation requires the hardware_interface parameters feature
+             (Rolling/Kilted only) - the Jazzy InterfaceInfo has no parameters
+             map, so compensate_gravity can never parse. The position velocity
+             law tracks cleanly; residual home drift is a documented plugin
+             limitation, guarded by the zero-velocity confirmation window. -->
+        <command_interface name="position"/>
         <state_interface name="position">
           <param name="initial_value">${initial_positions[name]}</param>
         </state_interface>
@@ -284,33 +282,6 @@
       <state_interface name="velocity"/>
     </joint>
   </ros2_control>
-    <!-- JointTransmittedWrench components exist only when a force_torque sensor
-         is declared for the joint; the compensate_gravity path reads the
-         transmitted wrench, so every arm joint needs one (v28-v30 receipts). -->
-    <gazebo reference="panda_joint2">
-      <sensor name="ft_joint2" type="force_torque"/>
-    </gazebo>
-    <gazebo reference="panda_joint3">
-      <sensor name="ft_joint3" type="force_torque"/>
-    </gazebo>
-    <gazebo reference="panda_joint4">
-      <sensor name="ft_joint4" type="force_torque"/>
-    </gazebo>
-    <gazebo reference="panda_joint5">
-      <sensor name="ft_joint5" type="force_torque"/>
-    </gazebo>
-    <gazebo reference="panda_joint6">
-      <sensor name="ft_joint6" type="force_torque"/>
-    </gazebo>
-    <gazebo reference="panda_joint7">
-      <sensor name="ft_joint7" type="force_torque"/>
-    </gazebo>
-    <!-- JointTransmittedWrench components exist only when a force_torque sensor
-         is declared for the joint; the compensate_gravity path reads the
-         transmitted wrench, so every arm joint needs one (v28-v30 receipts). -->
-    <gazebo reference="panda_joint1">
-      <sensor name="ft_joint1" type="force_torque"/>
-    </gazebo>
 
   <gazebo>
     <plugin filename="$(arg gz_ros2_control_plugin_file)"

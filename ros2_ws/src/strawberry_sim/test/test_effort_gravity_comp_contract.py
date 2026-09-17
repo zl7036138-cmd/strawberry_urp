@@ -1,12 +1,13 @@
-"""Gravity-compensated effort control contract (v24-v26 -> rebuild).
+"""Plan-A final control contract (v32 receipt).
 
-Upstream branch add/gravity_compensation implements the setLoad semantics
-for simulation: with <param compensate_gravity>true</param> on the effort
-command interface, the plugin adds the measured load torque (gravity +
-attached fruit) to every effort command, so the JTC PID only tracks the
-trajectory. The v12-v20 kicks came from running effort WITHOUT this
-compensation; the v21-v26 position-interface workarounds (zero-velocity
-window, stationary head, kick retry) remain as defense in depth.
+The gravity-compensation route is closed on ROS 2 Jazzy: the upstream
+compensate_gravity implementation reads command-interface parameters,
+which the Jazzy hardware_interface InterfaceInfo struct does not carry
+(name/min/max/initial_value/data_type only). The arm therefore runs the
+position interface - the configuration that grasped, transported and
+released a fruit in v22/v23/v26 - with the zero-velocity confirmation
+window, stationary head and one bounded kick retry as defenses against
+the plugin's goal-switch kick.
 """
 
 import unittest
@@ -20,7 +21,6 @@ CONTROLLERS_YAML = (
     / "ros2_ws/src/strawberry_sim/config/panda_controllers.yaml"
 )
 XACRO = REPO_ROOT / "ros2_ws/src/strawberry_sim/urdf/panda_gz.urdf.xacro"
-LAUNCH = REPO_ROOT / "ros2_ws/src/strawberry_sim/launch/sim.launch.py"
 
 ARM_JOINTS = tuple(f"panda_joint{i}" for i in range(1, 8))
 
@@ -33,49 +33,41 @@ def _load_xacro_text() -> str:
     return XACRO.read_text(encoding="utf-8")
 
 
-class GravityCompensatedEffortContractTests(unittest.TestCase):
-    def test_urdf_declares_effort_with_compensate_gravity(self):
+class PlanAFinalControlContractTests(unittest.TestCase):
+    def test_urdf_declares_position_only_command_interfaces(self):
         text = _load_xacro_text()
         macro_start = text.index('<xacro:macro name="arm_control_joint"')
         macro_end = text.index("</xacro:macro>", macro_start)
         macro = text[macro_start:macro_end]
-        self.assertIn('<command_interface name="effort">', macro)
-        self.assertIn('<param name="compensate_gravity">true</param>', macro)
+        self.assertIn('<command_interface name="position"/>', macro)
+        self.assertNotIn('<command_interface name="effort">', macro)
+        for joint in ARM_JOINTS:
+            self.assertIn(
+                f'<xacro:arm_control_joint name="{joint}"/>', text
+            )
 
-    def test_arm_controller_commands_effort_for_all_seven_joints(self):
+    def test_arm_controller_commands_position_for_all_seven_joints(self):
         config = _load_controllers_yaml()
         arm = config["panda_arm_controller"]["ros__parameters"]
-        self.assertEqual(arm["command_interfaces"], ["effort"])
+        self.assertEqual(arm["command_interfaces"], ["position"])
         self.assertEqual(list(arm["joints"]), list(ARM_JOINTS))
+        self.assertNotIn("gains", arm)
 
-    def test_arm_controller_keeps_v14_pid_gains(self):
+    def test_arm_controller_keeps_strict_tolerances(self):
         config = _load_controllers_yaml()
-        gains = config["panda_arm_controller"]["ros__parameters"]["gains"]
-        expected = {
-            "panda_joint1": (300.0, 150.0, 10.0),
-            "panda_joint2": (300.0, 150.0, 10.0),
-            "panda_joint3": (300.0, 150.0, 10.0),
-            "panda_joint4": (300.0, 150.0, 10.0),
-            "panda_joint5": (60.0, 40.0, 3.0),
-            "panda_joint6": (60.0, 40.0, 3.0),
-            "panda_joint7": (60.0, 40.0, 3.0),
-        }
-        for joint, (p, i, d) in expected.items():
-            self.assertEqual(gains[joint]["p"], p)
-            self.assertEqual(gains[joint]["i"], i)
-            self.assertEqual(gains[joint]["d"], d)
-            self.assertEqual(gains[joint]["ff_velocity_scale"], 1.0)
+        constraints = config["panda_arm_controller"]["ros__parameters"][
+            "constraints"
+        ]
+        for joint in ARM_JOINTS:
+            self.assertEqual(constraints[joint]["goal"], 0.05)
+            self.assertEqual(constraints[joint]["trajectory"], 0.05)
 
-    def test_launch_shadows_plugin_with_gc_build_when_configured(self):
-        text = (LAUNCH).read_text(encoding="utf-8")
-        self.assertIn("STRAWBERRY_GC_PLUGIN_LIB_DIR", text)
-        self.assertIn("GZ_SIM_SYSTEM_PLUGIN_PATH", text)
-
-    def test_gc_plugin_build_script_exists(self):
-        script = (
-            REPO_ROOT / "scripts" / "build_gc_plugin.sh"
+    def test_launch_keeps_zero_velocity_window_defenses(self):
+        backend = (
+            REPO_ROOT
+            / "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/"
+            "moveit_backend.py"
         )
-        self.assertTrue(script.exists())
-        self.assertIn("add/gravity_compensation", script.read_text(
-            encoding="utf-8"
-        ))
+        text = backend.read_text(encoding="utf-8")
+        self.assertIn("_wait_for_zero_velocity_between_goals", text)
+        self.assertIn("_stationary_head_points", text)

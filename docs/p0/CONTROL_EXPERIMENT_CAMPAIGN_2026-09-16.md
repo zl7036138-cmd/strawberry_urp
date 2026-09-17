@@ -38,3 +38,26 @@
 - `issue629_comparison.json`（上游对照：closed not_planned，无修复可等）
 - 契约测试：`test_effort_gravity_comp_contract.py`（Plan-A 契约）
 - 零速窗口：`moveit_backend.py::_wait_for_zero_velocity_between_goals`
+
+## 追加轮次（v25–v33，插件加载链与 GC 路线闭环）
+
+| 探针 | 提交 | 变量 | 结果 |
+|---|---|---|---|
+| v25/v25b | `1fb69cd` | gain 2.0 | 控制稳定但观察规划系统性贴边拒绝（OMPL 种子偏移，14 次拒绝）|
+| v26 | `19103a0` | gain 1.5 | 漂移对增益不敏感（0.057–0.063）→ 增益假设否定 |
+| v27–v29 | `b9df7bf`/`05d0333` | GC 插件加载链 | 三层阴影（GZ plugin path / LD_LIBRARY_PATH / AMENT_PREFIX_PATH）逐层验证，`compensate_gravity` 参数始终未解析 |
+| v30 | `40c404a` | 插件文件绝对路径参数化 | 加载确定性达成（rename 实验证实）|
+| v31 | `ad19ed1` | +force_torque 传感器 | 首块放错位置（ros2_control 内）→ gz SIGABRT |
+| v32 | `4a7641d` | 传感器块移出 ros2_control | 插件加载成功，但 `compensate_gravity` 参数未解析 |
+| v33 | `f186fac` | 最终 Plan-A 配置锁定 | 完整复现 v22：流程到释放，回零受两机制限制 |
+
+### 最终定性（v32 关键发现）
+
+`compensate_gravity` 的实现读取 `JointTransmittedWrench` 组件，而 **Jazzy 的 `hardware_interface::InterfaceInfo` 结构没有 parameters map**（name/min/max/initial_value/data_type），该分支依赖的参数解析特性仅存在于 Rolling/Kilted。**GC 路线在 Jazzy 上被 API 硬阻断**，与配置无关。
+
+### 最终配置（Plan-A final，契约测试锁定）
+
+- 臂：position 接口 ×7，JTC 容差 0.05
+- 防御纵深保留：零速窗口（按名映射）+ 静止头 + 一次踢签名重试 + 200 Hz
+- 流程能力：观察→接近→抓取→搬运→对准→释放 **可复现**；回零受限于两个插件物理/管线层缺陷（A3 记录为已知限制）
+- 重启路径：插件源码补丁 / Rolling-Kilted 升级 / Bullet 物理引擎

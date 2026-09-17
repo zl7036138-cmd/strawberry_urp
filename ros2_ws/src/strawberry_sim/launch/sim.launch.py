@@ -315,14 +315,27 @@ def _launch_nodes(context):
     # scripts/build_gc_plugin.sh and point STRAWBERRY_GC_PLUGIN_LIB_DIR at
     # its install lib dir.
     gc_plugin_lib_dir = os.environ.get("STRAWBERRY_GC_PLUGIN_LIB_DIR", "")
+    gc_prefix = (
+        os.path.dirname(os.path.dirname(gc_plugin_lib_dir))
+        if gc_plugin_lib_dir
+        else ""
+    )
     # Prepend to LD_LIBRARY_PATH itself: the loader resolves
     # libgz_ros2_control-system.so by soname and must find the
-    # gravity-compensating build before the system one.
+    # gravity-compensating build before the system one. The hardware plugin
+    # (compensate_gravity implementation) is resolved by pluginlib through
+    # AMENT_PREFIX_PATH, so the gc prefix must lead there too.
     if gc_plugin_lib_dir:
         os.environ["LD_LIBRARY_PATH"] = (
             gc_plugin_lib_dir
             + os.pathsep
             + os.environ.get("LD_LIBRARY_PATH", "")
+        )
+    if gc_prefix:
+        os.environ["AMENT_PREFIX_PATH"] = (
+            gc_prefix
+            + os.pathsep
+            + os.environ.get("AMENT_PREFIX_PATH", "")
         )
     gz_environment = {
         "GZ_SIM_RESOURCE_PATH": model_path

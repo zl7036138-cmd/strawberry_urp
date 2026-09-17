@@ -62,14 +62,14 @@ class PlanAControlContractTests(unittest.TestCase):
             self.assertEqual(constraints[joint]["goal"], 0.05)
             self.assertEqual(constraints[joint]["trajectory"], 0.05)
 
-    def test_gz_plugin_position_gain_raised_to_2(self):
-        """v24: 200 Hz halved the drift but 0.035 rad/s residual persists.
-
-        The velocity law v = gain*err needs correction strength >= 2x the
-        observed drift to converge inside the tolerance window. v11's 3.0
-        limit-cycled at the frozen home; 2.0 at 200 Hz is the untested
-        middle point, gated by the startup settle check.
+    def test_gz_plugin_position_gain_set_to_1_5(self):
+        """v25/v25b: gain 2.0 shifts the IK seed so OMPL systematically draws
+        the wrist-observation path grazing the j2 conservative bound (14
+        rejections across two runs) - planning dies before any motion.
+        Gain 1.5 halves the home drift residual (0.035 -> ~0.023, inside
+        the 0.05 tolerance) while keeping the seed closer to the 1.0-era
+        planning behaviour.
         """
         text = _load_xacro_text()
-        self.assertIn("<position_proportional_gain>2.0", text)
-        self.assertNotIn("<position_proportional_gain>1.0", text)
+        self.assertIn("<position_proportional_gain>1.5", text)
+        self.assertNotIn("<position_proportional_gain>2.0", text)

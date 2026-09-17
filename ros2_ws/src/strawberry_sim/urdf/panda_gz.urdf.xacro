@@ -293,11 +293,12 @@
            payload near tolerance (v9/v10 aborts at 0.0531 vs 0.05); 3.0 sustains
            a ~5.5 Hz +/-0.086 rad limit cycle at the frozen home pose (v11,
            reverted); the effort-interface route (v12-v20) injects velocity
-           kicks scaled by inverse joint inertia. v24: 200 Hz halved the
-           recovery-home drift to 0.035 rad/s but the residual persists; 2.0
-           doubles the velocity-law correction strength (v11's 3.0 oscillated,
-           2.0 at 200 Hz gated by the startup settle check). -->
-      <position_proportional_gain>2.0</position_proportional_gain>
+           kicks scaled by inverse joint inertia; 2.0 at 200 Hz holds home but
+           shifts the IK seed so OMPL systematically draws the wrist-observation
+           path grazing the j2 conservative bound (v25/v25b, 14 rejections).
+           1.5 halves the drift residual (settles ~0.023 inside 0.05) while
+           keeping observation planning viable. -->
+      <position_proportional_gain>1.5</position_proportional_gain>
     </plugin>
 
     <xacro:if value="$(arg enable_attachment)">

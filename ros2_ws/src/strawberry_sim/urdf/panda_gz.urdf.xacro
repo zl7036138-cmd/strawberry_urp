@@ -270,12 +270,23 @@
     <xacro:arm_control_joint name="panda_joint5"/>
     <xacro:arm_control_joint name="panda_joint6"/>
     <xacro:arm_control_joint name="panda_joint7"/>
+    <joint name="panda_finger_joint1">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+    <!-- Disable ros2_control's mimic activation for this hardware interface:
+         DART does not apply the URDF mimic constraint, so a second controller
+         must command the physical simulation joint explicitly. -->
+    <joint name="panda_finger_joint2" mimic="false">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
     <!-- JointTransmittedWrench components exist only when a force_torque sensor
          is declared for the joint; the compensate_gravity path reads the
          transmitted wrench, so every arm joint needs one (v28-v30 receipts). -->
-    <gazebo reference="panda_joint1">
-      <sensor name="ft_joint1" type="force_torque"/>
-    </gazebo>
     <gazebo reference="panda_joint2">
       <sensor name="ft_joint2" type="force_torque"/>
     </gazebo>
@@ -294,20 +305,12 @@
     <gazebo reference="panda_joint7">
       <sensor name="ft_joint7" type="force_torque"/>
     </gazebo>
-    <joint name="panda_finger_joint1">
-      <command_interface name="position"/>
-      <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-    <!-- Disable ros2_control's mimic activation for this hardware interface:
-         DART does not apply the URDF mimic constraint, so a second controller
-         must command the physical simulation joint explicitly. -->
-    <joint name="panda_finger_joint2" mimic="false">
-      <command_interface name="position"/>
-      <state_interface name="position"><param name="initial_value">0.04</param></state_interface>
-      <state_interface name="velocity"/>
-    </joint>
-  </ros2_control>
+    <!-- JointTransmittedWrench components exist only when a force_torque sensor
+         is declared for the joint; the compensate_gravity path reads the
+         transmitted wrench, so every arm joint needs one (v28-v30 receipts). -->
+    <gazebo reference="panda_joint1">
+      <sensor name="ft_joint1" type="force_torque"/>
+    </gazebo>
 
   <gazebo>
     <plugin filename="$(arg gz_ros2_control_plugin_file)"

@@ -426,7 +426,7 @@ class SimulationAssetTests(unittest.TestCase):
         )
         self.assertIsNotNone(gazebo_control_plugin)
         self.assertEqual(
-            gazebo_control_plugin.findtext("position_proportional_gain"), "1.0"
+            gazebo_control_plugin.findtext("position_proportional_gain"), "2.0"
         )
         root_gazebo = root.find("./gazebo[@reference='world']")
         self.assertIsNotNone(root_gazebo)

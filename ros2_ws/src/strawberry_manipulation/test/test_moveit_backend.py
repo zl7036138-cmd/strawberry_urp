@@ -1381,6 +1381,84 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(execution_time, 0.0)
         self.assertIn("planned start differs from fresh live joints", logger.errors[-1])
 
+    def test_path_tolerance_abort_never_replays_old_goal_or_claims_kick(self):
+        """Rerun: measured j5 moved ~0.036 rad; retry reused its old start."""
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend._latest_live_arm_positions = lambda: None
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: True
+        backend._joint_path_within_safety_limits = lambda *args, **kwargs: True
+        backend._joint_path_nominal_duration = lambda *args, **kwargs: 0.1
+        backend._joint_path_travel = lambda *args: 0.01
+        backend.joint_trajectory_velocity_rad_per_sec = 0.3
+        backend.request_timeout_sec = 1.0
+        backend.trajectory_timeout_margin_sec = 1.0
+        backend._arm_joint_names = ("panda_joint5",)
+        sent = []
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda **kwargs: True,
+            send_goal_async=lambda goal: sent.append(goal),
+        )
+        backend._FollowJointTrajectory = SimpleNamespace(
+            Goal=lambda: SimpleNamespace(
+                trajectory=SimpleNamespace(joint_names=[], points=[])
+            ),
+            Result=SimpleNamespace(SUCCESSFUL=0),
+        )
+        backend._JointTrajectoryPoint = SimpleNamespace
+        backend._Duration = lambda **kwargs: SimpleNamespace(to_msg=lambda: kwargs)
+        backend._wait_future = lambda *args: SimpleNamespace(
+            accepted=True, get_result_async=lambda: None
+        )
+        backend._wait_arm_trajectory_result = lambda *args: SimpleNamespace(
+            kind="TERMINAL",
+            result=SimpleNamespace(result=SimpleNamespace(
+                error_code=-4, error_string="path tolerance violated"
+            )),
+        )
+        evidence = []
+        backend._emit_motion_evidence = lambda kind, payload, **kwargs: (
+            evidence.append((kind, payload))
+        )
+        backend._wait_for_zero_velocity_between_goals = lambda: self.fail(
+            "failed trajectory must not be retried at the low-level executor"
+        )
+
+        success, _ = backend._execute_joint_path((-0.029627,), ((-0.036692,),))
+
+        self.assertFalse(success)
+        self.assertEqual(len(sent), 1)
+        self.assertFalse(any("kick" in message for message in logger.warnings))
+        recovery = [payload for kind, payload in evidence
+                    if kind == "TRAJECTORY_RECOVERY_REQUIRED"]
+        self.assertEqual(len(recovery), 1)
+        self.assertEqual(recovery[0]["cause"], "UNDETERMINED")
+        self.assertFalse(recovery[0]["stale_path_replayed"])
+
+    def test_joint_start_is_rechecked_after_settling_wait(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        snapshots = iter(((1, (0.0,)), (2, (0.06,))))
+        backend._latest_live_arm_positions = lambda: next(snapshots)
+        backend.joint_trajectory_start_tolerance_rad = 0.05
+        backend.joint_trajectory_velocity_rad_per_sec = 0.3
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: True
+        backend._joint_path_within_safety_limits = lambda *args, **kwargs: True
+        backend.zero_velocity_timeout_sec = 1.0
+        backend._wait_for_zero_velocity_between_goals = lambda: True
+        backend._arm_action_probe = SimpleNamespace(
+            wait_for_server=lambda **kwargs: self.fail(
+                "arm drifted while waiting; old start must not reach controller"
+            )
+        )
+
+        success, elapsed = backend._execute_joint_path((0.0,), ((0.1,),))
+        self.assertFalse(success)
+        self.assertEqual(elapsed, 0.0)
+        self.assertIn("planned start differs", logger.errors[-1])
+
     def test_settle_gate_rejects_slow_drift_across_complete_window(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         logger = self.Logger()

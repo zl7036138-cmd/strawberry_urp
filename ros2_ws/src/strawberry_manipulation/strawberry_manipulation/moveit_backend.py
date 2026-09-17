@@ -1960,13 +1960,11 @@ class MoveItBackend:
         self,
         start_positions: tuple[float, ...],
     ) -> tuple[tuple[tuple[float, ...], float], ...]:
-        """Duplicated stationary head absorbing the goal-switch kick (v22).
+        """Short hold at the validated planned start, before path interpolation.
 
-        The plugin's position interface kicks ~+0.5 rad/s at new-goal
-        acceptance, inside the goal where the pre-goal zero-velocity window
-        cannot reach. Commanding the measured position twice (t=0 and
-        t=zero_velocity_head_sec) holds the internal velocity command at
-        zero across the switch.
+        This is a command boundary guard, not proof that the physical joint
+        stays still, and not a remedy for an unknown mid-trajectory fault.
+        The caller revalidates this start after its settling wait.
         """
 
         duration = getattr(self, "zero_velocity_head_sec", 0.0)
@@ -2022,17 +2020,9 @@ class MoveItBackend:
         )
         return arm_names, wrist_names, arm_points, wrist_points
 
-    def _execute_joint_path(
-        self,
-        start_positions: tuple[float, ...],
-        joint_path: tuple[tuple[float, ...], ...],
-        *,
-        velocity_rad_per_sec: float | None = None,
-        joint_velocity_limits_rad_per_sec: tuple[float, ...] | None = None,
-    ) -> tuple[bool, float]:
-        if not joint_path:
-            return False, 0.0
-        all_positions = (start_positions,) + tuple(joint_path)
+    def _joint_path_start_matches_live(
+        self, start_positions: tuple[float, ...]
+    ) -> bool:
         live = self._latest_live_arm_positions()
         if live is not None:
             _, measured_start = live
@@ -2041,7 +2031,7 @@ class MoveItBackend:
                     "joint trajectory rejected before execution: live arm state "
                     "has the wrong dimension"
                 )
-                return False, 0.0
+                return False
             maximum_start_error = max(
                 abs(measured - planned)
                 for measured, planned in zip(measured_start, start_positions)
@@ -2053,7 +2043,22 @@ class MoveItBackend:
                     "rad, exceeding the configured "
                     f"{self.joint_trajectory_start_tolerance_rad:.6f} rad limit"
                 )
-                return False, 0.0
+                return False
+        return True
+
+    def _execute_joint_path(
+        self,
+        start_positions: tuple[float, ...],
+        joint_path: tuple[tuple[float, ...], ...],
+        *,
+        velocity_rad_per_sec: float | None = None,
+        joint_velocity_limits_rad_per_sec: tuple[float, ...] | None = None,
+    ) -> tuple[bool, float]:
+        if not joint_path:
+            return False, 0.0
+        all_positions = (start_positions,) + tuple(joint_path)
+        if not self._joint_path_start_matches_live(start_positions):
+            return False, 0.0
         if joint_velocity_limits_rad_per_sec is None:
             velocity = (
                 self.joint_trajectory_velocity_rad_per_sec
@@ -2089,6 +2094,10 @@ class MoveItBackend:
             and window_timeout > 0.0
             and not self._wait_for_zero_velocity_between_goals()
         ):
+            return False, 0.0
+        # A settling wait can outlive the snapshot checked above. Never send
+        # a stationary head at an old planned start after the arm has drifted.
+        if not self._joint_path_start_matches_live(start_positions):
             return False, 0.0
         nominal_duration = self._joint_path_nominal_duration(
             all_positions,
@@ -2226,33 +2235,22 @@ class MoveItBackend:
                 f"Cartesian arm trajectory failed with controller code "
                 f"{error_code}: {wrapped.result.error_string}"
             )
-        if (
-            not succeeded
-            and error_code == -4
-            and not getattr(self, "_kick_retry_used", False)
-        ):
-            # v22 receipt: the goal-switch kick aborts the first attempt but
-            # self-recovers within ~0.4 s (velocities return to zero and the
-            # controller holds the measured state). One bounded retry from
-            # the measured state succeeds once the kick has passed.
-            self._kick_retry_used = True
-            try:
-                self.node.get_logger().warning(
-                    "Controller code -4 matches the goal-switch kick "
-                    "signature; retrying once after the zero-velocity window"
-                )
-                if self._wait_for_zero_velocity_between_goals():
-                    result = self._execute_joint_path(
-                        start_positions,
-                        joint_path,
-                        velocity_rad_per_sec=velocity,
-                        joint_velocity_limits_rad_per_sec=(
-                            joint_velocity_limits_rad_per_sec
-                        ),
-                    )
-                    return result
-            finally:
-                self._kick_retry_used = False
+        if not succeeded and error_code == -4:
+            # -4 proves a path-tolerance violation, not its physical cause.
+            # The controller may now hold a displaced measured state. Reusing
+            # this goal's old start/path is not a collision-checked replan.
+            # Return to the existing bounded recovery policy instead.
+            self.node.get_logger().warning(
+                "Path tolerance violated; withholding stale-path replay. "
+                "Recovery requires a fresh measured state and a new plan."
+            )
+            self._emit_motion_evidence("TRAJECTORY_RECOVERY_REQUIRED", {
+                "reason": "PATH_TOLERANCE_VIOLATED",
+                "cause": "UNDETERMINED",
+                "stale_path_replayed": False,
+                "planned_start_positions_rad": list(start_positions),
+                "latest_joint_feedback": getattr(self, "_latest_arm_feedback", None),
+            }, command_id=command_id)
         return succeeded, execution_time
 
     def _move_segmented_between(

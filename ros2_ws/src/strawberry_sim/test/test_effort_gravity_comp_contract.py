@@ -4,10 +4,10 @@ The gravity-compensation route is closed on ROS 2 Jazzy: the upstream
 compensate_gravity implementation reads command-interface parameters,
 which the Jazzy hardware_interface InterfaceInfo struct does not carry
 (name/min/max/initial_value/data_type only). The arm therefore runs the
-position interface - the configuration that grasped, transported and
-released a fruit in v22/v23/v26 - with the zero-velocity confirmation
-window, stationary head and one bounded kick retry as defenses against
-the plugin's goal-switch kick.
+position interface, with unchanged tolerances, zero-velocity confirmation
+and a stationary head. Path-tolerance aborts are not classified as kicks;
+old paths must not be replayed after a displaced-state failure. Historical
+release during failure recovery is not verified placement.
 """
 
 import unittest

@@ -1589,6 +1589,31 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         self.assertTrue(backend._wait_for_zero_velocity_between_goals())
 
+    def test_joint_goal_prepends_stationary_head_to_absorb_goal_switch(self):
+        """v22: the plugin kicks ~+0.5 rad/s at goal acceptance.
+
+        The kick happens inside the new goal's first cycles, so the
+        zero-velocity window (which runs before the goal) cannot reach it.
+        Prepending a duplicated stationary head (measured position at t=0
+        and t=zero_velocity_head_sec) commands zero velocity across the
+        switch, absorbing the kick before the real path starts.
+        """
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.zero_velocity_head_sec = 0.10
+        head = backend._stationary_head_points(
+            (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
+        )
+        self.assertEqual(len(head), 2)
+        self.assertEqual(head[0], ((0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7), 0.0))
+        self.assertEqual(head[1], ((0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7), 0.10))
+
+    def test_stationary_head_disabled_when_duration_zero(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.zero_velocity_head_sec = 0.0
+        self.assertEqual(
+            backend._stationary_head_points((0.1, 0.2)), ()
+        )
+
     def test_zero_velocity_window_maps_velocities_by_joint_name(self):
         """v21 finding: /joint_states has 9 joints (fingers + arm).
 

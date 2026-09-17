@@ -153,6 +153,7 @@ class MoveItBackend:
         zero_velocity_required_samples: int = 3,
         zero_velocity_sample_period_sec: float = 0.02,
         zero_velocity_timeout_sec: float = 2.0,
+        zero_velocity_head_sec: float = 0.10,
         gripper_joint: str = "panda_finger_joint1",
         gripper_secondary_joint: str = "panda_finger_joint2",
         open_width_m: float = 0.04,
@@ -478,6 +479,12 @@ class MoveItBackend:
             zero_velocity_sample_period_sec
         )
         self.zero_velocity_timeout_sec = float(zero_velocity_timeout_sec)
+        if (
+            not math.isfinite(zero_velocity_head_sec)
+            or zero_velocity_head_sec < 0.0
+        ):
+            raise ValueError("zero-velocity head duration must be >= 0")
+        self.zero_velocity_head_sec = float(zero_velocity_head_sec)
         self.pose_position_tolerance_m = float(pose_position_tolerance_m)
         self.pose_orientation_tolerance_rad = float(pose_orientation_tolerance_rad)
         self.intermediate_position_tolerance_m = float(
@@ -1949,6 +1956,27 @@ class MoveItBackend:
             )
         return False
 
+    def _stationary_head_points(
+        self,
+        start_positions: tuple[float, ...],
+    ) -> tuple[tuple[tuple[float, ...], float], ...]:
+        """Duplicated stationary head absorbing the goal-switch kick (v22).
+
+        The plugin's position interface kicks ~+0.5 rad/s at new-goal
+        acceptance, inside the goal where the pre-goal zero-velocity window
+        cannot reach. Commanding the measured position twice (t=0 and
+        t=zero_velocity_head_sec) holds the internal velocity command at
+        zero across the switch.
+        """
+
+        duration = getattr(self, "zero_velocity_head_sec", 0.0)
+        if not duration:
+            return ()
+        return (
+            (tuple(start_positions), 0.0),
+            (tuple(start_positions), duration),
+        )
+
     def _split_arm_goal(
         self,
         joint_names: tuple[str, ...],
@@ -2107,6 +2135,13 @@ class MoveItBackend:
             )
             timed_points.append((tuple(positions), elapsed))
             previous = positions
+        head = self._stationary_head_points(tuple(start_positions))
+        if head:
+            head_duration = head[1][1]
+            timed_points = list(head) + [
+                (positions, stamp + head_duration)
+                for positions, stamp in timed_points
+            ]
         goal = self._FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = list(self._arm_joint_names)
         for positions, stamp in timed_points:
@@ -2191,6 +2226,33 @@ class MoveItBackend:
                 f"Cartesian arm trajectory failed with controller code "
                 f"{error_code}: {wrapped.result.error_string}"
             )
+        if (
+            not succeeded
+            and error_code == -4
+            and not getattr(self, "_kick_retry_used", False)
+        ):
+            # v22 receipt: the goal-switch kick aborts the first attempt but
+            # self-recovers within ~0.4 s (velocities return to zero and the
+            # controller holds the measured state). One bounded retry from
+            # the measured state succeeds once the kick has passed.
+            self._kick_retry_used = True
+            try:
+                self.node.get_logger().warning(
+                    "Controller code -4 matches the goal-switch kick "
+                    "signature; retrying once after the zero-velocity window"
+                )
+                if self._wait_for_zero_velocity_between_goals():
+                    result = self._execute_joint_path(
+                        start_positions,
+                        joint_path,
+                        velocity_rad_per_sec=velocity,
+                        joint_velocity_limits_rad_per_sec=(
+                            joint_velocity_limits_rad_per_sec
+                        ),
+                    )
+                    return result
+            finally:
+                self._kick_retry_used = False
         return succeeded, execution_time
 
     def _move_segmented_between(

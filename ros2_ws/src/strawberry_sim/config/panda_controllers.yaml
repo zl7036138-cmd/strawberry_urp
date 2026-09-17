@@ -1,6 +1,9 @@
 controller_manager:
   ros__parameters:
-    update_rate: 100
+    # 200 Hz (plan A follow-up, v22/v23 receipts): the plugin recomputes its
+    # velocity law once per cycle; doubling the rate halves the command-pipeline
+    # skew window behind the recovery-home stale-velocity drift.
+    update_rate: 200
     use_sim_time: true
 
     panda_arm_controller:

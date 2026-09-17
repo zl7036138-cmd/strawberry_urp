@@ -473,6 +473,23 @@ class SimulationAssetTests(unittest.TestCase):
             self.assertEqual(constraints[joint_name]["trajectory"], 0.05)
 
 
+    def test_controller_manager_runs_200hz_to_shrink_command_skew(self):
+        """v22/v23: stale-velocity drift at recovery home crossed tolerance.
+
+        The plugin recomputes its velocity law once per controller cycle;
+        the observed recovery-home drift (~0.0035 rad/s accumulation over
+        ~2 s) lives in the gap between JTC's reference and the plugin's
+        last-applied command. Doubling the controller rate halves that
+        skew window per cycle. Single variable: update_rate 100 -> 200.
+        """
+        config = yaml.safe_load(
+            (PACKAGE_ROOT / "config" / "panda_controllers.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        manager = config["controller_manager"]["ros__parameters"]
+        self.assertEqual(manager["update_rate"], 200)
+
     def test_gripper_stall_window_allows_first_measured_motion(self):
         config = yaml.safe_load(
             (PACKAGE_ROOT / "config" / "panda_controllers.yaml").read_text(

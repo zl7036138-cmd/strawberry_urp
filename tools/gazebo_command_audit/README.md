@@ -46,3 +46,23 @@ The captured start is a scenario initialization, not a claimed recovery move.
 The replay validator limits travel to 2 rad, duration to 10 simulated seconds,
 and preserves the 0.02 rad joint margin. This is a cleared-world control
 diagnostic, **not** a replacement for MoveIt collision validation in a field.
+
+For an over-bound original command, `--prefix-duration-sec 0.5` derives a short
+recorded segment with zero terminal derivatives. The original trajectory hash
+is retained and the receipt explicitly denies full-original-command replay.
+Travel, timing and joint-margin bounds are not raised.
+
+`--diagnostic-load-state welded|released --attachment-plugin /built/plugin.so`
+adds a geometry-free 30 g fixture, assembled from URDF FK at the recorded initial
+posture. It transfers a world-held support to the arm, optionally releases it,
+then runs the same bounded command. This is deliberately **not a contact grasp**.
+The optional world-mounted lazy plugin resolves an explicit unique `parent_model`
+after insertion. Normal model-mounted configuration remains unchanged.
+
+Build the updated observer into a fresh versioned directory. Fixture mode enables
+FIXTURE_POSE records (off by default): arm/fixture component world poses and
+relative pose at 100 Hz. A graph-only attached status cannot pass fixture checks;
+welded mode also requires observed parent travel and stable relative pose, while
+released mode requires observed falling. These are diagnostic thresholds only,
+not harvesting safety thresholds. Results do not prove full-field collision
+safety, placement, recovery or multi-fruit acceptance.

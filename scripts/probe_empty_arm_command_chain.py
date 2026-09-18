@@ -1,6 +1,8 @@
-"""Development-only, bounded empty-world replay of one recorded arm command.
+"""Development-only, bounded cleared-world replay of a recorded arm command.
 
-No fruit, perception, truth subscriptions, attachment or batch harvesting.
+Default: no payload, perception, truth subscriptions or batch harvesting.
+Optional welded/released 30 g no-contact fixture is scenario assembly only,
+never proof of contact grasp, bin placement or harvesting qualification.
 Initial posture and trajectory come from a recorded COMMAND_PREPARED, not truth.
 Does not count as harvesting qualification or formal acceptance.
 """
@@ -9,6 +11,7 @@ import argparse
 import hashlib
 import json
 import math
+import copy
 import os
 from pathlib import Path
 import signal
@@ -22,7 +25,23 @@ sys.path.insert(0, str(ROOT / "ros2_ws/src/strawberry_manipulation"))
 from strawberry_manipulation.moveit_backend import joint_limit_margin_violation
 
 
-def extract_command(samples, minimum_sim_sec):
+def bounded_prefix(trajectory, duration_sec):
+    if not math.isfinite(duration_sec) or not 0 < duration_sec <= 1:
+        raise ValueError("Diagnostic prefix must be in (0, 1] seconds")
+    result = copy.deepcopy(trajectory)
+    result["points"] = [p for p in result["points"]
+                        if p["time_from_start_ns"] <= int(duration_sec * 1e9)]
+    if len(result["points"]) < 2:
+        raise ValueError("Prefix contains fewer than two recorded points")
+    # Do not ask the controller to continue past the recorded prefix.
+    last = result["points"][-1]
+    last["velocities"] = [0.0] * 7
+    last["accelerations"] = [0.0] * 7
+    validate_trajectory(result)
+    return result
+
+
+def extract_command(samples, minimum_sim_sec, prefix_duration_sec=None):
     with samples.open(encoding="utf-8") as stream:
         for line in stream:
             outer = json.loads(line)
@@ -32,6 +51,17 @@ def extract_command(samples, minimum_sim_sec):
             if (event["event_type"] == "COMMAND_PREPARED"
                     and event["ros_time_ns"] / 1e9 >= minimum_sim_sec):
                 trajectory = event["payload"]["trajectory"]
+                if prefix_duration_sec is not None:
+                    event = copy.deepcopy(event)
+                    event["diagnostic_derivation"] = {
+                        "kind": "RECORDED_PREFIX_WITH_ZERO_TERMINAL_DERIVATIVES",
+                        "requested_prefix_duration_sec": prefix_duration_sec,
+                        "original_trajectory_sha256": hashlib.sha256(
+                            json.dumps(trajectory, sort_keys=True).encode()).hexdigest(),
+                        "full_original_command_replayed": False,
+                    }
+                    trajectory = bounded_prefix(trajectory, prefix_duration_sec)
+                    event["payload"]["trajectory"] = trajectory
                 validate_trajectory(trajectory)
                 return event
     raise ValueError("No matching recorded command")
@@ -50,6 +80,10 @@ def validate_trajectory(trajectory):
         q = point["positions"]
         if len(q) != 7 or not all(math.isfinite(x) for x in q):
             raise ValueError("Invalid positions")
+        for field in ("velocities", "accelerations", "effort"):
+            values = point.get(field, [])
+            if len(values) not in (0, 7) or not all(math.isfinite(x) for x in values):
+                raise ValueError(f"Invalid {field}")
         if joint_limit_margin_violation(tuple(q), 0.02):
             raise ValueError("Replay violates existing joint margin")
         stamp = point["time_from_start_ns"]
@@ -98,10 +132,16 @@ def main():
     parser.add_argument("--minimum-sim-sec", type=float, required=True)
     parser.add_argument("--audit-plugin", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--prefix-duration-sec", type=float,
+                        help="Development short segment, not full-command replay; bounds unchanged")
+    parser.add_argument("--diagnostic-load-state", choices=("empty", "welded", "released"), default="empty")
+    parser.add_argument("--attachment-plugin", type=Path)
     args = parser.parse_args()
     if not math.isfinite(args.minimum_sim_sec) or not args.audit_plugin.is_file():
         parser.error("Invalid command selector or audit plugin")
-    command = extract_command(args.samples, args.minimum_sim_sec)
+    if args.diagnostic_load_state != "empty" and (args.attachment_plugin is None or not args.attachment_plugin.is_file()):
+        parser.error("Load fixture requires an explicit built attachment plugin")
+    command = extract_command(args.samples, args.minimum_sim_sec, args.prefix_duration_sec)
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
     import yaml
@@ -129,6 +169,16 @@ def main():
     plugin = ET.SubElement(w, "plugin", filename=str(args.audit_plugin.resolve()),
                            name="strawberry::CommandAudit")
     ET.SubElement(plugin, "output_file").text = str(out / "ecm_commands.jsonl")
+    if args.diagnostic_load_state != "empty":
+        ET.SubElement(plugin, "diagnostic_payload_pose_enabled").text = "true"
+    if args.diagnostic_load_state != "empty":
+        sys.path.insert(0, str(ROOT / "tools/gazebo_command_audit"))
+        from payload_fixture import add_payload_fixture, transfer_fixture, motion_metrics
+        import xacro
+        from ament_index_python.packages import get_package_share_directory
+        robot = ET.fromstring(xacro.process_file(str(Path(get_package_share_directory("strawberry_sim")) / "urdf/panda_gz.urdf.xacro"),
+                             mappings={"initial_positions_file": str(out / "initial.yaml"), "camera_mount": "dual"}).toxml())
+        add_payload_fixture(w, robot, initial, args.attachment_plugin.resolve())
     ET.ElementTree(world).write(out / "world.sdf", encoding="utf-8", xml_declaration=True)
     receipt = {"schema_version": 1, "scope": "EMPTY_ARM_COMMAND_CHAIN_DIAGNOSTIC",
                "formal_acceptance": False, "source_run_id": command["run_id"],
@@ -141,6 +191,13 @@ def main():
                "trajectory_sha256": hashlib.sha256(json.dumps(
                    command["payload"]["trajectory"], sort_keys=True).encode()).hexdigest(),
                "outcome": "STARTING"}
+    receipt["diagnostic_derivation"] = command.get("diagnostic_derivation")
+    receipt.update(diagnostic_load_state=args.diagnostic_load_state,
+                   scope="CLEARED_WORLD_COMMAND_CHAIN_DIAGNOSTIC", contact_grasp_proven=False,
+                   fixture_has_collision_geometry=False)
+    if args.diagnostic_load_state != "empty":
+        for path in (args.attachment_plugin.resolve(), ROOT / "tools/gazebo_command_audit/payload_fixture.py"):
+            receipt["input_sha256"][str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
     import rclpy
     from rclpy.node import Node
     from rclpy.action import ActionClient
@@ -187,6 +244,10 @@ def main():
         warmup = time.monotonic() + 4
         while time.monotonic() < warmup:
             rclpy.spin_once(node, timeout_sec=0.05)
+        if args.diagnostic_load_state != "empty":
+            receipt["fixture_graph_events"] = transfer_fixture(args.diagnostic_load_state, out / "ecm_commands.jsonl")
+            settling = time.monotonic() + 1
+            while time.monotonic() < settling: rclpy.spin_once(node, timeout_sec=0.05)
         q = [latest["q"][latest["names"].index(name)] for name in initial if name.startswith("panda_joint")]
         planned = command["payload"]["trajectory"]["points"][0]["positions"]
         if time.monotonic() - latest["receipt"] > 1 or max(abs(a-b) for a,b in zip(q,planned)) > 0.005:
@@ -233,11 +294,20 @@ def main():
         client.destroy()
         node.destroy_node()
         rclpy.try_shutdown()
+        if args.diagnostic_load_state != "empty" and receipt.get("fixture_graph_events"):
+            try:
+                with (out / "ecm_commands.jsonl").open() as stream:
+                    receipt["physical_fixture_metrics"] = motion_metrics(
+                        [json.loads(line) for line in stream], receipt["fixture_graph_events"], args.diagnostic_load_state)
+            except (OSError, ValueError, KeyError, TypeError, IndexError) as exc:
+                receipt["physical_fixture_metrics"] = {"physical_fixture_status": "INDETERMINATE", "error": str(exc)}
         with (out / "controller_frames.jsonl").open("w") as stream:
             for frame in feedback: stream.write(json.dumps(frame) + "\n")
         (out / "receipt.json").write_text(json.dumps(receipt, indent=2))
         print(json.dumps(receipt), flush=True)
-    return 0 if (receipt.get("error_code") == 0 and receipt.get("cleanup") == "CLEAN"
+    fixture_valid = args.diagnostic_load_state == "empty" or receipt.get("physical_fixture_metrics", {}).get("physical_fixture_status") == (
+        "CARRY_OBSERVED" if args.diagnostic_load_state == "welded" else "RELEASE_FALL_OBSERVED")
+    return 0 if (fixture_valid and receipt.get("error_code") == 0 and receipt.get("cleanup") == "CLEAN"
                  and receipt.get("final_endpoint_error_rad", math.inf) <= 0.05
                  and receipt.get("final_stop_observed") is True) else 1
 

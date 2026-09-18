@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "scope": "DEVELOPMENT_ALIGNMENT_LOAD_SHORT_SEGMENT_DIAGNOSTIC",
+  "local_date": "2026-09-18",
+  "base_git_commit": "01236900713ecca7c8775f2c6983027be5d711a5",
+  "evaluated_with_uncommitted_changes": true,
+  "formal_acceptance": false,
+  "formal_claims_consumed": false,
+  "qualification_batch_passed": false,
+  "full_harvest_fixed": false,
+  "default_attachment_backend_changed": false,
+  "default_physics_engine_changed": false,
+  "safety_thresholds_changed": false,
+  "diagnostic_bounds": {
+    "maximum_cumulative_travel_rad": 2,
+    "maximum_duration_sec": 10,
+    "joint_margin_rad": 0.02
+  },
+  "source_command_id": "motion-backend/4f89e063178d437d801a8f2063c394b0/command/3582ce23f43d47ed943ed47c84978982",
+  "original_trajectory_sha256": "64de761f9d52fc1a6fba000e02984f19e7f11ce7559c69671318ca064dfe4116",
+  "original_full_command_exceeded_diagnostic_bound": true,
+  "original_full_command_replayed": false,
+  "derived_prefix_duration_sec": 0.5,
+  "terminal_derivatives_zeroed": true,
+  "derived_trajectory_sha256": "e5173732501331a64d4c461a1a71a5061ae90b5ddd080d137c01dafa5df11326",
+  "fixture": {
+    "mass_kg": 0.03,
+    "inertia_diagonal_kg_m2": 0.0000081,
+    "link7_nominal_z_offset_m": 0.16,
+    "actual_historical_fruit_offset_measured": false,
+    "collision_geometry": false,
+    "bin_and_plant_context": false,
+    "prior_transport_history": false,
+    "initial_fingers_open": true,
+    "contact_grasp_proven": false
+  },
+  "runs": [
+    {
+      "state": "empty",
+      "run": "alignment_empty_20260918_v2",
+      "action_error_code": 0,
+      "joint5_peak_error_rad": 0.00036796826228452373,
+      "stop_observed": true,
+      "cleanup": "CLEAN"
+    },
+    {
+      "state": "welded",
+      "run": "alignment_welded_20260918_v2",
+      "action_error_code": 0,
+      "joint5_peak_error_rad": 0.0003531060446819584,
+      "stop_observed": true,
+      "physical_fixture_status": "CARRY_OBSERVED",
+      "parent_translation_span_m": 0.05851819249827537,
+      "relative_translation_drift_m": 0.000010813679561036061,
+      "relative_rotation_drift_rad": 0.0000023511747030397837,
+      "cleanup": "CLEAN"
+    },
+    {
+      "state": "released",
+      "run": "alignment_released_20260918_v2",
+      "action_error_code": 0,
+      "joint5_peak_error_rad": 0.0003966094180926083,
+      "stop_observed": true,
+      "physical_fixture_status": "RELEASE_FALL_OBSERVED",
+      "cleanup": "CLEAN"
+    }
+  ],
+  "tests": {
+    "pure": {
+      "tests_run": 888,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    "targeted_tool_tests": 19,
+    "cpp_attachment_policy": "PASS",
+    "ros_packages_rerun": [
+      "strawberry_gazebo_plugins",
+      "strawberry_sim"
+    ],
+    "ros_cached_result_summary": {
+      "tests": 752,
+      "failures": 0,
+      "errors": 0,
+      "all_packages_rerun": false
+    },
+    "generalized_lazy_no_motion_smoke_cleanup_code": 0
+  },
+  "conclusion": "Load or one topology transfer alone did not reproduce reversal in this simplified segment. Contact, actual fruit offset, environment, prior motion and internal handle mapping remain unisolated.",
+  "specific_physics_root_cause": "UNDETERMINED",
+  "next_priority": "Minimal reproduction with actual contact and transport history; capture collision pairs and constraint changes",
+  "historical_evidence_exception": {
+    "path": ".codex_tmp/lazy_attachment_build_v3.log",
+    "reason": "Old build helper reused this auxiliary log path; original log is no longer verifiable here",
+    "old_bound_sha256": "5f82119c674b406ec2bc2e30bc01a528842748506f1d05782d23292148268b9a",
+    "historical_runtime_receipts_and_telemetry_overwritten": false
+  },
+  "raw_evidence_availability": "LOCAL_ONLY_GITIGNORED_NOT_INCLUDED_IN_A_CLONE",
+  "evidence_sha256": {
+    ".codex_tmp/alignment_diagnostics_20260918_pure_tests.log": "c7937aee47b26b5bf59190b5c876bda576c5be4aec1f543d439f8494e55c179e",
+    ".codex_tmp/alignment_diagnostics_20260918_ros_tests.log": "6d4b81af6c1ce19439b50ca5fa3928c6506382d923d23f836f46dc722e6c16ae",
+    ".codex_tmp/alignment_fixture_build_20260918.log": "e24b91acf22502a374539c68d5fcb5b39a27b1d0f43819062a954e4a841e57ce",
+    ".codex_tmp/command_audit_v4_build_20260918.log": "af987c282cf43feccf61ebdb6f85b0612ecea79484b843011e6389c76da6561a",
+    ".codex_tmp/alignment_empty_20260918_v2/receipt.json": "24118bcbf47f2b728675bd5e99a99b9bfc8b266ac55b9a1fd7321fc782a7def5",
+    ".codex_tmp/alignment_empty_20260918_v2/controller_frames.jsonl": "70157947588ea1ea8738afa8378fe889b0d6a4b9345bc2ab868c0c29f0b20df5",
+    ".codex_tmp/alignment_welded_20260918_v1/receipt.json": "eabbba48049454bad8e692426000297edff72b9fe748dd3dd2d86eaba9df5ea8",
+    ".codex_tmp/alignment_released_20260918_v1/receipt.json": "c75214a17688b05fb6f2a13647bfdcec7c3a576111bbadba3c786ebe46de0f1c",
+    ".codex_tmp/alignment_welded_20260918_v2/receipt.json": "59ce28d967148f45c087f158f6fec43d1db01fe43a346fa2fdfa3249f19bc9b5",
+    ".codex_tmp/alignment_welded_20260918_v2/ecm_commands.jsonl": "79a99700d49b62819b3ec7decbab0e5dd7d4df7c76de859f4dab550946ffbaf6",
+    ".codex_tmp/alignment_released_20260918_v2/receipt.json": "528a140fe30d35f1cf2617ece80865a303ce7d33fc584b496dea8081fab7802e",
+    ".codex_tmp/alignment_released_20260918_v2/ecm_commands.jsonl": "eec9972b63f6516d4b33c5ad497ac4eb91a703f1bd888f330bb9365f195bc932",
+    ".codex_tmp/alignment_diagnostics_20260918_review.json": "58242ce771a7d2f9ae21be07f018392c6e7799d5f4568d14e120c43bede8cdd6",
+    ".codex_tmp/attachment_lifecycle_20260918_lazy_v4/launch.log": "bae72560bf23f6a92d689f5026f642fc1e56b309c19e73052c1f5da3c2721398",
+    ".codex_tmp/attachment_lifecycle_20260918_lazy_v4/cleanup.json": "ea2aaefe0f45b47de62481d32f93b977c6801e6ab2d0676dac10ef880a3b0eaf"
+  }
+}

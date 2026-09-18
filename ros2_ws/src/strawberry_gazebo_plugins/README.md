@@ -33,3 +33,8 @@ Protocol references (Apache-2.0 Gazebo source):
 This is an independent compact implementation using the public ECM protocol;
 it intentionally does not replicate upstream scoped-model fallback or initial attachment.
 Child model names must resolve uniquely; ambiguous/missing children fail closed.
+
+Cleared-world diagnostic fixtures may mount the plugin on a world with an
+explicit `parent_model` plus `parent_link`. The unique parent is resolved after
+robot insertion; missing/ambiguous endpoints and self-attachment never attach.
+This is optional scenario assembly, not a harvesting command or contact bypass.

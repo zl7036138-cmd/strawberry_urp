@@ -15,6 +15,7 @@
 #include <gz/sim/components/Model.hh>
 #include <gz/sim/components/Name.hh>
 #include <gz/sim/components/ParentEntity.hh>
+#include <gz/sim/components/World.hh>
 #include <sdf/Element.hh>
 #include "AttachmentPolicy.hh"
 
@@ -26,9 +27,15 @@ class LazyDetachableJoint final : public gz::sim::System,
       const std::shared_ptr<const sdf::Element> &sdf,
       gz::sim::EntityComponentManager &ecm, gz::sim::EventManager &) override {
     gz::sim::Model model(entity);
-    if (!model.Valid(ecm)) throw std::runtime_error("Lazy attachment needs a model");
-    parent = model.LinkByName(ecm, sdf->Get<std::string>("parent_link"));
-    if (parent == gz::sim::kNullEntity) throw std::runtime_error("Attachment parent missing");
+    parentLink = sdf->Get<std::string>("parent_link");
+    if (model.Valid(ecm)) {
+      parent = model.LinkByName(ecm, parentLink);
+      if (parent == gz::sim::kNullEntity) throw std::runtime_error("Attachment parent missing");
+    } else if (ecm.Component<gz::sim::components::World>(entity) && sdf->HasElement("parent_model")) {
+      // Optional cleared-world fixture: robot is inserted after world plugins.
+      parentModel = sdf->Get<std::string>("parent_model");
+      if (parentModel.empty()) throw std::runtime_error("Attachment parent model empty");
+    } else throw std::runtime_error("Lazy attachment needs a model or explicit world parent");
     childModel = sdf->Get<std::string>("child_model");
     childLink = sdf->Get<std::string>("child_link");
     publisher = transport.Advertise<gz::msgs::StringMsg>(sdf->Get<std::string>("output_topic"));
@@ -40,23 +47,16 @@ class LazyDetachableJoint final : public gz::sim::System,
   void PreUpdate(const gz::sim::UpdateInfo &, gz::sim::EntityComponentManager &ecm) override {
     const auto intent = requested.exchange(Operation::None);
     if (intent != Operation::None) policy.Request(intent == Operation::Attach);
-    gz::sim::Entity modelId = gz::sim::kNullEntity;
-    unsigned matches = 0;
-    ecm.Each<gz::sim::components::Model, gz::sim::components::Name>(
-      [&](const auto &id, const auto *, const auto *name) {
-        if (name->Data() == childModel) { modelId = id; ++matches; }
-        return true;
-      });
-    const auto child = matches == 1 ? ecm.EntityByComponents(
-        gz::sim::components::Link(), gz::sim::components::ParentEntity(modelId),
-        gz::sim::components::Name(childLink)) : gz::sim::kNullEntity;
+    if (!parentModel.empty()) parent = Resolve(ecm, parentModel, parentLink);
+    const auto child = Resolve(ecm, childModel, childLink);
+    const bool available = child != gz::sim::kNullEntity && parent != gz::sim::kNullEntity && parent != child;
     bool otherSupport = false;
     ecm.Each<gz::sim::components::DetachableJoint>(
       [&](const auto &id, const auto *joint) {
         if (id != jointId && joint->Data().childLink == child) otherSupport = true;
         return true;
       });
-    const auto operation = policy.Next(child != gz::sim::kNullEntity, otherSupport);
+    const auto operation = policy.Next(available, otherSupport);
     if (operation == Operation::Detach) {
       ecm.RequestRemoveEntity(jointId);
       jointId = gz::sim::kNullEntity;
@@ -68,7 +68,7 @@ class LazyDetachableJoint final : public gz::sim::System,
     }
     // Repeat state on idempotent requests: the ROS bridge may miss insertion.
     // Missing/ambiguous children must not confirm readiness.
-    if (child != gz::sim::kNullEntity &&
+    if (available &&
         (intent != Operation::None || operation != Operation::None || !initialPublished)) {
       gz::msgs::StringMsg state;
       state.set_data(policy.Attached() ? "attached" : "detached");
@@ -77,12 +77,24 @@ class LazyDetachableJoint final : public gz::sim::System,
     }
   }
  private:
+  gz::sim::Entity Resolve(const gz::sim::EntityComponentManager &ecm,
+      const std::string &modelName, const std::string &linkName) const {
+    gz::sim::Entity modelId = gz::sim::kNullEntity;
+    unsigned matches = 0;
+    ecm.Each<gz::sim::components::Model, gz::sim::components::Name>(
+      [&](const auto &id, const auto *, const auto *name) {
+        if (name->Data() == modelName) { modelId = id; ++matches; }
+        return true;
+      });
+    return matches == 1 ? ecm.EntityByComponents(gz::sim::components::Link(),
+        gz::sim::components::ParentEntity(modelId), gz::sim::components::Name(linkName)) : gz::sim::kNullEntity;
+  }
   void Attach(const gz::msgs::Empty &) { requested.store(Operation::Attach); }
   void Detach(const gz::msgs::Empty &) { requested.store(Operation::Detach); }
   AttachmentPolicy policy;
   gz::sim::Entity parent = gz::sim::kNullEntity;
   gz::sim::Entity jointId = gz::sim::kNullEntity;
-  std::string childModel, childLink;
+  std::string childModel, childLink, parentModel, parentLink;
   bool initialPublished = false;
   std::atomic<Operation> requested{Operation::None};
   // Destroy transport before callback-accessed atomic state.

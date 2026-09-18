@@ -50,6 +50,28 @@ class ReplayBoundsTests(unittest.TestCase):
         self.assertIn("ConfigurePriority() override { return -1; }", text)
         self.assertIn("strawberry::CommandAudit::ISystemConfigurePriority", text)
 
+    def test_prefix_is_copy_preserves_positions_and_stops_at_end(self):
+        data = self.trajectory()
+        original = copy.deepcopy(data)
+        result = probe.bounded_prefix(data, 0.1)
+        self.assertEqual(data, original)
+        self.assertEqual(len(result["points"]), 2)
+        self.assertEqual(result["points"][-1]["positions"], data["points"][1]["positions"])
+        self.assertEqual(result["points"][-1]["velocities"], [0.0]*7)
+
+    def test_prefix_rejects_invalid_empty_and_unsafe_segments(self):
+        for duration in (0, -1, 2, float("nan"), 0.01):
+            with self.assertRaises(ValueError): probe.bounded_prefix(self.trajectory(), duration)
+        data = self.trajectory()
+        data["points"][1]["positions"][4] = 3.0
+        with self.assertRaises(ValueError): probe.bounded_prefix(data, 0.1)
+
+    def test_rejects_malformed_and_nonfinite_derivatives(self):
+        for field in ("velocities", "accelerations", "effort"):
+            for values in ([0], [float("nan")]*7):
+                data = self.trajectory(); data["points"][0][field] = values
+                with self.assertRaises(ValueError): probe.validate_trajectory(data)
+
 
 class StopEvidenceTests(unittest.TestCase):
     def frames(self):

@@ -7,6 +7,10 @@
 #include <map>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/System.hh>
+#include <gz/sim/Util.hh>
+#include <gz/sim/components/Link.hh>
+#include <gz/sim/components/Model.hh>
+#include <gz/sim/components/ParentEntity.hh>
 #include <gz/sim/components/Joint.hh>
 #include <gz/sim/components/Name.hh>
 #include <gz/sim/components/JointPosition.hh>
@@ -32,6 +36,7 @@ class CommandAudit final : public gz::sim::System,
     stream.open(sdf->Get<std::string>("output_file"), std::ios::out | std::ios::app);
     if (!stream) throw std::runtime_error("Cannot open command-audit output");
     stream << std::setprecision(17);
+    fixturePoseEnabled = sdf->Get<bool>("diagnostic_payload_pose_enabled", false).first;
   }
   void Update(const gz::sim::UpdateInfo &info,
       gz::sim::EntityComponentManager &ecm) override {
@@ -39,9 +44,37 @@ class CommandAudit final : public gz::sim::System,
     Record("UPDATE", info, ecm);
   }
   void PostUpdate(const gz::sim::UpdateInfo &info,
-      const gz::sim::EntityComponentManager &ecm) override { Record("POST_UPDATE", info, ecm); }
+      const gz::sim::EntityComponentManager &ecm) override {
+    Record("POST_UPDATE", info, ecm);
+    if (fixturePoseEnabled && !info.paused && info.iterations % 10 == 0) RecordFixture(info, ecm);
+  }
  private:
   std::ofstream stream;
+  bool fixturePoseEnabled = false;
+  void RecordFixture(const gz::sim::UpdateInfo &info, const gz::sim::EntityComponentManager &ecm) {
+    auto resolve = [&](const std::string &modelName, const std::string &linkName) {
+      gz::sim::Entity modelId = gz::sim::kNullEntity;
+      unsigned matches = 0;
+      ecm.Each<gz::sim::components::Model, gz::sim::components::Name>(
+        [&](const auto &id, const auto *, const auto *name) {
+          if (name->Data() == modelName) { modelId = id; ++matches; } return true;
+        });
+      return matches == 1 ? ecm.EntityByComponents(gz::sim::components::Link(),
+          gz::sim::components::ParentEntity(modelId), gz::sim::components::Name(linkName)) : gz::sim::kNullEntity;
+    };
+    auto parent = resolve("panda", "panda_link7"), child = resolve("diagnostic_payload", "fruit_link");
+    if (parent == gz::sim::kNullEntity || child == gz::sim::kNullEntity) return;
+    const auto parentPose = gz::sim::worldPose(parent, ecm);
+    const auto childPose = gz::sim::worldPose(child, ecm);
+    const auto relative = parentPose.Inverse() * childPose;
+    stream << "{\"schema_version\":1,\"phase\":\"FIXTURE_POSE\",\"sim_time_sec\":"
+           << std::chrono::duration<double>(info.simTime).count() << ",\"parent_xyz\":["
+           << parentPose.Pos().X() << "," << parentPose.Pos().Y() << "," << parentPose.Pos().Z()
+           << "],\"child_xyz\":[" << childPose.Pos().X() << "," << childPose.Pos().Y() << "," << childPose.Pos().Z()
+           << "],\"relative_xyz\":[" << relative.Pos().X() << "," << relative.Pos().Y() << "," << relative.Pos().Z()
+           << "],\"relative_quat_wxyz\":[" << relative.Rot().W() << "," << relative.Rot().X() << ","
+           << relative.Rot().Y() << "," << relative.Rot().Z() << "]}\n";
+  }
   std::map<gz::sim::Entity, unsigned> previousSupports;
   void RecordGraph(const gz::sim::UpdateInfo &info,
       const gz::sim::EntityComponentManager &ecm) {

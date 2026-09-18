@@ -29,6 +29,12 @@ command after consumption. A post-physics zero is **not evidence of a zero
 command being sent**. First check a nonzero command during a bounded replay.
 Do not override Physics/observer priorities in the diagnostic world.
 
+GRAPH records capture changes in incoming DetachableJoint counts, including
+paused insertion. `multi_supported_child_count` reports children with more than
+one such support. These are ECM topology observations, not proof that Physics
+processed a constraint or that fruit was carried safely. A replacement parent
+with an unchanged count may not emit a new GRAPH record.
+
 `scripts/probe_empty_arm_command_chain.py` starts one empty-world simulation,
 initializes the robot from a recorded command start and replays that same
 bounded trajectory once. It observes joint/controller feedback, never uses

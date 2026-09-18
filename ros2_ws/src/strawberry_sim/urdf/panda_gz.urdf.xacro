@@ -7,6 +7,8 @@
        the plain name resolved through the normal search paths. -->
   <xacro:arg name="gz_ros2_control_plugin_file" default="gz_ros2_control-system"/>
   <xacro:arg name="enable_attachment" default="false"/>
+  <xacro:arg name="gripper_attachment_plugin_file" default="gz-sim-detachable-joint-system"/>
+  <xacro:arg name="gripper_attachment_plugin_name" default="gz::sim::systems::DetachableJoint"/>
   <xacro:arg name="enable_stem_attachment" default="false"/>
   <xacro:arg name="fruit_attachment_count" default="3"/>
   <xacro:arg name="camera_mount" default="fixed"/>
@@ -307,9 +309,9 @@
     </plugin>
 
     <xacro:if value="$(arg enable_attachment)">
-      <!-- Preserve the frozen three-fruit baseline literally. -->
-      <plugin filename="gz-sim-detachable-joint-system"
-              name="gz::sim::systems::DetachableJoint">
+      <!-- Default mappings preserve the frozen three-fruit plugin protocol. -->
+      <plugin filename="$(arg gripper_attachment_plugin_file)"
+              name="$(arg gripper_attachment_plugin_name)">
         <parent_link>panda_link7</parent_link>
         <child_model>strawberry_1</child_model>
         <child_link>fruit_link</child_link>
@@ -317,8 +319,8 @@
         <detach_topic>/strawberry/sim/fruit_1/detach</detach_topic>
         <output_topic>/strawberry/sim/fruit_1/attached</output_topic>
       </plugin>
-      <plugin filename="gz-sim-detachable-joint-system"
-              name="gz::sim::systems::DetachableJoint">
+      <plugin filename="$(arg gripper_attachment_plugin_file)"
+              name="$(arg gripper_attachment_plugin_name)">
         <parent_link>panda_link7</parent_link>
         <child_model>strawberry_2</child_model>
         <child_link>fruit_link</child_link>
@@ -326,8 +328,8 @@
         <detach_topic>/strawberry/sim/fruit_2/detach</detach_topic>
         <output_topic>/strawberry/sim/fruit_2/attached</output_topic>
       </plugin>
-      <plugin filename="gz-sim-detachable-joint-system"
-              name="gz::sim::systems::DetachableJoint">
+      <plugin filename="$(arg gripper_attachment_plugin_file)"
+              name="$(arg gripper_attachment_plugin_name)">
         <parent_link>panda_link7</parent_link>
         <child_model>strawberry_3</child_model>
         <child_link>fruit_link</child_link>

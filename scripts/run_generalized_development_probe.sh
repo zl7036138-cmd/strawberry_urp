@@ -51,6 +51,7 @@ setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   world_file:="${repo_root}/${scene_dir}/${scene_stem}.sdf" \
   scene_config_file:="${repo_root}/${scene_dir}/${scene_stem}.yaml" \
   base_camera_resolution:="${base_camera_resolution}" \
+  gripper_attachment_backend:="${STRAWBERRY_GRIPPER_ATTACHMENT_BACKEND:-upstream}" \
   model_path:="${repo_root}/outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt" \
   motion_evidence_run_id:="${motion_evidence_run_id}" \
   motion_evidence_scenario_id:="${motion_evidence_scenario_id}" \

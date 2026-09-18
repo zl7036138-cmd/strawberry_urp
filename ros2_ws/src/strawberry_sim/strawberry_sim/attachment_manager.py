@@ -21,6 +21,7 @@ from .core import (
     parse_attachment_state,
     select_unique_contact_target,
 )
+from .attachment_transfer import transfer_stem_to_gripper, state_confirmed
 
 
 def _shutdown_executor_and_wait(executor, timeout_sec: float | None = None) -> bool:
@@ -92,8 +93,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         target_id: int
         condition: threading.Condition = field(default_factory=threading.Condition)
         state_known: bool = False
+        state_generation: int = 0
         attached: bool = False
         stem_state_known: bool = False
+        stem_state_generation: int = 0
         stem_attached: bool = False
         left_contact: bool = False
         left_stamp_sec: float | None = None
@@ -120,6 +123,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("backend_initialization_period_sec", 0.20)
             self.declare_parameter("resume_world_after_initialization", False)
             self.declare_parameter("stem_constraints_enabled", False)
+            self.declare_parameter("stem_release_before_gripper_attach", False)
             self.declare_parameter("contact_resolved_only", False)
             self.declare_parameter(
                 "world_control_service",
@@ -147,6 +151,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             self._stem_constraints_enabled = bool(
                 self.get_parameter("stem_constraints_enabled").value
+            )
+            self._stem_release_before_gripper_attach = bool(
+                self.get_parameter("stem_release_before_gripper_attach").value
             )
             self._contact_resolved_only = bool(
                 self.get_parameter("contact_resolved_only").value
@@ -411,6 +418,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             runtime = self._runtime[target_id]
             with runtime.condition:
                 runtime.state_known = True
+                runtime.state_generation += 1
                 runtime.attached = attached
                 runtime.condition.notify_all()
             self._complete_initialization_if_ready()
@@ -426,6 +434,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             runtime = self._runtime[target_id]
             with runtime.condition:
                 runtime.stem_state_known = True
+                runtime.stem_state_generation += 1
                 runtime.stem_attached = attached
                 runtime.condition.notify_all()
             self._complete_initialization_if_ready()
@@ -612,10 +621,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ):
                     runtime.stem_attach_publisher.publish(Empty())
 
-        def _wait_for_state(self, runtime: FruitRuntime, desired: bool) -> bool:
+        def _wait_for_state(self, runtime: FruitRuntime, desired: bool, *, after_generation=None) -> bool:
             deadline = time.monotonic() + self._confirmation_timeout
             with runtime.condition:
-                while not (runtime.state_known and runtime.attached is desired):
+                while not state_confirmed(known=runtime.state_known, value=runtime.attached,
+                                          generation=runtime.state_generation, desired=desired,
+                                          after_generation=after_generation):
                     if self._is_shutting_down():
                         return False
                     remaining = deadline - time.monotonic()
@@ -624,12 +635,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     runtime.condition.wait(timeout=remaining)
                 return True
 
-        def _wait_for_stem_state(self, runtime: FruitRuntime, desired: bool) -> bool:
+        def _wait_for_stem_state(self, runtime: FruitRuntime, desired: bool, *, after_generation=None) -> bool:
             deadline = time.monotonic() + self._confirmation_timeout
             with runtime.condition:
-                while not (
-                    runtime.stem_state_known and runtime.stem_attached is desired
-                ):
+                while not state_confirmed(known=runtime.stem_state_known, value=runtime.stem_attached,
+                                          generation=runtime.stem_state_generation, desired=desired,
+                                          after_generation=after_generation):
                     if self._is_shutting_down():
                         return False
                     remaining = deadline - time.monotonic()
@@ -706,6 +717,29 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     f"target {target_id} attachment accepted by strict geometric "
                     "dual-pad contact fallback"
                 )
+            if self._stem_constraints_enabled and self._stem_release_before_gripper_attach:
+                generations = {}
+                def request_stem_release():
+                    with runtime.condition:
+                        generations["stem"] = runtime.stem_state_generation
+                        runtime.stem_detach_publisher.publish(Empty())
+                def request_gripper_attach():
+                    with runtime.condition:
+                        generations["attach"] = runtime.state_generation
+                        runtime.attach_publisher.publish(Empty())
+                def request_gripper_detach():
+                    with runtime.condition:
+                        generations["detach"] = runtime.state_generation
+                        runtime.detach_publisher.publish(Empty())
+                response.success, response.message = transfer_stem_to_gripper(
+                    release_stem=request_stem_release,
+                    stem_released=lambda: self._wait_for_stem_state(runtime, False, after_generation=generations["stem"]),
+                    attach_gripper=request_gripper_attach,
+                    gripper_attached=lambda: self._wait_for_state(runtime, True, after_generation=generations["attach"]),
+                    detach_gripper=request_gripper_detach,
+                    gripper_detached=lambda: self._wait_for_state(runtime, False, after_generation=generations["detach"]),
+                )
+                return response
             runtime.attach_publisher.publish(Empty())
             gripper_attached = self._wait_for_state(runtime, True)
             if not gripper_attached:

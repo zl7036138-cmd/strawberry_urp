@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "scope": "DEVELOPMENT_LAZY_ATTACHMENT_AND_EXTERNAL_STEMS",
+  "local_date": "2026-09-18",
+  "base_git_commit": "9d5fefc",
+  "evaluated_with_uncommitted_changes": true,
+  "development_seed": 45504,
+  "formal_acceptance": false,
+  "formal_claims_consumed": false,
+  "qualification_batch_passed": false,
+  "full_harvest_fixed": false,
+  "default_attachment_backend": "upstream",
+  "experimental_attachment_backend": "lazy",
+  "default_physics_engine_changed": false,
+  "safety_thresholds_changed": false,
+  "position_proportional_gain": 1.5,
+  "position_proportional_gain_changed": false,
+  "fixes": [
+    "No gripper joint at insertion; refuse a second incoming detachable support",
+    "Generated lazy worlds use independent world-fixed geometry-free stem support",
+    "Confirm stem release before requesting gripper attachment",
+    "Require a matching state received after the transfer request",
+    "Cancel unconfirmed gripper attachment without unsupported fruit reset",
+    "Read-only GRAPH observations include paused insertion topology"
+  ],
+  "tests": {
+    "pure": {"tests_run": 879, "errors": 0, "failures": 0, "skipped": 3},
+    "cpp_attachment_policy": "PASS",
+    "ros_packages_rerun": ["strawberry_gazebo_plugins", "strawberry_sim", "strawberry_manipulation", "strawberry_bringup"],
+    "ros_cached_result_summary": {"tests": 752, "errors": 0, "failures": 0, "all_packages_rerun": false}
+  },
+  "startup_smoke": {
+    "upstream_initial_detachable_joint_count": 10,
+    "upstream_initial_multi_supported_child_count": 5,
+    "lazy_external_initial_detachable_joint_count": 5,
+    "lazy_external_initial_multi_supported_child_count": 0,
+    "physics_resumed": true,
+    "cleanup_code": 0,
+    "physics_processed_old_paused_loop_proven": false
+  },
+  "runs": [
+    {"run": "lazy_lifecycle_20260918_v1", "stem_support": "ROBOT_BASE", "post_request_ack_enabled": false, "terminal": "FAILED", "harvested": 0, "contact_resolved": false, "cleanup": "CLEAN"},
+    {"run": "lazy_lifecycle_20260918_v2", "engine": "DART", "stem_support": "EXTERNAL_WORLD_FIXED", "post_request_ack_enabled": true, "terminal": "RECOVERY_HOME_FAILED", "harvested": 0, "contact_resolved_sim_target_id": 1, "raw_bilateral_contact_confirmed": true, "transfer_graph_counts": [5, 4, 5], "maximum_multi_supported_child_count": 0, "retreat_and_transport_corridor_completed": true, "bin_alignment_completed": false, "bin_placement_verified": false, "truth_isolation": "PASS", "cleanup": "CLEAN"},
+    {"run": "lazy_bullet_20260918_v3", "engine": "Bullet Featherstone", "engine_verified_by_process_maps": true, "source_matches_dart_v2": true, "same_trajectory_ab": false, "recorder_outcome": "HARD_TIMEOUT", "elapsed_wall_sec": 600.0836065130002, "batch_terminal_received": false, "contact_classes": ["RIGHT_SINGLE_FRUIT", "RIGHT_SINGLE_FRUIT"], "contact_resolved": false, "carrying_comparison_proven": false, "harvested": 0, "truth_isolation": "PASS", "cleanup": "CLEAN", "telemetry_cleanup": true}
+  ],
+  "dart_alignment_observation": {
+    "sim_time_sec": 57.685,
+    "actual_velocity_rad_s": 0.5271851226130458,
+    "pre_physics_velocity_command_rad_s": -1.7143434177140424,
+    "stale_negative_command_explanation_supported_for_this_window": false,
+    "specific_physics_root_cause": "UNDETERMINED"
+  },
+  "independent_whole_run_collision_and_stop_safety_proven": false,
+  "raw_evidence_availability": "LOCAL_ONLY_GITIGNORED_NOT_INCLUDED_IN_A_CLONE",
+  "evidence_sha256": {
+    ".codex_tmp/lazy_attachment_final_v3_pure_tests.log": "5aa7577ef205dd5aff35122941e32e3ec7b7fe7b9f249814ba45452c677aadbe",
+    ".codex_tmp/lazy_attachment_final_v3_ros_tests.log": "a080312e220b6df327fb324d68a4dec9155d67fd74479846f65138e7b101210a",
+    ".codex_tmp/lazy_attachment_build_v3.log": "5f82119c674b406ec2bc2e30bc01a528842748506f1d05782d23292148268b9a",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v1/runtime_probe.json": "5c8a305cdd42cc83301efaf209576364c3e30e6671f2f02c6a20718d85310417",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v1/cleanup_probe.json": "32d3c003670f70dbba08c6c86d5d38348719b88decf7e004e64d3c67bc849173",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v1/source_manifest.json": "6158eeacadd7c2d73bc7730b4a4077505e4a357dcdbd37b74b779949c4d74d65",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v2/runtime_probe.json": "2449f59ecded9be415f3e847002b83a20aeb5bfe9ad06b34f5aac8264be389ff",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v2/truth_isolation.json": "ede1ee5d023c761128214a39222220a10342eb1061bea600f00adc831acfd840",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v2/cleanup_probe.json": "d40a6f408194c0edad1b3061cbd23905c1ded8a627607dbf61636ccb54a94bfc",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v2/source_manifest.json": "8d34d4dfab31fd91918f7f00c4445ff584fb62797211acd3938bdef311cd5c78",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v2/materialized_external_stems.sdf": "03c3780cd683d0b1fc12924dec6d823074e11f2dbab4b4a324539e68664feffe",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_lifecycle_20260918_v2/launch.log": "ab3280f010b79f1243049f79fe0a8c5aa1d508104285d20c12684042a34f4ebb",
+    ".codex_tmp/attachment_lifecycle_20260918_lazy_full_v2/command_analysis.json": "e74efb2150f16377f43dac68d707ceed7a89069f35da41ccf8bce7fe167293f5",
+    ".codex_tmp/attachment_lifecycle_20260918_lazy_v3/launch.log": "c140c944c15187d557ecbe38a02d5f7c12b76a7e2f110341c4c984c18533d3cb",
+    ".codex_tmp/attachment_lifecycle_20260918_lazy_v3/cleanup.json": "ea2aaefe0f45b47de62481d32f93b977c6801e6ab2d0676dac10ef880a3b0eaf",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_bullet_20260918_v3/runtime_probe.json": "d47622124c55bf4b27daefa21f12b0d916fa56b0e0cf54d5d0a245a936373835",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_bullet_20260918_v3/comparison_manifest.json": "ec5e817b588b5c1d11ce2e7ce53ec8b01db17459f56da1c5e58d82177cdc7011",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_bullet_20260918_v3/materialized_external_stems.sdf": "4b3db6f49e145f5b6a77698dbc6f97a182557e7e1f7e8f4341882e3d617f8f5a",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_bullet_20260918_v3/cleanup_probe.json": "3031e1df92a792ef006ac3f4f2a268dc08692a5b6a6202e8be01c52ab4cb46c9",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_bullet_20260918_v3/wrapper_receipt.json": "08e69b27d19fee81f1b21efbc21f7b204491bc12eb18b3e147911337ff1e632d",
+    ".codex_tmp/generalized_harvest_seed_45504_lazy_bullet_20260918_v3/launch.log": "c7490b1087c9255e9c4f0f88ea386267e1ed26e6db0634e5714b7024ee1c1b00"
+  }
+}

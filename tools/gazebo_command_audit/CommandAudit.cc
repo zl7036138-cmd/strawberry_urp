@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <stdexcept>
+#include <map>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/System.hh>
 #include <gz/sim/components/Joint.hh>
@@ -13,6 +14,7 @@
 #include <gz/sim/components/JointVelocityCmd.hh>
 #include <gz/sim/components/JointForceCmd.hh>
 #include <gz/sim/components/JointVelocityReset.hh>
+#include <gz/sim/components/DetachableJoint.hh>
 #include <sdf/Element.hh>
 
 namespace strawberry {
@@ -32,11 +34,31 @@ class CommandAudit final : public gz::sim::System,
     stream << std::setprecision(17);
   }
   void Update(const gz::sim::UpdateInfo &info,
-      gz::sim::EntityComponentManager &ecm) override { Record("UPDATE", info, ecm); }
+      gz::sim::EntityComponentManager &ecm) override {
+    RecordGraph(info, ecm);
+    Record("UPDATE", info, ecm);
+  }
   void PostUpdate(const gz::sim::UpdateInfo &info,
       const gz::sim::EntityComponentManager &ecm) override { Record("POST_UPDATE", info, ecm); }
  private:
   std::ofstream stream;
+  std::map<gz::sim::Entity, unsigned> previousSupports;
+  void RecordGraph(const gz::sim::UpdateInfo &info,
+      const gz::sim::EntityComponentManager &ecm) {
+    std::map<gz::sim::Entity, unsigned> supports;
+    unsigned count = 0, multiple = 0;
+    ecm.Each<gz::sim::components::DetachableJoint>(
+      [&](const auto &, const auto *joint) { ++supports[joint->Data().childLink]; ++count; return true; });
+    if (supports == previousSupports) return;
+    previousSupports = supports;
+    for (const auto &entry : supports) if (entry.second > 1) ++multiple;
+    stream << "{\"schema_version\":1,\"phase\":\"GRAPH\",\"sim_time_sec\":"
+           << std::chrono::duration<double>(info.simTime).count()
+           << ",\"paused\":" << (info.paused ? "true" : "false")
+           << ",\"detachable_joint_count\":" << count
+           << ",\"multi_supported_child_count\":" << multiple << "}\n";
+    stream.flush();
+  }
   template<class Component>
   void Scalar(const gz::sim::EntityComponentManager &ecm, gz::sim::Entity id) {
     auto c = ecm.Component<Component>(id);

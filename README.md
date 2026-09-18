@@ -5,6 +5,13 @@
 Reproducible ROS 2 simulation for strawberry maturity detection, 3D localization,
 and Panda pick-and-place evaluation.
 
+Current generalized development status (2026-09-18): an opt-in lazy attachment
+backend with independent stem support has confirmed bilateral grasp and support
+transfer in development seed 45504. DART bin alignment and recovery still fail;
+complete harvest and multi-fruit qualification are **not passed**. Defaults and
+historical release results are unchanged. See
+[`the development record`](docs/p0/LAZY_ATTACHMENT_DEVELOPMENT_2026-09-18.md).
+
 For continuation in a new Codex task, repository, or VS Code workspace, start
 with [`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md). It separates the frozen
 v1 release from the newer Blender v2 simulator baseline and records the exact

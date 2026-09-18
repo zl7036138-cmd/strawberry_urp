@@ -12,6 +12,7 @@
   <exec_depend>controller_manager_msgs</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>gz_ros2_control</exec_depend>
+  <exec_depend>strawberry_gazebo_plugins</exec_depend>
   <exec_depend>moveit_resources_panda_description</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>ros_gz_interfaces</exec_depend>

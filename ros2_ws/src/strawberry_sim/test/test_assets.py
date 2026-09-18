@@ -436,9 +436,15 @@ class SimulationAssetTests(unittest.TestCase):
         detachable = [
             plugin
             for plugin in root.findall(".//plugin")
-            if plugin.attrib.get("filename") == "gz-sim-detachable-joint-system"
+            if plugin.findtext("parent_link") == "panda_link7"
         ]
         self.assertEqual(len(detachable), 3)
+        defaults = {arg.get("name"): arg.get("default") for arg in
+                    root.findall("{http://www.ros.org/wiki/xacro}arg")}
+        self.assertEqual(defaults["gripper_attachment_plugin_file"], "gz-sim-detachable-joint-system")
+        self.assertEqual(defaults["gripper_attachment_plugin_name"], "gz::sim::systems::DetachableJoint")
+        for plugin in detachable:
+            self.assertEqual(plugin.get("filename"), "$(arg gripper_attachment_plugin_file)")
         self.assertEqual(
             {plugin.findtext("child_model") for plugin in detachable},
             {"strawberry_1", "strawberry_2", "strawberry_3"},

@@ -24,7 +24,8 @@ class DynamicAttachmentCapacityTests(unittest.TestCase):
         self.assertIn("not 1 <= len(fruits) <= 9", source)
         self.assertIn('"fruit_attachment_count": str(fruit_attachment_count)', source)
         self.assertIn("stem_constraints_enabled=generalized_scene", source)
-        self.assertIn('"enable_stem_attachment": "true" if generalized_scene else "false"', source)
+        self.assertIn('"enable_stem_attachment": "true" if generalized_scene and attachment_backend != "lazy" else "false"', source)
+        self.assertIn("add_external_stem_support(external_world.getroot(), fruit_attachment_count)", source)
         self.assertIn('"stem_constraints_enabled": generalized_scene', source)
         self.assertIn('scene_document.get("generator")', source)
         self.assertIn(

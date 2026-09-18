@@ -45,6 +45,7 @@ def generate_launch_description():
             ),
             "camera_mount": "dual",
             "enable_attachment": "true",
+            "gripper_attachment_backend": LaunchConfiguration("gripper_attachment_backend"),
             "enable_pose_control": "true",
         }.items(),
     )
@@ -59,6 +60,8 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("headless", default_value="true"),
+            DeclareLaunchArgument("gripper_attachment_backend", default_value="upstream",
+                                  choices=["upstream", "lazy"]),
             DeclareLaunchArgument("simulation_seed", default_value="17036"),
             DeclareLaunchArgument("motion_evidence_run_id", default_value=""),
             DeclareLaunchArgument("motion_evidence_scenario_id", default_value=""),

@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 import xacro
 import yaml
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -22,6 +22,7 @@ from launch.actions import (
 from launch.substitutions import FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from strawberry_sim.attachment_world import add_external_stem_support
 
 
 _BASE_CAMERA_RESOLUTIONS = {
@@ -295,6 +296,26 @@ def _launch_nodes(context):
             raise RuntimeError("simulation_seed must be within [0, 4294967295]")
     enable_attachment = LaunchConfiguration("enable_attachment").perform(context)
     attachment_enabled = enable_attachment.lower() in {"1", "true", "yes"}
+    attachment_backend = LaunchConfiguration("gripper_attachment_backend").perform(context)
+    if attachment_backend not in {"upstream", "lazy"}:
+        raise RuntimeError("gripper_attachment_backend must be upstream or lazy")
+    attachment_plugin = "gz-sim-detachable-joint-system"
+    attachment_plugin_name = "gz::sim::systems::DetachableJoint"
+    if attachment_enabled and attachment_backend == "lazy":
+        attachment_plugin = os.path.join(get_package_prefix("strawberry_gazebo_plugins"),
+                                         "lib", "libstrawberry_lazy_detachable_joint.so")
+        if not os.path.isfile(attachment_plugin):
+            raise RuntimeError("Build strawberry_gazebo_plugins before using lazy attachment")
+        attachment_plugin_name = "strawberry::LazyDetachableJoint"
+        if generalized_scene:
+            external_world = ET.parse(world_file)
+            add_external_stem_support(external_world.getroot(), fruit_attachment_count)
+            external_path = Path(tempfile.gettempdir()) / "strawberry_urp" / (
+                f"{Path(world_file).stem}_external_stems_{os.getpid()}.sdf")
+            external_path.parent.mkdir(parents=True, exist_ok=True)
+            external_world.write(external_path, encoding="utf-8", xml_declaration=True)
+            world_file = str(external_path)
+            print(f"[strawberry_sim] external stem world: {world_file}")
     enable_pose_control = LaunchConfiguration("enable_pose_control").perform(context)
     pose_control_enabled = enable_pose_control.lower() in {"1", "true", "yes"}
     # DetachableJoint instances are attached when their model is inserted.
@@ -361,7 +382,9 @@ def _launch_nodes(context):
                 "STRAWBERRY_GC_PLUGIN_FILE", "gz_ros2_control-system"
             ),
             "enable_attachment": enable_attachment,
-            "enable_stem_attachment": "true" if generalized_scene else "false",
+            "gripper_attachment_plugin_file": attachment_plugin,
+            "gripper_attachment_plugin_name": attachment_plugin_name,
+            "enable_stem_attachment": "true" if generalized_scene and attachment_backend != "lazy" else "false",
             "fruit_attachment_count": str(fruit_attachment_count),
             "camera_mount": camera_mount,
             "base_camera_mast_xyz": base_camera_mast_xyz,
@@ -512,6 +535,7 @@ def _launch_nodes(context):
                     "backend_initialization_attempts": attachment_initialization_attempts,
                     "resume_world_after_initialization": attachment_enabled,
                     "stem_constraints_enabled": generalized_scene,
+                    "stem_release_before_gripper_attach": attachment_backend == "lazy",
                     "contact_resolved_only": generalized_scene,
                     # Generalized GPU perception runs below real time.  Keep
                     # the physical 1 s simulated-contact requirement intact,
@@ -665,6 +689,8 @@ def generate_launch_description():
                 default_value="false",
                 description="Enable only after the Panda detachable-joint smoke test passes.",
             ),
+            DeclareLaunchArgument("gripper_attachment_backend", default_value="upstream",
+                                  choices=["upstream", "lazy"]),
             DeclareLaunchArgument(
                 "enable_pose_control",
                 default_value="false",

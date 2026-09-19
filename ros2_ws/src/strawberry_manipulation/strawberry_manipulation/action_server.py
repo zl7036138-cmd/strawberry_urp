@@ -476,6 +476,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 dynamic_fruit_manifest=(fruit_pose_source == "tracked"),
                 contact_resolved_attachment=(fruit_pose_source == "tracked"),
+                carried_position_uncertainty_m=self._target_refinement_max_sigma_m,
                 maximum_cached_collision_scene_age_sec=float(
                     self.get_parameter(
                         "maximum_cached_collision_scene_age_sec"
@@ -907,6 +908,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     f"visual refinement correction {correction_m:.4f} m "
                     "exceeds the configured limit"
                 )
+            self._backend.update_prepared_visual_center(target_id, center)
             self.get_logger().info(
                 "Near-grasp visual target refined: "
                 f"target={target_id}, correction={correction_m * 1000.0:.1f} "

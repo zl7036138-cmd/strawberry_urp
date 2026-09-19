@@ -468,6 +468,8 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.contact_resolved_attachment = True
         backend.bin_verification_timeout_sec = 15.0
         operations = []
+        backend._prepare_carried_geometry = lambda target_id: True
+        backend._remove_carried_geometry = lambda: True
         backend._trigger_contact_target = (
             lambda operation, **_kwargs: operations.append(operation) or True
         )
@@ -786,6 +788,35 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(segments[-1], (target, False))
         self.assertTrue(all(intermediate for _, intermediate in segments[:-1]))
 
+    def test_prepared_visual_refinement_updates_collision_snapshot(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._prepared_target_id = 7
+        backend._target_contact_open = False
+        backend._prepared_scene_centers_m = MappingProxyType(
+            {7: (0.40, 0.10, 0.50), 8: (0.52, 0.12, 0.54)}
+        )
+        backend._cached_collision_scene_centers_m = MappingProxyType(
+            {7: (0.40, 0.10, 0.50), 8: (0.52, 0.12, 0.54)}
+        )
+        backend._planning_scene_monitor = object()
+        backend.base_frame = "panda_link0"
+        backend.fruit_collision_radius_m = 0.026
+        refined = (0.415, 0.095, 0.505)
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
+            return_value="strawberry_fruit_7",
+        ) as scene_update:
+            self.assertTrue(backend.update_prepared_visual_center(7, refined))
+
+        self.assertEqual(backend._prepared_scene_centers_m[7], refined)
+        self.assertEqual(backend._cached_collision_scene_centers_m[7], refined)
+        self.assertEqual(
+            scene_update.call_args.kwargs,
+            {"center_m": refined, "radius_m": 0.026},
+        )
+
     def test_guarded_place_preview_failure_is_zero_motion(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
@@ -942,6 +973,48 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertTrue(outcome.success)
         self.assertEqual(executions, [{"velocity_rad_per_sec": 0.25}])
 
+    def test_successful_place_segment_records_executed_joint_route(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.cartesian_endpoint_retry_limit = 0
+        backend.intermediate_position_tolerance_m = 0.02
+        backend.intermediate_orientation_tolerance_rad = math.radians(8.0)
+        backend.pose_link = "panda_hand"
+        backend._place_route_recording_segments = []
+        backend._dense_pose_waypoints = lambda current, target: (target,)
+        backend._solve_cartesian_joint_path = lambda waypoints: (
+            (0.0,),
+            ((0.1,), (0.2,)),
+            False,
+            0.01,
+        )
+        backend._execute_joint_path = lambda *args, **kwargs: (True, 0.02)
+        backend._wait_until_arm_settled = lambda: True
+        backend._pose_is_within_tolerance = lambda *args, **kwargs: True
+
+        class ReadOnly:
+            def __enter__(self):
+                return SimpleNamespace(
+                    current_state=SimpleNamespace(
+                        get_pose=lambda link: SimpleNamespace()
+                    )
+                )
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+        backend._planning_scene_monitor = SimpleNamespace(read_only=lambda: ReadOnly())
+
+        outcome = backend._move_segmented_between(
+            Pose(0.0, 0.0, 0.0), Pose(0.1, 0.0, 0.0)
+        )
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(
+            backend._place_route_recording_segments,
+            [((0.0,), (0.1,), (0.2,))],
+        )
+
     def test_wrist_observation_uses_startup_verified_action_path(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
@@ -1097,6 +1170,114 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         self.assertTrue(backend.move_home())
         self.assertEqual(requested, ["ready"])
+
+    def test_recorded_place_route_is_reversed_and_retimed_from_live_state(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._last_successful_place_joint_segments = (
+            ((0.00,), (0.10,), (0.20,)),
+            ((0.21,), (0.30,), (0.40,)),
+        )
+        backend.joint_trajectory_start_tolerance_rad = 0.05
+        backend.home_joint_tolerance_rad = 0.03
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.08
+        backend.grasp_joint_trajectory_velocity_rad_per_sec = 0.25
+        backend.execution_joint_limit_margin_rad = 0.02
+        backend._wait_until_arm_settled = lambda: True
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: True
+        backend._joint_path_within_safety_limits = lambda *args, **kwargs: True
+        checked = []
+        backend._joint_path_is_collision_free = (
+            lambda path: checked.append(path) or True
+        )
+        measured = [0.40]
+        backend._current_joint_positions = lambda: (measured[0],)
+        executions = []
+
+        def execute(start, path, **kwargs):
+            executions.append((start, path, kwargs))
+            measured[0] = path[-1][0]
+            return True, 0.2
+
+        backend._execute_joint_path = execute
+
+        outcome = backend.return_via_recorded_place_route()
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(
+            executions,
+            [
+                ((0.40,), ((0.30,), (0.21,)), {"velocity_rad_per_sec": 0.25}),
+                ((0.21,), ((0.10,), (0.00,)), {"velocity_rad_per_sec": 0.25}),
+            ],
+        )
+        self.assertEqual(
+            checked,
+            [
+                ((0.40,), (0.30,), (0.21,)),
+                ((0.21,), (0.10,), (0.00,)),
+            ],
+        )
+        self.assertEqual(backend._last_successful_place_joint_segments, ())
+
+    def test_recorded_place_route_collision_rejects_all_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._last_successful_place_joint_segments = (
+            ((0.00,), (0.10,)),
+        )
+        backend.joint_trajectory_start_tolerance_rad = 0.05
+        backend.home_joint_tolerance_rad = 0.03
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.08
+        backend.grasp_joint_trajectory_velocity_rad_per_sec = 0.25
+        backend.execution_joint_limit_margin_rad = 0.02
+        backend._wait_until_arm_settled = lambda: True
+        backend._current_joint_positions = lambda: (0.10,)
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: True
+        backend._joint_path_within_safety_limits = lambda *args, **kwargs: True
+        backend._joint_path_is_collision_free = lambda path: False
+        executions = []
+        backend._execute_joint_path = lambda *args, **kwargs: executions.append(args)
+
+        outcome = backend.return_via_recorded_place_route()
+
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.collision)
+        self.assertEqual(executions, [])
+
+    def test_recorded_place_route_endpoint_drift_rejects_all_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._last_successful_place_joint_segments = (
+            ((0.00,), (0.10,)),
+        )
+        backend.joint_trajectory_start_tolerance_rad = 0.05
+        backend.home_joint_tolerance_rad = 0.03
+        backend.home_joint_trajectory_velocity_rad_per_sec = 0.08
+        backend.grasp_joint_trajectory_velocity_rad_per_sec = 0.25
+        backend.execution_joint_limit_margin_rad = 0.02
+        backend._wait_until_arm_settled = lambda: True
+        backend._current_joint_positions = lambda: (0.20,)
+        executions = []
+        backend._execute_joint_path = lambda *args, **kwargs: executions.append(args)
+
+        outcome = backend.return_via_recorded_place_route()
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.execution_time_sec, 0.0)
+        self.assertEqual(executions, [])
+
+    def test_missing_recorded_place_route_rejects_all_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._last_successful_place_joint_segments = ()
+        executions = []
+        backend._execute_joint_path = lambda *args, **kwargs: executions.append(args)
+
+        outcome = backend.return_via_recorded_place_route()
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(executions, [])
 
     def test_home_replans_once_after_zero_motion_failure(self):
         backend = MoveItBackend.__new__(MoveItBackend)

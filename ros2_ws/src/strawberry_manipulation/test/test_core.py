@@ -50,6 +50,7 @@ class FakeBackend:
         attach_results=None,
         detach=True,
         in_bin=True,
+        return_route=True,
         home=True,
         close_results=None,
         open_results=None,
@@ -64,6 +65,7 @@ class FakeBackend:
         self.attach_results = list(attach_results or [])
         self.detach_ok = detach
         self.in_bin_ok = in_bin
+        self.return_route_ok = return_route
         self.home_ok = home
         self.close_results = list(close_results or [])
         self.open_results = list(open_results or [])
@@ -123,6 +125,10 @@ class FakeBackend:
         self.calls.append("verify")
         return self.in_bin_ok
 
+    def return_via_recorded_place_route(self):
+        self.calls.append("return_route")
+        return MotionOutcome(self.return_route_ok, 0.03, 0.04)
+
 
 class PickAndPlaceTests(unittest.TestCase):
     def setUp(self):
@@ -149,7 +155,7 @@ class PickAndPlaceTests(unittest.TestCase):
             backend.calls.index("allow_contact"),
             backend.calls.index("GRASP_POSE"),
         )
-        self.assertEqual(backend.calls[-2:], ["home", "restore"])
+        self.assertEqual(backend.calls[-3:], ["return_route", "home", "restore"])
 
     def test_release_detach_failure_keeps_recovery_motion_withheld(self):
         backend = FakeBackend(detach=False)
@@ -194,7 +200,7 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
         self.assertIn("APPROACH", backend.calls)
         self.assertNotIn("GRASP_POSE", backend.calls)
-        self.assertEqual(backend.calls[-2:], ["home", "restore"])
+        self.assertEqual(backend.calls[-3:], ["open", "home", "restore"])
 
     def test_one_approach_retry_then_success(self):
         backend = FakeBackend(
@@ -513,7 +519,19 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
         self.assertIn("final home motion failed", result.message)
         self.assertEqual(backend.calls.count("home"), 1)
-        self.assertEqual(backend.calls[-2:], ["home", "restore"])
+        self.assertEqual(backend.calls[-3:], ["return_route", "home", "restore"])
+
+    def test_failed_recorded_return_withholds_independent_home_motion(self):
+        backend = FakeBackend(return_route=False)
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertIn("recorded place-route return failed", result.message)
+        self.assertIn("home motion withheld", result.message)
+        self.assertNotIn("home", backend.calls)
+        self.assertEqual(backend.calls[-2:], ["return_route", "restore"])
 
     def test_failed_recovery_reports_home_failure_without_retry(self):
         backend = FakeBackend(

@@ -92,6 +92,8 @@ class MotionBackend(Protocol):
 
     def detach(self, target_id: int) -> bool: ...
 
+    def return_via_recorded_place_route(self) -> MotionOutcome: ...
+
     def move_home(self) -> bool: ...
 
     def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool: ...
@@ -716,6 +718,32 @@ class PickAndPlaceExecutor:
         mark("VERIFY", 0.90)
         if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):
             return fail(FailureCode.PLACE_FAILED, "fruit did not remain in bin")
+
+        # Leave the bin along the same connected transport corridor that was
+        # actually executed on the way in.  The backend retimes that route
+        # from fresh joint feedback and revalidates it against the current
+        # open-gripper collision scene.  A failed check is a hard stop: an
+        # independently replanned long sweep from inside the bin is exactly
+        # the recovery path that contacted an unharvested fruit and pinned
+        # joint 5 in the diagnosed DART failures.
+        mark("RETURN_ROUTE", 0.95)
+        return_motion = self.backend.return_via_recorded_place_route()
+        planning_time += return_motion.planning_time_sec
+        execution_time += return_motion.execution_time_sec
+        if not return_motion.success:
+            return ExecutionResult(
+                False,
+                (
+                    FailureCode.COLLISION
+                    if return_motion.collision
+                    else FailureCode.PLANNING_FAILED
+                ),
+                "pick-and-place completed but recorded place-route return failed; "
+                "home motion withheld",
+                planning_time,
+                execution_time,
+                tuple(stages),
+            )
 
         if not self.backend.move_home():
             return ExecutionResult(

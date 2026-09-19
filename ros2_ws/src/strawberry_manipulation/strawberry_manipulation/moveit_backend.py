@@ -12,6 +12,8 @@ from types import MappingProxyType
 from typing import Callable, Mapping
 
 from .core import CONTACT_CLASS_UNAVAILABLE, MotionOutcome, Pose, rotate_about_base_z
+from .carried_geometry import local_fruit_center, transit_hand_height
+from .carried_scene import set_carried_fruit
 from .motion_evidence import MotionEvidence, serialize_joint_feedback, serialize_trajectory
 from .moveit_scene import (
     apply_fruit_collision_scene,
@@ -204,6 +206,7 @@ class MoveItBackend:
         | None = None,
         dynamic_fruit_manifest: bool = False,
         contact_resolved_attachment: bool = False,
+        carried_position_uncertainty_m: float = 0.015,
         maximum_cached_collision_scene_age_sec: float = 120.0,
         maximum_cached_target_drift_m: float = 0.05,
         config_dict: dict | None = None,
@@ -517,6 +520,14 @@ class MoveItBackend:
         self.fruit_pose_provider = fruit_pose_provider
         self.dynamic_fruit_manifest = bool(dynamic_fruit_manifest)
         self.contact_resolved_attachment = bool(contact_resolved_attachment)
+        if not math.isfinite(carried_position_uncertainty_m) or carried_position_uncertainty_m <= 0:
+            raise ValueError("carried position uncertainty must be finite and positive")
+        self.carried_position_uncertainty_m = float(carried_position_uncertainty_m)
+        self._carried_target_id = None
+        self._carried_center_in_hand_m = None
+        self._carried_scene_centers_m = None
+        self._place_route_recording_segments = None
+        self._last_successful_place_joint_segments = ()
         self.maximum_cached_collision_scene_age_sec = float(
             maximum_cached_collision_scene_age_sec
         )
@@ -996,6 +1007,45 @@ class MoveItBackend:
         self._target_contact_open = True
         self.node.get_logger().info(
             f"MoveIt target obstacle {object_id} removed for grasp contact"
+        )
+        return True
+
+    def update_prepared_visual_center(
+        self, target_id: int, center_m: tuple[float, float, float]
+    ) -> bool:
+        """Move the prepared target obstacle to a bounded wrist refinement.
+
+        The action server performs freshness, confidence, uncertainty and
+        correction-distance gates before this call.  This method keeps the
+        collision lifecycle snapshot consistent with that accepted visual
+        observation; it never queries simulator truth.
+        """
+
+        if self._prepared_target_id != target_id or self._target_contact_open:
+            raise RuntimeError(
+                "visual target refinement requires a matching closed prepared "
+                "collision lifecycle"
+            )
+        center = tuple(float(value) for value in center_m)
+        if len(center) != 3 or not all(math.isfinite(value) for value in center):
+            raise ValueError("refined visual target center must contain three finite values")
+        object_id = set_target_fruit_collision(
+            self._planning_scene_monitor,
+            self.base_frame,
+            target_id,
+            center_m=center,
+            radius_m=self.fruit_collision_radius_m,
+        )
+        prepared = dict(self._prepared_scene_centers_m or {})
+        prepared[target_id] = center
+        self._prepared_scene_centers_m = MappingProxyType(prepared)
+        cached = getattr(self, "_cached_collision_scene_centers_m", None)
+        if cached is not None and target_id in cached:
+            updated_cached = dict(cached)
+            updated_cached[target_id] = center
+            self._cached_collision_scene_centers_m = MappingProxyType(updated_cached)
+        self.node.get_logger().info(
+            f"MoveIt target obstacle {object_id} updated from bounded wrist vision"
         )
         return True
 
@@ -2293,6 +2343,12 @@ class MoveItBackend:
             execution_time += attempt_execution
             if not executed or not self._wait_until_arm_settled():
                 return MotionOutcome(False, planning_time, execution_time)
+            recorder = getattr(self, "_place_route_recording_segments", None)
+            if recorder is not None:
+                # Record only trajectories that reached a settled controller
+                # terminal state.  Endpoint-correction attempts are retained
+                # too: they are part of the route the robot physically used.
+                recorder.append((start_positions,) + tuple(joint_path))
             with self._planning_scene_monitor.read_only() as scene:
                 actual_pose = scene.current_state.get_pose(self.pose_link)
             succeeded = self._pose_is_within_tolerance(
@@ -2605,6 +2661,30 @@ class MoveItBackend:
 
         lift_z = max(current.z, target.z) + self.place_transit_clearance_m
         bin_transit_z = target.z + self.place_transit_clearance_m
+        carried = getattr(self, "_carried_center_in_hand_m", None)
+        scene_centers = getattr(self, "_carried_scene_centers_m", None)
+        if carried is not None and scene_centers is not None:
+            # Keep the carried fruit envelope clear of every remaining fruit
+            # during the corridor pass, and of the plant while leaving.
+            bin_transit_z = transit_hand_height(
+                bin_transit_z,
+                target,
+                carried,
+                scene_centers.values(),
+                self.fruit_collision_radius_m,
+                self.carried_position_uncertainty_m,
+            )
+            lift_z = max(
+                lift_z,
+                transit_hand_height(
+                    lift_z,
+                    current,
+                    carried,
+                    scene_centers.values(),
+                    self.fruit_collision_radius_m,
+                    self.carried_position_uncertainty_m,
+                ),
+            )
         return (
             (
                 "vertical lift",
@@ -2706,61 +2786,77 @@ class MoveItBackend:
     def _move_guarded_place(self, target: Pose) -> MotionOutcome:
         """Enter the open collection bin vertically instead of through a wall."""
 
+        # A route is valid only when every guarded-place phase succeeds.  Clear
+        # the previous route before previewing so a failed new attempt can
+        # never replay stale motion from another fruit.
+        self._last_successful_place_joint_segments = ()
+        recorded_segments: list[tuple[tuple[float, ...], ...]] = []
+        previous_recorder = getattr(self, "_place_route_recording_segments", None)
+        self._place_route_recording_segments = recorded_segments
         current = self._current_link_pose()
-        selected_target = None
-        preview = None
-        collision_rejected = False
-        planning_time = 0.0
-        for orientation_index, candidate in enumerate(
-            self._bounded_place_orientation_candidates(target)
-        ):
-            candidate_preview = self.preview_guarded_place_from_current(candidate)
-            planning_time += candidate_preview.planning_time_sec
-            collision_rejected = collision_rejected or candidate_preview.collision
-            if not candidate_preview.feasible:
+        try:
+            selected_target = None
+            preview = None
+            collision_rejected = False
+            planning_time = 0.0
+            for orientation_index, candidate in enumerate(
+                self._bounded_place_orientation_candidates(target)
+            ):
+                candidate_preview = self.preview_guarded_place_from_current(candidate)
+                planning_time += candidate_preview.planning_time_sec
+                collision_rejected = collision_rejected or candidate_preview.collision
+                if not candidate_preview.feasible:
+                    self.node.get_logger().info(
+                        "MoveIt guarded place orientation rejected by connected "
+                        f"preview: index={orientation_index}"
+                    )
+                    continue
+                selected_target = candidate
+                preview = candidate_preview
                 self.node.get_logger().info(
-                    "MoveIt guarded place orientation rejected by connected "
-                    f"preview: index={orientation_index}"
+                    "MoveIt guarded place selected bounded wrist-roll orientation: "
+                    f"index={orientation_index}"
                 )
-                continue
-            selected_target = candidate
-            preview = candidate_preview
-            self.node.get_logger().info(
-                "MoveIt guarded place selected bounded wrist-roll orientation: "
-                f"index={orientation_index}"
-            )
-            break
-        if selected_target is None or preview is None:
-            self.node.get_logger().warning(
-                "Guarded place rejected before motion because all four "
-                "connected Cartesian wrist-roll previews failed"
-            )
-            return MotionOutcome(
-                False,
-                planning_time,
-                0.0,
-                collision=collision_rejected,
-            )
-        execution_time = 0.0
-        waypoints = self._guarded_place_waypoints(current, selected_target)
-        for label, waypoint in waypoints:
-            self.node.get_logger().info(f"MoveIt guarded place phase: {label}")
-            outcome = self._move_segmented_between(
-                current,
-                waypoint,
-                intermediate_endpoint=label != "vertical descent",
-            )
-            planning_time += outcome.planning_time_sec
-            execution_time += outcome.execution_time_sec
-            if not outcome.success:
+                break
+            if selected_target is None or preview is None:
+                self.node.get_logger().warning(
+                    "Guarded place rejected before motion because all four "
+                    "connected Cartesian wrist-roll previews failed"
+                )
                 return MotionOutcome(
                     False,
                     planning_time,
-                    execution_time,
-                    collision=outcome.collision,
+                    0.0,
+                    collision=collision_rejected,
                 )
-            current = self._current_link_pose()
-        return MotionOutcome(True, planning_time, execution_time)
+            execution_time = 0.0
+            waypoints = self._guarded_place_waypoints(current, selected_target)
+            for label, waypoint in waypoints:
+                self.node.get_logger().info(f"MoveIt guarded place phase: {label}")
+                outcome = self._move_segmented_between(
+                    current,
+                    waypoint,
+                    intermediate_endpoint=label != "vertical descent",
+                )
+                planning_time += outcome.planning_time_sec
+                execution_time += outcome.execution_time_sec
+                if not outcome.success:
+                    return MotionOutcome(
+                        False,
+                        planning_time,
+                        execution_time,
+                        collision=outcome.collision,
+                    )
+                current = self._current_link_pose()
+            if recorded_segments:
+                self._last_successful_place_joint_segments = tuple(recorded_segments)
+                self.node.get_logger().info(
+                    "Recorded guarded-place return route: "
+                    f"{len(recorded_segments)} controller segments"
+                )
+            return MotionOutcome(True, planning_time, execution_time)
+        finally:
+            self._place_route_recording_segments = previous_recorder
 
     def _move_to_planned_joint_path(self, pose: Pose) -> MotionOutcome:
         """Plan with MoveIt, then use the startup-verified action client.
@@ -3221,9 +3317,52 @@ class MoveItBackend:
             return False
         return True
 
+    def _prepare_carried_geometry(self, target_id: int) -> bool:
+        if self._carried_target_id is not None:
+            self.node.get_logger().error("carried geometry requires a matching contact lifecycle")
+            return False
+        try:
+            centers = dict(self._prepared_scene_centers_m)
+            local_center = local_fruit_center(self._current_link_pose(), centers[target_id])
+            set_carried_fruit(
+                self._planning_scene_monitor,
+                self.pose_link,
+                target_id,
+                center_m=local_center,
+                radius_m=self.fruit_collision_radius_m + self.carried_position_uncertainty_m,
+            )
+        except Exception as exc:
+            self.node.get_logger().error(f"failed to install carried-fruit collision geometry: {exc}")
+            return False
+        self._carried_target_id = target_id
+        self._carried_center_in_hand_m = local_center
+        self._carried_scene_centers_m = MappingProxyType(centers)
+        return True
+
+    def _remove_carried_geometry(self) -> bool:
+        target_id = getattr(self, "_carried_target_id", None)
+        if target_id is None:
+            return True
+        try:
+            set_carried_fruit(self._planning_scene_monitor, self.pose_link, target_id)
+        except Exception as exc:
+            self.node.get_logger().error(f"failed to remove carried-fruit collision geometry: {exc}")
+            return False
+        self._carried_target_id = None
+        self._carried_center_in_hand_m = None
+        self._carried_scene_centers_m = None
+        return True
+
     def attach(self, target_id: int) -> bool:
         if bool(getattr(self, "contact_resolved_attachment", False)):
-            return self._trigger_contact_target("attach")
+            # Install planning geometry before any physical attachment. A
+            # failed scene update must never leave an unmodelled carried load.
+            if not self._prepare_carried_geometry(target_id):
+                return False
+            if self._trigger_contact_target("attach"):
+                return True
+            self._remove_carried_geometry()
+            return False
         entity_id = (
             getattr(self, "_prepared_entity_id", None)
             if self._prepared_target_id == target_id
@@ -3234,7 +3373,11 @@ class MoveItBackend:
 
     def detach(self, target_id: int) -> bool:
         if bool(getattr(self, "contact_resolved_attachment", False)):
-            return self._trigger_contact_target("detach")
+            # Keep the obstacle until physical release is confirmed. Failed
+            # removal returns false so failure recovery cannot blindly move.
+            if not self._trigger_contact_target("detach"):
+                return False
+            return self._remove_carried_geometry()
         entity_id = (
             getattr(self, "_prepared_entity_id", None)
             if self._prepared_target_id == target_id
@@ -3263,6 +3406,206 @@ class MoveItBackend:
             "verify_in_bin",
             response_timeout_sec=getattr(self, "bin_verification_timeout_sec", 15.0),
         )
+
+    def _joint_path_is_collision_free(
+        self, positions: tuple[tuple[float, ...], ...]
+    ) -> bool:
+        """Recheck a recorded path against the current complete robot state.
+
+        The planning scene supplies the live finger positions, so this check
+        intentionally differs from trusting the forward plan: transport was
+        executed with closed fingers and an attached fruit, while the reverse
+        trip starts with open fingers and no attached payload.
+        """
+
+        if len(positions) < 2 or any(
+            len(values) != len(positions[0])
+            or not all(math.isfinite(value) for value in values)
+            for values in positions
+        ):
+            self.node.get_logger().error(
+                "recorded place route has invalid joint dimensions or values"
+            )
+            return False
+        with self._planning_scene_monitor.read_only() as scene:
+            state = copy.deepcopy(scene.current_state)
+            expected_dimension = len(
+                state.get_joint_group_positions(self.planning_group)
+            )
+            if len(positions[0]) != expected_dimension:
+                self.node.get_logger().error(
+                    "recorded place route has the wrong arm joint count"
+                )
+                return False
+            previous = positions[0]
+            state.set_joint_group_positions(self.planning_group, previous)
+            state.update()
+            if not scene.is_state_valid(state, self.planning_group, False):
+                self.node.get_logger().error(
+                    "recorded place-route return starts in collision"
+                )
+                scene.is_state_valid(state, self.planning_group, True)
+                return False
+            for edge_index, current in enumerate(positions[1:], start=1):
+                maximum_delta = max(
+                    abs(right - left)
+                    for left, right in zip(previous, current)
+                )
+                sample_count = max(
+                    1,
+                    math.ceil(maximum_delta / self.max_collision_joint_step_rad),
+                )
+                for sample_index in range(1, sample_count + 1):
+                    fraction = sample_index / sample_count
+                    sample = tuple(
+                        left + fraction * (right - left)
+                        for left, right in zip(previous, current)
+                    )
+                    state.set_joint_group_positions(self.planning_group, sample)
+                    state.update()
+                    if not scene.is_state_valid(
+                        state, self.planning_group, False
+                    ):
+                        self.node.get_logger().error(
+                            "recorded place-route return is now in collision at "
+                            f"edge {edge_index}, sample {sample_index}/"
+                            f"{sample_count}"
+                        )
+                        scene.is_state_valid(state, self.planning_group, True)
+                        return False
+                previous = current
+        return True
+
+    def return_via_recorded_place_route(self) -> MotionOutcome:
+        """Reverse the successful bin-entry corridor after fresh validation.
+
+        Stored timestamps are deliberately ignored.  Every controller segment
+        is retimed from fresh measured joints and replay is one-shot.  The
+        route is rejected before motion if the robot drifted from its recorded
+        endpoint, its topology is discontinuous, or the current open-gripper
+        planning scene makes any edge invalid.
+        """
+
+        segments = tuple(
+            tuple(tuple(float(value) for value in waypoint) for waypoint in segment)
+            for segment in getattr(
+                self, "_last_successful_place_joint_segments", ()
+            )
+        )
+        # A recorded route must never be reusable by another recovery attempt.
+        self._last_successful_place_joint_segments = ()
+        if not segments or any(len(segment) < 2 for segment in segments):
+            self.node.get_logger().error(
+                "recorded place-route return unavailable or incomplete"
+            )
+            return MotionOutcome(False)
+        if not self._wait_until_arm_settled():
+            self.node.get_logger().error(
+                "recorded place-route return rejected: arm did not settle"
+            )
+            return MotionOutcome(False)
+
+        planning_started = time.perf_counter()
+        measured = self._current_joint_positions()
+        tolerance = min(
+            self.joint_trajectory_start_tolerance_rad,
+            getattr(self, "home_joint_tolerance_rad", 0.03),
+        )
+        # Reuse the already qualified bounded manipulation speed.  The much
+        # slower named-home speed makes seven valid reverse segments exceed
+        # the batch recorder's 180 s idle deadline at low simulation RTF.
+        # This is still below the general transit limit and is the same speed
+        # used for contact-sensitive Cartesian manipulation.
+        velocity = self.grasp_joint_trajectory_velocity_rad_per_sec
+        reverse_plans: list[
+            tuple[tuple[float, ...], tuple[tuple[float, ...], ...]]
+        ] = []
+        anticipated_start = measured
+        for reverse_index, segment in enumerate(reversed(segments), start=1):
+            recorded_end = segment[-1]
+            if len(anticipated_start) != len(recorded_end):
+                self.node.get_logger().error(
+                    "recorded place-route return has inconsistent joint counts"
+                )
+                return MotionOutcome(
+                    False, time.perf_counter() - planning_started, 0.0
+                )
+            start_error = max(
+                abs(current - expected)
+                for current, expected in zip(anticipated_start, recorded_end)
+            )
+            if start_error > tolerance:
+                self.node.get_logger().error(
+                    "recorded place-route return rejected before motion: "
+                    f"segment {reverse_index} starts {start_error:.6f} rad from "
+                    f"its recorded endpoint (limit {tolerance:.6f})"
+                )
+                return MotionOutcome(
+                    False, time.perf_counter() - planning_started, 0.0
+                )
+            targets = tuple(reversed(segment[:-1]))
+            candidate = (anticipated_start,) + targets
+            if not self._joint_path_within_limit_margin(
+                candidate,
+                margin_rad=self.execution_joint_limit_margin_rad,
+            ) or not self._joint_path_within_safety_limits(
+                candidate,
+                velocity_rad_per_sec=velocity,
+            ):
+                return MotionOutcome(
+                    False, time.perf_counter() - planning_started, 0.0
+                )
+            if not self._joint_path_is_collision_free(candidate):
+                return MotionOutcome(
+                    False,
+                    time.perf_counter() - planning_started,
+                    0.0,
+                    collision=True,
+                )
+            reverse_plans.append((recorded_end, targets))
+            anticipated_start = segment[0]
+
+        planning_time = time.perf_counter() - planning_started
+        execution_time = 0.0
+        for reverse_index, (recorded_end, targets) in enumerate(
+            reverse_plans, start=1
+        ):
+            measured = self._current_joint_positions()
+            start_error = max(
+                abs(current - expected)
+                for current, expected in zip(measured, recorded_end)
+            )
+            if start_error > tolerance:
+                self.node.get_logger().error(
+                    "recorded place-route return stopped before segment "
+                    f"{reverse_index}: live start drifted by {start_error:.6f} rad"
+                )
+                return MotionOutcome(False, planning_time, execution_time)
+            executed, elapsed = self._execute_joint_path(
+                measured,
+                targets,
+                velocity_rad_per_sec=velocity,
+            )
+            execution_time += elapsed
+            if not executed or not self._wait_until_arm_settled():
+                return MotionOutcome(False, planning_time, execution_time)
+            reached = self._current_joint_positions()
+            endpoint_error = max(
+                abs(current - expected)
+                for current, expected in zip(reached, targets[-1])
+            )
+            if endpoint_error > tolerance:
+                self.node.get_logger().error(
+                    "recorded place-route return did not reach segment "
+                    f"{reverse_index} endpoint: error={endpoint_error:.6f} rad"
+                )
+                return MotionOutcome(False, planning_time, execution_time)
+
+        self.node.get_logger().info(
+            "Recorded guarded-place corridor reversed successfully; "
+            "home planning may now start from the prior safe retreat checkpoint"
+        )
+        return MotionOutcome(True, planning_time, execution_time)
 
     def move_home(self) -> bool:
         first = self._move_to_named_configuration_direct(self.home_configuration)

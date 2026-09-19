@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <stdexcept>
 #include <map>
+#include <google/protobuf/util/json_util.h>
+#include <gz/sim/components/ContactSensorData.hh>
 #include <gz/plugin/Register.hh>
 #include <gz/sim/System.hh>
 #include <gz/sim/Util.hh>
@@ -37,6 +39,7 @@ class CommandAudit final : public gz::sim::System,
     if (!stream) throw std::runtime_error("Cannot open command-audit output");
     stream << std::setprecision(17);
     fixturePoseEnabled = sdf->Get<bool>("diagnostic_payload_pose_enabled", false).first;
+    contactAuditEnabled = sdf->Get<bool>("contact_audit_enabled", false).first;
   }
   void Update(const gz::sim::UpdateInfo &info,
       gz::sim::EntityComponentManager &ecm) override {
@@ -46,11 +49,39 @@ class CommandAudit final : public gz::sim::System,
   void PostUpdate(const gz::sim::UpdateInfo &info,
       const gz::sim::EntityComponentManager &ecm) override {
     Record("POST_UPDATE", info, ecm);
+    if (contactAuditEnabled && !info.paused) RecordContacts(info, ecm);
     if (fixturePoseEnabled && !info.paused && info.iterations % 10 == 0) RecordFixture(info, ecm);
   }
  private:
   std::ofstream stream;
   bool fixturePoseEnabled = false;
+  bool contactAuditEnabled = false;
+  // Observe only existing data. No new sensors/components, collision changes,
+  // or control feedback. Absence of a pair is NOT proof of collision freedom:
+  // this covers only collisions requested by the world's contact sensors.
+  void RecordContacts(const gz::sim::UpdateInfo &info,
+      const gz::sim::EntityComponentManager &ecm) {
+    unsigned sources = 0, pairs = 0;
+    ecm.Each<gz::sim::components::ContactSensorData>(
+      [&](const auto &id, const auto *data) {
+        ++sources;
+        pairs += data->Data().contact_size();
+        if (data->Data().contact_size() == 0) return true;
+        std::string raw;
+        auto status = google::protobuf::util::MessageToJsonString(data->Data(), &raw);
+        if (!status.ok()) throw std::runtime_error("Contact audit serialization failed");
+        stream << "{\"schema_version\":1,\"phase\":\"CONTACTS\",\"iteration\":"
+               << info.iterations << ",\"sim_time_sec\":"
+               << std::chrono::duration<double>(info.simTime).count()
+               << ",\"source_entity\":" << id << ",\"contacts\":" << raw << "}\n";
+        return true;
+      });
+    if (info.iterations % 100 == 0) {
+      stream << "{\"schema_version\":1,\"phase\":\"CONTACT_COVERAGE\",\"sim_time_sec\":"
+             << std::chrono::duration<double>(info.simTime).count()
+             << ",\"source_count\":" << sources << ",\"pair_count\":" << pairs << "}\n";
+    }
+  }
   void RecordFixture(const gz::sim::UpdateInfo &info, const gz::sim::EntityComponentManager &ecm) {
     auto resolve = [&](const std::string &modelName, const std::string &linkName) {
       gz::sim::Entity modelId = gz::sim::kNullEntity;

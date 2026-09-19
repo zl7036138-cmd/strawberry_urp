@@ -16,6 +16,7 @@ from strawberry_localization.core import (  # noqa: E402
     associate_nearest_target,
     localize_bbox,
     robust_center_depth,
+    robust_geometry_layer_depth,
     summarize_position_errors,
     validate_bbox_within_image,
     validate_sensor_metadata,
@@ -31,6 +32,120 @@ class LocalizationCoreTests(unittest.TestCase):
         estimate = robust_center_depth(depth, BoundingBox(35, 35, 30, 30))
         self.assertAlmostEqual(estimate.depth_m, 0.8, places=5)
         self.assertGreaterEqual(estimate.valid_pixels, 9)
+
+    def test_geometry_layer_recovers_fruit_behind_center_occluder(self) -> None:
+        depth = np.full((100, 100), 1.8, dtype=np.float32)
+        yy, xx = np.ogrid[:100, :100]
+        fruit_mask = (xx - 50) ** 2 + (yy - 50) ** 2 <= 28**2
+        depth[fruit_mask] = 0.50
+        depth[20:80, 40:60] = 0.18
+        box = BoundingBox(20, 20, 60, 60)
+        intrinsics = CameraIntrinsics(600.0, 600.0, 50.0, 50.0)
+
+        legacy = robust_center_depth(depth, box)
+        recovered = robust_geometry_layer_depth(
+            depth,
+            box,
+            intrinsics,
+            target_radius_m=0.026,
+            expected_depth_tolerance_m=0.08,
+        )
+
+        self.assertAlmostEqual(legacy.depth_m, 0.18, places=5)
+        self.assertAlmostEqual(recovered.depth_m, 0.50, places=5)
+        self.assertGreater(recovered.valid_pixels, 100)
+        self.assertAlmostEqual(recovered.center_u, 50.0, delta=1.0)
+        self.assertAlmostEqual(recovered.center_v, 50.0, delta=1.0)
+
+    def test_geometry_layer_rejects_when_fruit_depth_is_absent(self) -> None:
+        depth = np.full((100, 100), 1.8, dtype=np.float32)
+        depth[20:80, 40:60] = 0.18
+
+        with self.assertRaisesRegex(
+            LocalizationError,
+            "inconsistent with detected fruit size",
+        ):
+            robust_geometry_layer_depth(
+                depth,
+                BoundingBox(20, 20, 60, 60),
+                CameraIntrinsics(600.0, 600.0, 50.0, 50.0),
+                target_radius_m=0.026,
+                expected_depth_tolerance_m=0.08,
+            )
+
+    def test_geometry_layer_rejects_ambiguous_layers(self) -> None:
+        depth = np.full((100, 100), 1.8, dtype=np.float32)
+        depth[20:80, 20:50] = 0.48
+        depth[20:80, 50:80] = 0.51
+
+        with self.assertRaisesRegex(LocalizationError, "geometrically ambiguous"):
+            robust_geometry_layer_depth(
+                depth,
+                BoundingBox(20, 20, 60, 60),
+                CameraIntrinsics(600.0, 600.0, 50.0, 50.0),
+                target_radius_m=0.026,
+                expected_depth_tolerance_m=0.08,
+                ambiguity_margin_m=0.01,
+            )
+
+    def test_geometry_layer_does_not_count_box_quantization_as_sigma(self) -> None:
+        depth = np.full((40, 40), 2.0, dtype=np.float32)
+        depth[7:33, 7:34] = 1.14
+
+        estimate = robust_geometry_layer_depth(
+            depth,
+            BoundingBox(7, 7, 27, 26),
+            CameraIntrinsics(554.0, 554.0, 20.0, 20.0),
+            target_radius_m=0.026,
+            expected_depth_tolerance_m=0.08,
+            bbox_quantization_margin_px=2.0,
+        )
+
+        self.assertAlmostEqual(estimate.depth_m, 1.14, places=5)
+        self.assertAlmostEqual(estimate.sigma_m, 0.0, places=5)
+
+    def test_geometry_layer_accepts_a_dominant_near_tied_layer(self) -> None:
+        depth = np.full((100, 100), 1.8, dtype=np.float32)
+        depth[20:80, 20:75] = 0.481
+        depth[20:80, 75:80] = 0.509
+
+        estimate = robust_geometry_layer_depth(
+            depth,
+            BoundingBox(20, 20, 60, 60),
+            CameraIntrinsics(600.0, 600.0, 50.0, 50.0),
+            target_radius_m=0.026,
+            expected_depth_tolerance_m=0.08,
+            ambiguity_margin_m=0.01,
+            ambiguity_min_support_ratio=0.50,
+        )
+
+        self.assertAlmostEqual(estimate.depth_m, 0.481, places=5)
+        self.assertEqual(estimate.valid_pixels, 3300)
+
+    def test_geometry_layer_localize_mode_uses_selected_pixel_centroid(self) -> None:
+        depth = np.full((100, 100), 1.8, dtype=np.float32)
+        depth[35:65, 25:45] = 0.50
+        point, estimate = localize_bbox(
+            depth,
+            BoundingBox(20, 20, 60, 60),
+            CameraIntrinsics(600.0, 600.0, 50.0, 50.0),
+            surface_to_center_offset_m=0.026,
+            depth_estimator_mode="geometry_layer",
+            geometry_expected_depth_tolerance_m=0.08,
+        )
+
+        self.assertLess(point[0], 0.0)
+        self.assertAlmostEqual(estimate.center_u, 34.5)
+        self.assertAlmostEqual(estimate.center_v, 49.5)
+
+    def test_geometry_layer_requires_target_radius(self) -> None:
+        with self.assertRaisesRegex(ValueError, "target radius must be positive"):
+            localize_bbox(
+                np.ones((20, 20), dtype=np.float32),
+                BoundingBox(5, 5, 10, 10),
+                CameraIntrinsics(100.0, 100.0, 10.0, 10.0),
+                depth_estimator_mode="geometry_layer",
+            )
 
     def test_projection_at_principal_point(self) -> None:
         depth = np.full((20, 20), 2.0, dtype=np.float32)

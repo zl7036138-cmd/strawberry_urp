@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v16",
+  "scope": "development_only_depth_observability_and_combined_zero_motion_gate",
+  "extends": "generalized_runtime_progress_v15",
+  "base_git_commit": "ba6da3f",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_claim_created": false,
+  "runtime_truth_use": false,
+  "trajectory_execution_during_screen": false,
+  "changes": {
+    "camera_layout": "The baseline pose is unchanged; fixed mast/camera XYZ and RPY are global launch parameters for cross-seed hardware-layout studies only.",
+    "depth_observability": "A development-only scorer separates image projection, depth visibility, detection, maturity classification and accepted 3D localization.",
+    "combined_gate": "Matrix v2 requires at least two depth-visible ripe truth targets, two correctly localized ripe targets, zero false accepted ripe positions and two stable MoveIt-feasible ripe tracks.",
+    "safe_default": "The feasibility sweep now defaults to matrix v2; matrix v1 remains reproducible only when explicitly requested."
+  },
+  "development_observability": {
+    "camera_layout_id": "baseline",
+    "seeds": [45101, 45104],
+    "generated_ripe_truth_count": 6,
+    "depth_visible_ripe_truth_count": 4,
+    "correctly_localized_ripe_truth_count": 2,
+    "visible_ripe_localization_recall": 0.5,
+    "accepted_ripe_localization_precision": 0.6666666666666666,
+    "aggregate_receipt_path_local": ".codex_tmp/observability_layout_baseline_two_seed_v2.json",
+    "aggregate_receipt_sha256": "51d08ea4b6439dbe022b1378679cf33af1bc8533fdaeed696c847fa728792a09"
+  },
+  "combined_gate_smoke": {
+    "seed": 45104,
+    "moveit_probe_eligible": true,
+    "observability_eligible": false,
+    "combined_eligible": false,
+    "visible_ripe_truth_count": 3,
+    "correctly_localized_ripe_truth_count": 1,
+    "accepted_ripe_prediction_count": 2,
+    "true_ripe_prediction_count": 1,
+    "truth_isolation_pass": true,
+    "cleanup": "CLEAN",
+    "observability_receipt_sha256": "83fe259a32d3e0681aa1e004803e220776e101b38c9a5ff870e381d8a3c96e05",
+    "moveit_receipt_sha256": "6aca346e7631f19abbc7df1402b2272e9f88f38b37d5254290dd3d76b5899201",
+    "truth_isolation_receipt_sha256": "30b6c04783845610df06dae1774dedf93be07f742cab0fdb5dbedcaa1628c3ea",
+    "cleanup_receipt_sha256": "bed1091c30abb008defb1a9add228640a47d8cb588ee4005d53f7ae95a8cb6c5"
+  },
+  "verification": {
+    "dependency_light_regression": {
+      "test_count": 750,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "ros_colcon_regression": {
+      "test_count": 632,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "default_camera_pose_changed": false,
+    "combined_zero_motion_gate_implemented": true,
+    "same_batch_multi_fruit_harvest_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "formal_30_seed_matrix_may_be_opened": false,
+    "current_primary_blocker": "Base-camera depth observability and correct 3D association must be demonstrated before MoveIt reachability can qualify a scene.",
+    "next_required_work": [
+      "Freeze this correction and run fresh discovery seeds 45201-45218 through the combined no-motion gate.",
+      "Use aggregate failure classes to improve generic RGB-D association or the fixed hardware layout across the whole batch; do not tune individual seeds.",
+      "Only after discovery is healthy, run untouched qualification seeds 46101-46118 and require five jointly eligible scenes before any behavior motion."
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "scope": "DEVELOPMENT_CONTROL_RECOVERY_FIX",
+  "local_date": "2026-09-18",
+  "base_git_commit": "9881631088a820258a5fb25dd1ec17e928b75995",
+  "evaluated_with_uncommitted_changes": true,
+  "formal_acceptance": false,
+  "formal_claims_consumed": false,
+  "qualification_batch_passed": false,
+  "full_harvest_fixed": false,
+  "default_physics_engine_changed": false,
+  "safety_thresholds_changed": false,
+  "implemented_backend_sha256": "8b7532b27b02b61d96d5ace20a36c230a9a82674301058d17e368f2822ad686c",
+  "fixes": [
+    "Never recursively replay a tolerance-aborted path from its stale planned start",
+    "Revalidate planned start against measured state after the settling wait",
+    "Report tolerance cause as undetermined rather than asserting a welded kick"
+  ],
+  "tests": {
+    "pure": {"tests_run": 868, "failures": 0, "errors": 0, "skipped": 3},
+    "ros_packages_rerun": ["strawberry_manipulation", "strawberry_sim", "strawberry_bringup"],
+    "ros_cached_result_summary": {"tests": 740, "failures": 0, "errors": 0, "all_packages_rerun": false}
+  },
+  "empty_replay": {
+    "outcome": "ACTION_TERMINAL",
+    "action_error_code": 0,
+    "final_stop_observed": true,
+    "joint5_peak_error_rad": 0.000002453920018945059,
+    "final_endpoint_error_rad": 2.1049828546892968e-13,
+    "cleanup": "CLEAN",
+    "trajectory_sha256": "b051e1563363efa0336e0f71f9aa688f3266d201bff81ac9f560add2c56ee145",
+    "harvest_qualification_evidence": false
+  },
+  "full_dart_replays": [
+    {"run": "control_audit_20260917_v1", "terminal": "RECOVERY_HOME_FAILED", "harvested": 0, "cleanup": "CLEAN", "ecm_command_phase_valid": false},
+    {"run": "control_audit_20260917_v2", "terminal": "RECOVERY_HOME_FAILED", "harvested": 0, "cleanup": "CLEAN", "truth_isolation": "PASS", "ecm_command_phase_valid": true}
+  ],
+  "command_chain_observation": {
+    "update_count": 68047,
+    "nonzero_update_command_count": 40140,
+    "force_component_count": 0,
+    "velocity_reset_count": 0,
+    "home_sim_sec": 66.64,
+    "home_ecm_velocity_command_rad_s": 12.366049836588376,
+    "home_actual_velocity_rad_s": -0.05119224967415559,
+    "stale_negative_command_explanation_supported_for_this_window": false,
+    "specific_physics_root_cause": "UNDETERMINED",
+    "independent_collision_evidence": "INDETERMINATE"
+  },
+  "bullet_development_comparison": {
+    "engine_load_verified_by_process_maps": true,
+    "engine": "gz-physics7-bullet-featherstone-plugin.so.7.6.0",
+    "exact_same_trajectory_ab": false,
+    "recorder_outcome": "HARD_TIMEOUT",
+    "elapsed_wall_sec": 540.0984535650001,
+    "batch_terminal_received": false,
+    "harvested": 0,
+    "recovery_home_reached_events": 2,
+    "trajectory_recovery_required_events": 0,
+    "first_grasp_contact": "RIGHT_SINGLE_FRUIT",
+    "subsequent_collision_snapshot_rejection_age_sec": 272.870,
+    "truth_isolation": "PASS",
+    "cleanup": "CLEAN",
+    "promoted_to_default": false,
+    "full_interval_safety_proven": false
+  },
+  "raw_evidence_availability": "LOCAL_ONLY_GITIGNORED_NOT_INCLUDED_IN_A_CLONE",
+  "evidence_sha256": {
+    ".codex_tmp/control_fix_final_pure_tests.log": "5207488b895dad3033650466a30699a4c1998bc6de3dcddc7466c2e0c8748253",
+    ".codex_tmp/control_fix_ros_tests.log": "0945255c0cf7e997b15d274faf462c5f96feba23f54b815be791f565f90ba5d4",
+    ".codex_tmp/empty_arm_command_audit_20260917_v5/receipt.json": "76996a81e17424f27ebf92f21818e640e96bb48683d98ee9c7de228ac417aa96",
+    ".codex_tmp/empty_arm_command_audit_20260917_v5/controller_frames.jsonl": "9790d65c57499239eca83618d79f106afd385afa4c693742feeeedb51a71002f",
+    ".codex_tmp/empty_arm_command_audit_20260917_v5/ecm_commands.jsonl": "923e0ed8c874f3c936f78a9ec73967ac27022e67d3af78a3e87fdab6a95fd1e3",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_20260917_v1/runtime_probe.json": "00b01a9ae95e58a5bb2328040db417e7d28e4e4414416ef54148134ce2eca0af",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_20260917_v1/cleanup_probe.json": "d501d0784a089914cafcf3119c945ba1585d2747d01a27baf58e8eb53176becb",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_20260917_v2/runtime_probe.json": "dd38b2cba93bd6e578c5ce634bf9777f3bd848b89e28f25e9e77c033c1eb1ff1",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_20260917_v2/cleanup_probe.json": "e6622bec7c5a8860de5e4a8a1c0bd647161aba95789dcf9535dcf3ef03bd9c4c",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_20260917_v2/truth_isolation.json": "ed8c5cadcd60a6cac631ee70ad95fa4194cfc024d170e3f78aa5005dd34d9a03",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_20260917_v2/source_changes.patch": "296d7d8cef90c7b639a717c73737a6e191d8089562a178c938740774bc959ba1",
+    ".codex_tmp/control_chain_dart_audit_20260917_v2/analysis.json": "042b5324ca4d5e837ca1c447cc6a48e08c2f889f84560b63bfeb7cf6dadb4418",
+    ".codex_tmp/arm_telemetry_control_audit_20260917_v2_seed45504/samples.jsonl": "cfa7f163f7c1e5f0ce57b2ec95e588e6f2bc5f546fca681229200448294a94f8",
+    ".codex_tmp/control_chain_dart_audit_20260917_v2/ecm_commands.jsonl": "e2a393ce3dc32bda774329963a2e7c56e7de2839011f4d81b24108a940a6403c",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_bullet_20260917/runtime_probe.json": "eef87ddd1427404a18c45a5e7b382e97361753c3582f011c2e63f27c12ac4351",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_bullet_20260917/cleanup_probe.json": "8495c0d4d79612304c73e02de76e8a2a6e6f593100c5d7d4b28df8761da9426a",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_bullet_20260917/engine_maps.txt": "ce1a1ce457b66015c683aa283976942fb5ac2bc5cd3e55218c73aa6810cb03da",
+    ".codex_tmp/generalized_harvest_seed_45504_control_audit_bullet_20260917/truth_isolation.json": "0728c223e6de7469c4cd39d2b6661b241c269030d79830602a49cab481619d87",
+    ".codex_tmp/control_chain_bullet_audit_20260917/analysis.json": "82164b49bfb2fa3cc3bbf969372ce320a24eded5bdb837cc6036583a013a8ba9",
+    ".codex_tmp/arm_telemetry_control_audit_bullet_20260917_seed45504/samples.jsonl": "1476e0bc86ac258c3953d0cda6f7ea9ffed72adfafe6e58f962762275ebab7a7",
+    ".codex_tmp/control_chain_bullet_audit_20260917/ecm_commands.jsonl": "0da82dde71c3d0b32d1c8bba8f0648c414197309e797876fb2c98f2cd5008a00"
+  }
+}

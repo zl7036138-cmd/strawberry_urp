@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(strawberry_command_audit LANGUAGES CXX)
+find_package(gz-sim8 REQUIRED)
+add_library(strawberry_command_audit SHARED CommandAudit.cc)
+target_compile_features(strawberry_command_audit PRIVATE cxx_std_17)
+target_link_libraries(strawberry_command_audit PRIVATE gz-sim8::gz-sim8)

@@ -1,0 +1,5 @@
+/camera/wrist/color/image_raw
+/clock
+/parameter_events
+/rosout
+/strawberry/shadow/detections

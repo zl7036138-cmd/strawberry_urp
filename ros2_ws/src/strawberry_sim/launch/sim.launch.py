@@ -1,14 +1,16 @@
-"""Launch the deterministic Strawberry URP Gazebo Harmonic scene."""
+﻿"""Launch the deterministic Strawberry URP Gazebo Harmonic scene."""
 
 from __future__ import annotations
 
 import os
+import math
 from pathlib import Path
 import tempfile
 import xml.etree.ElementTree as ET
 
 import xacro
-from ament_index_python.packages import get_package_share_directory
+import yaml
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -20,6 +22,13 @@ from launch.actions import (
 from launch.substitutions import FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from strawberry_sim.attachment_world import add_external_stem_support
+
+
+_BASE_CAMERA_RESOLUTIONS = {
+    "320x240": (320, 240),
+    "640x480": (640, 480),
+}
 
 
 def _world_without_fixed_camera(source: str) -> str:
@@ -47,6 +56,155 @@ def _world_without_fixed_camera(source: str) -> str:
     return str(output)
 
 
+def _bridge_for_fruit_count(
+    source: str,
+    fruit_count: int,
+    *,
+    stem_constraints_enabled: bool = False,
+) -> str:
+    """Extend the frozen three-fruit bridge contract for generalized scenes."""
+
+    if fruit_count <= 3 and not stem_constraints_enabled:
+        return source
+    with open(source, encoding="utf-8") as stream:
+        document = yaml.safe_load(stream)
+    if not isinstance(document, list):
+        raise RuntimeError("Gazebo bridge configuration must be a YAML list")
+    existing = {str(item.get("ros_topic_name")) for item in document if isinstance(item, dict)}
+    for target_id in range(1, fruit_count + 1):
+        additions = []
+        if target_id >= 4:
+            additions.extend([
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/pose_tf",
+                "gz_topic_name": f"/model/strawberry_{target_id}/pose",
+                "ros_type_name": "tf2_msgs/msg/TFMessage",
+                "gz_type_name": "gz.msgs.Pose_V",
+                "direction": "GZ_TO_ROS",
+                "qos_profile": "SENSOR_DATA",
+            },
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/attach_command",
+                "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/attach",
+                "ros_type_name": "std_msgs/msg/Empty",
+                "gz_type_name": "gz.msgs.Empty",
+                "direction": "ROS_TO_GZ",
+            },
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/detach_command",
+                "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/detach",
+                "ros_type_name": "std_msgs/msg/Empty",
+                "gz_type_name": "gz.msgs.Empty",
+                "direction": "ROS_TO_GZ",
+            },
+            {
+                "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/attached_state",
+                "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/attached",
+                "ros_type_name": "std_msgs/msg/String",
+                "gz_type_name": "gz.msgs.StringMsg",
+                "direction": "GZ_TO_ROS",
+            },
+            ])
+        if stem_constraints_enabled:
+            additions.extend(
+                [
+                    {
+                        "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attach_command",
+                        "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attach",
+                        "ros_type_name": "std_msgs/msg/Empty",
+                        "gz_type_name": "gz.msgs.Empty",
+                        "direction": "ROS_TO_GZ",
+                    },
+                    {
+                        "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_detach_command",
+                        "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_detach",
+                        "ros_type_name": "std_msgs/msg/Empty",
+                        "gz_type_name": "gz.msgs.Empty",
+                        "direction": "ROS_TO_GZ",
+                    },
+                    {
+                        "ros_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attached_state",
+                        "gz_topic_name": f"/strawberry/sim/fruit_{target_id}/stem_attached",
+                        "ros_type_name": "std_msgs/msg/String",
+                        "gz_type_name": "gz.msgs.StringMsg",
+                        "direction": "GZ_TO_ROS",
+                    },
+                ]
+            )
+        for item in additions:
+            if item["ros_topic_name"] in existing:
+                raise RuntimeError("generalized bridge topic is duplicated")
+            existing.add(item["ros_topic_name"])
+            document.append(item)
+    output_dir = Path(tempfile.gettempdir()) / "strawberry_urp"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"bridge_fruits_{fruit_count}_{os.getpid()}.yaml"
+    output.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
+    return str(output)
+
+
+def _enforce_initial_positions(robot_description_xml: str, source: str) -> str:
+    with open(source, encoding="utf-8") as stream:
+        document = yaml.safe_load(stream)
+    positions = (document or {}).get("initial_positions")
+    if not isinstance(positions, dict) or not positions:
+        raise RuntimeError(f"Initial positions YAML is invalid: {source}")
+    root = ET.fromstring(robot_description_xml)
+    updated: set[str] = set()
+    for joint in root.findall(".//ros2_control/joint"):
+        name = joint.get("name")
+        if name not in positions:
+            continue
+        initial = next(
+            (
+                value
+                for value in joint.findall(".//param")
+                if value.get("name") == "initial_value"
+            ),
+            None,
+        )
+        if initial is None:
+            raise RuntimeError(
+                f"ros2_control joint has no initial_value parameter: {name}"
+            )
+        initial.text = str(float(positions[name]))
+        updated.add(name)
+    missing = sorted(set(positions) - updated)
+    if missing:
+        raise RuntimeError(
+            f"Initial positions were not applied to ros2_control joints: {missing}"
+        )
+    return ET.tostring(root, encoding="unicode")
+
+
+def _validated_three_vector(value: str, label: str) -> str:
+    """Normalize one launch-supplied XYZ/RPY triplet before passing it to xacro."""
+
+    parts = str(value).split()
+    if len(parts) != 3:
+        raise RuntimeError(f"{label} must contain exactly three numbers")
+    try:
+        numbers = tuple(float(part) for part in parts)
+    except ValueError as exc:
+        raise RuntimeError(f"{label} must contain only numbers") from exc
+    if not all(math.isfinite(number) for number in numbers):
+        raise RuntimeError(f"{label} must contain finite numbers")
+    return " ".join(f"{number:.12g}" for number in numbers)
+
+
+def _validated_base_camera_resolution(value: str) -> tuple[int, int]:
+    """Resolve one frozen overview-camera measurement profile."""
+
+    profile = str(value).strip().lower()
+    try:
+        return _BASE_CAMERA_RESOLUTIONS[profile]
+    except KeyError as exc:
+        supported = ", ".join(_BASE_CAMERA_RESOLUTIONS)
+        raise RuntimeError(
+            f"base_camera_resolution must be one of: {supported}"
+        ) from exc
+
+
 def _launch_nodes(context):
     package_share = get_package_share_directory("strawberry_sim")
     requested_world = LaunchConfiguration("world_file").perform(context).strip()
@@ -61,6 +219,23 @@ def _launch_nodes(context):
         raise RuntimeError("camera_mount must be fixed, wrist, or dual")
     if camera_mount in {"wrist", "dual"}:
         world_file = _world_without_fixed_camera(world_file)
+    base_camera_mast_xyz = _validated_three_vector(
+        LaunchConfiguration("base_camera_mast_xyz").perform(context),
+        "base_camera_mast_xyz",
+    )
+    base_camera_xyz = _validated_three_vector(
+        LaunchConfiguration("base_camera_xyz").perform(context),
+        "base_camera_xyz",
+    )
+    base_camera_rpy = _validated_three_vector(
+        LaunchConfiguration("base_camera_rpy").perform(context),
+        "base_camera_rpy",
+    )
+    base_camera_image_width, base_camera_image_height = (
+        _validated_base_camera_resolution(
+            LaunchConfiguration("base_camera_resolution").perform(context)
+        )
+    )
     bridge_file = os.path.join(package_share, "config", "bridge.yaml")
     node_config = os.path.join(package_share, "config", "sim_nodes.yaml")
     requested_scene_config = (
@@ -72,9 +247,37 @@ def _launch_nodes(context):
     scene_config = os.path.abspath(os.path.expanduser(scene_config))
     if not os.path.isfile(scene_config):
         raise RuntimeError(f"scene config file does not exist: {scene_config}")
+    with open(scene_config, encoding="utf-8") as stream:
+        scene_document = yaml.safe_load(stream) or {}
+    fruits = scene_document.get("fruits")
+    if not isinstance(fruits, list) or not 1 <= len(fruits) <= 9:
+        raise RuntimeError("scene config must contain between 1 and 9 fruits")
+    fruit_attachment_count = len(fruits)
+    generalized_scene = isinstance(scene_document.get("generator"), dict)
+    bridge_file = _bridge_for_fruit_count(
+        bridge_file,
+        fruit_attachment_count,
+        stem_constraints_enabled=generalized_scene,
+    )
+    attachment_initialization_attempts = (
+        150 if generalized_scene or fruit_attachment_count > 3 else 10
+    )
     panda_xacro = os.path.join(package_share, "urdf", "panda_gz.urdf.xacro")
-    initial_positions = os.path.join(
+    requested_initial_positions = (
+        LaunchConfiguration("initial_positions_file").perform(context).strip()
+    )
+    initial_positions = requested_initial_positions or os.path.join(
         package_share, "config", "panda_initial_positions.yaml"
+    )
+    initial_positions = os.path.abspath(os.path.expanduser(initial_positions))
+    if not os.path.isfile(initial_positions):
+        raise RuntimeError(
+            f"Panda initial positions file does not exist: {initial_positions}"
+        )
+    print(
+        "[strawberry_sim] resolved Panda initial positions file: "
+        f"{initial_positions}",
+        flush=True,
     )
     model_path = os.path.join(package_share, "models")
     headless = LaunchConfiguration("headless").perform(context).lower() in {
@@ -93,6 +296,26 @@ def _launch_nodes(context):
             raise RuntimeError("simulation_seed must be within [0, 4294967295]")
     enable_attachment = LaunchConfiguration("enable_attachment").perform(context)
     attachment_enabled = enable_attachment.lower() in {"1", "true", "yes"}
+    attachment_backend = LaunchConfiguration("gripper_attachment_backend").perform(context)
+    if attachment_backend not in {"upstream", "lazy"}:
+        raise RuntimeError("gripper_attachment_backend must be upstream or lazy")
+    attachment_plugin = "gz-sim-detachable-joint-system"
+    attachment_plugin_name = "gz::sim::systems::DetachableJoint"
+    if attachment_enabled and attachment_backend == "lazy":
+        attachment_plugin = os.path.join(get_package_prefix("strawberry_gazebo_plugins"),
+                                         "lib", "libstrawberry_lazy_detachable_joint.so")
+        if not os.path.isfile(attachment_plugin):
+            raise RuntimeError("Build strawberry_gazebo_plugins before using lazy attachment")
+        attachment_plugin_name = "strawberry::LazyDetachableJoint"
+        if generalized_scene:
+            external_world = ET.parse(world_file)
+            add_external_stem_support(external_world.getroot(), fruit_attachment_count)
+            external_path = Path(tempfile.gettempdir()) / "strawberry_urp" / (
+                f"{Path(world_file).stem}_external_stems_{os.getpid()}.sdf")
+            external_path.parent.mkdir(parents=True, exist_ok=True)
+            external_world.write(external_path, encoding="utf-8", xml_declaration=True)
+            world_file = str(external_path)
+            print(f"[strawberry_sim] external stem world: {world_file}")
     enable_pose_control = LaunchConfiguration("enable_pose_control").perform(context)
     pose_control_enabled = enable_pose_control.lower() in {"1", "true", "yes"}
     # DetachableJoint instances are attached when their model is inserted.
@@ -107,14 +330,44 @@ def _launch_nodes(context):
     if simulation_seed is not None:
         gz_command.extend(["--seed", str(simulation_seed)])
     gz_command.extend([world_file, "--force-version", "8"])
+    # The gravity-compensating gz_ros2_control build (upstream branch
+    # add/gravity_compensation) shadows the system plugin when its lib dir is
+    # first on the plugin path (same soname). Build it once with
+    # scripts/build_gc_plugin.sh and point STRAWBERRY_GC_PLUGIN_LIB_DIR at
+    # its install lib dir.
+    gc_plugin_lib_dir = os.environ.get("STRAWBERRY_GC_PLUGIN_LIB_DIR", "")
+    gc_prefix = (
+        os.path.dirname(os.path.dirname(gc_plugin_lib_dir))
+        if gc_plugin_lib_dir
+        else ""
+    )
+    # Prepend to LD_LIBRARY_PATH itself: the loader resolves
+    # libgz_ros2_control-system.so by soname and must find the
+    # gravity-compensating build before the system one. The hardware plugin
+    # (compensate_gravity implementation) is resolved by pluginlib through
+    # AMENT_PREFIX_PATH, so the gc prefix must lead there too.
+    if gc_plugin_lib_dir:
+        os.environ["LD_LIBRARY_PATH"] = (
+            gc_plugin_lib_dir
+            + os.pathsep
+            + os.environ.get("LD_LIBRARY_PATH", "")
+        )
+    if gc_prefix:
+        os.environ["AMENT_PREFIX_PATH"] = (
+            gc_prefix
+            + os.pathsep
+            + os.environ.get("AMENT_PREFIX_PATH", "")
+        )
     gz_environment = {
         "GZ_SIM_RESOURCE_PATH": model_path
         + os.pathsep
         + os.environ.get("GZ_SIM_RESOURCE_PATH", ""),
+        "LD_LIBRARY_PATH": os.environ.get("LD_LIBRARY_PATH", ""),
         "GZ_SIM_SYSTEM_PLUGIN_PATH": os.pathsep.join(
             filter(
                 None,
                 (
+                    gc_plugin_lib_dir,
                     os.environ.get("GZ_SIM_SYSTEM_PLUGIN_PATH", ""),
                     os.environ.get("LD_LIBRARY_PATH", ""),
                 ),
@@ -125,14 +378,41 @@ def _launch_nodes(context):
         panda_xacro,
         mappings={
             "initial_positions_file": initial_positions,
+            "gz_ros2_control_plugin_file": os.environ.get(
+                "STRAWBERRY_GC_PLUGIN_FILE", "gz_ros2_control-system"
+            ),
             "enable_attachment": enable_attachment,
+            "gripper_attachment_plugin_file": attachment_plugin,
+            "gripper_attachment_plugin_name": attachment_plugin_name,
+            "enable_stem_attachment": "true" if generalized_scene and attachment_backend != "lazy" else "false",
+            "fruit_attachment_count": str(fruit_attachment_count),
             "camera_mount": camera_mount,
+            "base_camera_mast_xyz": base_camera_mast_xyz,
+            "base_camera_xyz": base_camera_xyz,
+            "base_camera_rpy": base_camera_rpy,
+            "base_camera_image_width": str(base_camera_image_width),
+            "base_camera_image_height": str(base_camera_image_height),
         },
     ).toxml()
+    robot_description_xml = _enforce_initial_positions(
+        robot_description_xml,
+        initial_positions,
+    )
+    description_root = ET.fromstring(robot_description_xml)
+    applied_joint1 = description_root.find(
+        ".//ros2_control/joint[@name='panda_joint1']/"
+        "state_interface/param[@name='initial_value']"
+    )
+    print(
+        "[strawberry_sim] enforced panda_joint1 initial value: "
+        f"{None if applied_joint1 is None else applied_joint1.text}",
+        flush=True,
+    )
     robot_description = ParameterValue(
         robot_description_xml,
         value_type=str,
     )
+    spawn_description_topic = "/strawberry/sim/robot_description"
 
     nodes = [
         SetEnvironmentVariable(
@@ -163,6 +443,9 @@ def _launch_nodes(context):
             parameters=[
                 {"robot_description": robot_description, "use_sim_time": True}
             ],
+            remappings=[
+                ("robot_description", spawn_description_topic),
+            ],
         ),
         Node(
             package="ros_gz_sim",
@@ -175,7 +458,7 @@ def _launch_nodes(context):
                 "-name",
                 "panda",
                 "-topic",
-                "robot_description",
+                spawn_description_topic,
                 "-allow_renaming",
                 "false",
             ],
@@ -213,6 +496,16 @@ def _launch_nodes(context):
                     ],
                     output="screen",
                 ),
+                Node(
+                    package="controller_manager",
+                    executable="spawner",
+                    arguments=[
+                        "panda_gripper_right_controller",
+                        "--controller-manager-timeout",
+                        "30",
+                    ],
+                    output="screen",
+                ),
             ],
         ),
         Node(
@@ -239,7 +532,18 @@ def _launch_nodes(context):
                 {
                     "scene_config_file": scene_config,
                     "attachment_backend_enabled": attachment_enabled,
+                    "backend_initialization_attempts": attachment_initialization_attempts,
                     "resume_world_after_initialization": attachment_enabled,
+                    "stem_constraints_enabled": generalized_scene,
+                    "stem_release_before_gripper_attach": attachment_backend == "lazy",
+                    "contact_resolved_only": generalized_scene,
+                    # Generalized GPU perception runs below real time.  Keep
+                    # the physical 1 s simulated-contact requirement intact,
+                    # but allow enough wall time for the released fruit to
+                    # fall and then accumulate that interval.
+                    "verification_timeout_wall_sec": (
+                        12.0 if generalized_scene else 3.0
+                    ),
                 },
             ],
         ),
@@ -337,6 +641,14 @@ def generate_launch_description():
                 ),
             ),
             DeclareLaunchArgument(
+                "initial_positions_file",
+                default_value="",
+                description=(
+                    "Optional absolute Panda initial-joint YAML. Empty keeps "
+                    "the accepted v2 ready configuration."
+                ),
+            ),
+            DeclareLaunchArgument(
                 "camera_mount",
                 default_value="fixed",
                 choices=["fixed", "wrist", "dual"],
@@ -346,10 +658,39 @@ def generate_launch_description():
                 ),
             ),
             DeclareLaunchArgument(
+                "base_camera_mast_xyz",
+                default_value="-0.35 0.45 0.05",
+                description=(
+                    "Dual-mode eye-to-hand mast origin in panda_link0. This is "
+                    "a hardware-layout parameter, not a per-target control input."
+                ),
+            ),
+            DeclareLaunchArgument(
+                "base_camera_xyz",
+                default_value="0 0 1.00",
+                description="Base RGB-D camera origin relative to its fixed mast.",
+            ),
+            DeclareLaunchArgument(
+                "base_camera_rpy",
+                default_value="0 0.543 -0.480",
+                description="Base RGB-D camera RPY relative to its fixed mast.",
+            ),
+            DeclareLaunchArgument(
+                "base_camera_resolution",
+                default_value="320x240",
+                choices=list(_BASE_CAMERA_RESOLUTIONS),
+                description=(
+                    "Global base RGB-D measurement profile. Use one frozen "
+                    "value for an entire development or qualification batch."
+                ),
+            ),
+            DeclareLaunchArgument(
                 "enable_attachment",
                 default_value="false",
                 description="Enable only after the Panda detachable-joint smoke test passes.",
             ),
+            DeclareLaunchArgument("gripper_attachment_backend", default_value="upstream",
+                                  choices=["upstream", "lazy"]),
             DeclareLaunchArgument(
                 "enable_pose_control",
                 default_value="false",

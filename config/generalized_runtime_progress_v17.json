@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v17",
+  "scope": "development_only_correlated_uncertainty_safety_correction",
+  "extends": "generalized_runtime_progress_v16",
+  "behavior_base_git_commit": "69dce3c6de81dacfa24a9b535d1a3e55c8b91c71",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_claim_created": false,
+  "runtime_truth_use": false,
+  "trajectory_execution_during_screen": false,
+  "discovery_seed_block_452_before_correction": {
+    "seed_range": [45201, 45218],
+    "scenario_count": 18,
+    "materialization_success_count": 18,
+    "truth_isolation_pass_count": 18,
+    "clean_shutdown_count": 18,
+    "minimum_two_depth_visible_ripe_scene_count": 18,
+    "observability_eligible_count": 6,
+    "moveit_eligible_count": 5,
+    "jointly_eligible_count": 0,
+    "depth_visible_ripe_truth_count": 64,
+    "correctly_localized_ripe_truth_count": 35,
+    "accepted_ripe_prediction_count": 47,
+    "true_ripe_prediction_count": 35,
+    "visible_ripe_localization_recall": 0.546875,
+    "accepted_ripe_position_precision": 0.7446808510638298,
+    "position_band_scene_counts": {
+      "near": {"observability_eligible": 5, "moveit_eligible": 0},
+      "middle": {"observability_eligible": 1, "moveit_eligible": 0},
+      "far": {"observability_eligible": 0, "moveit_eligible": 5}
+    },
+    "summary_path_local": ".codex_tmp/generalized_feasibility_discovery_b01/sweep_summary.json",
+    "summary_sha256": "b7ef82e19e3c2183a253995061ac43e99123f60270dac37e0db7b3ac6f1ce94d"
+  },
+  "changes": {
+    "tracking_uncertainty": "Same-view observations retain the maximum of prior sigma, current sigma and spatial innovation until an explicit viewpoint reset.",
+    "base_geometry_calibration": "The base camera uses geometry_size_residual_sigma_weight 1.0 from the shared runtime/diagnostic configuration; the unsafe 0.5 base launch override was removed.",
+    "wrist_compatibility": "The previously validated 640x480 wrist confirmation path retains its explicit 0.5 residual calibration.",
+    "unchanged_safety_limits": "The 15 mm uncertainty, maturity, collision, retry and 50 mm correction thresholds are unchanged."
+  },
+  "corrected_far_scene_replays": {
+    "seeds": [45207, 45208, 45209, 45216, 45217],
+    "old_moveit_eligible_count": 5,
+    "new_moveit_eligible_count": 0,
+    "old_moveit_evaluation_count": 13,
+    "new_moveit_evaluation_count": 5,
+    "high_uncertainty_rejection_count": 8,
+    "truth_isolation_pass_count": 5,
+    "clean_shutdown_count": 5,
+    "probe_sha256_by_seed": {
+      "45207": "5495ffad7dfb87bb144ee4924e4b85e1e47cdd47e0a5b7ac116c159031822fba",
+      "45208": "d02cc99b69fdec21880b424f86aeff5bf801f2bb2a9d67542aa3ce9251e4098c",
+      "45209": "211db981188a64aaa9a21237c6462f665263846d36890993ad5be7f228873c59",
+      "45216": "a216a2abadfee2b5d3f24d74b45b32212a7bac0927d4798f2f48c0dd425d7236",
+      "45217": "a44ef0be9e10a842008ffc98da9fdbf3912e5acee8568bda33ba974a31455da8"
+    }
+  },
+  "verification": {
+    "dependency_light_regression": {
+      "test_count": 752,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "ros_colcon_regression": {
+      "test_count": 634,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "unsafe_same_view_uncertainty_collapse_fixed": true,
+    "five_old_moveit_eligible_scenes_safe_after_fix": true,
+    "same_batch_multi_fruit_harvest_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "formal_30_seed_matrix_may_be_opened": false,
+    "current_primary_blocker": "Far-workspace fruit are visible but the 320x240 base RGB-D stream does not yet produce enough accurate, low-uncertainty 3D targets that also have connected MoveIt paths.",
+    "next_required_work": [
+      "Compare higher base RGB-D source resolution and depth support as one fixed hardware configuration across development scenes; do not tune individual seeds.",
+      "After a frozen measurement-quality improvement, run fresh discovery seeds 45301-45318 through the combined no-motion gate.",
+      "Keep qualification seeds 46101-46118 and the formal 30-seed matrix sealed until five jointly eligible development scenes exist."
+    ]
+  }
+}

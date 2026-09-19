@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "kind": "blender_v2_unripe_adaptation_research_contract",
+  "status": "FROZEN_TRAINING_AUTHORIZED",
+  "variant": "yolo11s_640_blender_v2_research_v1",
+  "decision_record": {
+    "path": "docs/decisions/0037-freeze-blender-v2-unripe-adaptation-research.md",
+    "size_bytes": 4132,
+    "sha256": "a8a4c09964d38250a38e0df43a53eb16025a50a650d520e366b70a805bf80467"
+  },
+  "capture_receipt": {
+    "path": "data/processed/blender_v2_adaptation_capture_v1/capture_receipt.json",
+    "size_bytes": 1775,
+    "sha256": "9ea6ca6c27616b89311b7836ea99299fac3daf1e92ff4d103ce6e5367adf8cd8",
+    "canonical_synthetic_dataset_sha256": "e10b705c90cef8059127e4d60122ff0ab46ace4dbd00b80aace500a681466e6f"
+  },
+  "visual_qa": {
+    "path": "artifacts/perception/training/blender_v2_adaptation_capture_v1_visual_qa.json",
+    "size_bytes": 1137,
+    "sha256": "663428b6558149a8cc31956e2cbab3b9d5322b0559576ee4f06667ad2c5a67bc",
+    "required_status": "PASSED"
+  },
+  "dataset_derivative": {
+    "path": "data/processed/yolo11s_640_blender_v2_research_v1/training_manifest.json",
+    "size_bytes": 528570,
+    "sha256": "900a8148f07045302801c57a1b88e8f9b159c2cb054ad2223055bed7cc5a3219",
+    "canonical_training_derivative_sha256": "e461bc44d18d3248e81014c1fc15de2167ed993a152ea944f9990d713241c3b1",
+    "train_images": 573,
+    "real_train_images": 501,
+    "synthetic_train_images": 72,
+    "synthetic_validation_images": 24,
+    "test_split_present": false
+  },
+  "base_weight": {
+    "path": "outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt",
+    "size_bytes": 19162586,
+    "sha256": "e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70"
+  },
+  "training": {
+    "config": {
+      "path": "ros2_ws/src/strawberry_perception/config/train_yolo11s_640_blender_v2_research_v1.yaml",
+      "size_bytes": 835,
+      "sha256": "f23238e7c8caab34d85160eac574778e99a702fb60fe984caa188c7e4378d487"
+    },
+    "output_dir": "outputs/perception/yolo11s_640_blender_v2_research_v1",
+    "selected_weight": "outputs/perception/yolo11s_640_blender_v2_research_v1/weights/last.pt",
+    "claim": "artifacts/perception/training/yolo11s_640_blender_v2_research_v1.claim.json",
+    "log": "artifacts/perception/training/yolo11s_640_blender_v2_research_v1.log",
+    "maximum_claims": 1,
+    "retry_authorized": false,
+    "selected_checkpoint_rule": "last_pt_only",
+    "runtime_confidence_threshold": 0.58
+  },
+  "promotion": {
+    "synthetic_heldout_ripe_f1_min": 0.85,
+    "synthetic_heldout_unripe_f1_min": 0.85,
+    "audited_real_macro_f1_min": 0.7806746847,
+    "audited_real_ripe_f1_min": 0.8670636550,
+    "audited_real_unripe_f1_min": 0.6942857143,
+    "live_isolated_ripe_frame_rate_each_min": 0.95,
+    "live_isolated_unripe_frame_rate_min": 0.90
+  },
+  "safety": {
+    "formal_real_test_access_authorized": false,
+    "formal_real_test_receipt_must_remain_absent": "artifacts/perception/zenodo_6126677_held_out_test_receipt.json",
+    "formal_simulator_matrix_authorized": false,
+    "perception_control_authorized": false,
+    "robot_motion_authorized": false,
+    "sim_to_real_claim_authorized": false
+  }
+}

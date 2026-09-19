@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v13",
+  "scope": "development_only_opposite_side_multi_target_partial_batch",
+  "extends": "generalized_runtime_progress_v12",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "base_camera_geometry": "Move the 320x240 overview camera to the opposite side of the plants at mast xyz [-0.35, 0.45, 0.05] with camera rpy [0, 0.543, -0.480].",
+    "base_uncertainty_calibration": "Apply the existing 0.5 generalized-runtime apparent-size residual weight after every depth-layer rejection gate; retain the 15 mm target-selection limit.",
+    "fresh_scan_barriers": "Require a newly acquired tracked-target snapshot after observation, pick, place and recovery-home motion; completed targets cannot be replayed from selector caches.",
+    "live_execution_guards": "Use fresh seven-joint start, settling and in-flight limit monitoring with 0.05 rad controller path/goal tolerances.",
+    "gripper_result_deadline": "Collect both finger action results under one 15 second deadline and retain measured joint-position validation."
+  },
+  "development_runtime_probes": {
+    "seed_44008_opposite_side_shadow_v57": {
+      "outcome": "PASS",
+      "frames": 60,
+      "ripe_detections": 120,
+      "unripe_detections": 120,
+      "frames_with_target_pose": 60,
+      "ripe_detections_per_frame": 2,
+      "unripe_detections_per_frame": 2,
+      "ripe_confidence_range": [0.8272926211357117, 0.832846999168396],
+      "cleanup": "CLEAN",
+      "shadow_receipt_sha256": "d757f1da33e43ac461b881c8a0ed349aa87d25533b4e9c15f377596f51c369fe",
+      "overview_rgb_sha256": "eb5876494de17708879400c55357171285868c03a72e2d744eb2c2827fed3f1e",
+      "cleanup_receipt_sha256": "4a4ca0a22021a6ad4813dd3f707ec914fd7a10694615acd2db0430a0d86288d4"
+    },
+    "seed_44008_opposite_side_v59": {
+      "outcome": "PARTIAL_SUCCESS",
+      "visible_ripe_track_count": 2,
+      "skipped_targets": {
+        "1": "all bounded pregrasp IK or collision checks failed"
+      },
+      "harvested_track_ids": [2],
+      "harvested_sim_entity": 4,
+      "physical_bilateral_contact": true,
+      "wrist_confirmation": {
+        "raw_correction_m": 0.010371930196558365,
+        "fused_correction_m": 0.001002493632027603,
+        "fused_sigma_m": 0.009455443083521286
+      },
+      "collision_or_limit_failure_count": 0,
+      "elapsed_sec": 310.130638798,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "d2e64f9e00c00c0c4609aa456a201d829606f3ef7e60029e14527eb7c574a969",
+      "cleanup_receipt_sha256": "2d3ac10b2b6e029dffbfe8c3a5650e1dc1bad800ea546a1b0d90e43457d883c6"
+    }
+  },
+  "verification": {
+    "dependency_light_regression": {
+      "test_count": 697,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "stable_two_ripe_global_tracks_proved": true,
+    "failed_target_does_not_abort_batch_proved": true,
+    "truth_free_physical_pick_place_after_skip_proved": true,
+    "two_or_more_fruits_harvested_in_one_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "current_primary_blocker": "MoveIt feasibility is checked after conservative target ranking, so an infeasible target is selected and skipped before the feasible target is attempted.",
+    "next_required_work": [
+      "Integrate bounded MoveIt feasibility results into target ranking before publishing TARGET_SELECTED.",
+      "Run development seeds with two or more feasible mature targets and prove at least two TARGET_HARVESTED outcomes in one batch.",
+      "Repeat the development gate across multiple untrained seeds before opening the sealed 30-scenario matrix."
+    ]
+  }
+}

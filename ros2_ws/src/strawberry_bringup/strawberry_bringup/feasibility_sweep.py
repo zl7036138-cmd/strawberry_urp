@@ -1,0 +1,250 @@
+"""Pure schedule and receipt logic for generalized feasibility sweeps."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+from typing import Mapping, Sequence
+
+
+BASE_CAMERA_RESOLUTIONS = {
+    "320x240": (320, 240),
+    "640x480": (640, 480),
+}
+
+
+def parse_base_camera_resolution(value: object) -> tuple[int, int]:
+    """Return width and height for an allowed fixed batch configuration."""
+
+    profile = str(value).strip().lower()
+    try:
+        return BASE_CAMERA_RESOLUTIONS[profile]
+    except KeyError as exc:
+        supported = ", ".join(BASE_CAMERA_RESOLUTIONS)
+        raise ValueError(f"base camera resolution must be one of: {supported}") from exc
+
+
+def observability_resolution_matches(
+    receipt: Mapping[str, object] | None, resolution: object
+) -> bool:
+    """Prove that the diagnostic frame used the requested measurement profile."""
+
+    if not isinstance(receipt, Mapping):
+        return False
+    width, height = parse_base_camera_resolution(resolution)
+    shape = receipt.get("image_shape_hw")
+    if (
+        not isinstance(shape, list)
+        or len(shape) != 2
+        or any(isinstance(value, bool) for value in shape)
+    ):
+        return False
+    try:
+        actual = tuple(int(value) for value in shape)
+    except (TypeError, ValueError):
+        return False
+    return actual == (height, width)
+
+
+def validate_development_matrix(
+    config: Mapping[str, object], *, formal_seeds: Sequence[int]
+) -> None:
+    schema_version = int(config.get("schema_version", 0))
+    if schema_version not in {1, 2}:
+        raise ValueError("unsupported development matrix schema")
+    if config.get("formal_acceptance") is not False or config.get(
+        "formal_results_consumed"
+    ) is not False:
+        raise ValueError("development matrix must not claim formal results")
+    discovery = config.get("discovery")
+    qualification = config.get("qualification")
+    if not isinstance(discovery, Mapping) or not isinstance(qualification, Mapping):
+        raise ValueError("development matrix splits are missing")
+    discovery_count = int(
+        discovery.get(
+            "scenario_count_per_batch", discovery.get("scenario_count", 0)
+        )
+    )
+    if discovery_count != 18 or int(
+        qualification.get("scenario_count_per_batch", 0)
+    ) != 18:
+        raise ValueError("each feasibility sweep must contain 18 scenarios")
+    if int(qualification.get("selected_runtime_scenarios", 0)) != 5:
+        raise ValueError("qualification must select exactly five runtime scenes")
+    if schema_version == 2:
+        schedule = config.get("schedule")
+        generation = config.get("generation_contract")
+        if not isinstance(schedule, Mapping) or schedule.get(
+            "layout_contract"
+        ) != "multi_pick_v2":
+            raise ValueError("schema v2 requires the multi_pick_v2 layout contract")
+        if not isinstance(generation, Mapping) or int(
+            generation.get("minimum_primary_ripe_by_construction", 0)
+        ) != 2:
+            raise ValueError("schema v2 must require two primary ripe spawn candidates")
+        if generation.get("moveit_feasibility_guaranteed_by_generator") is not False:
+            raise ValueError("scene generation may not claim MoveIt feasibility")
+        eligibility = config.get("zero_motion_eligibility")
+        if not isinstance(eligibility, Mapping) or (
+            int(eligibility.get("minimum_depth_visible_ripe_truth", 0)) != 2
+            or int(
+                eligibility.get("minimum_correctly_localized_ripe_truth", 0)
+            )
+            != 2
+            or int(eligibility.get("maximum_false_ripe_localizations", -1)) != 0
+        ):
+            raise ValueError(
+                "schema v2 requires two visible, correctly localized ripe truth targets"
+            )
+    all_formal = {int(seed) for seed in formal_seeds}
+    for split in ("discovery", "qualification"):
+        for row in scenario_rows(config, split=split, batch_index=0):
+            if row["seed"] in all_formal:
+                raise ValueError("development seed overlaps the formal matrix")
+
+
+def scenario_rows(
+    config: Mapping[str, object], *, split: str, batch_index: int = 0
+) -> tuple[dict[str, object], ...]:
+    if split not in {"discovery", "qualification"}:
+        raise ValueError("split must be discovery or qualification")
+    if isinstance(batch_index, bool) or int(batch_index) < 0:
+        raise ValueError("batch index must be non-negative")
+    schedule = config["schedule"]
+    bands = tuple(schedule["position_bands"])
+    occlusions = tuple(schedule["occlusions"])
+    plant_counts = tuple(int(value) for value in schedule["plant_counts_by_repeat"])
+    if bands != ("near", "middle", "far") or occlusions != (
+        "none",
+        "partial",
+        "heavy",
+    ) or plant_counts != (2, 3):
+        raise ValueError("development schedule must remain the balanced 18-scene grid")
+    schema_version = int(config.get("schema_version", 0))
+    if split == "discovery":
+        discovery = config["discovery"]
+        if schema_version == 1:
+            if int(batch_index) != 0:
+                raise ValueError("schema v1 discovery has one fixed seed block")
+            start = int(discovery["seed_start"])
+        else:
+            start = int(discovery["initial_seed_start"]) + int(batch_index) * int(
+                discovery["seed_block_stride"]
+            )
+    else:
+        qualification = config["qualification"]
+        start = int(qualification["initial_seed_start"]) + int(batch_index) * int(
+            qualification["seed_block_stride"]
+        )
+    rows = []
+    index = 0
+    for plant_count in plant_counts:
+        for band in bands:
+            for occlusion in occlusions:
+                seed = start + index
+                rows.append(
+                    {
+                        "scenario_id": f"{split}_b{int(batch_index):02d}_{seed}",
+                        "seed": seed,
+                        "profile": str(schedule["profile"]),
+                        "plant_count": plant_count,
+                        "position_band": band,
+                        "occlusion": occlusion,
+                        "layout_contract": str(
+                            schedule.get("layout_contract", "legacy_random_v1")
+                        ),
+                    }
+                )
+                index += 1
+    return tuple(rows)
+
+
+def select_runtime_scenarios(
+    rows: Sequence[Mapping[str, object]],
+    receipts: Mapping[str, Mapping[str, object]],
+    *,
+    observability_receipts: Mapping[str, Mapping[str, object]] | None = None,
+    count: int = 5,
+) -> tuple[str, ...]:
+    """Select the first eligible receipts in frozen matrix order."""
+
+    if count <= 0:
+        raise ValueError("selection count must be positive")
+    selected = []
+    for row in rows:
+        scenario_id = str(row["scenario_id"])
+        receipt = receipts.get(scenario_id)
+        if receipt is None:
+            continue
+        observability = (
+            None
+            if observability_receipts is None
+            else observability_receipts.get(scenario_id)
+        )
+        if (
+            receipt.get("eligible_for_multi_fruit_runtime") is True
+            and receipt.get("runtime_truth_use") is False
+            and receipt.get("trajectory_execution_allowed") is False
+            and (
+                observability_receipts is None
+                or observability_receipt_is_eligible(observability)
+            )
+        ):
+            selected.append(scenario_id)
+            if len(selected) == count:
+                break
+    return tuple(selected)
+
+
+def observability_receipt_is_eligible(
+    receipt: Mapping[str, object] | None,
+) -> bool:
+    """Require two genuinely visible, correctly localized ripe truth targets."""
+
+    if not isinstance(receipt, Mapping):
+        return False
+    metrics = receipt.get("observability_metrics")
+    if not isinstance(metrics, Mapping):
+        return False
+    try:
+        visible = int(metrics.get("visible_ripe_truth_count", 0))
+        localized = int(metrics.get("localized_ripe_truth_count", 0))
+        accepted = int(metrics.get("accepted_ripe_prediction_count", -1))
+        true_predictions = int(metrics.get("true_ripe_prediction_count", -1))
+        return (
+            int(receipt.get("schema_version", 0)) == 3
+            and receipt.get("kind") == "generalized_rgbd_frame_diagnostic"
+            and receipt.get("runtime_truth_use") is False
+            and int(receipt.get("commands_published", -1)) == 0
+            and visible >= 2
+            and 2 <= localized <= visible
+            and accepted >= localized
+            and true_predictions >= localized
+            and accepted == true_predictions
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def receipt_file(path: Path, root: Path) -> dict[str, object]:
+    return {
+        "path": path.resolve().relative_to(root.resolve()).as_posix(),
+        "sha256": sha256_file(path),
+        "size_bytes": path.stat().st_size,
+    }
+
+
+def load_json(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload

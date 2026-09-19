@@ -20,11 +20,45 @@ from strawberry_localization.node import (  # noqa: E402
     select_ripe_detection,
     select_sensor_frames,
     shutdown_executor_and_wait,
+    validate_sensor_qos_depth,
     validate_selection_roi,
+)
+from strawberry_localization.generalized_node import (  # noqa: E402
+    joint_positions_match_reference,
+    newest_pending_detection,
+    select_candidate_detections,
+    select_stable_ripe_track,
+    split_stamp_seconds,
 )
 
 
 class LocalizationNodeInputSelectionTests(unittest.TestCase):
+    def test_generalized_truth_association_is_opt_in_and_subscription_gated(self):
+        source = (
+            PACKAGE_ROOT
+            / "strawberry_localization"
+            / "generalized_node.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'declare_parameter("ground_truth_association_enabled", False)',
+            source,
+        )
+        self.assertIn('self._ground_truth_subscriptions = []', source)
+        self.assertIn(
+            'self.get_parameter("ground_truth_association_enabled").value',
+            source,
+        )
+        gate = source.index('self._ground_truth_subscriptions = []')
+        catalog = source.index('"/strawberry/ground_truth/catalog"', gate)
+        self.assertLess(gate, catalog)
+
+    def test_track_last_seen_stamp_conversion_is_normalized(self):
+        self.assertEqual(split_stamp_seconds(12.25), (12, 250_000_000))
+        self.assertEqual(split_stamp_seconds(1.9999999996), (2, 0))
+        with self.assertRaises(ValueError):
+            split_stamp_seconds(-0.1)
+
     @staticmethod
     def detection(
         target_id: int,
@@ -38,6 +72,7 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
             confidence=confidence,
             maturity=maturity,
             RIPE=1,
+            UNRIPE=2,
             bbox=SimpleNamespace(
                 x_offset=x - 5,
                 y_offset=y - 5,
@@ -113,6 +148,13 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         self.assertFalse(
             localization_retry_is_fresh(now_stamp_s=9.94, **common)
         )
+
+    def test_sensor_qos_depth_is_positive_and_bounded(self) -> None:
+        self.assertEqual(5, validate_sensor_qos_depth(5))
+        self.assertEqual(30, validate_sensor_qos_depth(30))
+        for value in (True, 0, -1, 121):
+            with self.assertRaises(ValueError):
+                validate_sensor_qos_depth(value)
 
     def test_stationary_sync_bound_spans_one_15hz_depth_period(self) -> None:
         cache = SensorFrameCache(capacity=4, retention_sec=2.0)
@@ -205,6 +247,40 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
             )
         )
 
+    def test_tracking_reference_rejects_arm_occlusion_motion(self):
+        reference = (0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785)
+        self.assertTrue(
+            joint_positions_match_reference(
+                (0.0, -0.79, 0.0, -2.35, 0.0, 1.57, 0.79),
+                reference,
+                maximum_error_rad=0.03,
+            )
+        )
+        self.assertFalse(
+            joint_positions_match_reference(
+                (0.0, -0.79, 0.0, -2.35, 0.0, 1.57, 0.90),
+                reference,
+                maximum_error_rad=0.03,
+            )
+        )
+        with self.assertRaises(ValueError):
+            joint_positions_match_reference(
+                (0.0,), reference, maximum_error_rad=0.03
+            )
+
+    def test_tracking_reference_parameter_declares_double_array_type(self):
+        source = (
+            PACKAGE_ROOT
+            / "strawberry_localization"
+            / "generalized_node.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Parameter.Type.DOUBLE_ARRAY", source)
+        self.assertNotIn(
+            'declare_parameter("tracking_reference_joint_positions_rad", [])',
+            source,
+        )
+
     def test_attention_roi_selects_lower_confidence_candidate_inside_region(self):
         upper = self.detection(1, 0.90, (180, 80))
         lower = self.detection(2, 0.80, (500, 390))
@@ -234,6 +310,99 @@ class LocalizationNodeInputSelectionTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             validate_selection_roi((320, 240, 320, 480))
+
+    def test_multi_target_selection_keeps_ripe_and_unripe_candidates(self):
+        detections = [
+            self.detection(3, 0.81, (500, 390), maturity=2),
+            self.detection(1, 0.92, (180, 80), maturity=1),
+            self.detection(2, 0.40, (320, 220), maturity=1),
+        ]
+        selected = select_candidate_detections(
+            detections,
+            confidence_threshold=0.60,
+        )
+        self.assertEqual([item.target_id for item in selected], [1, 3])
+
+    def test_generalized_retry_keeps_only_the_newest_deferred_frame(self):
+        values = {(1, 10): ("old", 2), (2, 0): ("new", 0)}
+        self.assertEqual(newest_pending_detection(values), ("new", 0))
+        self.assertIsNone(newest_pending_detection({}))
+
+    def test_wrist_hint_selects_current_fruit_instead_of_lowest_sigma_neighbour(self):
+        current = SimpleNamespace(
+            track_id=4,
+            maturity=1,
+            position=(0.308, 0.165, 0.549),
+            confidence=0.91,
+            sigma_m=0.024,
+        )
+        neighbour = SimpleNamespace(
+            track_id=3,
+            maturity=1,
+            position=(0.487, 0.258, 0.540),
+            confidence=0.93,
+            sigma_m=0.021,
+        )
+
+        selected = select_stable_ripe_track(
+            (current, neighbour),
+            target_hint_position=(0.308, 0.165, 0.549),
+            target_hint_max_distance_m=0.05,
+            require_target_hint=True,
+        )
+
+        self.assertIs(selected, current)
+
+    def test_required_wrist_hint_fails_closed_when_missing_or_inconsistent(self):
+        track = SimpleNamespace(
+            track_id=1,
+            maturity=1,
+            position=(0.45, -0.10, 0.55),
+            confidence=0.90,
+            sigma_m=0.006,
+        )
+        self.assertIsNone(
+            select_stable_ripe_track((track,), require_target_hint=True)
+        )
+        self.assertIsNone(
+            select_stable_ripe_track(
+                (track,),
+                target_hint_position=(0.60, 0.20, 0.55),
+                target_hint_max_distance_m=0.05,
+                require_target_hint=True,
+            )
+        )
+
+    def test_geometry_layer_estimator_is_explicitly_opt_in(self) -> None:
+        source = (
+            PACKAGE_ROOT / "strawberry_localization" / "node.py"
+        ).read_text(encoding="utf-8")
+        development_config = (
+            PACKAGE_ROOT / "config" / "localization_geometry_layer_v1.yaml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'self.declare_parameter("depth_estimator_mode", "center_median")',
+            source,
+        )
+        self.assertIn("geometry_expected_depth_tolerance_m", source)
+        self.assertIn("geometry_ambiguity_min_support_ratio", source)
+        self.assertIn("geometry_bbox_quantization_margin_px", source)
+        self.assertIn("depth_estimator_mode: geometry_layer", development_config)
+
+    def test_geometry_layer_runtime_runner_is_no_motion_only(self) -> None:
+        runner = (
+            PACKAGE_ROOT.parents[2]
+            / "scripts"
+            / "run_field_v3_geometry_layer_shadow.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("localization_geometry_layer_v1.yaml", runner)
+        self.assertIn("start_manipulation:=false", runner)
+        self.assertIn("start_orchestrator:=false", runner)
+        self.assertIn("enable_attachment:=false", runner)
+        self.assertIn("enable_pose_control:=false", runner)
+        self.assertNotIn("pick_and_place_server", runner)
 
     def test_runtime_drains_executor_before_context_shutdown(self):
         source = (

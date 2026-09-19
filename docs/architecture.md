@@ -45,7 +45,9 @@ standard topics. Non-acceptance development mode `camera_mount:=dual` removes
 the world camera and publishes two isolated data planes:
 
 - base overview: `/camera/base/*`,
-  `strawberry_base_camera_optical_frame`, 320x240 at 10 simulated Hz;
+  `strawberry_base_camera_optical_frame`, 320x240 at 10 simulated Hz. The
+  generalized development mount is on the opposite side of the plants at mast
+  origin `[-0.35, 0.45, 0.05]` with camera RPY `[0, 0.543, -0.480]`;
 - wrist precision: `/camera/wrist/*`,
   `strawberry_wrist_camera_optical_frame`, 640x480 at 30 simulated Hz.
 
@@ -63,12 +65,22 @@ ROI publishes no target rather than falling back to another fruit. The
 selection transition never authorizes a pick.
 
 The wrist measurement boundary requires 15 consecutive detection timestamps
-with TargetPose before collecting a new 60-frame window. RGB-D localization
-keeps a nominal 50 ms synchronization bound and a 0.5 s freshness limit.
-Sequential wrist observation may opt into a 105 ms bound only while fresh
-joint-state samples prove the arm stationary; generic and moving paths remain
-at 50 ms. Delayed detections are retried asynchronously inside the freshness
-limit so TF waits do not block sensor callbacks.
+where at least one ripe detection identity has an identity-matched TargetPose
+before collecting a new 60-frame window. A schema-v2 readiness receipt records
+per-timestamp detection, ripe-detection, and TargetPose identities; attributes
+non-ready frames to no detection, no ripe detection, missing TargetPose, or
+identity mismatch; and reports streak-reset causes. A readiness timeout fails
+closed but still writes this receipt before exiting. Its TargetPose delay is a
+wall-clock callback receipt offset for pipeline diagnosis, not simulated sensor
+age. RGB-D localization keeps a nominal 50 ms synchronization bound and a
+0.5 s freshness limit. Sequential wrist observation may opt into a 105 ms
+bound only while fresh joint-state samples prove the arm stationary; generic
+and moving paths remain at 50 ms. Delayed detections are retried asynchronously
+inside the freshness limit so TF waits do not block sensor callbacks.
+The same stationary sequential path opts into a 30-sample ROS depth/CameraInfo
+history and a 30-sample wrist-depth bridge publisher queue to absorb transport
+bursts. Historical paths keep a depth of five. Queueing never widens the
+50/105 ms synchronization bounds or the 0.5 s freshness bound.
 
 After the final wrist window, an optional control-side handoff Shadow receives
 15 additional TargetPose samples. It verifies the selected identity, bounded
@@ -78,16 +90,23 @@ remains a collision object. Its MoveIt configuration removes controller and
 trajectory-execution parameters, runtime requires zero instantiated controller
 endpoints, and the probe has no action client or publisher. It always records
 `pick_authorized=false` and stops before `/strawberry/pick_and_place`.
+Target samples more than 50 ms ahead of the probe's received `/clock` are
+counted and ignored before the 15-sample window; they are never admitted and a
+persistent clock mismatch therefore times out fail-closed.
 
 An optional follow-on pre-grasp planning Shadow may run only after that handoff
-passes. It derives the same hand/pre-grasp geometry as the production
-pick-and-place executor, freezes 15 new TargetPose samples plus 10 stationary
-joint-state samples, retains all seven collision objects including the selected
-fruit, and asks MoveIt for a collision-checked `panda_hand` plan. The MoveIt
-configuration remains controller-free. A valid trajectory is audited for its
-endpoint and then discarded; trajectory execution, action clients, command
-publishers, gripper commands, and target-collision removal are prohibited.
-This path always records `pick_authorized=false` and is non-acceptance evidence.
+passes. It loads the same scene-keyed grasp profile and derives the same
+hand/pre-grasp geometry as the production pick-and-place executor, freezes 15
+new TargetPose samples plus 10 stationary joint-state samples, retains all
+seven collision objects including the selected fruit, and asks MoveIt for a
+collision-checked `panda_hand` plan. The MoveIt configuration remains
+controller-free. A valid trajectory is audited for its endpoint and then
+discarded; trajectory execution, action clients, command publishers, gripper
+commands, and target-collision removal are prohibited. This path always
+records `pick_authorized=false` and is non-acceptance evidence. The consumed
+Blender-v2 requalification selected `blender_v2_26mm`, planned on its first
+attempt in 0.038638462 s, retained all seven collision objects, and discarded
+the 24-waypoint trajectory with zero control commands.
 
 Perception and localization own SIGTERM cleanup so callbacks and executor
 workers drain before their ROS context and entities are destroyed. The
@@ -222,13 +241,27 @@ IDs and image dimensions, then still applies the 0.5 s stale-data limit. This
 absorbs bounded detector inference latency without silently localizing against
 the newest unrelated depth frame or allowing unbounded memory growth.
 
-For the rigid 0.035 m-radius v1 fruit, central-crop median depth measures the
-visible sphere surface. The configured `surface_to_center_offset_m: 0.035`
-moves that surface hit exactly 35 mm farther along its Euclidean camera ray to
-estimate the fruit centre; it is not treated as a simple optical-Z increment.
-The T40 acceptance gate moves a simulated fruit through 100 distinct known
-positions and requires all measurements, median error no greater than 15 mm,
-and p95 error no greater than 30 mm.
+Central-crop median depth measures the visible fruit surface, not its centre.
+The surface-to-centre shift is therefore scene geometry: archived tabletop v1
+uses its schema-v1 `0.035 m` compatibility default so its hash-frozen manifest
+remains byte-for-byte reproducible, while the canonical Blender plant v2
+explicitly uses `0.026 m`. The values also have separate localization YAML
+files. `system.launch.py` loads the selected scene, derives the offset from
+`fruit_collision_radius_m`, and rejects an explicit override that disagrees
+with the manifest. The shift is applied along the Euclidean camera ray, not as
+a simple optical-Z increment.
+
+The historical T40 acceptance gate is a v1 test: it moves a rigid 35 mm fruit
+through 100 distinct known positions and requires all measurements, median
+error no greater than 15 mm, and p95 error no greater than 30 mm. It must not be
+reported as a v2 accuracy result. The independent, non-formal Blender-v2 gate
+uses the corrected 26 mm offset and a camera-clear `5 × 5 × 4` volume. Its
+pre-repair run exposed inward fruit-body face winding with median/P95 error
+`44.062873/44.537073 mm`. Reversing only those face references restores the
+camera-facing depth surface; the otherwise identical post-repair run passes
+100/100 with median/P95 `4.503614/5.045998 mm` and maximum `5.196535 mm`.
+This qualifies visible-surface v2 geometry only. Natural leaf occlusion still
+requires the separate base/wrist multi-view path.
 
 ## Simulation startup and control invariants
 
@@ -244,8 +277,9 @@ physics through the world-control service. Attach, detach, and verification
 services remain unavailable until this initialization gate completes.
 
 The deployed `gz_ros2_control` position proportional gain is `1.0`. The arm
-trajectory controller requires every joint to finish within `0.05 rad` and
-allows an eight-second goal-time tolerance. Direct Cartesian execution adds a
+trajectory controller requires every joint to remain and finish within
+`0.05 rad` and allows an eight-second goal-time tolerance. Direct Cartesian
+execution adds a
 25-second wall-time margin to its duration-derived deadline, then checks the
 settled joint state and actual end pose instead of accepting the trajectory
 timestamp alone.
@@ -258,11 +292,16 @@ timeout fails immediately; the correction is never an unbounded retry.
 ## Pick-and-place definition
 
 The grasp point is the fruit-centre position estimated from the median valid
-depth in the central 30 percent of its bounding box. The Panda hand origin is
-placed 0.1054 m behind that centre along its local tool axis. The nominal
-pre-grasp is a further 0.15 m back on the same axis. Before any arm motion, the
-selected fruit obstacle is prepared and the gripper is explicitly opened to
-0.04 m per finger.
+depth in the central 30 percent of its bounding box. A single grasp profile is
+resolved from the exact `(world_name, fruit_collision_radius_m)` scene pair.
+The archived 35 mm tabletop profile places the Panda hand origin 0.1054 m
+behind the centre and closes to 0.025 m per finger. The canonical 26 mm
+Blender-v2 profile uses a qualified 0.0964 m hand offset and 0.022 m close
+command. Both retain a 0.15 m pre-grasp stand-off and 0.04 m per-finger open
+command. Missing, duplicate, mismatched, non-finite, or invalid profiles fail
+closed. The production action server and pre-grasp Shadow load the same
+profile. Before any arm motion, the selected fruit obstacle is prepared and
+the gripper is explicitly opened.
 
 The guarded approach lifts vertically to 0.02 m above the higher endpoint,
 reorients in place, moves to the `y=-0.10 m` safe corridor in `panda_link0`,
@@ -272,14 +311,17 @@ MoveIt checks interpolated joint states at no more than 0.01 rad spacing so a
 collision between Cartesian IK waypoints cannot be skipped. The table top is
 padded upward by 0.05 m as a planning-only safety margin.
 
-All manifest fruit are represented in MoveIt by 0.035 m-radius collision
-spheres. Before preparing a simulated pick, the action server requires a fresh,
-complete `/strawberry/ground_truth/poses` snapshot and synchronizes every fruit
-sphere to that live scene state. The expected ID set must match the immutable
-manifest exactly and the snapshot must be no more than two seconds old. The
-selected sphere is then updated from the action goal, which remains the
-authoritative commanded target pose. Simulation truth cannot select the target
-or replace a perception result.
+All manifest fruit are represented in MoveIt by collision spheres whose radius
+comes from the resolved scene contract: 35 mm for archived tabletop v1 and
+26 mm for Blender plant v2. The attachment fallback and the action server use
+the same source instead of independent hard-coded defaults. Before preparing a
+simulated pick, the action server requires a fresh, complete
+`/strawberry/ground_truth/poses` snapshot and synchronizes every fruit sphere
+to that live scene state. The expected ID set must match the immutable manifest
+exactly and the snapshot must be no more than two seconds old. The selected
+sphere is then updated from the action goal, which remains the authoritative
+commanded target pose. Simulation truth cannot select the target or replace a
+perception result.
 
 The selected sphere remains solid throughout transit and pre-grasp; only that
 sphere is removed immediately before the final straight descent to open a
@@ -300,9 +342,41 @@ perception evidence. A future formal perception-controlled P3/P4 run may not
 use it until a separate decision freezes the allowed planning-scene source; it
 can never select the target or replace the action target pose.
 
-The 0.035 m-radius rigid fruit is grasped with a 0.025 m per-finger close
-command. Controller stall is an acceptable close result, but attachment still
-requires fresh dual contact; commanding zero width is intentionally forbidden.
+Controller stall is an acceptable close result, but attachment still requires
+fresh dual contact; commanding zero width is intentionally forbidden. For the
+Blender-v2 profile, a frozen exact-mesh sweep evaluates 24 tool/close pairs and
+selects the qualified `0.0964/0.022 m` pair. The gripper-only runtime gate
+measures first contact at 0.025853592 m per finger, sees bilateral raw and
+processed target contact with no non-target contact, confirms attach/detach,
+restores the fruit within 0.009966 mm, and reopens without arm motion. A
+separate controller-free gate confirms collision-checked pre-grasp planning.
+The motion-capable follow-on first captures a complete read-only ready-state
+snapshot, then permits exactly one Oracle target action in each fresh world.
+The executor now requires final `move_home()` success; a failed home is a
+failed action and is not retried. The canonical repeat gate passes 5/5:
+all trials complete final approach, bilateral contact, attachment, retreat,
+bin placement, detach, verification, reopen, home, collision restoration, and
+clean shutdown with no unexpected fruit contact. This qualifies only the
+exact canonical Oracle scene. Perception-derived control, target/pose
+variation, natural plant contact, and physical hardware remain unauthorized.
+
+The natural-plant dual-camera path first uses the fixed base camera to select
+one target and a named observation preset. `WRIST_OBSERVATION` remains a
+MoveIt collision-planned operation, but its planned joint sequence is executed
+through the same startup-verified rclpy arm action client used by the
+diagnostic harness; production pick stages are unchanged. After motion stops,
+the wrist pipeline must produce one stable target identity, the handoff must
+prove fresh target data and stationary joint/MoveIt state, and pre-grasp
+planning must retain every collision object and discard its trajectory.
+
+Passing that no-motion chain does not authorize execution. The
+geometry-aware perception execution-readiness evaluator maps the simulation
+truth centre into the already commanded hand frame and checks it against the
+exact-mesh bilateral-contact and finger-axial envelope. Truth is safety
+verification only: it cannot select the target or replace/correct the
+perceived command. The Blender-v2 v3 handoff passes, but its `29.177346 mm`
+centre error violates both geometric limits, so execution and picking remain
+fail-closed.
 
 ## Contact and collision diagnostics
 
@@ -324,3 +398,51 @@ trial starts a fresh world and ROS domain, runs one ground-truth pick, verifies
 raw dual-finger contact and the five-second planning bound, checks that no
 unexpected fruit collision occurred, then requires a clean launch shutdown.
 The aggregate gate passes at a success rate of at least 90 percent.
+
+## Generalized fixed-base harvest path
+
+This section is the current generalized mainline. Earlier Oracle, tabletop-v1,
+Blender-v2, and field-v3 passages above describe frozen historical contracts;
+they are not permission for generalized control to read truth. In particular,
+the complete `/strawberry/ground_truth/poses` collision-catalog synchronization
+described for the historical Oracle action path is replaced here by tracked
+fruit obstacles.
+
+The v2 extension adds `/strawberry/tracked_targets` as the multi-target data
+plane. Detection IDs remain acquisition-local; the localization tracker owns a
+run-stable `track_id`. Before publishing a target, the safety selector calls
+`/strawberry/evaluate_target` and replaces its coarse workspace prefilter with
+MoveIt's connected pre-grasp, approach, grasp and retreat result. It evaluates
+candidates in deterministic clearance/uncertainty/confidence groups, using
+MoveIt's measured joint travel as the final tie-break. Only then does it publish
+the chosen legacy-compatible `TargetPose` plus a stamp-matched, deterministically
+ordered bank of dynamic wrist hand poses. Its fail-closed clearance gate
+includes both tracked fruit and the configured collection-bin outer envelope.
+The continuous orchestrator revalidates the selected target at the execution
+boundary, asks MoveIt to test the finite view bank until the first
+zero-motion-safe plan succeeds, requires a bounded wrist refinement, and then
+invokes the unchanged `PickAndPlace` action. Completed or exhausted track IDs
+are broadcast once so the tracker, selector, collision scene, and batch queue
+all suppress them and invalidate current-state feasibility caches.
+
+Base and wrist localization estimates are fused by inverse variance with a
+non-zero wrist systematic-error floor. A failed target may reserve one
+re-observation; if it cannot be reacquired before scan timeout, the batch state
+machine records it as skipped and resumes scanning instead of ending the run.
+
+In generalized mode, MoveIt fruit obstacles are synchronized from tracked
+poses rather than the ground-truth catalog. Localization defaults
+`ground_truth_association_enabled` to false and does not even create truth
+subscriptions in that state. Ground truth is retained only in simulation and
+post-run scoring boundaries: the attachment adapter resolves a physically
+contacted anonymous fruit to the detachable Gazebo entity, while scoring events
+measure the outcome after control decisions. Neither path can select, rank,
+correct, or plan a target. A no-motion ROS graph audit fails if localization,
+selection, orchestration, or manipulation control subscribes to a truth topic.
+The fixed v1/field-v3 paths retain their original routing contracts.
+
+The separate generalized development-capture executable may use Gazebo truth
+only to produce offline YOLO labels. Its train, validation, and qualification
+seed ranges are disjoint from the formal 30-seed matrix; projected labels need
+rendered-depth support, and the qualification split is absent from the training
+configuration. This executable is never launched by the harvest runtime.

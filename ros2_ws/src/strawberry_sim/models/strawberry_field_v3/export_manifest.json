@@ -1,0 +1,2659 @@
+{
+  "schema_version": 1,
+  "field": {
+    "source": "assets\\blender_sources\\strawberry_field_v3.blend",
+    "source_blender_version": "5.2.0 LTS",
+    "model_name": "strawberry_field_v3",
+    "coordinate_contract": "metres, right-handed, Z-up",
+    "source_origin_m": [
+      -2.700000048,
+      -0.150000006,
+      0.0
+    ],
+    "workcell_rule": "source outer-row bay is shifted beside panda_link0; two combined background plants are replaced by the qualified v2 plant and fruit",
+    "omitted_source_plants": [
+      "草莓植株_010",
+      "草莓植株_026"
+    ],
+    "visible_source_meshes": 109,
+    "structure_source_objects": [
+      "5×12米地面",
+      "木牌立柱",
+      "种植垄_1",
+      "种植垄_2",
+      "种植垄_3",
+      "草莓园木牌"
+    ],
+    "source_plant_instances": 103,
+    "exported_plant_instances": 101,
+    "unique_plant_variants": 24,
+    "plant_decimation_ratio": 0.45,
+    "material_aliases": [
+      {
+        "source_name": "Material",
+        "export_name": "field_material_01",
+        "diffuse_rgba": [
+          0.800000012,
+          0.800000012,
+          0.800000012,
+          1.0
+        ]
+      },
+      {
+        "source_name": "半成熟草莓",
+        "export_name": "field_material_02",
+        "diffuse_rgba": [
+          0.779999971,
+          0.119999997,
+          0.090000004,
+          1.0
+        ]
+      },
+      {
+        "source_name": "半成熟草莓.001",
+        "export_name": "field_material_03",
+        "diffuse_rgba": [
+          0.779999971,
+          0.119999997,
+          0.090000004,
+          1.0
+        ]
+      },
+      {
+        "source_name": "叶柄和果梗",
+        "export_name": "field_material_04",
+        "diffuse_rgba": [
+          0.079999998,
+          0.310000002,
+          0.035,
+          1.0
+        ]
+      },
+      {
+        "source_name": "叶柄和果梗.001",
+        "export_name": "field_material_05",
+        "diffuse_rgba": [
+          0.079999998,
+          0.310000002,
+          0.035,
+          1.0
+        ]
+      },
+      {
+        "source_name": "嫩绿色叶片",
+        "export_name": "field_material_06",
+        "diffuse_rgba": [
+          0.100000001,
+          0.419999987,
+          0.055,
+          1.0
+        ]
+      },
+      {
+        "source_name": "嫩绿色叶片.001",
+        "export_name": "field_material_07",
+        "diffuse_rgba": [
+          0.100000001,
+          0.419999987,
+          0.055,
+          1.0
+        ]
+      },
+      {
+        "source_name": "成熟草莓",
+        "export_name": "field_material_08",
+        "diffuse_rgba": [
+          0.579999983,
+          0.006,
+          0.01,
+          1.0
+        ]
+      },
+      {
+        "source_name": "成熟草莓.001",
+        "export_name": "field_material_09",
+        "diffuse_rgba": [
+          0.579999983,
+          0.006,
+          0.01,
+          1.0
+        ]
+      },
+      {
+        "source_name": "旧木头",
+        "export_name": "field_material_10",
+        "diffuse_rgba": [
+          0.230000004,
+          0.094999999,
+          0.025,
+          1.0
+        ]
+      },
+      {
+        "source_name": "旧木头.001",
+        "export_name": "field_material_11",
+        "diffuse_rgba": [
+          0.230000004,
+          0.094999999,
+          0.025,
+          1.0
+        ]
+      },
+      {
+        "source_name": "未成熟草莓",
+        "export_name": "field_material_12",
+        "diffuse_rgba": [
+          0.620000005,
+          0.689999998,
+          0.340000004,
+          1.0
+        ]
+      },
+      {
+        "source_name": "未成熟草莓.001",
+        "export_name": "field_material_13",
+        "diffuse_rgba": [
+          0.620000005,
+          0.689999998,
+          0.340000004,
+          1.0
+        ]
+      },
+      {
+        "source_name": "深红草莓",
+        "export_name": "field_material_14",
+        "diffuse_rgba": [
+          0.379999995,
+          0.002,
+          0.004,
+          1.0
+        ]
+      },
+      {
+        "source_name": "深红草莓.001",
+        "export_name": "field_material_15",
+        "diffuse_rgba": [
+          0.379999995,
+          0.002,
+          0.004,
+          1.0
+        ]
+      },
+      {
+        "source_name": "深绿色叶片",
+        "export_name": "field_material_16",
+        "diffuse_rgba": [
+          0.017999999,
+          0.180000007,
+          0.025,
+          1.0
+        ]
+      },
+      {
+        "source_name": "深绿色叶片.001",
+        "export_name": "field_material_17",
+        "diffuse_rgba": [
+          0.017999999,
+          0.180000007,
+          0.025,
+          1.0
+        ]
+      },
+      {
+        "source_name": "深色湿润土壤",
+        "export_name": "field_material_18",
+        "diffuse_rgba": [
+          0.100000001,
+          0.035,
+          0.012,
+          1.0
+        ]
+      },
+      {
+        "source_name": "深色湿润土壤.001",
+        "export_name": "field_material_19",
+        "diffuse_rgba": [
+          0.100000001,
+          0.035,
+          0.012,
+          1.0
+        ]
+      },
+      {
+        "source_name": "田间小路",
+        "export_name": "field_material_20",
+        "diffuse_rgba": [
+          0.189999998,
+          0.109999999,
+          0.055,
+          1.0
+        ]
+      },
+      {
+        "source_name": "田间小路.001",
+        "export_name": "field_material_21",
+        "diffuse_rgba": [
+          0.189999998,
+          0.109999999,
+          0.055,
+          1.0
+        ]
+      },
+      {
+        "source_name": "绿色叶片",
+        "export_name": "field_material_22",
+        "diffuse_rgba": [
+          0.035,
+          0.310000002,
+          0.039999999,
+          1.0
+        ]
+      },
+      {
+        "source_name": "绿色叶片.001",
+        "export_name": "field_material_23",
+        "diffuse_rgba": [
+          0.035,
+          0.310000002,
+          0.039999999,
+          1.0
+        ]
+      },
+      {
+        "source_name": "花瓣",
+        "export_name": "field_material_24",
+        "diffuse_rgba": [
+          0.949999988,
+          0.930000007,
+          0.800000012,
+          1.0
+        ]
+      },
+      {
+        "source_name": "花瓣.001",
+        "export_name": "field_material_25",
+        "diffuse_rgba": [
+          0.949999988,
+          0.930000007,
+          0.800000012,
+          1.0
+        ]
+      },
+      {
+        "source_name": "花蕊",
+        "export_name": "field_material_26",
+        "diffuse_rgba": [
+          0.959999979,
+          0.550000012,
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "source_name": "花蕊.001",
+        "export_name": "field_material_27",
+        "diffuse_rgba": [
+          0.959999979,
+          0.550000012,
+          0.02,
+          1.0
+        ]
+      },
+      {
+        "source_name": "草莓籽",
+        "export_name": "field_material_28",
+        "diffuse_rgba": [
+          0.920000017,
+          0.519999981,
+          0.035,
+          1.0
+        ]
+      },
+      {
+        "source_name": "草莓籽.001",
+        "export_name": "field_material_29",
+        "diffuse_rgba": [
+          0.920000017,
+          0.519999981,
+          0.035,
+          1.0
+        ]
+      }
+    ],
+    "structure": {
+      "path": "ros2_ws\\src\\strawberry_sim\\models\\strawberry_field_v3\\meshes\\field_structure_v3.obj",
+      "objects": [
+        {
+          "name": "5×12米地面",
+          "type": "MESH",
+          "decimate_ratio": 1.0,
+          "vertices": 8,
+          "triangles": 12
+        },
+        {
+          "name": "木牌立柱",
+          "type": "MESH",
+          "decimate_ratio": 1.0,
+          "vertices": 96,
+          "triangles": 188
+        },
+        {
+          "name": "种植垄_1",
+          "type": "MESH",
+          "decimate_ratio": 1.0,
+          "vertices": 96,
+          "triangles": 188
+        },
+        {
+          "name": "种植垄_2",
+          "type": "MESH",
+          "decimate_ratio": 1.0,
+          "vertices": 96,
+          "triangles": 188
+        },
+        {
+          "name": "种植垄_3",
+          "type": "MESH",
+          "decimate_ratio": 1.0,
+          "vertices": 96,
+          "triangles": 188
+        },
+        {
+          "name": "草莓园木牌",
+          "type": "MESH",
+          "decimate_ratio": 1.0,
+          "vertices": 96,
+          "triangles": 188
+        }
+      ],
+      "vertices": 488,
+      "triangles": 952,
+      "materials": [
+        "field_material_21",
+        "field_material_11",
+        "field_material_19"
+      ]
+    },
+    "variants": [
+      {
+        "variant": "plant_variant_01",
+        "mesh_file": "plant_variant_01.obj",
+        "source_mesh_data": "草莓植株共享网格_1.001",
+        "source_representative": "草莓植株_002",
+        "vertices": 1036,
+        "triangles": 1324
+      },
+      {
+        "variant": "plant_variant_02",
+        "mesh_file": "plant_variant_02.obj",
+        "source_mesh_data": "草莓植株共享网格_10.001",
+        "source_representative": "草莓植株_015",
+        "vertices": 1330,
+        "triangles": 1907
+      },
+      {
+        "variant": "plant_variant_03",
+        "mesh_file": "plant_variant_03.obj",
+        "source_mesh_data": "草莓植株共享网格_11.001",
+        "source_representative": "草莓植株_024",
+        "vertices": 1608,
+        "triangles": 2407
+      },
+      {
+        "variant": "plant_variant_04",
+        "mesh_file": "plant_variant_04.obj",
+        "source_mesh_data": "草莓植株共享网格_12.001",
+        "source_representative": "草莓植株_012",
+        "vertices": 1254,
+        "triangles": 1890
+      },
+      {
+        "variant": "plant_variant_05",
+        "mesh_file": "plant_variant_05.obj",
+        "source_mesh_data": "草莓植株共享网格_13.001",
+        "source_representative": "草莓植株_006",
+        "vertices": 965,
+        "triangles": 1261
+      },
+      {
+        "variant": "plant_variant_06",
+        "mesh_file": "plant_variant_06.obj",
+        "source_mesh_data": "草莓植株共享网格_14.001",
+        "source_representative": "草莓植株_014",
+        "vertices": 1254,
+        "triangles": 1890
+      },
+      {
+        "variant": "plant_variant_07",
+        "mesh_file": "plant_variant_07.obj",
+        "source_mesh_data": "草莓植株共享网格_15.001",
+        "source_representative": "草莓植株_018",
+        "vertices": 1396,
+        "triangles": 2016
+      },
+      {
+        "variant": "plant_variant_08",
+        "mesh_file": "plant_variant_08.obj",
+        "source_mesh_data": "草莓植株共享网格_16.001",
+        "source_representative": "草莓植株_011",
+        "vertices": 1837,
+        "triangles": 2679
+      },
+      {
+        "variant": "plant_variant_09",
+        "mesh_file": "plant_variant_09.obj",
+        "source_mesh_data": "草莓植株共享网格_17.001",
+        "source_representative": "草莓植株_020",
+        "vertices": 1255,
+        "triangles": 1891
+      },
+      {
+        "variant": "plant_variant_10",
+        "mesh_file": "plant_variant_10.obj",
+        "source_mesh_data": "草莓植株共享网格_18.001",
+        "source_representative": "草莓植株_016",
+        "vertices": 1326,
+        "triangles": 1853
+      },
+      {
+        "variant": "plant_variant_11",
+        "mesh_file": "plant_variant_11.obj",
+        "source_mesh_data": "草莓植株共享网格_19.001",
+        "source_representative": "草莓植株_040",
+        "vertices": 1412,
+        "triangles": 2099
+      },
+      {
+        "variant": "plant_variant_12",
+        "mesh_file": "plant_variant_12.obj",
+        "source_mesh_data": "草莓植株共享网格_2.001",
+        "source_representative": "草莓植株_007",
+        "vertices": 879,
+        "triangles": 1015
+      },
+      {
+        "variant": "plant_variant_13",
+        "mesh_file": "plant_variant_13.obj",
+        "source_mesh_data": "草莓植株共享网格_20.001",
+        "source_representative": "草莓植株_004",
+        "vertices": 1243,
+        "triangles": 1761
+      },
+      {
+        "variant": "plant_variant_14",
+        "mesh_file": "plant_variant_14.obj",
+        "source_mesh_data": "草莓植株共享网格_21.001",
+        "source_representative": "草莓植株_009",
+        "vertices": 1467,
+        "triangles": 2181
+      },
+      {
+        "variant": "plant_variant_15",
+        "mesh_file": "plant_variant_15.obj",
+        "source_mesh_data": "草莓植株共享网格_22.001",
+        "source_representative": "草莓植株_001",
+        "vertices": 1107,
+        "triangles": 1387
+      },
+      {
+        "variant": "plant_variant_16",
+        "mesh_file": "plant_variant_16.obj",
+        "source_mesh_data": "草莓植株共享网格_23.001",
+        "source_representative": "草莓植株_003",
+        "vertices": 1255,
+        "triangles": 1790
+      },
+      {
+        "variant": "plant_variant_17",
+        "mesh_file": "plant_variant_17.obj",
+        "source_mesh_data": "草莓植株共享网格_24.001",
+        "source_representative": "草莓植株_021",
+        "vertices": 1102,
+        "triangles": 1535
+      },
+      {
+        "variant": "plant_variant_18",
+        "mesh_file": "plant_variant_18.obj",
+        "source_mesh_data": "草莓植株共享网格_3.001",
+        "source_representative": "草莓植株_022",
+        "vertices": 807,
+        "triangles": 1052
+      },
+      {
+        "variant": "plant_variant_19",
+        "mesh_file": "plant_variant_19.obj",
+        "source_mesh_data": "草莓植株共享网格_4.001",
+        "source_representative": "草莓植株_019",
+        "vertices": 1036,
+        "triangles": 1324
+      },
+      {
+        "variant": "plant_variant_20",
+        "mesh_file": "plant_variant_20.obj",
+        "source_mesh_data": "草莓植株共享网格_5.001",
+        "source_representative": "草莓植株_008",
+        "vertices": 1031,
+        "triangles": 1370
+      },
+      {
+        "variant": "plant_variant_21",
+        "mesh_file": "plant_variant_21.obj",
+        "source_mesh_data": "草莓植株共享网格_6.001",
+        "source_representative": "草莓植株_023",
+        "vertices": 949,
+        "triangles": 1178
+      },
+      {
+        "variant": "plant_variant_22",
+        "mesh_file": "plant_variant_22.obj",
+        "source_mesh_data": "草莓植株共享网格_7.001",
+        "source_representative": "草莓植株_013",
+        "vertices": 1260,
+        "triangles": 1744
+      },
+      {
+        "variant": "plant_variant_23",
+        "mesh_file": "plant_variant_23.obj",
+        "source_mesh_data": "草莓植株共享网格_8.001",
+        "source_representative": "草莓植株_017",
+        "vertices": 1186,
+        "triangles": 1728
+      },
+      {
+        "variant": "plant_variant_24",
+        "mesh_file": "plant_variant_24.obj",
+        "source_mesh_data": "草莓植株共享网格_9.001",
+        "source_representative": "草莓植株_005",
+        "vertices": 1537,
+        "triangles": 2344
+      }
+    ],
+    "plant_instances": [
+      {
+        "source_object": "草莓植株_001",
+        "variant": "plant_variant_15",
+        "mesh_file": "plant_variant_15.obj",
+        "location_m": [
+          0.320633411,
+          -5.13776207,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.039024323,
+          -0.001517374,
+          -2.806272507
+        ],
+        "scale": [
+          1.072024107,
+          1.100537181,
+          1.416153908
+        ]
+      },
+      {
+        "source_object": "草莓植株_002",
+        "variant": "plant_variant_01",
+        "mesh_file": "plant_variant_01.obj",
+        "location_m": [
+          0.320211887,
+          -4.576955795,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.038435064,
+          -0.015278942,
+          -0.677393734
+        ],
+        "scale": [
+          1.094378829,
+          1.068136454,
+          1.319209933
+        ]
+      },
+      {
+        "source_object": "草莓植株_003",
+        "variant": "plant_variant_16",
+        "mesh_file": "plant_variant_16.obj",
+        "location_m": [
+          0.293572664,
+          -4.015722275,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.040510722,
+          0.015572663,
+          1.866826177
+        ],
+        "scale": [
+          1.075826287,
+          1.088083982,
+          1.357053638
+        ]
+      },
+      {
+        "source_object": "草莓植株_004",
+        "variant": "plant_variant_13",
+        "mesh_file": "plant_variant_13.obj",
+        "location_m": [
+          0.35174346,
+          -3.473317385,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.051471591,
+          -0.000970344,
+          -0.183475301
+        ],
+        "scale": [
+          0.983219266,
+          0.990807831,
+          1.142348051
+        ]
+      },
+      {
+        "source_object": "草莓植株_005",
+        "variant": "plant_variant_24",
+        "mesh_file": "plant_variant_24.obj",
+        "location_m": [
+          0.314839602,
+          -2.930595875,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.046653017,
+          -0.002885877,
+          0.762526393
+        ],
+        "scale": [
+          1.026008487,
+          0.996115506,
+          1.177296519
+        ]
+      },
+      {
+        "source_object": "草莓植株_006",
+        "variant": "plant_variant_05",
+        "mesh_file": "plant_variant_05.obj",
+        "location_m": [
+          0.293889284,
+          -2.34042263,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.052128483,
+          0.053211313,
+          2.547087908
+        ],
+        "scale": [
+          1.030707479,
+          1.044065952,
+          1.35879755
+        ]
+      },
+      {
+        "source_object": "草莓植株_007",
+        "variant": "plant_variant_12",
+        "mesh_file": "plant_variant_12.obj",
+        "location_m": [
+          0.337052345,
+          -1.785432458,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.066570483,
+          0.032421302,
+          0.02759048
+        ],
+        "scale": [
+          0.816731572,
+          0.838112414,
+          1.025308847
+        ]
+      },
+      {
+        "source_object": "草莓植株_008",
+        "variant": "plant_variant_20",
+        "mesh_file": "plant_variant_20.obj",
+        "location_m": [
+          0.342016935,
+          -1.27389884,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.06493409,
+          -0.017728889,
+          1.797638416
+        ],
+        "scale": [
+          1.14213407,
+          1.075604558,
+          1.300963283
+        ]
+      },
+      {
+        "source_object": "草莓植株_009",
+        "variant": "plant_variant_14",
+        "mesh_file": "plant_variant_14.obj",
+        "location_m": [
+          0.299603462,
+          -0.657721043,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.045145165,
+          0.017819442,
+          1.552111149
+        ],
+        "scale": [
+          0.977177978,
+          0.971220016,
+          1.201064587
+        ]
+      },
+      {
+        "source_object": "草莓植株_011",
+        "variant": "plant_variant_08",
+        "mesh_file": "plant_variant_08.obj",
+        "location_m": [
+          0.240983963,
+          0.555702448,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.007851325,
+          0.0575491,
+          -2.114476919
+        ],
+        "scale": [
+          1.072513938,
+          1.16467011,
+          1.516654491
+        ]
+      },
+      {
+        "source_object": "草莓植株_012",
+        "variant": "plant_variant_04",
+        "mesh_file": "plant_variant_04.obj",
+        "location_m": [
+          0.268754244,
+          1.09248507,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.052947942,
+          -0.028181979,
+          1.018173218
+        ],
+        "scale": [
+          0.822432578,
+          0.883062959,
+          1.193078041
+        ]
+      },
+      {
+        "source_object": "草莓植株_013",
+        "variant": "plant_variant_22",
+        "mesh_file": "plant_variant_22.obj",
+        "location_m": [
+          0.316371679,
+          1.726445794,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.061466467,
+          0.007465492,
+          1.180172682
+        ],
+        "scale": [
+          0.942885756,
+          1.050608397,
+          1.205057621
+        ]
+      },
+      {
+        "source_object": "草莓植株_014",
+        "variant": "plant_variant_06",
+        "mesh_file": "plant_variant_06.obj",
+        "location_m": [
+          0.328890562,
+          2.341292381,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.045506161,
+          0.062563628,
+          -1.211369395
+        ],
+        "scale": [
+          0.930793345,
+          0.880558133,
+          1.19337225
+        ]
+      },
+      {
+        "source_object": "草莓植株_015",
+        "variant": "plant_variant_02",
+        "mesh_file": "plant_variant_02.obj",
+        "location_m": [
+          0.32498765,
+          3.342002869,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.059709743,
+          -0.018135101,
+          1.406375408
+        ],
+        "scale": [
+          1.120646834,
+          1.19552207,
+          1.324106216
+        ]
+      },
+      {
+        "source_object": "草莓植株_016",
+        "variant": "plant_variant_10",
+        "mesh_file": "plant_variant_10.obj",
+        "location_m": [
+          0.345541477,
+          3.883794546,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.074865915,
+          -0.042582493,
+          0.669866443
+        ],
+        "scale": [
+          1.140016079,
+          1.081305981,
+          1.417366385
+        ]
+      },
+      {
+        "source_object": "草莓植株_017",
+        "variant": "plant_variant_23",
+        "mesh_file": "plant_variant_23.obj",
+        "location_m": [
+          0.276962042,
+          4.471618652,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.070759937,
+          0.051214926,
+          -2.851462841
+        ],
+        "scale": [
+          0.921386957,
+          0.943502128,
+          1.308684945
+        ]
+      },
+      {
+        "source_object": "草莓植株_018",
+        "variant": "plant_variant_07",
+        "mesh_file": "plant_variant_07.obj",
+        "location_m": [
+          0.839234829,
+          -4.909469128,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.047978632,
+          -0.011728718,
+          -2.826824665
+        ],
+        "scale": [
+          0.852588236,
+          0.831202865,
+          1.121308327
+        ]
+      },
+      {
+        "source_object": "草莓植株_019",
+        "variant": "plant_variant_19",
+        "mesh_file": "plant_variant_19.obj",
+        "location_m": [
+          0.826880097,
+          -4.179974079,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.059114374,
+          -0.061053459,
+          2.297929764
+        ],
+        "scale": [
+          1.162744164,
+          1.209443212,
+          1.428757548
+        ]
+      },
+      {
+        "source_object": "草莓植株_020",
+        "variant": "plant_variant_09",
+        "mesh_file": "plant_variant_09.obj",
+        "location_m": [
+          0.8433218,
+          -3.69340539,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.041761521,
+          -0.062420923,
+          -0.032131974
+        ],
+        "scale": [
+          1.103702545,
+          1.063246489,
+          1.275771976
+        ]
+      },
+      {
+        "source_object": "草莓植株_021",
+        "variant": "plant_variant_17",
+        "mesh_file": "plant_variant_17.obj",
+        "location_m": [
+          0.81178081,
+          -3.130272865,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.072627157,
+          0.033855267,
+          2.345251083
+        ],
+        "scale": [
+          0.915727019,
+          0.86667484,
+          1.161338449
+        ]
+      },
+      {
+        "source_object": "草莓植株_022",
+        "variant": "plant_variant_18",
+        "mesh_file": "plant_variant_18.obj",
+        "location_m": [
+          0.811987281,
+          -2.535339355,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.016293973,
+          -0.054078985,
+          -1.241596103
+        ],
+        "scale": [
+          0.817645192,
+          0.887828648,
+          1.132858634
+        ]
+      },
+      {
+        "source_object": "草莓植株_023",
+        "variant": "plant_variant_21",
+        "mesh_file": "plant_variant_21.obj",
+        "location_m": [
+          0.787307501,
+          -1.860984445,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.05984078,
+          0.060831629,
+          0.294789702
+        ],
+        "scale": [
+          1.06872952,
+          0.956307769,
+          1.137978077
+        ]
+      },
+      {
+        "source_object": "草莓植株_024",
+        "variant": "plant_variant_03",
+        "mesh_file": "plant_variant_03.obj",
+        "location_m": [
+          0.828045726,
+          -1.307363629,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.01542651,
+          0.056390196,
+          -0.314106792
+        ],
+        "scale": [
+          0.859404624,
+          0.954354882,
+          1.186589003
+        ]
+      },
+      {
+        "source_object": "草莓植株_025",
+        "variant": "plant_variant_13",
+        "mesh_file": "plant_variant_13.obj",
+        "location_m": [
+          0.805346131,
+          -0.683232903,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.05103334,
+          -0.014417507,
+          -1.767155051
+        ],
+        "scale": [
+          1.170718431,
+          1.088990569,
+          1.227372169
+        ]
+      },
+      {
+        "source_object": "草莓植株_027",
+        "variant": "plant_variant_20",
+        "mesh_file": "plant_variant_20.obj",
+        "location_m": [
+          0.770777225,
+          0.518236697,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.056598432,
+          0.074078232,
+          -2.941845894
+        ],
+        "scale": [
+          1.025943637,
+          0.954007149,
+          1.082262397
+        ]
+      },
+      {
+        "source_object": "草莓植株_028",
+        "variant": "plant_variant_24",
+        "mesh_file": "plant_variant_24.obj",
+        "location_m": [
+          0.758643031,
+          1.027588487,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.045537163,
+          0.031144295,
+          -0.770329714
+        ],
+        "scale": [
+          1.081413269,
+          1.202772975,
+          1.526950598
+        ]
+      },
+      {
+        "source_object": "草莓植株_029",
+        "variant": "plant_variant_03",
+        "mesh_file": "plant_variant_03.obj",
+        "location_m": [
+          0.782931447,
+          2.201677561,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.024885884,
+          0.050542772,
+          2.763186216
+        ],
+        "scale": [
+          1.082591534,
+          1.051052213,
+          1.342447877
+        ]
+      },
+      {
+        "source_object": "草莓植株_030",
+        "variant": "plant_variant_08",
+        "mesh_file": "plant_variant_08.obj",
+        "location_m": [
+          0.756421328,
+          2.832828522,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.052420113,
+          -0.069561966,
+          -2.50290966
+        ],
+        "scale": [
+          1.063679218,
+          1.04663229,
+          1.300917268
+        ]
+      },
+      {
+        "source_object": "草莓植株_031",
+        "variant": "plant_variant_02",
+        "mesh_file": "plant_variant_02.obj",
+        "location_m": [
+          0.841207147,
+          3.31069541,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.013913229,
+          0.045648493,
+          -2.513859034
+        ],
+        "scale": [
+          1.066623569,
+          1.030310631,
+          1.156193137
+        ]
+      },
+      {
+        "source_object": "草莓植株_032",
+        "variant": "plant_variant_18",
+        "mesh_file": "plant_variant_18.obj",
+        "location_m": [
+          0.844432473,
+          3.851028204,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.070082322,
+          0.06858696,
+          -0.788223505
+        ],
+        "scale": [
+          0.895562768,
+          0.80520767,
+          1.045081258
+        ]
+      },
+      {
+        "source_object": "草莓植株_033",
+        "variant": "plant_variant_12",
+        "mesh_file": "plant_variant_12.obj",
+        "location_m": [
+          0.780515313,
+          4.502907753,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.022333998,
+          0.002677897,
+          -1.865770221
+        ],
+        "scale": [
+          1.036307931,
+          1.010560155,
+          1.252905846
+        ]
+      },
+      {
+        "source_object": "草莓植株_034",
+        "variant": "plant_variant_05",
+        "mesh_file": "plant_variant_05.obj",
+        "location_m": [
+          0.808663249,
+          5.180850506,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.019277055,
+          0.01913536,
+          0.784555316
+        ],
+        "scale": [
+          0.88549757,
+          0.963917792,
+          1.092728138
+        ]
+      },
+      {
+        "source_object": "草莓植株_035",
+        "variant": "plant_variant_15",
+        "mesh_file": "plant_variant_15.obj",
+        "location_m": [
+          2.488573313,
+          -5.177884579,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.021027206,
+          -0.040066164,
+          -3.132934093
+        ],
+        "scale": [
+          0.91711539,
+          0.866289914,
+          1.252181292
+        ]
+      },
+      {
+        "source_object": "草莓植株_036",
+        "variant": "plant_variant_17",
+        "mesh_file": "plant_variant_17.obj",
+        "location_m": [
+          2.469247341,
+          -4.576313019,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.015954355,
+          0.005168292,
+          -0.478239357
+        ],
+        "scale": [
+          0.985761523,
+          1.067652464,
+          1.238542438
+        ]
+      },
+      {
+        "source_object": "草莓植株_037",
+        "variant": "plant_variant_23",
+        "mesh_file": "plant_variant_23.obj",
+        "location_m": [
+          2.409305334,
+          -4.064064503,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.038406961,
+          0.026415283,
+          0.30876106
+        ],
+        "scale": [
+          0.858439207,
+          0.905881524,
+          1.167541981
+        ]
+      },
+      {
+        "source_object": "草莓植株_038",
+        "variant": "plant_variant_01",
+        "mesh_file": "plant_variant_01.obj",
+        "location_m": [
+          2.469563484,
+          -3.412086964,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.021037854,
+          -0.046376083,
+          -1.921638727
+        ],
+        "scale": [
+          1.198367119,
+          1.192213297,
+          1.509563565
+        ]
+      },
+      {
+        "source_object": "草莓植株_039",
+        "variant": "plant_variant_21",
+        "mesh_file": "plant_variant_21.obj",
+        "location_m": [
+          2.415072918,
+          -2.828857899,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.061208721,
+          0.024672162,
+          2.933129072
+        ],
+        "scale": [
+          1.075727582,
+          1.10337913,
+          1.324002385
+        ]
+      },
+      {
+        "source_object": "草莓植株_040",
+        "variant": "plant_variant_11",
+        "mesh_file": "plant_variant_11.obj",
+        "location_m": [
+          2.467104673,
+          -2.341687918,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.052389089,
+          0.064297952,
+          -2.389237642
+        ],
+        "scale": [
+          1.164038897,
+          1.090767384,
+          1.31738925
+        ]
+      },
+      {
+        "source_object": "草莓植株_041",
+        "variant": "plant_variant_22",
+        "mesh_file": "plant_variant_22.obj",
+        "location_m": [
+          2.438309431,
+          -1.769814134,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.037193183,
+          0.029668741,
+          2.533962488
+        ],
+        "scale": [
+          0.924374521,
+          0.983337641,
+          1.122141242
+        ]
+      },
+      {
+        "source_object": "草莓植株_042",
+        "variant": "plant_variant_09",
+        "mesh_file": "plant_variant_09.obj",
+        "location_m": [
+          2.475159645,
+          -1.252120733,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.062240515,
+          0.029371174,
+          2.598111391
+        ],
+        "scale": [
+          0.881933868,
+          0.963693857,
+          1.272262692
+        ]
+      },
+      {
+        "source_object": "草莓植株_043",
+        "variant": "plant_variant_07",
+        "mesh_file": "plant_variant_07.obj",
+        "location_m": [
+          2.476382494,
+          -0.602767944,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.062762864,
+          -0.06447915,
+          -1.758258224
+        ],
+        "scale": [
+          1.110688925,
+          1.127722383,
+          1.28351295
+        ]
+      },
+      {
+        "source_object": "草莓植株_044",
+        "variant": "plant_variant_10",
+        "mesh_file": "plant_variant_10.obj",
+        "location_m": [
+          2.46782279,
+          -0.073685929,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.048724495,
+          0.074680664,
+          -0.116206944
+        ],
+        "scale": [
+          1.107341051,
+          1.128634572,
+          1.368517995
+        ]
+      },
+      {
+        "source_object": "草莓植株_045",
+        "variant": "plant_variant_14",
+        "mesh_file": "plant_variant_14.obj",
+        "location_m": [
+          2.412190437,
+          0.648736596,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.041590609,
+          0.050042592,
+          -0.372561783
+        ],
+        "scale": [
+          0.84493351,
+          0.965009689,
+          1.065269589
+        ]
+      },
+      {
+        "source_object": "草莓植株_046",
+        "variant": "plant_variant_04",
+        "mesh_file": "plant_variant_04.obj",
+        "location_m": [
+          2.448808193,
+          1.195949435,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.01719512,
+          0.044525195,
+          -2.051211596
+        ],
+        "scale": [
+          0.773434222,
+          0.88284421,
+          1.100392461
+        ]
+      },
+      {
+        "source_object": "草莓植株_047",
+        "variant": "plant_variant_19",
+        "mesh_file": "plant_variant_19.obj",
+        "location_m": [
+          2.508199215,
+          2.52565074,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.008255282,
+          0.043915648,
+          0.422681242
+        ],
+        "scale": [
+          0.831597447,
+          0.836080492,
+          1.131294608
+        ]
+      },
+      {
+        "source_object": "草莓植株_048",
+        "variant": "plant_variant_06",
+        "mesh_file": "plant_variant_06.obj",
+        "location_m": [
+          2.509592772,
+          3.11729455,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.03176704,
+          -0.027313942,
+          2.312622547
+        ],
+        "scale": [
+          0.905627072,
+          0.965435147,
+          1.288330793
+        ]
+      },
+      {
+        "source_object": "草莓植株_049",
+        "variant": "plant_variant_02",
+        "mesh_file": "plant_variant_02.obj",
+        "location_m": [
+          2.485638618,
+          3.689554453,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.070996895,
+          -0.021417519,
+          0.551254988
+        ],
+        "scale": [
+          0.900795758,
+          0.934152424,
+          1.277928352
+        ]
+      },
+      {
+        "source_object": "草莓植株_050",
+        "variant": "plant_variant_13",
+        "mesh_file": "plant_variant_13.obj",
+        "location_m": [
+          2.471810102,
+          4.841697216,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.016916839,
+          0.071780756,
+          2.93383503
+        ],
+        "scale": [
+          1.099948049,
+          0.973207057,
+          1.324559212
+        ]
+      },
+      {
+        "source_object": "草莓植株_051",
+        "variant": "plant_variant_15",
+        "mesh_file": "plant_variant_15.obj",
+        "location_m": [
+          2.420594692,
+          5.3648839,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.024858857,
+          -0.006987339,
+          0.617638886
+        ],
+        "scale": [
+          0.834822714,
+          0.939915478,
+          1.154236197
+        ]
+      },
+      {
+        "source_object": "草莓植株_052",
+        "variant": "plant_variant_07",
+        "mesh_file": "plant_variant_07.obj",
+        "location_m": [
+          2.994986296,
+          -4.85554266,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.072503999,
+          -0.072105654,
+          -1.906750917
+        ],
+        "scale": [
+          1.095107913,
+          1.041294575,
+          1.38871336
+        ]
+      },
+      {
+        "source_object": "草莓植株_053",
+        "variant": "plant_variant_17",
+        "mesh_file": "plant_variant_17.obj",
+        "location_m": [
+          2.973828077,
+          -4.371832371,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.032783899,
+          -0.008636081,
+          0.242117509
+        ],
+        "scale": [
+          1.095334888,
+          1.155926466,
+          1.394659758
+        ]
+      },
+      {
+        "source_object": "草莓植株_054",
+        "variant": "plant_variant_10",
+        "mesh_file": "plant_variant_10.obj",
+        "location_m": [
+          2.940542221,
+          -3.749866247,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.050047953,
+          0.071810894,
+          2.928029537
+        ],
+        "scale": [
+          0.981914818,
+          1.050547957,
+          1.278333545
+        ]
+      },
+      {
+        "source_object": "草莓植株_055",
+        "variant": "plant_variant_04",
+        "mesh_file": "plant_variant_04.obj",
+        "location_m": [
+          2.952363968,
+          -3.129052401,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.023949722,
+          -0.052577466,
+          1.703923345
+        ],
+        "scale": [
+          0.910847485,
+          0.884167492,
+          1.018841386
+        ]
+      },
+      {
+        "source_object": "草莓植株_056",
+        "variant": "plant_variant_20",
+        "mesh_file": "plant_variant_20.obj",
+        "location_m": [
+          2.932086706,
+          -2.626328468,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.063829042,
+          -0.016812921,
+          -1.634547114
+        ],
+        "scale": [
+          0.961333513,
+          0.89124769,
+          1.16175878
+        ]
+      },
+      {
+        "source_object": "草莓植株_057",
+        "variant": "plant_variant_03",
+        "mesh_file": "plant_variant_03.obj",
+        "location_m": [
+          2.945948362,
+          -1.911693454,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.001387198,
+          0.043767996,
+          -2.06134057
+        ],
+        "scale": [
+          0.812164843,
+          0.89217782,
+          1.243199706
+        ]
+      },
+      {
+        "source_object": "草莓植株_058",
+        "variant": "plant_variant_23",
+        "mesh_file": "plant_variant_23.obj",
+        "location_m": [
+          2.955128908,
+          -1.392736077,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.000164616,
+          -0.069689825,
+          1.652206659
+        ],
+        "scale": [
+          1.155648947,
+          1.11156559,
+          1.436701655
+        ]
+      },
+      {
+        "source_object": "草莓植株_059",
+        "variant": "plant_variant_11",
+        "mesh_file": "plant_variant_11.obj",
+        "location_m": [
+          2.967401505,
+          -0.901268363,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.01081104,
+          -0.060581408,
+          0.09534353
+        ],
+        "scale": [
+          1.02745235,
+          1.119249582,
+          1.286587477
+        ]
+      },
+      {
+        "source_object": "草莓植株_060",
+        "variant": "plant_variant_05",
+        "mesh_file": "plant_variant_05.obj",
+        "location_m": [
+          2.983785868,
+          -0.333735853,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.050956409,
+          -0.070261754,
+          2.104733467
+        ],
+        "scale": [
+          0.984939575,
+          0.956252575,
+          1.067599773
+        ]
+      },
+      {
+        "source_object": "草莓植株_061",
+        "variant": "plant_variant_16",
+        "mesh_file": "plant_variant_16.obj",
+        "location_m": [
+          2.970587254,
+          0.261624217,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.027084697,
+          -0.048444808,
+          0.854378045
+        ],
+        "scale": [
+          1.068207145,
+          0.953829706,
+          1.186172605
+        ]
+      },
+      {
+        "source_object": "草莓植株_062",
+        "variant": "plant_variant_12",
+        "mesh_file": "plant_variant_12.obj",
+        "location_m": [
+          2.952939749,
+          0.749042153,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.037384622,
+          -0.01861918,
+          -0.059332196
+        ],
+        "scale": [
+          1.034150481,
+          0.993000865,
+          1.313221335
+        ]
+      },
+      {
+        "source_object": "草莓植株_063",
+        "variant": "plant_variant_22",
+        "mesh_file": "plant_variant_22.obj",
+        "location_m": [
+          2.965315104,
+          1.326217175,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.058549877,
+          -0.041094031,
+          2.269577026
+        ],
+        "scale": [
+          1.029776812,
+          1.033740401,
+          1.517490983
+        ]
+      },
+      {
+        "source_object": "草莓植株_064",
+        "variant": "plant_variant_14",
+        "mesh_file": "plant_variant_14.obj",
+        "location_m": [
+          3.01132369,
+          1.969589114,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.038391106,
+          0.066939242,
+          -1.709550261
+        ],
+        "scale": [
+          0.86684233,
+          0.943484366,
+          1.26836288
+        ]
+      },
+      {
+        "source_object": "草莓植株_065",
+        "variant": "plant_variant_18",
+        "mesh_file": "plant_variant_18.obj",
+        "location_m": [
+          3.0113132,
+          2.61679244,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.040155623,
+          -0.00286241,
+          -0.666140854
+        ],
+        "scale": [
+          1.087250113,
+          1.205315232,
+          1.323528051
+        ]
+      },
+      {
+        "source_object": "草莓植株_066",
+        "variant": "plant_variant_19",
+        "mesh_file": "plant_variant_19.obj",
+        "location_m": [
+          3.005017519,
+          3.241057873,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.008264921,
+          -0.011021978,
+          0.222493425
+        ],
+        "scale": [
+          0.949647546,
+          0.997573197,
+          1.36275053
+        ]
+      },
+      {
+        "source_object": "草莓植株_067",
+        "variant": "plant_variant_08",
+        "mesh_file": "plant_variant_08.obj",
+        "location_m": [
+          2.962279797,
+          3.667445183,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.029092368,
+          0.03631318,
+          0.901800632
+        ],
+        "scale": [
+          0.970668554,
+          0.955235422,
+          1.078857064
+        ]
+      },
+      {
+        "source_object": "草莓植株_068",
+        "variant": "plant_variant_09",
+        "mesh_file": "plant_variant_09.obj",
+        "location_m": [
+          2.932312489,
+          4.228162766,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.038516983,
+          -0.040049344,
+          -1.572364688
+        ],
+        "scale": [
+          1.00536406,
+          1.036920309,
+          1.293441772
+        ]
+      },
+      {
+        "source_object": "草莓植株_069",
+        "variant": "plant_variant_24",
+        "mesh_file": "plant_variant_24.obj",
+        "location_m": [
+          2.944473505,
+          4.818930149,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.005597695,
+          -0.021551743,
+          -0.234745353
+        ],
+        "scale": [
+          0.981004715,
+          1.13380003,
+          1.421467662
+        ]
+      },
+      {
+        "source_object": "草莓植株_070",
+        "variant": "plant_variant_01",
+        "mesh_file": "plant_variant_01.obj",
+        "location_m": [
+          4.579987049,
+          -5.221268654,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.008621283,
+          0.050891887,
+          -2.869493723
+        ],
+        "scale": [
+          0.893234193,
+          0.898667991,
+          1.19550705
+        ]
+      },
+      {
+        "source_object": "草莓植株_071",
+        "variant": "plant_variant_06",
+        "mesh_file": "plant_variant_06.obj",
+        "location_m": [
+          4.622327328,
+          -4.594408512,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.056844939,
+          -0.023472011,
+          0.78775984
+        ],
+        "scale": [
+          1.007636309,
+          0.98768121,
+          1.298135996
+        ]
+      },
+      {
+        "source_object": "草莓植株_072",
+        "variant": "plant_variant_21",
+        "mesh_file": "plant_variant_21.obj",
+        "location_m": [
+          4.584495068,
+          -3.975075722,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.054125674,
+          0.057755787,
+          -1.818651915
+        ],
+        "scale": [
+          1.007632017,
+          0.999707401,
+          1.225294828
+        ]
+      },
+      {
+        "source_object": "草莓植株_073",
+        "variant": "plant_variant_14",
+        "mesh_file": "plant_variant_14.obj",
+        "location_m": [
+          4.574137211,
+          -3.465526104,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.065031864,
+          -0.070021808,
+          -1.093805075
+        ],
+        "scale": [
+          0.862235367,
+          0.910689473,
+          1.187235355
+        ]
+      },
+      {
+        "source_object": "草莓植株_074",
+        "variant": "plant_variant_19",
+        "mesh_file": "plant_variant_19.obj",
+        "location_m": [
+          4.582203865,
+          -2.936382771,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.074898824,
+          0.054280698,
+          0.563176572
+        ],
+        "scale": [
+          0.856986821,
+          0.865340233,
+          1.168136477
+        ]
+      },
+      {
+        "source_object": "草莓植株_075",
+        "variant": "plant_variant_20",
+        "mesh_file": "plant_variant_20.obj",
+        "location_m": [
+          4.601029396,
+          -2.227708101,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.031526342,
+          -0.060013402,
+          -1.986455679
+        ],
+        "scale": [
+          1.213389158,
+          1.161876798,
+          1.290320873
+        ]
+      },
+      {
+        "source_object": "草莓植株_076",
+        "variant": "plant_variant_12",
+        "mesh_file": "plant_variant_12.obj",
+        "location_m": [
+          4.645820618,
+          -1.702367425,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.072564438,
+          0.015843773,
+          1.768971801
+        ],
+        "scale": [
+          1.018261909,
+          1.07408154,
+          1.257764816
+        ]
+      },
+      {
+        "source_object": "草莓植株_077",
+        "variant": "plant_variant_06",
+        "mesh_file": "plant_variant_06.obj",
+        "location_m": [
+          4.592477322,
+          -1.029340744,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.040650487,
+          0.003070448,
+          -1.934595823
+        ],
+        "scale": [
+          0.87035954,
+          0.924494088,
+          1.223617911
+        ]
+      },
+      {
+        "source_object": "草莓植株_078",
+        "variant": "plant_variant_01",
+        "mesh_file": "plant_variant_01.obj",
+        "location_m": [
+          4.646238327,
+          -0.424737304,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.003260628,
+          0.018440757,
+          0.719926
+        ],
+        "scale": [
+          0.966244042,
+          0.917399168,
+          1.124639392
+        ]
+      },
+      {
+        "source_object": "草莓植株_079",
+        "variant": "plant_variant_10",
+        "mesh_file": "plant_variant_10.obj",
+        "location_m": [
+          4.645133018,
+          0.110038161,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.043114305,
+          0.053786848,
+          -3.098430634
+        ],
+        "scale": [
+          0.841317058,
+          0.940608621,
+          1.052618504
+        ]
+      },
+      {
+        "source_object": "草莓植株_080",
+        "variant": "plant_variant_13",
+        "mesh_file": "plant_variant_13.obj",
+        "location_m": [
+          4.597489357,
+          0.706469893,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.051401708,
+          0.038361937,
+          2.45514226
+        ],
+        "scale": [
+          0.896866083,
+          0.805584371,
+          1.102064848
+        ]
+      },
+      {
+        "source_object": "草莓植株_081",
+        "variant": "plant_variant_04",
+        "mesh_file": "plant_variant_04.obj",
+        "location_m": [
+          4.575053215,
+          1.289300203,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.019512106,
+          -0.037620232,
+          -2.352815866
+        ],
+        "scale": [
+          0.849096477,
+          0.879466474,
+          1.105547428
+        ]
+      },
+      {
+        "source_object": "草莓植株_082",
+        "variant": "plant_variant_03",
+        "mesh_file": "plant_variant_03.obj",
+        "location_m": [
+          4.551285744,
+          1.848170161,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.045499075,
+          0.070717506,
+          3.039731741
+        ],
+        "scale": [
+          1.028174162,
+          0.994418323,
+          1.211997628
+        ]
+      },
+      {
+        "source_object": "草莓植株_083",
+        "variant": "plant_variant_05",
+        "mesh_file": "plant_variant_05.obj",
+        "location_m": [
+          4.576692581,
+          2.508737087,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.07475058,
+          -0.029086972,
+          -0.680100262
+        ],
+        "scale": [
+          1.033594251,
+          1.028283119,
+          1.244469643
+        ]
+      },
+      {
+        "source_object": "草莓植株_084",
+        "variant": "plant_variant_22",
+        "mesh_file": "plant_variant_22.obj",
+        "location_m": [
+          4.610818386,
+          3.700753927,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.069484726,
+          0.064640574,
+          0.949407339
+        ],
+        "scale": [
+          0.983706117,
+          1.058920264,
+          1.452989221
+        ]
+      },
+      {
+        "source_object": "草莓植株_085",
+        "variant": "plant_variant_21",
+        "mesh_file": "plant_variant_21.obj",
+        "location_m": [
+          4.549748421,
+          4.426755905,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.025021791,
+          -0.022376023,
+          -1.861659765
+        ],
+        "scale": [
+          1.035755754,
+          1.161110759,
+          1.33093071
+        ]
+      },
+      {
+        "source_object": "草莓植株_086",
+        "variant": "plant_variant_16",
+        "mesh_file": "plant_variant_16.obj",
+        "location_m": [
+          4.605280876,
+          4.946250439,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.042528592,
+          0.015062382,
+          1.806489348
+        ],
+        "scale": [
+          1.06428051,
+          1.01134634,
+          1.168405533
+        ]
+      },
+      {
+        "source_object": "草莓植株_087",
+        "variant": "plant_variant_08",
+        "mesh_file": "plant_variant_08.obj",
+        "location_m": [
+          4.590920925,
+          5.454280853,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.073802628,
+          0.02959612,
+          -2.778539896
+        ],
+        "scale": [
+          0.926697791,
+          1.062458158,
+          1.209198475
+        ]
+      },
+      {
+        "source_object": "草莓植株_088",
+        "variant": "plant_variant_09",
+        "mesh_file": "plant_variant_09.obj",
+        "location_m": [
+          5.102199554,
+          -4.853037834,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.030755807,
+          -0.014523514,
+          3.031726837
+        ],
+        "scale": [
+          1.114767909,
+          1.144867778,
+          1.374225497
+        ]
+      },
+      {
+        "source_object": "草莓植株_089",
+        "variant": "plant_variant_18",
+        "mesh_file": "plant_variant_18.obj",
+        "location_m": [
+          5.098698616,
+          -4.339474201,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.014744367,
+          -0.014970155,
+          2.323385954
+        ],
+        "scale": [
+          1.082272887,
+          0.974407196,
+          1.275613427
+        ]
+      },
+      {
+        "source_object": "草莓植株_090",
+        "variant": "plant_variant_23",
+        "mesh_file": "plant_variant_23.obj",
+        "location_m": [
+          5.057741642,
+          -3.688139915,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.072880141,
+          0.002506771,
+          0.1668479
+        ],
+        "scale": [
+          0.978800058,
+          0.898439109,
+          1.047762752
+        ]
+      },
+      {
+        "source_object": "草莓植株_091",
+        "variant": "plant_variant_02",
+        "mesh_file": "plant_variant_02.obj",
+        "location_m": [
+          5.11839056,
+          -3.166618347,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.008816084,
+          -0.046981324,
+          -0.377228081
+        ],
+        "scale": [
+          1.124164939,
+          1.101742268,
+          1.278544188
+        ]
+      },
+      {
+        "source_object": "草莓植株_092",
+        "variant": "plant_variant_11",
+        "mesh_file": "plant_variant_11.obj",
+        "location_m": [
+          5.12297678,
+          -2.751982212,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.037524015,
+          0.052556586,
+          -2.916471004
+        ],
+        "scale": [
+          0.981806755,
+          1.127335668,
+          1.28390789
+        ]
+      },
+      {
+        "source_object": "草莓植株_093",
+        "variant": "plant_variant_07",
+        "mesh_file": "plant_variant_07.obj",
+        "location_m": [
+          5.111721992,
+          -2.095850706,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.063930817,
+          0.057908252,
+          -0.056154553
+        ],
+        "scale": [
+          0.811292827,
+          0.856923223,
+          1.047336459
+        ]
+      },
+      {
+        "source_object": "草莓植株_094",
+        "variant": "plant_variant_24",
+        "mesh_file": "plant_variant_24.obj",
+        "location_m": [
+          5.150241375,
+          -1.636632919,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.056653924,
+          0.037413992,
+          0.045004107
+        ],
+        "scale": [
+          0.977478385,
+          0.958596706,
+          1.134281397
+        ]
+      },
+      {
+        "source_object": "草莓植株_095",
+        "variant": "plant_variant_17",
+        "mesh_file": "plant_variant_17.obj",
+        "location_m": [
+          5.136908531,
+          -0.983600497,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.048310917,
+          -0.010918089,
+          -2.078799486
+        ],
+        "scale": [
+          1.05387032,
+          1.020213008,
+          1.4654634
+        ]
+      },
+      {
+        "source_object": "草莓植株_096",
+        "variant": "plant_variant_15",
+        "mesh_file": "plant_variant_15.obj",
+        "location_m": [
+          5.122310638,
+          0.30577451,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.02450789,
+          0.020541504,
+          0.904016912
+        ],
+        "scale": [
+          0.952484846,
+          0.984759927,
+          1.158783913
+        ]
+      },
+      {
+        "source_object": "草莓植株_097",
+        "variant": "plant_variant_06",
+        "mesh_file": "plant_variant_06.obj",
+        "location_m": [
+          5.109951973,
+          0.794156671,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.069847621,
+          0.028745899,
+          2.615136147
+        ],
+        "scale": [
+          0.867230594,
+          0.871768415,
+          0.958034933
+        ]
+      },
+      {
+        "source_object": "草莓植株_098",
+        "variant": "plant_variant_16",
+        "mesh_file": "plant_variant_16.obj",
+        "location_m": [
+          5.065530777,
+          1.397891879,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.02342676,
+          0.049853101,
+          2.004520416
+        ],
+        "scale": [
+          0.963395298,
+          0.989633918,
+          1.051232219
+        ]
+      },
+      {
+        "source_object": "草莓植株_099",
+        "variant": "plant_variant_15",
+        "mesh_file": "plant_variant_15.obj",
+        "location_m": [
+          5.110590935,
+          2.036248922,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.057803337,
+          0.057165436,
+          -1.326126337
+        ],
+        "scale": [
+          0.923293531,
+          0.841646016,
+          1.182450771
+        ]
+      },
+      {
+        "source_object": "草莓植株_100",
+        "variant": "plant_variant_17",
+        "mesh_file": "plant_variant_17.obj",
+        "location_m": [
+          5.093343735,
+          2.561789989,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.054651268,
+          -0.054069024,
+          0.177152738
+        ],
+        "scale": [
+          0.897008061,
+          0.847231328,
+          1.192237139
+        ]
+      },
+      {
+        "source_object": "草莓植株_101",
+        "variant": "plant_variant_18",
+        "mesh_file": "plant_variant_18.obj",
+        "location_m": [
+          5.111798763,
+          3.758633852,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.012465032,
+          -0.069036089,
+          2.827468872
+        ],
+        "scale": [
+          1.035340548,
+          0.95359695,
+          1.335637808
+        ]
+      },
+      {
+        "source_object": "草莓植株_102",
+        "variant": "plant_variant_21",
+        "mesh_file": "plant_variant_21.obj",
+        "location_m": [
+          5.103583336,
+          4.456317902,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          -0.016327826,
+          -0.042324793,
+          2.527723789
+        ],
+        "scale": [
+          1.161912799,
+          1.122920632,
+          1.251142859
+        ]
+      },
+      {
+        "source_object": "草莓植株_103",
+        "variant": "plant_variant_19",
+        "mesh_file": "plant_variant_19.obj",
+        "location_m": [
+          5.054238319,
+          4.973731518,
+          0.291999996
+        ],
+        "rotation_rpy_rad": [
+          0.011846015,
+          -0.043975521,
+          2.060174942
+        ],
+        "scale": [
+          1.059130073,
+          1.193015695,
+          1.39782989
+        ]
+      }
+    ],
+    "collisions": [
+      {
+        "name": "field_collision_01",
+        "source_object": "5×12米地面",
+        "center_m": [
+          2.699999809,
+          0.150000095,
+          -0.100000001
+        ],
+        "size_m": [
+          5.0,
+          12.0,
+          0.200000003
+        ],
+        "adjustments": {}
+      },
+      {
+        "name": "field_collision_02",
+        "source_object": "种植垄_1",
+        "center_m": [
+          0.637499988,
+          0.150000095,
+          0.140000001
+        ],
+        "size_m": [
+          0.87499994,
+          11.5,
+          0.280000001
+        ],
+        "adjustments": {
+          "minimum_x_m": 0.2,
+          "reason": "fixed Panda pedestal clearance"
+        }
+      },
+      {
+        "name": "field_collision_03",
+        "source_object": "种植垄_2",
+        "center_m": [
+          2.700000048,
+          0.150000095,
+          0.140000001
+        ],
+        "size_m": [
+          1.049999714,
+          11.5,
+          0.280000001
+        ],
+        "adjustments": {}
+      },
+      {
+        "name": "field_collision_04",
+        "source_object": "种植垄_3",
+        "center_m": [
+          4.850000381,
+          0.150000095,
+          0.140000001
+        ],
+        "size_m": [
+          1.049999714,
+          11.5,
+          0.280000001
+        ],
+        "adjustments": {}
+      }
+    ]
+  }
+}

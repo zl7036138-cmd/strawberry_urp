@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v14",
+  "scope": "development_only_moveit_preflight_target_selection",
+  "extends": "generalized_runtime_progress_v13",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "moveit_preselection": "Require connected pregrasp, approach, grasp and retreat feasibility before TARGET_SELECTED is published.",
+    "deterministic_ranking": "Evaluate clearance, uncertainty and confidence groups in order; use MoveIt joint travel and track ID only inside the first feasible group.",
+    "bounded_cache": "Reuse an evaluation only within 5 mm target-pose drift and invalidate all current-state results after a completion tombstone.",
+    "stale_result_guard": "Discard evaluation callbacks from superseded epochs or completed tracks.",
+    "transient_failure_policy": "Defer on backend busy, service unavailability or collision-scene synchronization failure instead of caching a false unreachable result."
+  },
+  "development_runtime_probe": {
+    "seed_44008_moveit_preselection_v60": {
+      "outcome": "SUCCESS",
+      "first_orchestrator_target_id": 2,
+      "orchestrator_selected_target_ids": [2],
+      "preselection_moveit_rejected_target_ids": [1],
+      "preselection_rejection": "all bounded pregrasp IK or collision checks failed",
+      "harvested_track_ids": [2],
+      "skipped_targets": {},
+      "failure_count": 0,
+      "harvested_sim_entity": 4,
+      "physical_bilateral_contact": true,
+      "wrist_confirmation": {
+        "raw_correction_m": 0.008633817196139178,
+        "fused_correction_m": 0.0008277510178477155,
+        "fused_sigma_m": 0.009459531542560504
+      },
+      "post_pick_no_pick_reason": "NO_MOVEIT_FEASIBLE_TARGET",
+      "elapsed_sec": 245.059350048,
+      "elapsed_improvement_vs_v59_sec": 65.07128875,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "8bdf12d3ef78e7047a094a116c550e366b2dc395485ff4cfa837359e6b87ae4b",
+      "launch_log_sha256": "3b0c9dc52898b32c243548f43443ff697e65f725effb8b84f4b993ad96276369",
+      "cleanup_receipt_sha256": "b0d5e4fc5648d375c5beb561bf6bb33fc7b0b7cd3f731f5ab4f97e7dd063bfed"
+    }
+  },
+  "verification": {
+    "dependency_light_regression": {
+      "test_count": 702,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "moveit_feasibility_precedes_target_publication": true,
+    "infeasible_target_avoids_batch_retry": true,
+    "truth_free_physical_pick_place_proved": true,
+    "two_or_more_fruits_harvested_in_one_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "current_primary_blocker": "No development scene has yet proved at least two genuinely feasible mature targets harvested in one continuous batch.",
+    "next_required_work": [
+      "Generate a development-only multi-plant seed with at least two MoveIt-feasible mature fruits.",
+      "Prove two or more TARGET_HARVESTED outcomes in one continuous batch without threshold relaxation.",
+      "Repeat the development gate across multiple untrained seeds before opening the sealed 30-scenario matrix."
+    ]
+  }
+}

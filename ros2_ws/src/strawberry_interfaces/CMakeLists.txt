@@ -14,6 +14,11 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/StrawberryDetection.msg"
   "msg/StrawberryDetectionArray.msg"
   "msg/TargetPose.msg"
+  "msg/TrackedTarget.msg"
+  "msg/TrackedTargetArray.msg"
+  "msg/ObservationPlan.msg"
+  "srv/MoveToObservation.srv"
+  "srv/EvaluateTarget.srv"
   "action/PickAndPlace.action"
   DEPENDENCIES
     geometry_msgs

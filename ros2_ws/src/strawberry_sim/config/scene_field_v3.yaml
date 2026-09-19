@@ -1,0 +1,89 @@
+schema_version: 1
+world_name: strawberry_orchard
+fruit_collision_radius_m: 0.026
+
+planning_scene:
+  static_collision_profile: field_v3
+
+# This manifest remains opt-in and v2 remains canonical. Motion is authorized
+# only through the hash-bound, fail-closed field-v3 perception-pick runner;
+# this development qualification is not formal or hardware acceptance.
+qualification:
+  profile_id: field_v3_perception_pick_repeat_v1
+  motion_authorized: true
+  authorization_scope: exact_bounded_perception_pick_runner
+  formal_acceptance: false
+
+frames:
+  robot_base: panda_link0
+  camera_link: strawberry_camera_link
+  camera_optical: strawberry_camera_optical_frame
+
+camera:
+  default_mount: dual
+  image_width: 640
+  image_height: 480
+  update_rate_hz: 30.0
+  horizontal_fov_rad: 1.0471975512
+  near_clip_m: 0.10
+  far_clip_m: 8.0
+  # At the field-v3 observation pose, target 1 occupies the lower-right
+  # quadrant. Restricting localization to this reviewed region prevents the
+  # higher-confidence target 3 from becoming the control candidate.
+  wrist_target_1_selection_roi_xyxy_px: [320, 240, 640, 480]
+
+# The outer source row was shifted beside panda_link0. Two source plants were
+# omitted and replaced by the already-qualified v2 plant/fruit assembly.
+field:
+  asset: strawberry_field_v3
+  source_origin_m: [-2.70, -0.15, 0.0]
+  workcell_pose_in_robot_base: [0.55, 0.0, 0.30, 0.0, 0.0, 0.0]
+  background_plant_count: 101
+  shared_variant_count: 24
+  collision_policy: ground_and_three_ridges_only
+
+plant:
+  model_name: strawberry_plant
+  asset: strawberry_plant_v2
+  pose_in_robot_base: [0.55, 0.0, 0.30, 0.0, 0.0, 0.0]
+
+fruits:
+  - target_id: 1
+    model_name: strawberry_1
+    maturity: RIPE
+    asset: strawberry_ripe
+    initial_pose_m: [0.469064753, -0.053479813, 0.376111838]
+  - target_id: 2
+    model_name: strawberry_2
+    maturity: UNRIPE
+    asset: strawberry_unripe
+    initial_pose_m: [0.600333202, 0.118588343, 0.362157422]
+  - target_id: 3
+    model_name: strawberry_3
+    maturity: RIPE
+    asset: strawberry_ripe
+    initial_pose_m: [0.628895651, 0.068192676, 0.370231110]
+
+bin:
+  model_name: collection_bin
+  model_pose_in_robot_base: [-0.90, 0.80, 0.0, 0.0, 0.0, 0.0]
+  # Use a robot-side interior release point instead of the geometric centre.
+  # The centre is valid inside the bin but becomes unreachable when the hand
+  # is raised above the wall with a held fruit.
+  place_pose_m: [-0.45, 0.25, 0.45]
+  place_transit_clearance_m: 0.12
+  interior_bounds_m:
+    min_x: -0.71
+    max_x: -0.39
+    min_y: 0.17
+    max_y: 0.61
+    min_z: 0.28
+    max_z: 0.55
+  required_stability_sec: 1.0
+
+attachment_backend:
+  parent_model: panda
+  parent_link: panda_link7
+  child_link: fruit_link
+  requires_dual_contact: true
+  startup_state: detached_after_confirmation

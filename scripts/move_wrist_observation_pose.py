@@ -15,6 +15,7 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
     from strawberry_manipulation.core import Pose
     from strawberry_manipulation.moveit_backend import MoveItBackend
     from strawberry_manipulation.moveit_config import build_moveit_config
+    from strawberry_manipulation.scene_geometry import static_collision_objects
     from strawberry_sim.core import load_scene_config
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -86,6 +87,9 @@ def main(args=None) -> int:  # pragma: no cover - ROS / MoveIt integration
         backend = MoveItBackend(
             node,
             fruit_obstacles=fruit_obstacles,
+            static_collision_objects=static_collision_objects(
+                scene.static_collision_profile
+            ),
             config_dict=build_moveit_config(camera_mount=options.camera_mount),
         )
         attempt_receipts = []

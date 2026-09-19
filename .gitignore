@@ -5,6 +5,7 @@ ros2_ws/log/
 /build/
 /install/
 /log/
+tools/dart_step_audit/build/
 
 # Python
 __pycache__/

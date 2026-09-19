@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_ORACLE_PREGRASP_REQUALIFICATION_HANDOFF",
+  "handoff_passed": true,
+  "pick_authorized": false,
+  "expected_target_id": 1,
+  "target_source": "oracle_ground_truth",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "robot_motion_started": false,
+  "gripper_command_sent": false,
+  "trajectory_command_sent": false,
+  "pick_action_called": false,
+  "purpose": "ADR 0046 planning geometry isolation only"
+}

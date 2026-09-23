@@ -5,12 +5,15 @@
 Reproducible ROS 2 simulation for strawberry maturity detection, 3D localization,
 and Panda pick-and-place evaluation.
 
-Current generalized development status (2026-09-18): an opt-in lazy attachment
-backend with independent stem support has confirmed bilateral grasp and support
-transfer in development seed 45504. DART bin alignment and recovery still fail;
-complete harvest and multi-fruit qualification are **not passed**. Defaults and
-historical release results are unchanged. See
-[`the development record`](docs/p0/LAZY_ATTACHMENT_DEVELOPMENT_2026-09-18.md).
+Current status (2026-09-23): the fixed field-v3 visual pick has again completed
+the full `PLAN → APPROACH → GRASP → RETREAT → PLACE → VERIFY → RETURN_ROUTE →
+DONE` round trip. The controller used a fully preflighted overhead place route,
+released and verified the fruit in the bin, reversed all five recorded entry
+segments, and returned home. This restores the fixed-scene single-fruit
+baseline; generalized random-scene multi-fruit qualification is still **not
+passed**. See the
+[`latest handoff`](docs/p0/HANDOFF_2026-09-23_FIELD_V3_ROUND_TRIP.md) and
+[`ADR 0083`](docs/decisions/0083-qualify-field-v3-recorded-round-trip.md).
 
 For continuation in a new Codex task, repository, or VS Code workspace, start
 with [`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md). It separates the frozen

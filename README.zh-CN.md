@@ -4,7 +4,13 @@
 
 这是一个可复现的草莓成熟度识别、三维定位与机械臂抓取搬运仿真项目。系统运行在 ROS 2、Gazebo 和 MoveIt 2 之上，使用 YOLO11s 区分成熟与未成熟草莓，并控制 Franka Emika Panda 机械臂完成安全预抓取、接近、夹取、搬运、放置和恢复。
 
-广义主线开发状态（2026-09-18）：显式启用的惰性挂接与独立果梗支撑已在开发种子 45504 中确认双指接触与支撑换手，但 DART 箱口对准和恢复仍失败，**完整采摘与多果资格门尚未通过**。默认后端与以下历史提交版结论不变。详见[本轮开发记录](docs/p0/LAZY_ATTACHMENT_DEVELOPMENT_2026-09-18.md)。
+当前状态（2026-09-23）：固定 field-v3 场景已重新跑通
+`PLAN → APPROACH → GRASP → RETREAT → PLACE → VERIFY → RETURN_ROUTE → DONE`
+完整往返。系统使用完整预检通过的高位入箱路线，放果并验证稳定入箱，随后
+反向执行全部五段实走路径并成功回零。这恢复了固定场景单果可工作基线；
+随机场景的广义多果资格门仍**尚未通过**。详见
+[最新交接](docs/p0/HANDOFF_2026-09-23_FIELD_V3_ROUND_TRIP.md)和
+[ADR 0083](docs/decisions/0083-qualify-field-v3-recorded-round-trip.md)。
 
 当前提交版已经在固定的 field-v3 草莓植株场景中跑通以下工程链路：
 
@@ -29,6 +35,7 @@ MoveIt 2 碰撞检测与运动规划
 - 中文系统学习路线：[`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md)
 - 系统架构与接口：[`docs/architecture.md`](docs/architecture.md)
 - 停稳判定修复与 v7 失败诊断：[`docs/p0/ARM_SETTLE_GATE_REVIEW_2026-09-14.md`](docs/p0/ARM_SETTLE_GATE_REVIEW_2026-09-14.md)
+- 最新 field-v3 单果完整往返：[`docs/p0/HANDOFF_2026-09-23_FIELD_V3_ROUND_TRIP.md`](docs/p0/HANDOFF_2026-09-23_FIELD_V3_ROUND_TRIP.md)
 - 轨迹/时间戳/证据审计与 P1/P2 修复：[`docs/p0/MOTION_EVIDENCE_AUDIT_FIXES_2026-09-15.md`](docs/p0/MOTION_EVIDENCE_AUDIT_FIXES_2026-09-15.md)
 - 环境复现说明：[`docs/reproduction.md`](docs/reproduction.md)
 - field-v3 场景集成：[`docs/field-v3-integration.md`](docs/field-v3-integration.md)

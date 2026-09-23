@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-artifact_root="${STRAWBERRY_COLCON_ROOT:-${repo_root}/ros2_ws}"
+artifact_root="${STRAWBERRY_COLCON_ROOT:-${HOME}/.cache/strawberry_urp/colcon}"
 output_dir="${1:-${repo_root}/results/development/field_v3_perception_pick_headed_v1}"
 model_path="${2:-${repo_root}/outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt}"
 domain_id="${3:-230}"
@@ -52,6 +52,28 @@ source /opt/ros/jazzy/setup.bash
 source /opt/strawberry_venv/bin/activate
 source "${artifact_root}/install/setup.bash"
 set -u
+
+# Console-script shebangs are fixed when colcon builds the workspace. Merely
+# activating the runtime venv cannot repair an old install built with system
+# Python, so validate the exact perception entry point before Gazebo starts.
+perception_executable="$(
+  ros2 pkg prefix strawberry_perception
+)/lib/strawberry_perception/perception_node"
+[[ -x "${perception_executable}" ]] || {
+  echo "Perception executable is missing: ${perception_executable}" >&2
+  exit 6
+}
+perception_interpreter="$(head -n 1 "${perception_executable}")"
+perception_interpreter="${perception_interpreter#\#!}"
+[[ -x "${perception_interpreter}" ]] || {
+  echo "Perception entry-point interpreter is invalid: ${perception_interpreter}" >&2
+  exit 6
+}
+"${perception_interpreter}" -c "import ultralytics" >/dev/null 2>&1 || {
+  echo "Perception entry-point interpreter cannot import ultralytics: ${perception_interpreter}" >&2
+  echo "Set STRAWBERRY_COLCON_ROOT to the venv-built colcon workspace." >&2
+  exit 6
+}
 export ROS_DOMAIN_ID="${domain_id}"
 mkdir -p "${output_dir}"
 
@@ -79,15 +101,15 @@ pipeline_pids=()
 
 stop_group() {
   local pid="$1"
-  if [[ -z "${pid}" ]] || ! kill -0 -- "-${pid}" 2>/dev/null; then
+  if [[ -z "${pid}" ]] || ! /bin/kill -0 -- "-${pid}" 2>/dev/null; then
     return
   fi
-  kill -TERM -- "-${pid}" 2>/dev/null || true
+  /bin/kill -TERM -- "-${pid}" 2>/dev/null || true
   for _ in $(seq 1 300); do
-    kill -0 -- "-${pid}" 2>/dev/null || break
+    /bin/kill -0 -- "-${pid}" 2>/dev/null || break
     sleep 0.1
   done
-  kill -KILL -- "-${pid}" 2>/dev/null || true
+  /bin/kill -KILL -- "-${pid}" 2>/dev/null || true
   wait "${pid}" 2>/dev/null || true
 }
 
@@ -205,6 +227,7 @@ if [[ "${initial_pose_ready}" != "true" ]]; then
   exit 5
 fi
 
+set +e
 timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   handoff_shadow_probe \
   --output-json "${output_dir}/handoff_shadow.json" \
@@ -219,7 +242,16 @@ timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   --maximum-joint-delta-rad 0.002 \
   --ros-args -p use_sim_time:=true \
   >"${output_dir}/handoff_shadow.log" 2>&1
+handoff_status=$?
+set -e
+if [[ "${handoff_status}" -ne 0 ]]; then
+  echo "Field-v3 handoff gate failed with status ${handoff_status}" \
+    >"${output_dir}/demo_status.txt"
+  echo "Field-v3 handoff gate failed with status ${handoff_status}" >&2
+  exit "${handoff_status}"
+fi
 
+set +e
 timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   pregrasp_planning_shadow \
   --handoff-json "${output_dir}/handoff_shadow.json" \
@@ -235,7 +267,16 @@ timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   --maximum-joint-delta-rad 0.002 \
   --ros-args -p use_sim_time:=true \
   >"${output_dir}/pregrasp_shadow.log" 2>&1
+pregrasp_status=$?
+set -e
+if [[ "${pregrasp_status}" -ne 0 ]]; then
+  echo "Field-v3 pre-grasp gate failed with status ${pregrasp_status}" \
+    >"${output_dir}/demo_status.txt"
+  echo "Field-v3 pre-grasp gate failed with status ${pregrasp_status}" >&2
+  exit "${pregrasp_status}"
+fi
 
+set +e
 python "${repo_root}/scripts/evaluate_blender_v2_perception_execution_readiness.py" \
   --handoff "${output_dir}/handoff_shadow.json" \
   --no-motion-gate "${output_dir}/pregrasp_shadow.json" \
@@ -244,6 +285,14 @@ python "${repo_root}/scripts/evaluate_blender_v2_perception_execution_readiness.
     "${repo_root}/results/development/blender_v2_gripper_geometry_sweep_v1/summary.json" \
   --output "${output_dir}/execution_readiness.json" \
   >"${output_dir}/execution_readiness.log" 2>&1
+readiness_status=$?
+set -e
+if [[ "${readiness_status}" -ne 0 ]]; then
+  echo "Field-v3 readiness gate failed with status ${readiness_status}" \
+    >"${output_dir}/demo_status.txt"
+  echo "Field-v3 readiness gate failed with status ${readiness_status}" >&2
+  exit "${readiness_status}"
+fi
 
 run_pick_client() {
   timeout --signal=TERM 720 python \

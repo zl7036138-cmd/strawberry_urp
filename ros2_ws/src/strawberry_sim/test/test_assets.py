@@ -15,6 +15,26 @@ PACKAGE_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class SimulationAssetTests(unittest.TestCase):
+    def test_field_v3_headed_runner_uses_venv_build_and_fails_fast(self):
+        runner = (
+            PACKAGE_ROOT.parents[2]
+            / "scripts"
+            / "run_field_v3_perception_pick_headed.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'artifact_root="${STRAWBERRY_COLCON_ROOT:-${HOME}/.cache/'
+            'strawberry_urp/colcon}"',
+            runner,
+        )
+        self.assertIn("perception_executable=", runner)
+        self.assertIn(
+            '"${perception_interpreter}" -c "import ultralytics"', runner
+        )
+        self.assertIn("handoff_status=$?", runner)
+        self.assertIn("pregrasp_status=$?", runner)
+        self.assertIn("readiness_status=$?", runner)
+        self.assertIn('/bin/kill -TERM -- "-${pid}"', runner)
+
     def test_package_data_excludes_transient_python_bytecode(self):
         setup_text = (PACKAGE_ROOT / "setup.py").read_text(encoding="utf-8")
         self.assertIn('dirname != "__pycache__"', setup_text)

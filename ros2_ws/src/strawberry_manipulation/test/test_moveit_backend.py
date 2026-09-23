@@ -306,12 +306,91 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend._gripper_command = lambda position: commands.append(position) or next(
             outcomes
         )
+        backend._read_gripper_fruit_contact_class = lambda: "NO_FRUIT_CONTACT"
 
         with patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
             self.assertTrue(backend.close_gripper())
 
         self.assertEqual(commands, [0.022, 0.04, 0.022])
         sleep.assert_called_once_with(0.05)
+
+    def test_open_gripper_retries_once_after_transient_position_miss(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.open_width_m = 0.04
+        backend.settle_sample_period_sec = 0.05
+        outcomes = iter((False, True))
+        commands = []
+        backend._gripper_command = lambda position: commands.append(position) or next(
+            outcomes
+        )
+
+        with patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
+            self.assertTrue(backend.open_gripper())
+
+        self.assertEqual(commands, [0.04, 0.04])
+        sleep.assert_called_once_with(0.05)
+
+    def test_open_gripper_persistent_failure_is_bounded_to_two_commands(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.open_width_m = 0.04
+        backend.settle_sample_period_sec = 0.05
+        commands = []
+        backend._gripper_command = lambda position: commands.append(position) or False
+
+        with patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
+            self.assertFalse(backend.open_gripper())
+
+        self.assertEqual(commands, [0.04, 0.04])
+        sleep.assert_called_once_with(0.05)
+
+    def test_close_gripper_accepts_fresh_bilateral_contact_before_retry(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.closed_width_m = 0.022
+        backend.open_width_m = 0.04
+        backend.settle_sample_period_sec = 0.05
+        commands = []
+        backend._gripper_command = lambda position: commands.append(position) or False
+        backend._read_gripper_fruit_contact_class = lambda: "BILATERAL_SAME_FRUIT"
+
+        with patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
+            self.assertTrue(backend.close_gripper())
+
+        self.assertEqual(commands, [0.022])
+        sleep.assert_not_called()
+
+    def test_close_gripper_does_not_bypass_retry_without_unique_bilateral_contact(self):
+        for contact_class in (
+            "NO_FRUIT_CONTACT",
+            "LEFT_SINGLE_FRUIT",
+            "RIGHT_SINGLE_FRUIT",
+            "AMBIGUOUS_FRUIT_CONTACT",
+            "CONTACT_CLASS_UNAVAILABLE",
+        ):
+            with self.subTest(contact_class=contact_class):
+                backend = MoveItBackend.__new__(MoveItBackend)
+                backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+                backend.closed_width_m = 0.022
+                backend.open_width_m = 0.04
+                backend.settle_sample_period_sec = 0.05
+                outcomes = iter((False, True, True))
+                commands = []
+                backend._gripper_command = (
+                    lambda position: commands.append(position) or next(outcomes)
+                )
+                backend._read_gripper_fruit_contact_class = (
+                    lambda value=contact_class: value
+                )
+
+                with patch(
+                    "strawberry_manipulation.moveit_backend.time.sleep"
+                ) as sleep:
+                    self.assertTrue(backend.close_gripper())
+
+                self.assertEqual(commands, [0.022, 0.04, 0.022])
+                sleep.assert_called_once_with(0.05)
 
     def test_finger_asymmetry_reports_signed_local_y_centering_offset(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -756,8 +835,14 @@ class MoveItBackendStaticTests(unittest.TestCase):
         segments = []
 
         backend._current_link_pose = lambda: state[-1]
-        backend.preview_guarded_place_from_current = lambda _target: PathAssessment(
-            True, False, 0.07, 0.3, (0.1, 0.2)
+        backend._current_joint_positions = lambda: (0.0, 0.1)
+        backend._preview_guarded_place_route = (
+            lambda current, joints, candidate, route: (
+                backend._guarded_place_waypoints(
+                    current, candidate, route_name=route
+                ),
+                PathAssessment(True, False, 0.07, 0.3, (0.1, 0.2)),
+            )
         )
 
         def move_segment(start, target, *, intermediate_endpoint=False):
@@ -821,9 +906,18 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
         backend._current_link_pose = lambda: Pose(0.20, 0.0, 0.70)
-        backend.preview_guarded_place_from_current = lambda _target: PathAssessment(
-            False, True, 0.04, 0.2, (0.1, 0.2)
-        )
+        backend._current_joint_positions = lambda: (0.0, 0.1)
+        backend._last_successful_place_joint_segments = (((0.0,), (0.1,)),)
+        previews = []
+
+        def preview(current, joints, candidate, route):
+            previews.append(route)
+            return (
+                (),
+                PathAssessment(False, True, 0.04, 0.2, (0.1, 0.2)),
+            )
+
+        backend._preview_guarded_place_route = preview
         segments = []
         backend._move_segmented_between = lambda *args, **kwargs: segments.append(
             (args, kwargs)
@@ -837,6 +931,11 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertTrue(outcome.collision)
         self.assertEqual(outcome.execution_time_sec, 0.0)
         self.assertEqual(segments, [])
+        self.assertEqual(
+            previews,
+            ["clear_corridor"] * 4 + ["direct_overhead"] * 4,
+        )
+        self.assertEqual(backend._last_successful_place_joint_segments, ())
 
     def test_guarded_place_uses_first_fully_feasible_wrist_roll(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -847,15 +946,21 @@ class MoveItBackendStaticTests(unittest.TestCase):
         previews = []
         segments = []
         backend._current_link_pose = lambda: state[-1]
+        backend._current_joint_positions = lambda: (0.0, 0.1)
 
-        def preview(candidate):
+        def preview(current, joints, candidate, route):
             previews.append(candidate)
-            return PathAssessment(
-                len(previews) == 2,
-                False,
-                0.01,
-                0.2,
-                (0.1, 0.2),
+            return (
+                backend._guarded_place_waypoints(
+                    current, candidate, route_name=route
+                ),
+                PathAssessment(
+                    len(previews) == 2,
+                    False,
+                    0.01,
+                    0.2,
+                    (0.1, 0.2),
+                ),
             )
 
         def move_segment(start, target, *, intermediate_endpoint=False):
@@ -864,7 +969,7 @@ class MoveItBackendStaticTests(unittest.TestCase):
             state.append(target)
             return MotionOutcome(True, 0.01, 0.02)
 
-        backend.preview_guarded_place_from_current = preview
+        backend._preview_guarded_place_route = preview
         backend._move_segmented_between = move_segment
         target = Pose(0.35, -0.45, 0.5554, qx=1.0, qw=0.0)
 
@@ -877,6 +982,151 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertAlmostEqual(segments[-1][0].qx, math.sqrt(0.5))
         self.assertAlmostEqual(segments[-1][0].qy, math.sqrt(0.5))
         self.assertEqual(segments[-1][1], False)
+
+    def test_guarded_place_falls_back_to_previewed_direct_overhead_route(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.safe_transit_corridor_y_m = -0.10
+        backend.place_transit_clearance_m = 0.12
+        state = [Pose(0.47, -0.06, 0.56, qx=math.sqrt(0.5), qy=math.sqrt(0.5))]
+        backend._current_link_pose = lambda: state[-1]
+        backend._current_joint_positions = lambda: (0.0, 0.1)
+        previews = []
+        segments = []
+
+        def preview(current, joints, candidate, route):
+            previews.append((route, candidate))
+            feasible = route == "direct_overhead"
+            return (
+                backend._guarded_place_waypoints(
+                    current, candidate, route_name=route
+                ),
+                PathAssessment(feasible, not feasible, 0.01, 0.2, (0.1, 0.2)),
+            )
+
+        def move_segment(start, target, *, intermediate_endpoint=False):
+            self.assertEqual(start, state[-1])
+            segments.append((target, intermediate_endpoint))
+            state.append(target)
+            return MotionOutcome(True, 0.01, 0.02)
+
+        backend._preview_guarded_place_route = preview
+        backend._move_segmented_between = move_segment
+        target = Pose(-0.45, 0.25, 0.5464, qx=1.0, qw=0.0)
+
+        outcome = backend._move_guarded_place(target)
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(
+            [route for route, _candidate in previews],
+            ["clear_corridor"] * 4 + ["direct_overhead"],
+        )
+        self.assertEqual(len(segments), 5)
+        self.assertEqual(
+            (segments[2][0].x, segments[2][0].y),
+            (target.x, target.y),
+        )
+        self.assertGreater(segments[2][0].z, target.z)
+        self.assertEqual(segments[-1], (target, False))
+
+    def test_direct_overhead_route_stays_high_until_above_bin(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.safe_transit_corridor_y_m = -0.10
+        backend.place_transit_clearance_m = 0.12
+        current = Pose(0.47, -0.06, 0.56, qx=math.sqrt(0.5), qy=math.sqrt(0.5))
+        target = Pose(-0.45, 0.25, 0.5464, qx=1.0, qw=0.0)
+
+        waypoints = backend._guarded_place_waypoints(
+            current,
+            target,
+            route_name="direct_overhead",
+        )
+
+        self.assertEqual([label for label, _pose in waypoints], [
+            "vertical lift",
+            "overhead reorientation",
+            "overhead translation",
+            "lower to bin transit height",
+            "vertical descent",
+        ])
+        lift_z = waypoints[0][1].z
+        self.assertEqual(waypoints[2][1].z, lift_z)
+        self.assertEqual(
+            (waypoints[2][1].x, waypoints[2][1].y),
+            (target.x, target.y),
+        )
+        self.assertEqual(waypoints[-1][1], target)
+
+    def test_place_preview_tries_direct_overhead_after_corridor_rejection(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._current_link_pose = lambda: Pose(0.47, -0.06, 0.56)
+        backend._current_joint_positions = lambda: (0.0, 0.1)
+        routes = []
+
+        def preview(current, joints, candidate, route):
+            routes.append(route)
+            feasible = route == "direct_overhead"
+            return (
+                (),
+                PathAssessment(
+                    feasible,
+                    not feasible,
+                    0.02 if feasible else 0.01,
+                    0.4 if feasible else 0.2,
+                    (0.2, 0.3),
+                ),
+            )
+
+        backend._preview_guarded_place_route = preview
+
+        assessment = backend.preview_guarded_place_from_current(
+            Pose(-0.45, 0.25, 0.5464, qx=1.0, qw=0.0)
+        )
+
+        self.assertTrue(assessment.feasible)
+        self.assertFalse(assessment.collision)
+        self.assertEqual(routes, ["clear_corridor", "direct_overhead"])
+        self.assertAlmostEqual(assessment.planning_time_sec, 0.03)
+        self.assertAlmostEqual(assessment.joint_travel_rad, 0.4)
+
+    def test_named_place_route_previews_every_waypoint_as_one_connected_path(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        current = Pose(0.47, -0.06, 0.56)
+        target = Pose(-0.45, 0.25, 0.5464, qx=1.0, qw=0.0)
+        named_waypoints = (
+            ("first", Pose(0.47, -0.06, 0.68)),
+            ("second", Pose(-0.45, 0.25, 0.68, qx=1.0, qw=0.0)),
+            ("third", target),
+        )
+        backend._guarded_place_waypoints = (
+            lambda start, goal, *, route_name: named_waypoints
+        )
+        requests = []
+        expected = PathAssessment(True, False, 0.03, 0.4, (0.2, 0.3))
+        backend.preview_cartesian_segments = (
+            lambda start, joints, poses: requests.append((start, joints, poses))
+            or expected
+        )
+
+        waypoints, assessment = backend._preview_guarded_place_route(
+            current,
+            (0.0, 0.1),
+            target,
+            "direct_overhead",
+        )
+
+        self.assertEqual(waypoints, named_waypoints)
+        self.assertIs(assessment, expected)
+        self.assertEqual(
+            requests,
+            [
+                (
+                    current,
+                    (0.0, 0.1),
+                    tuple(pose for _label, pose in named_waypoints),
+                )
+            ],
+        )
 
     def test_guarded_approach_preview_failure_is_zero_motion(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -1244,6 +1494,40 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertFalse(outcome.success)
         self.assertTrue(outcome.collision)
         self.assertEqual(executions, [])
+
+    def test_recorded_return_preflights_every_segment_before_first_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._last_successful_place_joint_segments = (
+            ((0.00,), (0.10,), (0.20,)),
+            ((0.20,), (0.30,), (0.40,)),
+        )
+        backend.joint_trajectory_start_tolerance_rad = 0.05
+        backend.home_joint_tolerance_rad = 0.03
+        backend.grasp_joint_trajectory_velocity_rad_per_sec = 0.25
+        backend.execution_joint_limit_margin_rad = 0.02
+        backend._wait_until_arm_settled = lambda: True
+        backend._current_joint_positions = lambda: (0.40,)
+        backend._joint_path_within_limit_margin = lambda *args, **kwargs: True
+        backend._joint_path_within_safety_limits = lambda *args, **kwargs: True
+        collision_checks = iter((True, False))
+        checked = []
+
+        def collision_free(path):
+            checked.append(path)
+            return next(collision_checks)
+
+        backend._joint_path_is_collision_free = collision_free
+        executions = []
+        backend._execute_joint_path = lambda *args, **kwargs: executions.append(args)
+
+        outcome = backend.return_via_recorded_place_route()
+
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.collision)
+        self.assertEqual(len(checked), 2)
+        self.assertEqual(executions, [])
+        self.assertEqual(backend._last_successful_place_joint_segments, ())
 
     def test_recorded_place_route_endpoint_drift_rejects_all_motion(self):
         backend = MoveItBackend.__new__(MoveItBackend)

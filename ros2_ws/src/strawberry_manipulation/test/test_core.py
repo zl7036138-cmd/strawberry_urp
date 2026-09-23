@@ -184,7 +184,78 @@ class PickAndPlaceTests(unittest.TestCase):
             backend.calls[release_detach : release_detach + 2],
             ["detach", "open"],
         )
-        self.assertIn("home", backend.calls)
+        self.assertEqual(
+            backend.calls[release_detach : release_detach + 5],
+            ["detach", "open", "open", "return_route", "home"],
+        )
+
+    def test_release_open_failure_withholds_home_if_recorded_return_fails(self):
+        backend = FakeBackend(
+            open_results=[True, False, True],
+            return_route=False,
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
+        self.assertIn("recorded place-route recovery failed", result.message)
+        self.assertIn("home motion withheld", result.message)
+        self.assertNotIn("home", backend.calls)
+        self.assertIn("RECOVERY_RETURN_ROUTE", result.stages)
+
+    def test_verify_failure_returns_via_recorded_route_before_home(self):
+        backend = FakeBackend(in_bin=False)
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
+        verify = backend.calls.index("verify")
+        self.assertEqual(
+            backend.calls[verify : verify + 4],
+            ["verify", "open", "return_route", "home"],
+        )
+        self.assertIn("RECOVERY_RETURN_ROUTE", result.stages)
+
+    def test_zero_motion_place_failure_recovers_without_recorded_replay(self):
+        backend = FakeBackend(
+            [
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(False, collision=True),
+            ]
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
+        self.assertNotIn("verify", backend.calls)
+        self.assertNotIn("return_route", backend.calls)
+        self.assertEqual(backend.calls[-4:], ["detach", "open", "home", "restore"])
+
+    def test_partial_place_failure_withholds_unrecorded_home_sweep(self):
+        backend = FakeBackend(
+            [
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(True),
+                MotionOutcome(False, execution_time_sec=0.2),
+            ]
+        )
+
+        result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
+        self.assertIn("no complete recorded return route", result.message)
+        self.assertIn("home motion withheld", result.message)
+        self.assertNotIn("verify", backend.calls)
+        self.assertNotIn("return_route", backend.calls)
+        self.assertNotIn("home", backend.calls)
+        self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
 
     def test_target_collision_gate_fails_closed(self):
         backend = FakeBackend(prepare=False)

@@ -1,5 +1,11 @@
 # STRAWBERRY_URP 交接文档（控制实验战役收官 · 2026-09-17）
 
+> 历史文档：这里记录的是 2026-09-17 当时的故障结论。固定 field-v3
+> 单果闭环已于 2026-09-23 恢复并完成入箱验证、记录路线反向退出和回零。
+> 继续开发请从
+> [`HANDOFF_2026-09-23_FIELD_V3_ROUND_TRIP.md`](HANDOFF_2026-09-23_FIELD_V3_ROUND_TRIP.md)
+> 开始；本文保留用于避免重复历史实验。
+
 **项目地址（GitHub）**：https://github.com/zl7036138-cmd/strawberry_urp
 **分支**：`codex/wp01-evidence-validation`　**HEAD**：`6fcd27c`（本地=远程，工作区干净）
 **Windows 路径**：`C:/Users/12753/Documents/New project/strawberry_urp`（WSL: `/mnt/c/...`，发行版 `Ubuntu-24.04-URP`，Jazzy + gz Harmonic，venv `/opt/strawberry_venv`）

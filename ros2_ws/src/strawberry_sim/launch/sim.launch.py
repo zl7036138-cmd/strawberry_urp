@@ -259,9 +259,12 @@ def _launch_nodes(context):
         fruit_attachment_count,
         stem_constraints_enabled=generalized_scene,
     )
-    attachment_initialization_attempts = (
-        150 if generalized_scene or fruit_attachment_count > 3 else 10
-    )
+    # Gazebo GUI startup can take longer than the historical 2 s window even
+    # for the three-fruit field scene.  The retry period is steady-clock based
+    # and successful initialization still completes immediately, so use the
+    # already-qualified 30 s upper bound for every attachment-enabled scene.
+    # When attachment is disabled the manager ignores this value.
+    attachment_initialization_attempts = 150
     panda_xacro = os.path.join(package_share, "urdf", "panda_gz.urdf.xacro")
     requested_initial_positions = (
         LaunchConfiguration("initial_positions_file").perform(context).strip()

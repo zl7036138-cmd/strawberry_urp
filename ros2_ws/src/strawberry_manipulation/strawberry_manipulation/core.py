@@ -372,6 +372,7 @@ class PickAndPlaceExecutor:
         execution_time = 0.0
         attached = False
         unattached_recovery_retreat: Pose | None = None
+        place_route_recovery_available = False
 
         def mark(stage: str, progress: float) -> None:
             stages.append(stage)
@@ -384,7 +385,8 @@ class PickAndPlaceExecutor:
             *,
             recover_home: bool = True,
         ) -> ExecutionResult:
-            nonlocal attached, planning_time, execution_time
+            nonlocal attached, place_route_recovery_available
+            nonlocal planning_time, execution_time
             # Never carry a fruit into the recovery motion.  A failed detach is
             # treated as a hard stop because moving home with an active Gazebo
             # constraint can damage the simulated scene and hide the real fault.
@@ -399,7 +401,24 @@ class PickAndPlaceExecutor:
                 )
             elif recover_home:
                 retreat_succeeded = True
-                if unattached_recovery_retreat is not None:
+                if place_route_recovery_available:
+                    # Once the hand has entered the collection-bin corridor,
+                    # an independent home plan can sweep through the bin or
+                    # neighbouring fruit.  The successful forward PLACE path
+                    # is the only reviewed way back to the safe retreat
+                    # checkpoint, including release/verification failures.
+                    return_motion = self.backend.return_via_recorded_place_route()
+                    place_route_recovery_available = False
+                    planning_time += return_motion.planning_time_sec
+                    execution_time += return_motion.execution_time_sec
+                    stages.append("RECOVERY_RETURN_ROUTE")
+                    retreat_succeeded = return_motion.success
+                    if not retreat_succeeded:
+                        message = (
+                            f"{message}; recorded place-route recovery failed, "
+                            "home motion withheld"
+                        )
+                elif unattached_recovery_retreat is not None:
                     retreat = self.backend.move_to(
                         unattached_recovery_retreat,
                         "RECOVERY_RETREAT",
@@ -702,7 +721,16 @@ class PickAndPlaceExecutor:
         planning_time += place_motion.planning_time_sec
         execution_time += place_motion.execution_time_sec
         if not place_motion.success:
+            if place_motion.execution_time_sec > 1.0e-6:
+                return fail(
+                    FailureCode.PLACE_FAILED,
+                    "failed to reach collection bin after controller motion "
+                    "began; no complete recorded return route is available, "
+                    "home motion withheld",
+                    recover_home=False,
+                )
             return fail(FailureCode.PLACE_FAILED, "failed to reach collection bin")
+        place_route_recovery_available = True
         # Remove the rigid simulation constraint before opening the physical
         # fingers.  Opening while the fruit is still welded to the hand can
         # preload it against one finger; the later detach then releases that
@@ -728,6 +756,7 @@ class PickAndPlaceExecutor:
         # joint 5 in the diagnosed DART failures.
         mark("RETURN_ROUTE", 0.95)
         return_motion = self.backend.return_via_recorded_place_route()
+        place_route_recovery_available = False
         planning_time += return_motion.planning_time_sec
         execution_time += return_motion.execution_time_sec
         if not return_motion.success:

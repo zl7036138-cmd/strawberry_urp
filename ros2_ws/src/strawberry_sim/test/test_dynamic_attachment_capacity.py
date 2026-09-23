@@ -28,8 +28,9 @@ class DynamicAttachmentCapacityTests(unittest.TestCase):
         self.assertIn("add_external_stem_support(external_world.getroot(), fruit_attachment_count)", source)
         self.assertIn('"stem_constraints_enabled": generalized_scene', source)
         self.assertIn('scene_document.get("generator")', source)
+        self.assertIn("attachment_initialization_attempts = 150", source)
         self.assertIn(
-            "150 if generalized_scene or fruit_attachment_count > 3 else 10",
+            '"backend_initialization_attempts": attachment_initialization_attempts',
             source,
         )
 

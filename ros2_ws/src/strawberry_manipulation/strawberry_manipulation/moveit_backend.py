@@ -11,7 +11,13 @@ import time
 from types import MappingProxyType
 from typing import Callable, Mapping
 
-from .core import CONTACT_CLASS_UNAVAILABLE, MotionOutcome, Pose, rotate_about_base_z
+from .core import (
+    BILATERAL_SAME_FRUIT,
+    CONTACT_CLASS_UNAVAILABLE,
+    MotionOutcome,
+    Pose,
+    rotate_about_base_z,
+)
 from .carried_geometry import local_fruit_center, transit_hand_height
 from .carried_scene import set_carried_fruit
 from .motion_evidence import MotionEvidence, serialize_joint_feedback, serialize_trajectory
@@ -2648,15 +2654,30 @@ class MoveItBackend:
             current = self._current_link_pose()
         return MotionOutcome(True, planning_time, execution_time)
 
-    def _guarded_place_waypoints(
-        self, current: Pose, target: Pose
-    ) -> tuple[tuple[str, Pose], ...]:
-        """Build a connected plant-to-bin route with a clear transit corridor.
+    @staticmethod
+    def _guarded_place_route_names() -> tuple[str, ...]:
+        """Return the bounded, deterministic place-route search order."""
 
-        The high lift is used only while leaving the plant.  Keeping that same
-        height all the way to the bin can put the arm outside its Cartesian IK
-        envelope, so the route lowers to the configured bin clearance only
-        after reaching the obstacle-free corridor.
+        return ("clear_corridor", "direct_overhead")
+
+    def _guarded_place_waypoints(
+        self,
+        current: Pose,
+        target: Pose,
+        *,
+        route_name: str = "clear_corridor",
+    ) -> tuple[tuple[str, Pose], ...]:
+        """Build one connected plant-to-bin route.
+
+        ``clear_corridor`` remains the preferred route: it leaves the plant,
+        moves to the configured Y corridor, then crosses toward the bin at the
+        lower bin-transit height.  A long cross-base translation on that fixed
+        corridor can force the wrist camera or fingers into link 5 for some
+        otherwise valid grasp branches.  ``direct_overhead`` is the bounded
+        fallback used in that case.  It keeps the carried fruit at the higher
+        clearance until the hand is directly above the bin.  Both routes are
+        subjected to the same complete connected IK, joint-limit and collision
+        preview before any controller command is allowed.
         """
 
         lift_z = max(current.z, target.z) + self.place_transit_clearance_m
@@ -2685,19 +2706,66 @@ class MoveItBackend:
                     self.carried_position_uncertainty_m,
                 ),
             )
-        return (
-            (
-                "vertical lift",
-                Pose(
-                    current.x,
-                    current.y,
-                    lift_z,
-                    current.qx,
-                    current.qy,
-                    current.qz,
-                    current.qw,
-                ),
+        # The overhead fallback must never translate below the clearance that
+        # was required at the bin end of the route.
+        lift_z = max(lift_z, bin_transit_z)
+        vertical_lift = (
+            "vertical lift",
+            Pose(
+                current.x,
+                current.y,
+                lift_z,
+                current.qx,
+                current.qy,
+                current.qz,
+                current.qw,
             ),
+        )
+        if route_name == "direct_overhead":
+            return (
+                vertical_lift,
+                (
+                    "overhead reorientation",
+                    Pose(
+                        current.x,
+                        current.y,
+                        lift_z,
+                        target.qx,
+                        target.qy,
+                        target.qz,
+                        target.qw,
+                    ),
+                ),
+                (
+                    "overhead translation",
+                    Pose(
+                        target.x,
+                        target.y,
+                        lift_z,
+                        target.qx,
+                        target.qy,
+                        target.qz,
+                        target.qw,
+                    ),
+                ),
+                (
+                    "lower to bin transit height",
+                    Pose(
+                        target.x,
+                        target.y,
+                        bin_transit_z,
+                        target.qx,
+                        target.qy,
+                        target.qz,
+                        target.qw,
+                    ),
+                ),
+                ("vertical descent", target),
+            )
+        if route_name != "clear_corridor":
+            raise ValueError(f"unknown guarded-place route: {route_name}")
+        return (
+            vertical_lift,
             (
                 "move to clear corridor",
                 Pose(
@@ -2761,17 +2829,62 @@ class MoveItBackend:
             ("vertical descent", target),
         )
 
+    def _preview_guarded_place_route(
+        self,
+        current: Pose,
+        start_joint_positions: tuple[float, ...],
+        target: Pose,
+        route_name: str,
+    ) -> tuple[tuple[tuple[str, Pose], ...], PathAssessment]:
+        """Preview one named place route without sending a command."""
+
+        waypoints = self._guarded_place_waypoints(
+            current,
+            target,
+            route_name=route_name,
+        )
+        assessment = self.preview_cartesian_segments(
+            current,
+            start_joint_positions,
+            tuple(pose for _label, pose in waypoints),
+        )
+        return waypoints, assessment
+
     def preview_guarded_place_from_current(self, target: Pose) -> PathAssessment:
-        """Prove the entire place route without sending a controller command."""
+        """Prove at least one bounded place route without commanding motion."""
 
         current = self._current_link_pose()
-        waypoints = tuple(
-            pose for _label, pose in self._guarded_place_waypoints(current, target)
-        )
-        return self.preview_cartesian_segments(
-            current,
-            self._current_joint_positions(),
-            waypoints,
+        start_joint_positions = self._current_joint_positions()
+        planning_time = 0.0
+        collision_rejected = False
+        end_joint_positions = start_joint_positions
+        last_joint_travel = 0.0
+        for route_name in self._guarded_place_route_names():
+            _waypoints, assessment = self._preview_guarded_place_route(
+                current,
+                start_joint_positions,
+                target,
+                route_name,
+            )
+            planning_time += assessment.planning_time_sec
+            collision_rejected = collision_rejected or assessment.collision
+            end_joint_positions = assessment.end_joint_positions
+            last_joint_travel = assessment.joint_travel_rad
+            if assessment.feasible:
+                return PathAssessment(
+                    True,
+                    False,
+                    planning_time,
+                    assessment.joint_travel_rad,
+                    assessment.end_joint_positions,
+                    assessment.end_pose,
+                )
+        return PathAssessment(
+            False,
+            collision_rejected,
+            planning_time,
+            last_joint_travel,
+            end_joint_positions,
         )
 
     @staticmethod
@@ -2794,34 +2907,56 @@ class MoveItBackend:
         previous_recorder = getattr(self, "_place_route_recording_segments", None)
         self._place_route_recording_segments = recorded_segments
         current = self._current_link_pose()
+        start_joint_positions = self._current_joint_positions()
         try:
             selected_target = None
+            selected_waypoints = None
+            selected_route_name = None
             preview = None
             collision_rejected = False
             planning_time = 0.0
-            for orientation_index, candidate in enumerate(
-                self._bounded_place_orientation_candidates(target)
-            ):
-                candidate_preview = self.preview_guarded_place_from_current(candidate)
-                planning_time += candidate_preview.planning_time_sec
-                collision_rejected = collision_rejected or candidate_preview.collision
-                if not candidate_preview.feasible:
-                    self.node.get_logger().info(
-                        "MoveIt guarded place orientation rejected by connected "
-                        f"preview: index={orientation_index}"
+            for route_name in self._guarded_place_route_names():
+                for orientation_index, candidate in enumerate(
+                    self._bounded_place_orientation_candidates(target)
+                ):
+                    candidate_waypoints, candidate_preview = (
+                        self._preview_guarded_place_route(
+                            current,
+                            start_joint_positions,
+                            candidate,
+                            route_name,
+                        )
                     )
-                    continue
-                selected_target = candidate
-                preview = candidate_preview
-                self.node.get_logger().info(
-                    "MoveIt guarded place selected bounded wrist-roll orientation: "
-                    f"index={orientation_index}"
-                )
-                break
-            if selected_target is None or preview is None:
+                    planning_time += candidate_preview.planning_time_sec
+                    collision_rejected = (
+                        collision_rejected or candidate_preview.collision
+                    )
+                    if candidate_preview.feasible:
+                        selected_target = candidate
+                        selected_waypoints = candidate_waypoints
+                        selected_route_name = route_name
+                        preview = candidate_preview
+                        self.node.get_logger().info(
+                            "MoveIt guarded place selected bounded route and "
+                            "wrist-roll orientation: "
+                            f"route={route_name}, index={orientation_index}"
+                        )
+                        break
+                    self.node.get_logger().info(
+                        "MoveIt guarded place candidate rejected by connected "
+                        f"preview: route={route_name}, index={orientation_index}"
+                    )
+                if selected_target is not None:
+                    break
+            if (
+                selected_target is None
+                or selected_waypoints is None
+                or selected_route_name is None
+                or preview is None
+            ):
                 self.node.get_logger().warning(
-                    "Guarded place rejected before motion because all four "
-                    "connected Cartesian wrist-roll previews failed"
+                    "Guarded place rejected before motion because every bounded "
+                    "route and wrist-roll preview failed"
                 )
                 return MotionOutcome(
                     False,
@@ -2830,9 +2965,11 @@ class MoveItBackend:
                     collision=collision_rejected,
                 )
             execution_time = 0.0
-            waypoints = self._guarded_place_waypoints(current, selected_target)
-            for label, waypoint in waypoints:
-                self.node.get_logger().info(f"MoveIt guarded place phase: {label}")
+            for label, waypoint in selected_waypoints:
+                self.node.get_logger().info(
+                    "MoveIt guarded place phase: "
+                    f"route={selected_route_name}, {label}"
+                )
                 outcome = self._move_segmented_between(
                     current,
                     waypoint,
@@ -3166,6 +3303,20 @@ class MoveItBackend:
     def close_gripper(self) -> bool:
         if self._gripper_command(self.closed_width_m):
             return True
+        # Gazebo's two single-joint gripper controllers can report
+        # reached_goal=True while a fruit physically stops one finger outside
+        # the commanded-position tolerance.  Fresh bilateral contact with one
+        # anonymous fruit is stronger evidence than that controller residual,
+        # and the subsequent attachment service independently rechecks the
+        # exact contact gate before creating any constraint.  Preserve the
+        # historical open/reclose retry for every other outcome.
+        if self._read_gripper_fruit_contact_class() == BILATERAL_SAME_FRUIT:
+            self.node.get_logger().warning(
+                "gripper close exceeded measured-position tolerance, but "
+                "fresh bilateral same-fruit contact was observed; deferring "
+                "final acceptance to the attachment confirmation gate"
+            )
+            return True
         self.node.get_logger().warning(
             "gripper close produced no validated travel; resetting the open "
             "command before one bounded retry"
@@ -3215,6 +3366,16 @@ class MoveItBackend:
 
         if not bool(getattr(self, "contact_resolved_attachment", False)):
             return None
+        return self._read_gripper_fruit_contact_class()
+
+    def _read_gripper_fruit_contact_class(self) -> str:
+        """Read the simulator's identity-free contact class in any scene.
+
+        Fixed scenes retain their target-specific attachment API, but a fresh
+        bilateral contact can still validate that a close command physically
+        reached fruit before that API performs its stricter target check.
+        """
+
         operation = "contact_class"
         key = (0, operation)
         client = self._service_clients.get(key)
@@ -3245,6 +3406,18 @@ class MoveItBackend:
         return contact_class or CONTACT_CLASS_UNAVAILABLE
 
     def open_gripper(self) -> bool:
+        if self._gripper_command(self.open_width_m):
+            return True
+        # Immediately after detach, the released fruit can remain against one
+        # finger for a few simulator frames.  The controller then reports a
+        # measured-position miss even though the same open command succeeds
+        # once the fruit has begun to fall.  Permit exactly one identical,
+        # bounded retry; persistent obstruction still fails closed.
+        self.node.get_logger().warning(
+            "gripper open did not reach both measured joint targets; waiting "
+            "one settle interval before a single bounded retry"
+        )
+        time.sleep(self.settle_sample_period_sec)
         return self._gripper_command(self.open_width_m)
 
     def _trigger(

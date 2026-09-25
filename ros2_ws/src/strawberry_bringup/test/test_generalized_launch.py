@@ -171,6 +171,13 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn('"wrist_min_confidence": confidence_threshold', self.source)
         self.assertIn('"wrist_confirmation_timeout_sec": 3.0', self.source)
         self.assertIn('"minimum_reobservation_baseline_m": 0.04', self.source)
+        orchestrator = (
+            ROOT / "strawberry_bringup" / "harvest_orchestrator.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'declare_parameter("wrist_systematic_sigma_m", 0.010)',
+            orchestrator,
+        )
 
     def test_base_camera_layout_is_global_and_forwarded_to_simulation(self):
         for name, default in (

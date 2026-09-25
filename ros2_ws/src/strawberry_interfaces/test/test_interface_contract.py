@@ -115,10 +115,11 @@ class InterfaceContractTest(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            sections[1][-5:],
+            sections[1][-6:],
             [
                 "bool success",
                 "uint8 failure_code",
+                "uint8 recovery_disposition",
                 "float32 planning_time_sec",
                 "float32 execution_time_sec",
                 "string message",
@@ -154,7 +155,7 @@ class InterfaceContractTest(unittest.TestCase):
             ],
         )
 
-    def test_failure_codes_are_stable_and_contiguous(self) -> None:
+    def test_action_result_codes_are_stable(self) -> None:
         expected = {
             "NONE": 0,
             "NO_TARGET": 1,
@@ -167,6 +168,9 @@ class InterfaceContractTest(unittest.TestCase):
             "GRASP_FAILED": 8,
             "PLACE_FAILED": 9,
             "STALE_DATA": 10,
+            "RECOVERY_MOTION_WITHHELD": 0,
+            "RECOVERY_AT_HOME": 1,
+            "RECOVERY_HOME_REQUIRED": 2,
         }
         declarations = schema_lines("action/PickAndPlace.action")
         actual = {}

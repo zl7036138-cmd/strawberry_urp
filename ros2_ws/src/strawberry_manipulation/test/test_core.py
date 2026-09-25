@@ -13,6 +13,7 @@ from strawberry_manipulation.core import (  # noqa: E402
     MotionOutcome,
     PickAndPlaceExecutor,
     Pose,
+    RecoveryDisposition,
     alternate_approach,
     bounded_pregrasp_candidates_for_fruit_center,
     offset_along_local_z,
@@ -140,6 +141,7 @@ class PickAndPlaceTests(unittest.TestCase):
         result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
         self.assertTrue(result.success)
         self.assertEqual(result.failure_code, FailureCode.NONE)
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
         self.assertEqual(result.stages[-1], "DONE")
         self.assertIn("attach", backend.calls)
         self.assertIn("detach", backend.calls)
@@ -165,6 +167,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
         self.assertIn("recovery motion withheld", result.message)
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
         self.assertNotIn("verify", backend.calls)
         self.assertNotIn("home", backend.calls)
         self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
@@ -188,6 +193,7 @@ class PickAndPlaceTests(unittest.TestCase):
             backend.calls[release_detach : release_detach + 5],
             ["detach", "open", "open", "return_route", "home"],
         )
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
 
     def test_release_open_failure_withholds_home_if_recorded_return_fails(self):
         backend = FakeBackend(
@@ -203,6 +209,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertIn("home motion withheld", result.message)
         self.assertNotIn("home", backend.calls)
         self.assertIn("RECOVERY_RETURN_ROUTE", result.stages)
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_verify_failure_returns_via_recorded_route_before_home(self):
         backend = FakeBackend(in_bin=False)
@@ -217,6 +226,7 @@ class PickAndPlaceTests(unittest.TestCase):
             ["verify", "open", "return_route", "home"],
         )
         self.assertIn("RECOVERY_RETURN_ROUTE", result.stages)
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
 
     def test_zero_motion_place_failure_recovers_without_recorded_replay(self):
         backend = FakeBackend(
@@ -235,6 +245,7 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertNotIn("verify", backend.calls)
         self.assertNotIn("return_route", backend.calls)
         self.assertEqual(backend.calls[-4:], ["detach", "open", "home", "restore"])
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
 
     def test_partial_place_failure_withholds_unrecorded_home_sweep(self):
         backend = FakeBackend(
@@ -256,6 +267,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertNotIn("return_route", backend.calls)
         self.assertNotIn("home", backend.calls)
         self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_target_collision_gate_fails_closed(self):
         backend = FakeBackend(prepare=False)
@@ -264,6 +278,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
         self.assertNotIn("APPROACH", backend.calls)
         self.assertNotIn("restore", backend.calls)
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.HOME_REQUIRED
+        )
 
         backend = FakeBackend(allow_contact=False)
         result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
@@ -304,6 +321,7 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertLess(
             backend.calls.index("RECOVERY_RETREAT"), backend.calls.index("home")
         )
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
 
     def test_failed_unattached_recovery_retreat_withholds_home(self):
         backend = FakeBackend(
@@ -323,6 +341,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertIn("recovery retreat failed", result.message)
         self.assertNotIn("home", backend.calls)
         self.assertEqual(backend.calls[-1], "restore")
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_asymmetric_contact_gets_one_measured_centering_retry(self):
         backend = FakeBackend(
@@ -562,6 +583,9 @@ class PickAndPlaceTests(unittest.TestCase):
         result = PickAndPlaceExecutor(backend).execute(0, self.target, self.bin)
         self.assertEqual(result.failure_code, FailureCode.NO_TARGET)
         self.assertEqual(backend.calls, [])
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.HOME_REQUIRED
+        )
 
     def test_restore_failure_converts_success_to_planning_failure(self):
         backend = FakeBackend(restore=False)
@@ -570,6 +594,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
         self.assertIn("failed to restore target collision obstacle", result.message)
         self.assertEqual(backend.calls[-2:], ["home", "restore"])
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_restore_failure_is_appended_to_existing_failure(self):
         backend = FakeBackend(
@@ -591,6 +618,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertIn("final home motion failed", result.message)
         self.assertEqual(backend.calls.count("home"), 1)
         self.assertEqual(backend.calls[-3:], ["return_route", "home", "restore"])
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_failed_recorded_return_withholds_independent_home_motion(self):
         backend = FakeBackend(return_route=False)
@@ -603,6 +633,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertIn("home motion withheld", result.message)
         self.assertNotIn("home", backend.calls)
         self.assertEqual(backend.calls[-2:], ["return_route", "restore"])
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_failed_recovery_reports_home_failure_without_retry(self):
         backend = FakeBackend(
@@ -613,6 +646,9 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertIn("recovery home motion failed", result.message)
         self.assertEqual(backend.calls.count("home"), 1)
+        self.assertEqual(
+            result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
+        )
 
     def test_fixed_grasp_geometry_places_tool_axis_toward_positive_y(self):
         pose = Pose(0.5, 0.0, 0.6, qx=-(2**-0.5), qw=2**-0.5)

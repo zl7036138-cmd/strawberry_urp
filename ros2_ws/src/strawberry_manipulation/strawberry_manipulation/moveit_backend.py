@@ -14,8 +14,10 @@ from typing import Callable, Mapping
 from .core import (
     BILATERAL_SAME_FRUIT,
     CONTACT_CLASS_UNAVAILABLE,
+    LEFT_SINGLE_FRUIT,
     MotionOutcome,
     Pose,
+    RIGHT_SINGLE_FRUIT,
     rotate_about_base_z,
 )
 from .carried_geometry import local_fruit_center, transit_hand_height
@@ -3310,13 +3312,25 @@ class MoveItBackend:
         # and the subsequent attachment service independently rechecks the
         # exact contact gate before creating any constraint.  Preserve the
         # historical open/reclose retry for every other outcome.
-        if self._read_gripper_fruit_contact_class() == BILATERAL_SAME_FRUIT:
+        contact_class = self._read_gripper_fruit_contact_class()
+        if contact_class == BILATERAL_SAME_FRUIT:
             self.node.get_logger().warning(
                 "gripper close exceeded measured-position tolerance, but "
                 "fresh bilateral same-fruit contact was observed; deferring "
                 "final acceptance to the attachment confirmation gate"
             )
             return True
+        if contact_class in {LEFT_SINGLE_FRUIT, RIGHT_SINGLE_FRUIT}:
+            # Repeating the same close at the same pose cannot improve a
+            # geometrically off-centre grasp.  Preserve the fresh contact and
+            # finger measurements for the executor's single bounded Cartesian
+            # centering move instead of squeezing the same side twice.
+            self.node.get_logger().warning(
+                "gripper close found unique single-sided fruit contact; "
+                "deferring the one evidence-based centering retry to the "
+                "pick executor"
+            )
+            return False
         self.node.get_logger().warning(
             "gripper close produced no validated travel; resetting the open "
             "command before one bounded retry"

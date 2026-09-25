@@ -951,6 +951,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 result = PickAndPlace.Result()
                 result.success = outcome.success
                 result.failure_code = int(outcome.failure_code)
+                result.recovery_disposition = int(outcome.recovery_disposition)
                 result.planning_time_sec = outcome.planning_time_sec
                 result.execution_time_sec = outcome.execution_time_sec
                 result.message = outcome.message

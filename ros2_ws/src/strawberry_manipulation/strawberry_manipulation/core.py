@@ -30,6 +30,18 @@ class FailureCode(IntEnum):
     STALE_DATA = 10
 
 
+class RecoveryDisposition(IntEnum):
+    """Typed permission for motion after an action result.
+
+    Zero is intentionally the fail-closed value used when the executor cannot
+    prove that an independent recovery-home command is safe.
+    """
+
+    MOTION_WITHHELD = 0
+    AT_HOME = 1
+    HOME_REQUIRED = 2
+
+
 @dataclass(frozen=True)
 class Pose:
     x: float
@@ -61,6 +73,7 @@ class ExecutionResult:
     planning_time_sec: float
     execution_time_sec: float
     stages: tuple[str, ...]
+    recovery_disposition: RecoveryDisposition = RecoveryDisposition.MOTION_WITHHELD
 
 
 @dataclass(frozen=True)
@@ -311,6 +324,7 @@ class PickAndPlaceExecutor:
                 0.0,
                 0.0,
                 (),
+                RecoveryDisposition.HOME_REQUIRED,
             )
 
         if not self.backend.prepare_pick(target_id, target_pose):
@@ -321,6 +335,7 @@ class PickAndPlaceExecutor:
                 0.0,
                 0.0,
                 (),
+                RecoveryDisposition.HOME_REQUIRED,
             )
 
         restore_succeeded = False
@@ -358,6 +373,7 @@ class PickAndPlaceExecutor:
                 FailureCode.PLANNING_FAILED if result.success else result.failure_code
             ),
             message=message,
+            recovery_disposition=RecoveryDisposition.MOTION_WITHHELD,
         )
 
     def _execute_prepared(
@@ -387,6 +403,7 @@ class PickAndPlaceExecutor:
         ) -> ExecutionResult:
             nonlocal attached, place_route_recovery_available
             nonlocal planning_time, execution_time
+            recovery_disposition = RecoveryDisposition.MOTION_WITHHELD
             # Never carry a fruit into the recovery motion.  A failed detach is
             # treated as a hard stop because moving home with an active Gazebo
             # constraint can damage the simulated scene and hide the real fault.
@@ -431,8 +448,11 @@ class PickAndPlaceExecutor:
                         message = (
                             f"{message}; recovery retreat failed, home motion withheld"
                         )
-                if retreat_succeeded and not self.backend.move_home():
-                    message = f"{message}; recovery home motion failed"
+                if retreat_succeeded:
+                    if self.backend.move_home():
+                        recovery_disposition = RecoveryDisposition.AT_HOME
+                    else:
+                        message = f"{message}; recovery home motion failed"
             return ExecutionResult(
                 False,
                 code,
@@ -440,6 +460,7 @@ class PickAndPlaceExecutor:
                 planning_time,
                 execution_time,
                 tuple(stages),
+                recovery_disposition,
             )
 
         if not self.backend.open_gripper():
@@ -450,6 +471,7 @@ class PickAndPlaceExecutor:
                 planning_time,
                 execution_time,
                 tuple(stages),
+                RecoveryDisposition.HOME_REQUIRED,
             )
 
         mark("PLAN", 0.10)
@@ -772,6 +794,7 @@ class PickAndPlaceExecutor:
                 planning_time,
                 execution_time,
                 tuple(stages),
+                RecoveryDisposition.MOTION_WITHHELD,
             )
 
         if not self.backend.move_home():
@@ -782,6 +805,7 @@ class PickAndPlaceExecutor:
                 planning_time,
                 execution_time,
                 tuple(stages),
+                RecoveryDisposition.MOTION_WITHHELD,
             )
         return ExecutionResult(
             True,
@@ -790,4 +814,5 @@ class PickAndPlaceExecutor:
             planning_time,
             execution_time,
             tuple(stages),
+            RecoveryDisposition.AT_HOME,
         )

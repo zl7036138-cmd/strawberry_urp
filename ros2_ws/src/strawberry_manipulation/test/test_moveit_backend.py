@@ -361,11 +361,9 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(commands, [0.022])
         sleep.assert_not_called()
 
-    def test_close_gripper_does_not_bypass_retry_without_unique_bilateral_contact(self):
+    def test_close_gripper_uses_legacy_retry_without_fruit_contact(self):
         for contact_class in (
             "NO_FRUIT_CONTACT",
-            "LEFT_SINGLE_FRUIT",
-            "RIGHT_SINGLE_FRUIT",
             "AMBIGUOUS_FRUIT_CONTACT",
             "CONTACT_CLASS_UNAVAILABLE",
         ):
@@ -391,6 +389,30 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
                 self.assertEqual(commands, [0.022, 0.04, 0.022])
                 sleep.assert_called_once_with(0.05)
+
+    def test_close_gripper_defers_single_sided_contact_to_geometric_centering(self):
+        for contact_class in ("LEFT_SINGLE_FRUIT", "RIGHT_SINGLE_FRUIT"):
+            with self.subTest(contact_class=contact_class):
+                backend = MoveItBackend.__new__(MoveItBackend)
+                backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+                backend.closed_width_m = 0.022
+                backend.open_width_m = 0.04
+                backend.settle_sample_period_sec = 0.05
+                commands = []
+                backend._gripper_command = (
+                    lambda position: commands.append(position) or False
+                )
+                backend._read_gripper_fruit_contact_class = (
+                    lambda value=contact_class: value
+                )
+
+                with patch(
+                    "strawberry_manipulation.moveit_backend.time.sleep"
+                ) as sleep:
+                    self.assertFalse(backend.close_gripper())
+
+                self.assertEqual(commands, [0.022])
+                sleep.assert_not_called()
 
     def test_finger_asymmetry_reports_signed_local_y_centering_offset(self):
         backend = MoveItBackend.__new__(MoveItBackend)

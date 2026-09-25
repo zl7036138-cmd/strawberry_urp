@@ -13,6 +13,11 @@ from .harvest_planning import (
     wrist_refinement_rejection_reason,
 )
 from .harvest_sequence import HarvestSequence, HarvestState
+from .recovery_policy import (
+    RecoveryDisposition,
+    RecoveryStep,
+    recovery_step_for_disposition,
+)
 
 
 # First use the release pose proven by the isolated physical gate, then fill a
@@ -126,7 +131,15 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self.declare_parameter("wrist_max_correction_m", 0.05)
             self.declare_parameter("wrist_min_confidence", 0.60)
             self.declare_parameter("wrist_max_sigma_m", 0.015)
-            self.declare_parameter("wrist_systematic_sigma_m", 0.030)
+            # Two independent seed-45504 development runs placed the same
+            # wrist estimate within 0.4 mm of itself and about 9-10 mm from the
+            # scoring-only truth.  The original uncalibrated 30 mm floor made
+            # the close-range camera contribute only 5-18%, leaving a 14.9 mm
+            # base-camera bias almost unchanged.  Keep a conservative 10 mm
+            # systematic floor while allowing the wrist view to do its stated
+            # near-grasp refinement job.  Formal/qualification seeds were not
+            # used for this calibration.
+            self.declare_parameter("wrist_systematic_sigma_m", 0.010)
             self.declare_parameter("minimum_reobservation_baseline_m", 0.04)
             # A generalized scene contains at most three plants with three
             # fruit each, matching the bounded 3x3 collection-bin drop bank.
@@ -588,14 +601,27 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                     )
                 return
             self._last_wrist_rejection_reason = None
+            base_sigma_m = float(self._current_target.position_sigma_m)
+            wrist_sigma_m = float(refinement.position_sigma_m)
+            wrist_systematic_sigma_m = float(
+                self.get_parameter("wrist_systematic_sigma_m").value
+            )
             fused_position, fused_sigma = fuse_position_estimates(
                 (current.x, current.y, current.z),
                 (refined.x, refined.y, refined.z),
-                base_sigma_m=float(self._current_target.position_sigma_m),
-                wrist_sigma_m=float(refinement.position_sigma_m),
-                wrist_systematic_sigma_m=float(
-                    self.get_parameter("wrist_systematic_sigma_m").value
-                ),
+                base_sigma_m=base_sigma_m,
+                wrist_sigma_m=wrist_sigma_m,
+                wrist_systematic_sigma_m=wrist_systematic_sigma_m,
+            )
+            effective_wrist_sigma_m = math.hypot(
+                wrist_sigma_m, wrist_systematic_sigma_m
+            )
+            wrist_weight_fraction = (
+                base_sigma_m * base_sigma_m
+                / (
+                    base_sigma_m * base_sigma_m
+                    + effective_wrist_sigma_m * effective_wrist_sigma_m
+                )
             )
             self._cancel_timer("_confirmation_timer")
             fused_pose = Pose()
@@ -615,7 +641,8 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 f"{fused_position[2]:.4f}); "
                 f"raw_correction={correction:.4f} m; "
                 f"fused_correction={fused_correction:.4f} m; "
-                f"fused_sigma={fused_sigma:.4f} m",
+                f"fused_sigma={fused_sigma:.4f} m; "
+                f"wrist_weight={wrist_weight_fraction:.3f}",
             )
             self._publish(
                 "WRIST_CONFIRMATION_ACCEPTED",
@@ -623,6 +650,10 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 | {
                     "fused_correction_m": fused_correction,
                     "fused_sigma_m": fused_sigma,
+                    "base_sigma_m": base_sigma_m,
+                    "wrist_systematic_sigma_m": wrist_systematic_sigma_m,
+                    "effective_wrist_sigma_m": effective_wrist_sigma_m,
+                    "wrist_weight_fraction": wrist_weight_fraction,
                 },
             )
             self._request_final_pick_feasibility()
@@ -788,7 +819,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             handle = future.result()
             if handle is None or not handle.accepted:
                 self._sequence.pick_result(False, "pick goal rejected", 6)
-                self._after_attempt_failure()
+                self._after_attempt_failure(RecoveryDisposition.HOME_REQUIRED)
                 return
             result_future = handle.get_result_async()
             result_future.add_done_callback(self._pick_result)
@@ -820,9 +851,12 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 if not self._sequence.terminal:
                     self._arm_scan_timer()
             else:
-                self._after_attempt_failure()
+                self._after_attempt_failure(int(result.recovery_disposition))
 
-        def _after_attempt_failure(self) -> None:
+        def _after_attempt_failure(
+            self,
+            recovery_disposition: int = RecoveryDisposition.HOME_REQUIRED,
+        ) -> None:
             target_id = None
             if self._sequence.history:
                 target_id = self._sequence.history[-1].target_id
@@ -846,8 +880,25 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self._current_is_reobservation = False
             self._publish(
                 "RETRY" if self._sequence.retry_target_id else "TARGET_SKIPPED",
-                diagnostics=self._scan_diagnostics(),
+                diagnostics=self._scan_diagnostics()
+                | {"recovery_disposition": int(recovery_disposition)},
             )
+            recovery_step = recovery_step_for_disposition(recovery_disposition)
+            if recovery_step is RecoveryStep.WITHHOLD:
+                self._finish_after_recovery_motion_withheld(
+                    "manipulation result did not authorize an independent "
+                    "recovery-home motion"
+                )
+                return
+            if recovery_step is RecoveryStep.ALREADY_HOME:
+                self._publish(
+                    "RECOVERY_HOME_REACHED",
+                    diagnostics={"source": "pick_action_result"},
+                )
+                if not self._sequence.terminal:
+                    self._require_fresh_scan()
+                    self._arm_scan_timer()
+                return
             self._request_recovery_home()
 
         def _request_recovery_home(self) -> None:
@@ -892,6 +943,17 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
                 )
             self._publish(
                 "RECOVERY_HOME_FAILED",
+                diagnostics={"message": detail},
+            )
+
+        def _finish_after_recovery_motion_withheld(self, detail: str) -> None:
+            self._recovery_home_in_progress = False
+            if not self._sequence.terminal:
+                self._sequence.finish(
+                    f"unsafe to continue because recovery motion was withheld: {detail}"
+                )
+            self._publish(
+                "RECOVERY_MOTION_WITHHELD",
                 diagnostics={"message": detail},
             )
 

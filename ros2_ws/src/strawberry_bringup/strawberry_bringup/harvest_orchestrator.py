@@ -20,9 +20,12 @@ from .recovery_policy import (
 )
 
 
-# First use the release pose proven by the isolated physical gate, then fill a
-# bounded 3x3 pattern from the centre outwards.  Retries keep the same slot
-# because the index advances only after a successful harvest.
+# The centre release pose remains first because it is the isolated physical
+# gate baseline.  The remaining bounded 3x3 bank is ordered at runtime by
+# horizontal distance to ``panda_link0``.  This avoids assigning the second
+# fruit to a farther edge of the bin while an equally separated, nearer slot is
+# still empty.  Retries keep the same slot because the index advances only
+# after a successful harvest.
 DROP_SLOT_OFFSETS = (
     (0, 0),
     (1, 0),
@@ -53,11 +56,29 @@ def drop_position_for_harvest_index(
         raise ValueError("drop-slot geometry must be finite")
     if spacing_m <= 0.0:
         raise ValueError("drop-slot spacing must be positive")
-    offset_x, offset_y = DROP_SLOT_OFFSETS[harvested_count]
+    center_x, center_y, center_z, spacing_m = (
+        float(value) for value in values
+    )
+    centre = DROP_SLOT_OFFSETS[0]
+    remaining = tuple(
+        sorted(
+            DROP_SLOT_OFFSETS[1:],
+            key=lambda offset: (
+                (center_x + offset[0] * spacing_m) ** 2
+                + (center_y + offset[1] * spacing_m) ** 2,
+                # Explicit tie-breakers keep the order deterministic even for
+                # a bin centred on a symmetry axis.
+                int(offset[0]),
+                int(offset[1]),
+            ),
+        )
+    )
+    ordered_offsets = (centre,) + remaining
+    offset_x, offset_y = ordered_offsets[harvested_count]
     return (
-        float(center_x) + offset_x * float(spacing_m),
-        float(center_y) + offset_y * float(spacing_m),
-        float(center_z),
+        center_x + offset_x * spacing_m,
+        center_y + offset_y * spacing_m,
+        center_z,
     )
 
 

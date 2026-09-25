@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 import sys
 import unittest
 
@@ -29,6 +30,11 @@ class HarvestSequenceTests(unittest.TestCase):
         ]
 
         self.assertEqual(positions[0], (0.35, -0.45, 0.45))
+        # Seed 45504 proved the centre slot but rejected the old second slot
+        # (0.43, -0.45) at the connected PLACE preview.  The next empty slot
+        # must therefore use the nearer diagonal before any farther bin edge.
+        for actual, expected in zip(positions[1], (0.27, -0.37, 0.45)):
+            self.assertAlmostEqual(actual, expected)
         self.assertEqual(len(set(positions)), 9)
         self.assertTrue(
             all(0.27 - 1e-9 <= item[0] <= 0.43 + 1e-9 for item in positions)
@@ -36,6 +42,10 @@ class HarvestSequenceTests(unittest.TestCase):
         self.assertTrue(
             all(-0.53 - 1e-9 <= item[1] <= -0.37 + 1e-9 for item in positions)
         )
+        remaining_radii = [
+            math.hypot(position[0], position[1]) for position in positions[1:]
+        ]
+        self.assertEqual(remaining_radii, sorted(remaining_radii))
 
     def test_drop_slot_bank_fails_closed_outside_generalized_scene_capacity(self):
         with self.assertRaises(ValueError):

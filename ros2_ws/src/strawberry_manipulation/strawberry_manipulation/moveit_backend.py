@@ -2893,8 +2893,8 @@ class MoveItBackend:
         """Locate the last route waypoint handled by the OMPL prefix."""
 
         gateway_labels = {
-            "clear_corridor": "corridor translation",
-            "direct_overhead": "overhead translation",
+            "clear_corridor": "align above bin",
+            "direct_overhead": "lower to bin transit height",
         }
         try:
             gateway_label = gateway_labels[route_name]
@@ -2925,7 +2925,7 @@ class MoveItBackend:
         tuple[tuple[float, ...], ...],
         PathAssessment,
     ]:
-        """Plan a candidate-specific plant-to-bin gateway through OMPL."""
+        """Plan a candidate-specific pre-descent bin gateway through OMPL."""
 
         waypoints = self._guarded_place_waypoints(
             current,

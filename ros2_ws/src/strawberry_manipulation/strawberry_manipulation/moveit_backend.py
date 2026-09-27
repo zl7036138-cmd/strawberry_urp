@@ -2837,36 +2837,115 @@ class MoveItBackend:
         start_joint_positions: tuple[float, ...],
         target: Pose,
         route_name: str,
+        *,
+        start_after_lift: bool = False,
+        expected_lift_pose: Pose | None = None,
     ) -> tuple[tuple[tuple[str, Pose], ...], PathAssessment]:
-        """Preview one named place route without sending a command."""
+        """Preview one named place route without sending a command.
+
+        The first vertical-lift endpoint can be reached through a separately
+        planned MoveIt joint path.  In that mode ``start_joint_positions`` is
+        the proven lift endpoint and only the remaining connected Cartesian
+        phases are previewed.  This prevents a seeded Cartesian IK branch jump
+        from rejecting (or later executing) an otherwise collision-free lift.
+        """
 
         waypoints = self._guarded_place_waypoints(
             current,
             target,
             route_name=route_name,
         )
+        preview_start = current
+        preview_waypoints = waypoints
+        if start_after_lift:
+            if len(waypoints) < 2:
+                raise ValueError("guarded place route requires a post-lift phase")
+            if expected_lift_pose is None:
+                raise ValueError(
+                    "post-lift preview requires the planned lift endpoint"
+                )
+            preview_start = waypoints[0][1]
+            if preview_start != expected_lift_pose:
+                return waypoints, PathAssessment(
+                    False,
+                    False,
+                    0.0,
+                    0.0,
+                    start_joint_positions,
+                    expected_lift_pose,
+                )
+            preview_waypoints = waypoints[1:]
         assessment = self.preview_cartesian_segments(
-            current,
+            preview_start,
             start_joint_positions,
-            tuple(pose for _label, pose in waypoints),
+            tuple(pose for _label, pose in preview_waypoints),
         )
         return waypoints, assessment
+
+    def _plan_guarded_place_lift(
+        self,
+        current: Pose,
+        target: Pose,
+    ) -> tuple[Pose, tuple[tuple[float, ...], ...], PathAssessment]:
+        """Plan the shared lift once through MoveIt's collision pipeline."""
+
+        lift_pose = self._guarded_place_waypoints(
+            current,
+            target,
+            route_name="clear_corridor",
+        )[0][1]
+        positions, assessment = self._plan_joint_path_to_pose(lift_pose)
+        return lift_pose, positions, assessment
+
+    def _execute_preplanned_place_lift(
+        self,
+        lift_pose: Pose,
+        positions: tuple[tuple[float, ...], ...],
+    ) -> MotionOutcome:
+        """Execute and record the exact lift accepted by the full preview."""
+
+        if len(positions) < 2:
+            return MotionOutcome(False, 0.0, 0.0)
+        executed, execution_time = self._execute_joint_path(
+            positions[0], positions[1:]
+        )
+        if not executed or not self._wait_until_arm_settled():
+            return MotionOutcome(False, 0.0, execution_time)
+        recorder = getattr(self, "_place_route_recording_segments", None)
+        if recorder is not None:
+            # The controller reached a settled terminal state, so this segment
+            # is physical recovery evidence even if the subsequent FK endpoint
+            # check reports a miss.
+            recorder.append(tuple(positions))
+        with self._planning_scene_monitor.read_only() as scene:
+            actual_pose = scene.current_state.get_pose(self.pose_link)
+        if not self._pose_is_within_tolerance(
+            lift_pose, actual_pose, "executed place-lift endpoint"
+        ):
+            return MotionOutcome(False, 0.0, execution_time)
+        return MotionOutcome(True, 0.0, execution_time)
 
     def preview_guarded_place_from_current(self, target: Pose) -> PathAssessment:
         """Prove at least one bounded place route without commanding motion."""
 
         current = self._current_link_pose()
-        start_joint_positions = self._current_joint_positions()
-        planning_time = 0.0
+        lift_pose, _lift_positions, lift = self._plan_guarded_place_lift(
+            current, target
+        )
+        if not lift.feasible:
+            return lift
+        planning_time = lift.planning_time_sec
         collision_rejected = False
-        end_joint_positions = start_joint_positions
+        end_joint_positions = lift.end_joint_positions
         last_joint_travel = 0.0
         for route_name in self._guarded_place_route_names():
             _waypoints, assessment = self._preview_guarded_place_route(
                 current,
-                start_joint_positions,
+                lift.end_joint_positions,
                 target,
                 route_name,
+                start_after_lift=True,
+                expected_lift_pose=lift_pose,
             )
             planning_time += assessment.planning_time_sec
             collision_rejected = collision_rejected or assessment.collision
@@ -2877,7 +2956,7 @@ class MoveItBackend:
                     True,
                     False,
                     planning_time,
-                    assessment.joint_travel_rad,
+                    lift.joint_travel_rad + assessment.joint_travel_rad,
                     assessment.end_joint_positions,
                     assessment.end_pose,
                 )
@@ -2885,7 +2964,7 @@ class MoveItBackend:
             False,
             collision_rejected,
             planning_time,
-            last_joint_travel,
+            lift.joint_travel_rad + last_joint_travel,
             end_joint_positions,
         )
 
@@ -2909,24 +2988,38 @@ class MoveItBackend:
         previous_recorder = getattr(self, "_place_route_recording_segments", None)
         self._place_route_recording_segments = recorded_segments
         current = self._current_link_pose()
-        start_joint_positions = self._current_joint_positions()
         try:
+            candidates = self._bounded_place_orientation_candidates(target)
+            lift_pose, lift_positions, lift_preview = (
+                self._plan_guarded_place_lift(current, candidates[0])
+            )
+            if not lift_preview.feasible:
+                self.node.get_logger().warning(
+                    "Guarded place rejected before motion because the shared "
+                    "collision-planned lift failed"
+                )
+                return MotionOutcome(
+                    False,
+                    lift_preview.planning_time_sec,
+                    0.0,
+                    collision=lift_preview.collision,
+                )
             selected_target = None
             selected_waypoints = None
             selected_route_name = None
             preview = None
             collision_rejected = False
-            planning_time = 0.0
+            planning_time = lift_preview.planning_time_sec
             for route_name in self._guarded_place_route_names():
-                for orientation_index, candidate in enumerate(
-                    self._bounded_place_orientation_candidates(target)
-                ):
+                for orientation_index, candidate in enumerate(candidates):
                     candidate_waypoints, candidate_preview = (
                         self._preview_guarded_place_route(
                             current,
-                            start_joint_positions,
+                            lift_preview.end_joint_positions,
                             candidate,
                             route_name,
+                            start_after_lift=True,
+                            expected_lift_pose=lift_pose,
                         )
                     )
                     planning_time += candidate_preview.planning_time_sec
@@ -2967,7 +3060,23 @@ class MoveItBackend:
                     collision=collision_rejected,
                 )
             execution_time = 0.0
-            for label, waypoint in selected_waypoints:
+            self.node.get_logger().info(
+                "MoveIt guarded place phase: "
+                f"route={selected_route_name}, vertical lift (planned)"
+            )
+            lift_outcome = self._execute_preplanned_place_lift(
+                lift_pose, lift_positions
+            )
+            execution_time += lift_outcome.execution_time_sec
+            if not lift_outcome.success:
+                return MotionOutcome(
+                    False,
+                    planning_time,
+                    execution_time,
+                    collision=lift_outcome.collision,
+                )
+            current = self._current_link_pose()
+            for label, waypoint in selected_waypoints[1:]:
                 self.node.get_logger().info(
                     "MoveIt guarded place phase: "
                     f"route={selected_route_name}, {label}"

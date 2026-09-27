@@ -115,6 +115,33 @@ class MoveItBackendStaticTests(unittest.TestCase):
         def warning(self, message):
             self.warnings.append(message)
 
+    @staticmethod
+    def install_guarded_place_lift_stubs(backend):
+        def plan_lift(current, target):
+            lift_pose = backend._guarded_place_waypoints(
+                current,
+                target,
+                route_name="clear_corridor",
+            )[0][1]
+            positions = ((0.0, 0.1), (0.1, 0.2))
+            return (
+                lift_pose,
+                positions,
+                PathAssessment(
+                    True,
+                    False,
+                    0.02,
+                    0.1,
+                    positions[-1],
+                    lift_pose,
+                ),
+            )
+
+        backend._plan_guarded_place_lift = plan_lift
+        backend._execute_preplanned_place_lift = (
+            lambda _pose, _positions: MotionOutcome(True, 0.0, 0.02)
+        )
+
     @classmethod
     def lifecycle_backend(cls):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -858,8 +885,9 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
         backend._current_link_pose = lambda: state[-1]
         backend._current_joint_positions = lambda: (0.0, 0.1)
+        self.install_guarded_place_lift_stubs(backend)
         backend._preview_guarded_place_route = (
-            lambda current, joints, candidate, route: (
+            lambda current, joints, candidate, route, **_kwargs: (
                 backend._guarded_place_waypoints(
                     current, candidate, route_name=route
                 ),
@@ -878,18 +906,17 @@ class MoveItBackendStaticTests(unittest.TestCase):
         outcome = backend._move_guarded_place(target)
 
         self.assertTrue(outcome.success)
-        self.assertEqual(len(segments), 7)
-        self.assertAlmostEqual(segments[0][0].z, 0.83)
+        self.assertEqual(len(segments), 6)
         self.assertEqual(
-            (segments[1][0].x, segments[1][0].y, segments[1][0].z),
+            (segments[0][0].x, segments[0][0].y, segments[0][0].z),
             (0.42, -0.10, 0.83),
         )
         self.assertEqual(
-            (segments[4][0].x, segments[4][0].y, segments[4][0].z),
+            (segments[3][0].x, segments[3][0].y, segments[3][0].z),
             (0.35, -0.10, 0.6854),
         )
         self.assertEqual(
-            (segments[5][0].x, segments[5][0].y, segments[5][0].z),
+            (segments[4][0].x, segments[4][0].y, segments[4][0].z),
             (0.35, -0.45, 0.6854),
         )
         self.assertEqual(segments[-1], (target, False))
@@ -929,10 +956,13 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
         backend._current_link_pose = lambda: Pose(0.20, 0.0, 0.70)
         backend._current_joint_positions = lambda: (0.0, 0.1)
+        backend.safe_transit_corridor_y_m = -0.10
+        backend.place_transit_clearance_m = 0.12
+        self.install_guarded_place_lift_stubs(backend)
         backend._last_successful_place_joint_segments = (((0.0,), (0.1,)),)
         previews = []
 
-        def preview(current, joints, candidate, route):
+        def preview(current, joints, candidate, route, **_kwargs):
             previews.append(route)
             return (
                 (),
@@ -959,6 +989,74 @@ class MoveItBackendStaticTests(unittest.TestCase):
         )
         self.assertEqual(backend._last_successful_place_joint_segments, ())
 
+    def test_guarded_place_lift_plan_failure_is_zero_motion(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        current = Pose(0.20, 0.0, 0.70)
+        target = Pose(0.35, -0.45, 0.5554, qx=1.0, qw=0.0)
+        lift_pose = Pose(current.x, current.y, 0.82)
+        backend._current_link_pose = lambda: current
+        backend._last_successful_place_joint_segments = (((0.0,), (0.1,)),)
+        previous_recorder = []
+        backend._place_route_recording_segments = previous_recorder
+        backend._plan_guarded_place_lift = lambda start, goal: (
+            lift_pose,
+            (),
+            PathAssessment(False, True, 0.07, 0.0),
+        )
+        calls = []
+        backend._preview_guarded_place_route = (
+            lambda *args, **kwargs: calls.append("preview")
+        )
+        backend._execute_preplanned_place_lift = (
+            lambda *args, **kwargs: calls.append("lift")
+        )
+        backend._move_segmented_between = (
+            lambda *args, **kwargs: calls.append("segment")
+        )
+
+        outcome = backend._move_guarded_place(target)
+
+        self.assertFalse(outcome.success)
+        self.assertTrue(outcome.collision)
+        self.assertEqual(outcome.planning_time_sec, 0.07)
+        self.assertEqual(outcome.execution_time_sec, 0.0)
+        self.assertEqual(calls, [])
+        self.assertEqual(backend._last_successful_place_joint_segments, ())
+        self.assertIs(backend._place_route_recording_segments, previous_recorder)
+
+    def test_guarded_place_lift_execution_failure_stops_remaining_route(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.safe_transit_corridor_y_m = -0.10
+        backend.place_transit_clearance_m = 0.12
+        current = Pose(0.20, 0.0, 0.70)
+        target = Pose(0.35, -0.45, 0.5554, qx=1.0, qw=0.0)
+        backend._current_link_pose = lambda: current
+        self.install_guarded_place_lift_stubs(backend)
+        backend._preview_guarded_place_route = (
+            lambda start, joints, candidate, route, **_kwargs: (
+                backend._guarded_place_waypoints(
+                    start, candidate, route_name=route
+                ),
+                PathAssessment(True, False, 0.04, 0.2, (0.1, 0.2)),
+            )
+        )
+        backend._execute_preplanned_place_lift = (
+            lambda _pose, _positions: MotionOutcome(False, 0.0, 0.03)
+        )
+        segments = []
+        backend._move_segmented_between = lambda *args, **kwargs: segments.append(
+            (args, kwargs)
+        )
+
+        outcome = backend._move_guarded_place(target)
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.execution_time_sec, 0.03)
+        self.assertEqual(segments, [])
+        self.assertEqual(backend._last_successful_place_joint_segments, ())
+
     def test_guarded_place_uses_first_fully_feasible_wrist_roll(self):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
@@ -969,8 +1067,9 @@ class MoveItBackendStaticTests(unittest.TestCase):
         segments = []
         backend._current_link_pose = lambda: state[-1]
         backend._current_joint_positions = lambda: (0.0, 0.1)
+        self.install_guarded_place_lift_stubs(backend)
 
-        def preview(current, joints, candidate, route):
+        def preview(current, joints, candidate, route, **_kwargs):
             previews.append(candidate)
             return (
                 backend._guarded_place_waypoints(
@@ -1013,10 +1112,11 @@ class MoveItBackendStaticTests(unittest.TestCase):
         state = [Pose(0.47, -0.06, 0.56, qx=math.sqrt(0.5), qy=math.sqrt(0.5))]
         backend._current_link_pose = lambda: state[-1]
         backend._current_joint_positions = lambda: (0.0, 0.1)
+        self.install_guarded_place_lift_stubs(backend)
         previews = []
         segments = []
 
-        def preview(current, joints, candidate, route):
+        def preview(current, joints, candidate, route, **_kwargs):
             previews.append((route, candidate))
             feasible = route == "direct_overhead"
             return (
@@ -1043,12 +1143,12 @@ class MoveItBackendStaticTests(unittest.TestCase):
             [route for route, _candidate in previews],
             ["clear_corridor"] * 4 + ["direct_overhead"],
         )
-        self.assertEqual(len(segments), 5)
+        self.assertEqual(len(segments), 4)
         self.assertEqual(
-            (segments[2][0].x, segments[2][0].y),
+            (segments[1][0].x, segments[1][0].y),
             (target.x, target.y),
         )
-        self.assertGreater(segments[2][0].z, target.z)
+        self.assertGreater(segments[1][0].z, target.z)
         self.assertEqual(segments[-1], (target, False))
 
     def test_direct_overhead_route_stays_high_until_above_bin(self):
@@ -1083,9 +1183,12 @@ class MoveItBackendStaticTests(unittest.TestCase):
         backend = MoveItBackend.__new__(MoveItBackend)
         backend._current_link_pose = lambda: Pose(0.47, -0.06, 0.56)
         backend._current_joint_positions = lambda: (0.0, 0.1)
+        backend.safe_transit_corridor_y_m = -0.10
+        backend.place_transit_clearance_m = 0.12
+        self.install_guarded_place_lift_stubs(backend)
         routes = []
 
-        def preview(current, joints, candidate, route):
+        def preview(current, joints, candidate, route, **_kwargs):
             routes.append(route)
             feasible = route == "direct_overhead"
             return (
@@ -1108,8 +1211,8 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertTrue(assessment.feasible)
         self.assertFalse(assessment.collision)
         self.assertEqual(routes, ["clear_corridor", "direct_overhead"])
-        self.assertAlmostEqual(assessment.planning_time_sec, 0.03)
-        self.assertAlmostEqual(assessment.joint_travel_rad, 0.4)
+        self.assertAlmostEqual(assessment.planning_time_sec, 0.05)
+        self.assertAlmostEqual(assessment.joint_travel_rad, 0.5)
 
     def test_named_place_route_previews_every_waypoint_as_one_connected_path(self):
         backend = MoveItBackend.__new__(MoveItBackend)
@@ -1149,6 +1252,126 @@ class MoveItBackendStaticTests(unittest.TestCase):
                 )
             ],
         )
+
+    def test_named_place_route_can_preview_remainder_from_planned_lift(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        current = Pose(0.47, -0.06, 0.56)
+        target = Pose(-0.45, 0.25, 0.5464, qx=1.0, qw=0.0)
+        lift = Pose(0.47, -0.06, 0.72)
+        named_waypoints = (
+            ("vertical lift", lift),
+            ("overhead translation", Pose(-0.45, 0.25, 0.72, qx=1.0, qw=0.0)),
+            ("vertical descent", target),
+        )
+        backend._guarded_place_waypoints = (
+            lambda start, goal, *, route_name: named_waypoints
+        )
+        requests = []
+        expected = PathAssessment(True, False, 0.03, 0.4, (0.2, 0.3))
+        backend.preview_cartesian_segments = (
+            lambda start, joints, poses: requests.append((start, joints, poses))
+            or expected
+        )
+        lift_end_joints = (0.11, 0.22)
+
+        waypoints, assessment = backend._preview_guarded_place_route(
+            current,
+            lift_end_joints,
+            target,
+            "direct_overhead",
+            start_after_lift=True,
+            expected_lift_pose=lift,
+        )
+
+        self.assertEqual(waypoints, named_waypoints)
+        self.assertIs(assessment, expected)
+        self.assertEqual(
+            requests,
+            [
+                (
+                    lift,
+                    lift_end_joints,
+                    tuple(pose for _label, pose in named_waypoints[1:]),
+                )
+            ],
+        )
+
+    def test_preplanned_place_lift_records_only_verified_execution(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.pose_link = "panda_hand"
+        backend._place_route_recording_segments = []
+        lift_pose = Pose(0.47, -0.06, 0.72)
+        positions = ((0.0, 0.1), (0.1, 0.2), (0.2, 0.3))
+        executions = []
+        backend._execute_joint_path = (
+            lambda start, path: executions.append((start, path)) or (True, 0.04)
+        )
+        backend._wait_until_arm_settled = lambda: True
+        backend._pose_is_within_tolerance = lambda *args, **kwargs: True
+
+        class ReadOnly:
+            def __enter__(self):
+                return SimpleNamespace(
+                    current_state=SimpleNamespace(
+                        get_pose=lambda link: SimpleNamespace()
+                    )
+                )
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+        backend._planning_scene_monitor = SimpleNamespace(read_only=lambda: ReadOnly())
+
+        outcome = backend._execute_preplanned_place_lift(lift_pose, positions)
+
+        self.assertTrue(outcome.success)
+        self.assertEqual(outcome.execution_time_sec, 0.04)
+        self.assertEqual(executions, [(positions[0], positions[1:])])
+        self.assertEqual(backend._place_route_recording_segments, [positions])
+
+        backend._place_route_recording_segments = []
+        backend._pose_is_within_tolerance = lambda *args, **kwargs: False
+        outcome = backend._execute_preplanned_place_lift(lift_pose, positions)
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(backend._place_route_recording_segments, [positions])
+
+        backend._place_route_recording_segments = []
+        backend._execute_joint_path = lambda start, path: (False, 0.03)
+        backend._pose_is_within_tolerance = lambda *args, **kwargs: True
+        outcome = backend._execute_preplanned_place_lift(lift_pose, positions)
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.execution_time_sec, 0.03)
+        self.assertEqual(backend._place_route_recording_segments, [])
+
+    def test_post_lift_preview_rejects_a_different_route_lift(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        current = Pose(0.47, -0.06, 0.56)
+        target = Pose(-0.45, 0.25, 0.5464, qx=1.0, qw=0.0)
+        planned_lift = Pose(0.47, -0.06, 0.72)
+        different_lift = Pose(0.47, -0.06, 0.73)
+        backend._guarded_place_waypoints = lambda *args, **kwargs: (
+            ("vertical lift", different_lift),
+            ("vertical descent", target),
+        )
+        preview_calls = []
+        backend.preview_cartesian_segments = (
+            lambda *args: preview_calls.append(args)
+        )
+
+        _waypoints, assessment = backend._preview_guarded_place_route(
+            current,
+            (0.11, 0.22),
+            target,
+            "direct_overhead",
+            start_after_lift=True,
+            expected_lift_pose=planned_lift,
+        )
+
+        self.assertFalse(assessment.feasible)
+        self.assertEqual(assessment.end_joint_positions, (0.11, 0.22))
+        self.assertEqual(preview_calls, [])
 
     def test_guarded_approach_preview_failure_is_zero_motion(self):
         backend = MoveItBackend.__new__(MoveItBackend)

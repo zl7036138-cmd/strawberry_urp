@@ -7,6 +7,12 @@ from enum import IntEnum
 import math
 from typing import Callable, Protocol
 
+from .collision_policy import (
+    CollisionPhase,
+    selected_fruit_contact_is_authorized,
+)
+from .payload_lifecycle import PayloadState
+
 
 LEFT_SINGLE_FRUIT = "LEFT_SINGLE_FRUIT"
 RIGHT_SINGLE_FRUIT = "RIGHT_SINGLE_FRUIT"
@@ -74,6 +80,7 @@ class ExecutionResult:
     execution_time_sec: float
     stages: tuple[str, ...]
     recovery_disposition: RecoveryDisposition = RecoveryDisposition.MOTION_WITHHELD
+    payload_state: PayloadState = PayloadState.EMPTY
 
 
 @dataclass(frozen=True)
@@ -297,6 +304,22 @@ class PickAndPlaceExecutor:
         self.minimum_grasp_centering_correction_m = float(
             minimum_grasp_centering_correction_m
         )
+        # A retained fruit makes the planning-scene lifecycle intentionally
+        # non-reentrant.  There is no generic autonomous recovery that can
+        # prove an arbitrary carried payload route is safe, so a later goal is
+        # refused until an explicit operator/supervisor intervention restarts
+        # the manipulation node in a known empty state.
+        self._payload_state = PayloadState.EMPTY
+        self._retained_payload_target_id: int | None = None
+
+    @property
+    def payload_state(self) -> PayloadState:
+        """Current lifecycle state, exposed for diagnostics and pure tests."""
+
+        return self._payload_state
+
+    def _set_payload_state(self, state: PayloadState) -> None:
+        self._payload_state = PayloadState(state)
 
     def _hand_pose_for_fruit_center(
         self,
@@ -316,6 +339,21 @@ class PickAndPlaceExecutor:
         place_pose: Pose,
         feedback: Callable[[str, float], None] | None = None,
     ) -> ExecutionResult:
+        if self._retained_payload_target_id is not None:
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "payload interlock active for target "
+                f"{self._retained_payload_target_id}; retained fruit remains "
+                f"in {self._payload_state.name}, so all new motion is withheld",
+                0.0,
+                0.0,
+                ("PAYLOAD_INTERLOCK",),
+                RecoveryDisposition.MOTION_WITHHELD,
+                self._payload_state,
+            )
+
+        self._set_payload_state(PayloadState.EMPTY)
         if target_id <= 0:
             return ExecutionResult(
                 False,
@@ -339,6 +377,7 @@ class PickAndPlaceExecutor:
             )
 
         restore_succeeded = False
+        result: ExecutionResult | None = None
         try:
             result = self._execute_prepared(
                 target_id,
@@ -347,16 +386,26 @@ class PickAndPlaceExecutor:
                 feedback,
             )
         finally:
-            # _execute_prepared performs all physical failure recovery (and the
-            # normal move home) before returning.  Keeping scene restoration in
-            # this finally block makes every post-prepare exit close the target
-            # contact corridor, including unexpected exceptions.
-            try:
-                restore_succeeded = bool(
-                    self.backend.restore_target_collision(target_id)
-                )
-            except Exception:
-                restore_succeeded = False
+            # A held fruit must stay attached to both the physical simulator and
+            # MoveIt's carried-body model. Restoring its old world obstacle would
+            # erase that lifecycle and can duplicate the fruit in the planning
+            # scene. All ordinary post-grasp failures therefore stop in place.
+            if self._payload_state.retains_fruit:
+                self._retained_payload_target_id = target_id
+                restore_succeeded = True
+            else:
+                # _execute_prepared performs all physical failure recovery (and
+                # the normal move home) before returning. Keeping scene
+                # restoration here closes every empty/released contact corridor.
+                try:
+                    restore_succeeded = bool(
+                        self.backend.restore_target_collision(target_id)
+                    )
+                except Exception:
+                    restore_succeeded = False
+
+        # Let an unexpected backend exception propagate after the finally block.
+        assert result is not None
 
         if restore_succeeded and result.success:
             if feedback is not None:
@@ -404,18 +453,30 @@ class PickAndPlaceExecutor:
             nonlocal attached, place_route_recovery_available
             nonlocal planning_time, execution_time
             recovery_disposition = RecoveryDisposition.MOTION_WITHHELD
-            # Never carry a fruit into the recovery motion.  A failed detach is
-            # treated as a hard stop because moving home with an active Gazebo
-            # constraint can damage the simulated scene and hide the real fault.
-            detached = True
+            # Once attachment is confirmed, a generic detach/open/home recovery
+            # turns a transport-planning failure into an uncontrolled fruit
+            # release. Retain the physical constraint, carried-body collision
+            # geometry and closed gripper instead. Only the authorized AT_BIN
+            # release transition below may detach a held fruit.
             if attached:
-                detached = self.backend.detach(target_id)
-                attached = not detached
-            self.backend.open_gripper()
-            if not detached:
-                message = (
-                    f"{message}; attachment release failed, recovery motion withheld"
+                mark("PAYLOAD_HELD_MOTION_WITHHELD", 0.75)
+                return ExecutionResult(
+                    False,
+                    code,
+                    f"{message}; payload remains {self._payload_state.name} with "
+                    "gripper closed, so detach/open/recovery motion are withheld",
+                    planning_time,
+                    execution_time,
+                    tuple(stages),
+                    RecoveryDisposition.MOTION_WITHHELD,
+                    self._payload_state,
                 )
+
+            opened = self.backend.open_gripper()
+            if self._payload_state is PayloadState.CONTACT and opened:
+                self._set_payload_state(PayloadState.EMPTY)
+            if not opened:
+                message = f"{message}; failed to open empty or released gripper"
             elif recover_home:
                 retreat_succeeded = True
                 if place_route_recovery_available:
@@ -461,6 +522,7 @@ class PickAndPlaceExecutor:
                 execution_time,
                 tuple(stages),
                 recovery_disposition,
+                self._payload_state,
             )
 
         if not self.backend.open_gripper():
@@ -542,6 +604,11 @@ class PickAndPlaceExecutor:
                 primary_grasp_pose,
                 int(selected_orientation_index) * math.pi / 2.0,
             )
+        if not selected_fruit_contact_is_authorized(CollisionPhase.GRASP_CONTACT):
+            return fail(
+                FailureCode.PLANNING_FAILED,
+                "selected-fruit contact is not authorized in this execution phase",
+            )
         if not self.backend.allow_target_contact(target_id):
             return fail(
                 FailureCode.PLANNING_FAILED,
@@ -611,6 +678,9 @@ class PickAndPlaceExecutor:
 
         mark("GRASP", 0.40)
         gripper_closed = self.backend.close_gripper()
+        if gripper_closed:
+            self._set_payload_state(PayloadState.CONTACT)
+            mark("CONTACT", 0.42)
         attachment_confirmed = (
             self.backend.attach(target_id) if gripper_closed else False
         )
@@ -633,6 +703,7 @@ class PickAndPlaceExecutor:
                     FailureCode.GRASP_FAILED,
                     "failed to reopen gripper after asymmetric contact",
                 )
+            self._set_payload_state(PayloadState.EMPTY)
             if (
                 centering_offset_m is not None
                 and abs(centering_offset_m)
@@ -710,6 +781,9 @@ class PickAndPlaceExecutor:
                     grasp_pose = alternate_grasp_pose
                     unattached_recovery_retreat = alternate_pregrasp_pose
                     gripper_closed = self.backend.close_gripper()
+                    if gripper_closed:
+                        self._set_payload_state(PayloadState.CONTACT)
+                        mark("CONTACT", 0.42)
                     attachment_confirmed = (
                         self.backend.attach(target_id)
                         if gripper_closed
@@ -722,15 +796,23 @@ class PickAndPlaceExecutor:
                 "bounded contact retry",
             )
         attached = True
+        self._set_payload_state(PayloadState.HOLDING)
         unattached_recovery_retreat = None
+        mark("HOLDING", 0.45)
 
         mark("RETREAT", 0.55)
-        retreat = offset_pose(grasp_pose, dz=self.retreat_distance_m)
+        # Escape is the reverse of the active tool-axis approach, not an
+        # implicitly base-vertical displacement.  This remains compatible with
+        # the current top-down grasp, while preserving the correct direction
+        # if a later bounded candidate changes the hand orientation.
+        retreat = offset_along_local_z(grasp_pose, -self.retreat_distance_m)
         retreat_motion = self.backend.move_to(retreat, "RETREAT")
         planning_time += retreat_motion.planning_time_sec
         execution_time += retreat_motion.execution_time_sec
         if not retreat_motion.success:
             return fail(FailureCode.PLANNING_FAILED, "retreat planning failed")
+        self._set_payload_state(PayloadState.ESCAPED)
+        mark("ESCAPED", 0.60)
 
         mark("PLACE", 0.75)
         # Enter the open bin from above.  Local +Z points down, so the hand
@@ -753,6 +835,8 @@ class PickAndPlaceExecutor:
                 )
             return fail(FailureCode.PLACE_FAILED, "failed to reach collection bin")
         place_route_recovery_available = True
+        self._set_payload_state(PayloadState.AT_BIN)
+        mark("AT_BIN", 0.82)
         # Remove the rigid simulation constraint before opening the physical
         # fingers.  Opening while the fruit is still welded to the hand can
         # preload it against one finger; the later detach then releases that
@@ -762,8 +846,10 @@ class PickAndPlaceExecutor:
         if not self.backend.detach(target_id):
             return fail(FailureCode.PLACE_FAILED, "failed to detach fruit for release")
         attached = False
+        self._set_payload_state(PayloadState.RELEASED)
         if not self.backend.open_gripper():
             return fail(FailureCode.PLACE_FAILED, "failed to open gripper for release")
+        mark("RELEASED", 0.86)
 
         mark("VERIFY", 0.90)
         if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):
@@ -795,6 +881,7 @@ class PickAndPlaceExecutor:
                 execution_time,
                 tuple(stages),
                 RecoveryDisposition.MOTION_WITHHELD,
+                self._payload_state,
             )
 
         if not self.backend.move_home():
@@ -806,6 +893,7 @@ class PickAndPlaceExecutor:
                 execution_time,
                 tuple(stages),
                 RecoveryDisposition.MOTION_WITHHELD,
+                self._payload_state,
             )
         return ExecutionResult(
             True,
@@ -815,4 +903,5 @@ class PickAndPlaceExecutor:
             execution_time,
             tuple(stages),
             RecoveryDisposition.AT_HOME,
+            self._payload_state,
         )

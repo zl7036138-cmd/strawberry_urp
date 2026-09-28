@@ -11,6 +11,7 @@ from strawberry_manipulation.core import (  # noqa: E402
     DEFAULT_TOOL_CENTER_OFFSET_M,
     FailureCode,
     MotionOutcome,
+    PayloadState,
     PickAndPlaceExecutor,
     Pose,
     RecoveryDisposition,
@@ -166,13 +167,16 @@ class PickAndPlaceTests(unittest.TestCase):
 
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
-        self.assertIn("recovery motion withheld", result.message)
+        self.assertIn("recovery motion are withheld", result.message)
         self.assertEqual(
             result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
         )
         self.assertNotIn("verify", backend.calls)
         self.assertNotIn("home", backend.calls)
-        self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
+        self.assertNotIn("open", backend.calls[backend.calls.index("detach") + 1 :])
+        self.assertNotIn("restore", backend.calls)
+        self.assertEqual(result.payload_state, PayloadState.AT_BIN)
+        self.assertIn("payload remains AT_BIN", result.message)
 
     def test_release_open_failure_occurs_only_after_detach(self):
         # The first successful open prepares the grasp; the second fails at
@@ -244,8 +248,11 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.failure_code, FailureCode.PLACE_FAILED)
         self.assertNotIn("verify", backend.calls)
         self.assertNotIn("return_route", backend.calls)
-        self.assertEqual(backend.calls[-4:], ["detach", "open", "home", "restore"])
-        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
+        self.assertNotIn("detach", backend.calls)
+        self.assertNotIn("home", backend.calls)
+        self.assertNotIn("restore", backend.calls)
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD)
+        self.assertEqual(result.payload_state, PayloadState.ESCAPED)
 
     def test_partial_place_failure_withholds_unrecorded_home_sweep(self):
         backend = FakeBackend(
@@ -266,7 +273,8 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertNotIn("verify", backend.calls)
         self.assertNotIn("return_route", backend.calls)
         self.assertNotIn("home", backend.calls)
-        self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
+        self.assertNotIn("detach", backend.calls)
+        self.assertNotIn("restore", backend.calls)
         self.assertEqual(
             result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
         )
@@ -366,6 +374,10 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(
             poses["RETREAT"].qz,
             poses["CONTACT_CENTERING_GRASP"].qz,
+        )
+        self.assertEqual(
+            poses["RETREAT"],
+            offset_along_local_z(poses["CONTACT_CENTERING_GRASP"], -0.08),
         )
 
     def test_missing_finger_measurement_keeps_orthogonal_fallback(self):
@@ -558,25 +570,58 @@ class PickAndPlaceTests(unittest.TestCase):
             rotate_about_base_z(original_grasp, math.pi),
         )
 
-    def test_failure_after_attachment_detaches_before_recovery(self):
+    def test_failure_after_attachment_retains_payload_and_withholds_motion(self):
         backend = FakeBackend(
             [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False)]
         )
         result = PickAndPlaceExecutor(backend).execute(5, self.target, self.bin)
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
-        self.assertEqual(backend.calls[-4:], ["detach", "open", "home", "restore"])
+        self.assertEqual(result.payload_state, PayloadState.HOLDING)
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD)
+        self.assertIn("PAYLOAD_HELD_MOTION_WITHHELD", result.stages)
+        self.assertNotIn("detach", backend.calls)
+        self.assertNotIn("open", backend.calls[backend.calls.index("attach") + 1 :])
+        self.assertNotIn("home", backend.calls)
+        self.assertNotIn("restore", backend.calls)
 
-    def test_failed_recovery_detach_withholds_home_motion(self):
+    def test_success_exposes_ordered_payload_lifecycle_feedback(self):
+        backend = FakeBackend()
+        feedback = []
+
+        result = PickAndPlaceExecutor(backend).execute(
+            5,
+            self.target,
+            self.bin,
+            lambda stage, progress: feedback.append((stage, progress)),
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.payload_state, PayloadState.RELEASED)
+        lifecycle = [stage for stage, _ in feedback if stage in {
+            "CONTACT", "HOLDING", "ESCAPED", "AT_BIN", "RELEASED"
+        }]
+        self.assertEqual(
+            lifecycle,
+            ["CONTACT", "HOLDING", "ESCAPED", "AT_BIN", "RELEASED"],
+        )
+
+    def test_retained_payload_interlocks_later_goals(self):
         backend = FakeBackend(
             [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False)],
-            detach=False,
         )
-        result = PickAndPlaceExecutor(backend).execute(6, self.target, self.bin)
-        self.assertFalse(result.success)
-        self.assertIn("recovery motion withheld", result.message)
-        self.assertEqual(backend.calls[-3:], ["detach", "open", "restore"])
-        self.assertNotIn("home", backend.calls)
+        executor = PickAndPlaceExecutor(backend)
+        first = executor.execute(6, self.target, self.bin)
+        calls_after_first = list(backend.calls)
+        second = executor.execute(7, self.target, self.bin)
+
+        self.assertEqual(first.payload_state, PayloadState.HOLDING)
+        self.assertFalse(second.success)
+        self.assertEqual(second.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD)
+        self.assertEqual(second.payload_state, PayloadState.HOLDING)
+        self.assertEqual(second.stages, ("PAYLOAD_INTERLOCK",))
+        self.assertIn("payload interlock active", second.message)
+        self.assertEqual(backend.calls, calls_after_first)
 
     def test_invalid_target_never_moves(self):
         backend = FakeBackend()
@@ -637,15 +682,15 @@ class PickAndPlaceTests(unittest.TestCase):
             result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
         )
 
-    def test_failed_recovery_reports_home_failure_without_retry(self):
+    def test_post_attach_failure_does_not_issue_home_even_if_home_is_available(self):
         backend = FakeBackend(
             [MotionOutcome(True), MotionOutcome(True), MotionOutcome(False)],
             home=False,
         )
         result = PickAndPlaceExecutor(backend).execute(1, self.target, self.bin)
         self.assertFalse(result.success)
-        self.assertIn("recovery home motion failed", result.message)
-        self.assertEqual(backend.calls.count("home"), 1)
+        self.assertIn("payload remains HOLDING", result.message)
+        self.assertEqual(backend.calls.count("home"), 0)
         self.assertEqual(
             result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
         )

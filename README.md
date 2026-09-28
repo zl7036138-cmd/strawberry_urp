@@ -6,16 +6,14 @@ Reproducible ROS 2 simulation for strawberry maturity detection, 3D localization
 and Panda pick-and-place evaluation.
 
 Current status (2026-09-28): the fixed field-v3 round trip remains the
-single-fruit regression baseline. In addition, generalized development seed
-45504 completed two distinct ripe-fruit pick, bin-place, reverse-route, and
-home cycles in one batch without runtime truth control. The qualified second
-drop slot, physical identities, truth-isolation audit, and cleanup all passed.
-This is a one-scene behavior milestone, not the five-scene qualification or a
-formal safety result: independent collision, joint-limit, home/stop, and scene
-terminal telemetry are not yet bound, so strict safety evidence remains
-`INDETERMINATE` and generalized random-scene multi-fruit qualification is still
-**not passed**. See [`ADR 0084`](docs/decisions/0084-qualify-one-development-two-fruit-runtime.md)
-and the [machine-readable progress](config/generalized_runtime_progress_v18.json).
+single-fruit regression baseline. Generalized development seed 45504 previously
+completed two distinct ripe-fruit pick, bin-place, reverse-route, and home
+cycles in one batch without runtime truth control (ADR 0084). The current code
+then adopted an explicit held-payload lifecycle and phase-aware collision
+policy (ADR 0085), so that prior run is historical evidence rather than a
+validation of the new post-grasp failure path. The five-scene qualification and
+formal safety result remain **not passed**: independent collision, joint-limit,
+home/stop, and scene-terminal telemetry are still unbound.
 
 For continuation in a new Codex task, repository, or VS Code workspace, start
 with [`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md). It separates the frozen
@@ -480,11 +478,11 @@ passes both the validation gate (ripe P 96.15%, R 90.91%) and the independent
 qualification gate using the same frozen settings (ripe P 95.65%, R 97.78%).
 The runtime path defaults to no truth association and does not create truth
 subscriptions unless explicitly opted into a historical diagnostic. A live
-ROS-graph audit passes. Development seed 45504 now has one complete two-fruit
-batch, but it is a repeatedly debugged scene and four independent safety
-telemetry streams are still absent from the strict receipt. It therefore does
-not substitute for five fresh qualification scenes. The five-scene gate
-remains closed and the formal matrix stays sealed. No formal acceptance is
-claimed until the development gate passes, all 30 one-attempt runtime receipts
-exist, and the strict schema-v2 aggregate evaluator returns
-`overall_pass: true`.
+ROS-graph audit passes. Development seed 45504 has one historical complete
+two-fruit batch, but it is a repeatedly debugged scene and four independent
+safety telemetry streams are still absent from the strict receipt. A subsequent
+held-payload safety refactor requires a new runtime replay. It therefore does
+not substitute for five fresh qualification scenes. The five-scene gate remains
+closed and the formal matrix stays sealed. No formal acceptance is claimed
+until the development gate passes, all 30 one-attempt runtime receipts exist,
+and the strict schema-v2 aggregate evaluator returns `overall_pass: true`.

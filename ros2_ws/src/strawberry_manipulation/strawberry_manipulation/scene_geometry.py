@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
+from .collision_policy import CollisionRule, HARD_COLLISION_RULE
+
 
 Vector3 = tuple[float, float, float]
 TABLE_TOP_PADDING_M = 0.05
@@ -56,16 +58,24 @@ def fruit_collision_id(target_id: int) -> str:
 
 @dataclass(frozen=True)
 class CollisionObjectSpec:
-    """One MoveIt collision object composed of one or more boxes."""
+    """One MoveIt collision object composed of boxes and a semantic role.
+
+    The default remains hard and is intentionally what the current MoveIt
+    scene enforces.  The explicit field prevents future vegetation proxies
+    from being relaxed without declaring a phase-aware collision policy.
+    """
 
     object_id: str
     boxes: tuple[BoxPrimitive, ...]
+    collision_rule: CollisionRule = HARD_COLLISION_RULE
 
     def __post_init__(self) -> None:
         if not self.object_id:
             raise ValueError("collision object id must be non-empty")
         if not self.boxes:
             raise ValueError("collision object must contain at least one box")
+        if not isinstance(self.collision_rule, CollisionRule):
+            raise ValueError("collision object must declare a CollisionRule")
 
 
 BLENDER_V2_STATIC_COLLISION_OBJECTS = (

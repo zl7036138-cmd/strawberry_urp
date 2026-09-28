@@ -6,6 +6,12 @@ import json
 import math
 import time
 
+from strawberry_manipulation.scene_geometry import (
+    BLENDER_V2_STATIC_COLLISION_OBJECTS,
+    FRUIT_COLLISION_RADIUS_M,
+    static_collision_objects as resolve_static_collision_objects,
+)
+
 from .harvest_planning import (
     fuse_position_estimates,
     rank_distinct_view_indices,
@@ -21,12 +27,14 @@ from .recovery_policy import (
 
 
 # The centre release pose remains first because it is the isolated physical
-# gate baseline.  The remaining bounded 3x3 bank is ordered at runtime by
-# horizontal distance to ``panda_link0``.  This avoids assigning the second
-# fruit to a farther edge of the bin while an equally separated, nearer slot is
-# still empty.  Retries keep the same slot because the index advances only
-# after a successful harvest.
-DROP_SLOT_OFFSETS = (
+# gate baseline.  The bin is mounted partly below the work-table footprint, so
+# "inside the bin" alone is not a sufficient placement qualification.  Keep a
+# bounded candidate lattice that includes the old rear row and a replacement
+# front row; ``drop_position_for_harvest_index`` first rejects candidates that
+# intersect the conservative static scene, then orders the qualified bank by
+# horizontal distance to ``panda_link0``.  Retries keep the same slot because
+# the index advances only after a successful harvest.
+DROP_SLOT_CANDIDATE_OFFSETS = (
     (0, 0),
     (1, 0),
     (-1, 0),
@@ -36,7 +44,62 @@ DROP_SLOT_OFFSETS = (
     (-1, 1),
     (1, -1),
     (-1, -1),
+    (0, -2),
+    (1, -2),
+    (-1, -2),
 )
+DROP_SLOT_CAPACITY = 9
+# Pure-function defaults mirror the canonical 26 mm fruit radius and 15 mm
+# position-uncertainty ceiling.  The ROS node replaces both from the active
+# scene and its shared launch parameter; neither is reduced to make a marginal
+# bin slot pass.
+DROP_SLOT_CARRIED_RADIUS_M = FRUIT_COLLISION_RADIUS_M + 0.015
+DROP_SLOT_BIN_BOUNDS_M = (0.19, 0.51, -0.63, -0.27, 0.28, 0.55)
+
+
+def drop_slot_static_clearance_m(
+    position_m: tuple[float, float, float],
+    *,
+    carried_radius_m: float = DROP_SLOT_CARRIED_RADIUS_M,
+    collision_objects=BLENDER_V2_STATIC_COLLISION_OBJECTS,
+) -> float:
+    """Return nominal carried-sphere clearance from the generalized scene.
+
+    This dependency-light prefilter removes deterministically impossible drop
+    points before distance ranking.  The manipulation backend still performs
+    the authoritative attached-body check using the measured grasp transform.
+    """
+
+    if (
+        len(position_m) != 3
+        or not all(math.isfinite(float(value)) for value in position_m)
+        or not math.isfinite(float(carried_radius_m))
+        or carried_radius_m <= 0.0
+    ):
+        raise ValueError("drop-slot sphere must be finite and positive")
+    center = tuple(float(value) for value in position_m)
+    radius = float(carried_radius_m)
+    clearances = []
+    for specification in tuple(collision_objects):
+        for box in specification.boxes:
+            axis_distances = tuple(
+                max(
+                    float(box.center_m[axis])
+                    - 0.5 * float(box.size_m[axis])
+                    - center[axis],
+                    0.0,
+                    center[axis]
+                    - (
+                        float(box.center_m[axis])
+                        + 0.5 * float(box.size_m[axis])
+                    ),
+                )
+                for axis in range(3)
+            )
+            clearances.append(math.dist((0.0, 0.0, 0.0), axis_distances) - radius)
+    if not clearances:
+        raise RuntimeError("generalized static collision profile is empty")
+    return min(clearances)
 
 
 def drop_position_for_harvest_index(
@@ -46,10 +109,22 @@ def drop_position_for_harvest_index(
     center_y: float,
     center_z: float,
     spacing_m: float,
+    required_capacity: int = DROP_SLOT_CAPACITY,
+    carried_radius_m: float = DROP_SLOT_CARRIED_RADIUS_M,
+    collision_objects=BLENDER_V2_STATIC_COLLISION_OBJECTS,
+    bin_bounds_m: tuple[float, float, float, float, float, float] = (
+        DROP_SLOT_BIN_BOUNDS_M
+    ),
 ) -> tuple[float, float, float]:
     """Return one deterministic bin release point for a completed-fruit count."""
 
-    if not 0 <= harvested_count < len(DROP_SLOT_OFFSETS):
+    if (
+        not isinstance(required_capacity, int)
+        or isinstance(required_capacity, bool)
+        or not 1 <= required_capacity <= DROP_SLOT_CAPACITY
+    ):
+        raise ValueError("required_capacity exceeds the bounded drop-slot bank")
+    if not 0 <= harvested_count < required_capacity:
         raise ValueError("harvested_count exceeds the bounded drop-slot bank")
     values = (center_x, center_y, center_z, spacing_m)
     if not all(math.isfinite(float(value)) for value in values):
@@ -59,27 +134,72 @@ def drop_position_for_harvest_index(
     center_x, center_y, center_z, spacing_m = (
         float(value) for value in values
     )
-    centre = DROP_SLOT_OFFSETS[0]
+    if (
+        len(bin_bounds_m) != 6
+        or not all(math.isfinite(float(value)) for value in bin_bounds_m)
+    ):
+        raise ValueError("bin bounds must contain six finite values")
+    min_x, max_x, min_y, max_y, min_z, max_z = (
+        float(value) for value in bin_bounds_m
+    )
+    if min_x >= max_x or min_y >= max_y or min_z >= max_z:
+        raise ValueError("bin bounds must be strictly ordered")
+    candidates = tuple(
+        (
+            offset,
+            (
+                center_x + offset[0] * spacing_m,
+                center_y + offset[1] * spacing_m,
+                center_z,
+            ),
+        )
+        for offset in DROP_SLOT_CANDIDATE_OFFSETS
+    )
+    qualified = tuple(
+        (offset, position)
+        for offset, position in candidates
+        if (
+            min_x <= position[0] <= max_x
+            and min_y <= position[1] <= max_y
+            and min_z <= position[2] <= max_z
+            and drop_slot_static_clearance_m(
+                position,
+                carried_radius_m=carried_radius_m,
+                collision_objects=collision_objects,
+            )
+            > 0.0
+        )
+    )
+    centre = DROP_SLOT_CANDIDATE_OFFSETS[0]
+    centre_positions = tuple(
+        position for offset, position in qualified if offset == centre
+    )
+    if len(centre_positions) != 1:
+        raise ValueError("proven centre drop slot is not collision-clear")
     remaining = tuple(
         sorted(
-            DROP_SLOT_OFFSETS[1:],
-            key=lambda offset: (
-                (center_x + offset[0] * spacing_m) ** 2
-                + (center_y + offset[1] * spacing_m) ** 2,
+            (
+                (offset, position)
+                for offset, position in qualified
+                if offset != centre
+            ),
+            key=lambda item: (
+                item[1][0] ** 2 + item[1][1] ** 2,
                 # Explicit tie-breakers keep the order deterministic even for
                 # a bin centred on a symmetry axis.
-                int(offset[0]),
-                int(offset[1]),
+                int(item[0][0]),
+                int(item[0][1]),
             ),
         )
     )
-    ordered_offsets = (centre,) + remaining
-    offset_x, offset_y = ordered_offsets[harvested_count]
-    return (
-        center_x + offset_x * spacing_m,
-        center_y + offset_y * spacing_m,
-        center_z,
+    ordered_positions = centre_positions + tuple(
+        position for _offset, position in remaining
     )
+    if len(ordered_positions) < required_capacity:
+        raise ValueError(
+            "fewer than the required collision-clear in-bin drop slots remain"
+        )
+    return ordered_positions[harvested_count]
 
 
 def build_scan_diagnostics(
@@ -140,6 +260,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
         from strawberry_interfaces.action import PickAndPlace
         from strawberry_interfaces.msg import ObservationPlan, TargetPose, TrackedTargetArray
         from strawberry_interfaces.srv import EvaluateTarget, MoveToObservation
+        from strawberry_sim.core import load_scene_config
     except ImportError as exc:
         raise RuntimeError("ROS 2 runtime dependencies are not installed") from exc
 
@@ -164,18 +285,70 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             self.declare_parameter("minimum_reobservation_baseline_m", 0.04)
             # A generalized scene contains at most three plants with three
             # fruit each, matching the bounded 3x3 collection-bin drop bank.
-            self.declare_parameter("max_targets", len(DROP_SLOT_OFFSETS))
+            self.declare_parameter("max_targets", DROP_SLOT_CAPACITY)
             self.declare_parameter("place_x", 0.35)
             self.declare_parameter("place_y", -0.45)
             self.declare_parameter("place_z", 0.45)
             self.declare_parameter("place_grid_spacing_m", 0.08)
+            self.declare_parameter("scene_config_file", "")
+            self.declare_parameter("target_refinement_max_sigma_m", 0.015)
             self.declare_parameter("require_wrist_confirmation", True)
             self._group = ReentrantCallbackGroup()
             max_targets = int(self.get_parameter("max_targets").value)
-            if not 1 <= max_targets <= len(DROP_SLOT_OFFSETS):
+            if not 1 <= max_targets <= DROP_SLOT_CAPACITY:
                 raise ValueError(
                     "max_targets must fit the bounded collection-bin drop bank"
                 )
+            scene_config_file = str(
+                self.get_parameter("scene_config_file").value
+            ).strip()
+            if not scene_config_file:
+                raise ValueError("scene_config_file is required for drop-slot safety")
+            scene = load_scene_config(scene_config_file)
+            target_refinement_max_sigma_m = float(
+                self.get_parameter("target_refinement_max_sigma_m").value
+            )
+            if (
+                not math.isfinite(target_refinement_max_sigma_m)
+                or target_refinement_max_sigma_m <= 0.0
+            ):
+                raise ValueError(
+                    "target_refinement_max_sigma_m must be finite and positive"
+                )
+            drop_collision_objects = resolve_static_collision_objects(
+                scene.static_collision_profile,
+                plant_positions_m=tuple(
+                    plant.position_m for plant in scene.plants
+                ),
+            )
+            bin_bounds = scene.bin_bounds
+            drop_bin_bounds_m = (
+                bin_bounds.min_x,
+                bin_bounds.max_x,
+                bin_bounds.min_y,
+                bin_bounds.max_y,
+                bin_bounds.min_z,
+                bin_bounds.max_z,
+            )
+            drop_arguments = {
+                "center_x": float(self.get_parameter("place_x").value),
+                "center_y": float(self.get_parameter("place_y").value),
+                "center_z": float(self.get_parameter("place_z").value),
+                "spacing_m": float(
+                    self.get_parameter("place_grid_spacing_m").value
+                ),
+                "required_capacity": max_targets,
+                "carried_radius_m": (
+                    scene.fruit_collision_radius_m
+                    + target_refinement_max_sigma_m
+                ),
+                "collision_objects": drop_collision_objects,
+                "bin_bounds_m": drop_bin_bounds_m,
+            }
+            self._drop_positions = tuple(
+                drop_position_for_harvest_index(index, **drop_arguments)
+                for index in range(max_targets)
+            )
             self._sequence = HarvestSequence(max_targets=max_targets)
             self._started_monotonic = None
             self._scan_timer = None
@@ -789,15 +962,7 @@ def main(args=None) -> None:  # pragma: no cover - ROS integration
             return True
 
         def _send_pick(self) -> None:
-            place_position = drop_position_for_harvest_index(
-                len(self._sequence.harvested),
-                center_x=float(self.get_parameter("place_x").value),
-                center_y=float(self.get_parameter("place_y").value),
-                center_z=float(self.get_parameter("place_z").value),
-                spacing_m=float(
-                    self.get_parameter("place_grid_spacing_m").value
-                ),
-            )
+            place_position = self._drop_positions[len(self._sequence.harvested)]
             goal = PickAndPlace.Goal()
             goal.target_id = int(self._current_target.target_id)
             goal.target_pose = PoseStamped()

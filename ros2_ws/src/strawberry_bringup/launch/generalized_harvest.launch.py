@@ -27,6 +27,9 @@ def generate_launch_description():
         LaunchConfiguration("nms_iou_threshold"), value_type=float
     )
     harvest_control_enabled = LaunchConfiguration("harvest_control_enabled")
+    target_refinement_max_sigma_m = ParameterValue(
+        LaunchConfiguration("target_refinement_max_sigma_m"), value_type=float
+    )
 
     simulation = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -100,6 +103,9 @@ def generate_launch_description():
             DeclareLaunchArgument("device", default_value="0"),
             DeclareLaunchArgument(
                 "harvest_control_enabled", default_value="true"
+            ),
+            DeclareLaunchArgument(
+                "target_refinement_max_sigma_m", default_value="0.015"
             ),
             simulation,
             Node(
@@ -239,6 +245,8 @@ def generate_launch_description():
                         # release orientation.  Use the scene-proven elevated
                         # transit clearance without changing collision limits.
                         "place_transit_clearance_m": 0.12,
+                        "target_refinement_max_sigma_m":
+                            target_refinement_max_sigma_m,
                     }
                 ],
             ),
@@ -255,6 +263,9 @@ def generate_launch_description():
                         "wrist_confirmation_timeout_sec": 3.0,
                         "wrist_min_confidence": confidence_threshold,
                         "minimum_reobservation_baseline_m": 0.04,
+                        "scene_config_file": scene_config,
+                        "target_refinement_max_sigma_m":
+                            target_refinement_max_sigma_m,
                     }
                 ],
             ),

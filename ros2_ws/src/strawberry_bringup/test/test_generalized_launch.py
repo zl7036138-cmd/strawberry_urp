@@ -86,6 +86,19 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         )
         self.assertIn('executable="target_selector"', self.source)
         self.assertIn('executable="harvest_orchestrator"', self.source)
+
+    def test_drop_slot_prefilter_shares_scene_and_uncertainty_with_manipulation(self):
+        self.assertIn(
+            'DeclareLaunchArgument(\n                "target_refinement_max_sigma_m", default_value="0.015"',
+            self.source,
+        )
+        self.assertEqual(
+            self.source.count(
+                '"target_refinement_max_sigma_m":\n                            target_refinement_max_sigma_m'
+            ),
+            2,
+        )
+        self.assertIn('"scene_config_file": scene_config', self.source)
         orchestrator = (
             ROOT / "strawberry_bringup" / "harvest_orchestrator.py"
         ).read_text(encoding="utf-8")

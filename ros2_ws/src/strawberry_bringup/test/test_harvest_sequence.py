@@ -6,12 +6,16 @@ import unittest
 
 PACKAGE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE))
+MANIPULATION_PACKAGE = PACKAGE.parent / "strawberry_manipulation"
+sys.path.insert(0, str(MANIPULATION_PACKAGE))
 
 from strawberry_bringup.harvest_sequence import HarvestSequence, HarvestState  # noqa: E402
 from strawberry_bringup.harvest_orchestrator import (  # noqa: E402
-    DROP_SLOT_OFFSETS,
+    DROP_SLOT_CAPACITY,
+    DROP_SLOT_CARRIED_RADIUS_M,
     build_scan_diagnostics,
     drop_position_for_harvest_index,
+    drop_slot_static_clearance_m,
     observation_is_after_barrier,
 )
 
@@ -26,22 +30,34 @@ class HarvestSequenceTests(unittest.TestCase):
                 center_z=0.45,
                 spacing_m=0.08,
             )
-            for index in range(len(DROP_SLOT_OFFSETS))
+            for index in range(DROP_SLOT_CAPACITY)
         ]
 
         self.assertEqual(positions[0], (0.35, -0.45, 0.45))
-        # Seed 45504 proved the centre slot but rejected the old second slot
-        # (0.43, -0.45) at the connected PLACE preview.  The next empty slot
-        # must therefore use the nearer diagonal before any farther bin edge.
-        for actual, expected in zip(positions[1], (0.27, -0.37, 0.45)):
+        # Seed 45504 v8 proved that the formerly nearest diagonal lies below
+        # the conservative table footprint.  Qualification must reject it
+        # before distance ranking and select the nearer clear side slot.
+        for actual, expected in zip(positions[1], (0.27, -0.45, 0.45)):
             self.assertAlmostEqual(actual, expected)
         self.assertEqual(len(set(positions)), 9)
         self.assertTrue(
             all(0.27 - 1e-9 <= item[0] <= 0.43 + 1e-9 for item in positions)
         )
         self.assertTrue(
-            all(-0.53 - 1e-9 <= item[1] <= -0.37 + 1e-9 for item in positions)
+            all(-0.61 - 1e-9 <= item[1] <= -0.45 + 1e-9 for item in positions)
         )
+        self.assertTrue(
+            all(drop_slot_static_clearance_m(item) > 0.0 for item in positions)
+        )
+        self.assertAlmostEqual(
+            drop_slot_static_clearance_m((0.27, -0.37, 0.45)),
+            -0.031,
+        )
+        self.assertAlmostEqual(
+            drop_slot_static_clearance_m(positions[1]),
+            0.049,
+        )
+        self.assertAlmostEqual(DROP_SLOT_CARRIED_RADIUS_M, 0.041)
         remaining_radii = [
             math.hypot(position[0], position[1]) for position in positions[1:]
         ]
@@ -50,12 +66,42 @@ class HarvestSequenceTests(unittest.TestCase):
     def test_drop_slot_bank_fails_closed_outside_generalized_scene_capacity(self):
         with self.assertRaises(ValueError):
             drop_position_for_harvest_index(
-                len(DROP_SLOT_OFFSETS),
+                DROP_SLOT_CAPACITY,
                 center_x=0.35,
                 center_y=-0.45,
                 center_z=0.45,
                 spacing_m=0.08,
             )
+
+    def test_drop_slot_bank_fails_closed_outside_bin_or_with_insufficient_capacity(self):
+        common = {
+            "center_x": 0.35,
+            "center_y": -0.45,
+            "center_z": 0.45,
+        }
+        with self.assertRaisesRegex(ValueError, "required collision-clear"):
+            drop_position_for_harvest_index(
+                0,
+                spacing_m=0.30,
+                **common,
+            )
+        with self.assertRaisesRegex(ValueError, "collision-clear"):
+            drop_position_for_harvest_index(
+                0,
+                center_x=0.35,
+                center_y=-0.45,
+                center_z=0.60,
+                spacing_m=0.08,
+            )
+        self.assertEqual(
+            drop_position_for_harvest_index(
+                0,
+                spacing_m=0.30,
+                required_capacity=1,
+                **common,
+            ),
+            (0.35, -0.45, 0.45),
+        )
 
     def test_scan_diagnostics_explain_truth_free_no_pick(self):
         diagnostics = build_scan_diagnostics(

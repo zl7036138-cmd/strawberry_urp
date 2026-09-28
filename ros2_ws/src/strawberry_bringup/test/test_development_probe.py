@@ -96,6 +96,23 @@ class ProbeReceiptTests(unittest.TestCase):
         self.assertEqual(payload["ground_truth_score_events"][0]["target_id"], 3)
         self.assertFalse(payload["ground_truth_score_events_used_for_control"])
 
+    def test_receipt_keeps_authorization_motion_evidence_separate(self):
+        payload = build_probe_payload(
+            outcome="NO_PICK",
+            events=[{"state": "DONE", "outcome": "NO_PICK"}],
+            selection_events=[],
+            ground_truth_score_events=[],
+            motion_events=[{"event_type": "WHOLE_CHAIN_EVALUATION_RESULT"}],
+            elapsed_sec=1.0,
+            startup_timeout_sec=2.0,
+            idle_timeout_sec=3.0,
+            hard_timeout_sec=4.0,
+        )
+        self.assertEqual(
+            payload["motion_events"][0]["event_type"],
+            "WHOLE_CHAIN_EVALUATION_RESULT",
+        )
+
     def test_timeout_receipt_is_nonterminal_and_nonzero(self):
         payload = build_probe_payload(
             outcome="HARD_TIMEOUT",

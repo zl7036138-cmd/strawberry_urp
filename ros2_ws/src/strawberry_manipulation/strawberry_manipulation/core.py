@@ -387,9 +387,31 @@ class PickAndPlaceExecutor:
         # reachable.  The callback owns a temporary read-only PlanningScene;
         # it cannot attach, command, or mutate this executor's lifecycle.
         if self.whole_chain_authorizer is not None:
-            evaluation = self.whole_chain_authorizer(
-                target_id, target_pose, place_pose
-            )
+            if feedback is not None:
+                feedback("WHOLE_CHAIN_EVALUATION", 0.05)
+            try:
+                evaluation = self.whole_chain_authorizer(
+                    target_id, target_pose, place_pose
+                )
+            except Exception as exc:
+                # The authorization boundary is deliberately fail-closed.  In
+                # particular, an exception while constructing or evaluating a
+                # virtual PlanningScene must not leave the real target
+                # collision object removed and must not unlock the gripper
+                # sequence.
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "whole-chain authorization raised before gripper close: "
+                    f"{exc}"
+                    + ("" if restored else "; failed to restore target collision obstacle"),
+                    0.0,
+                    0.0,
+                    ("WHOLE_CHAIN_EVALUATION", "SCENE_INVALID"),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
             if not evaluation.feasible:
                 restored = bool(self.backend.restore_target_collision(target_id))
                 return ExecutionResult(
@@ -404,6 +426,8 @@ class PickAndPlaceExecutor:
                     RecoveryDisposition.HOME_REQUIRED,
                     PayloadState.EMPTY,
                 )
+            if feedback is not None:
+                feedback("AUTHORIZE_PICK", 0.08)
 
         restore_succeeded = False
         result: ExecutionResult | None = None

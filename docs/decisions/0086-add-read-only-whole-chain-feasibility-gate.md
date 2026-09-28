@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted as a code-structure and fail-closed authorization change.  It has
-pure/unit and backend-source verification only; it has **not** yet established
-a new Gazebo runtime success or safety result.
+Accepted as a code-structure and fail-closed authorization change.  The
+positive copied-scene path has now been exercised in Gazebo; the separately
+required deliberately blocked-bin negative remains open.
 
 ## Context
 
@@ -49,12 +49,18 @@ plant, cross the field, and enter the collection bin.
   preparation but before any motion, gripper or attach call, and restores the
   target collision object.
 - Existing core and backend unit tests continue to pass.
+- Development runtime evidence `adr0086_positive_v3` (seed 45504, 2026-09-28)
+  recorded two independent `FEASIBLE` certificates.  Both include all seven
+  stages, `payload_state=EMPTY`, zero controller/gripper/physical-attach
+  commands during evaluation, and an unchanged collision-scene fingerprint.
+  Both certificates preceded their first controller command and both targets
+  subsequently reached the normal `TARGET_HARVESTED` terminal path.  The
+  immutable receipt hash and the bounded claim are recorded in
+  `docs/p0/ADR0086_RUNTIME_EVIDENCE_2026-09-28.md`.
 
 ## Consequences
 
 The action server now has an explicit `AUTHORIZE_PICK` boundary between target
-selection and any gripper closure.  A fresh field-v3 positive run and a
-deliberately blocked-bin negative run are still required to validate the
-MoveItPy copied-scene adapter in the actual Gazebo process.  Servo, soft
-vegetation contact, MTC migration and multi-candidate scoring remain outside
-this ADR.
+selection and any gripper closure.  The remaining runtime evidence obligation
+is a deliberately blocked-bin negative run.  Servo, soft vegetation contact,
+MTC migration and multi-candidate scoring remain outside this ADR.

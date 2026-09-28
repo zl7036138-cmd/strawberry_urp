@@ -808,6 +808,25 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertNotIn("close", backend.calls)
         self.assertFalse(any(isinstance(call, str) and call == "attach" for call in backend.calls))
 
+    def test_whole_chain_authorizer_exception_fails_closed_before_any_command(self):
+        backend = FakeBackend()
+
+        def explode(*_args):
+            raise RuntimeError("virtual scene copy failed")
+
+        result = PickAndPlaceExecutor(
+            backend, whole_chain_authorizer=explode
+        ).execute(8, self.target, self.bin)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.payload_state, PayloadState.EMPTY)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertIn("authorization raised", result.message)
+        self.assertIn("restore", backend.calls)
+        self.assertNotIn("open", backend.calls)
+        self.assertNotIn("close", backend.calls)
+        self.assertNotIn("attach", backend.calls)
+
 
 if __name__ == "__main__":
     unittest.main()

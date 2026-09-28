@@ -103,6 +103,7 @@ def build_probe_payload(
     startup_timeout_sec: float,
     idle_timeout_sec: float,
     hard_timeout_sec: float,
+    motion_events: list[dict] | None = None,
 ) -> dict:
     """Build the auditable development receipt."""
 
@@ -125,6 +126,10 @@ def build_probe_payload(
         "selection_events": selection_events,
         "ground_truth_score_events": ground_truth_score_events,
         "ground_truth_score_events_used_for_control": False,
+        # Diagnostic-only motion evidence is retained separately from harvest
+        # status: it can prove that a whole-chain certificate preceded the
+        # first controller command without claiming physical-stop ownership.
+        "motion_events": list(motion_events or []),
     }
 
 
@@ -160,6 +165,7 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
             self.events: list[dict] = []
             self.selection_events: list[dict] = []
             self.ground_truth_score_events: list[dict] = []
+            self.motion_events: list[dict] = []
             self.client = self.create_client(
                 Trigger, "/strawberry/run_harvest"
             )
@@ -174,6 +180,9 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 "/strawberry/ground_truth/harvest_events",
                 self.on_ground_truth_score_event,
                 10,
+            )
+            self.create_subscription(
+                String, "/strawberry/motion_evidence", self.on_motion_evidence, 100
             )
             self.timer = self.create_timer(0.1, self.tick)
             self.called = False
@@ -244,6 +253,22 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 }
             )
 
+        def on_motion_evidence(self, message) -> None:
+            try:
+                event = json.loads(message.data)
+            except (json.JSONDecodeError, TypeError):
+                return
+            if not isinstance(event, dict):
+                return
+            self.motion_events.append(
+                {
+                    "received_wall_offset_sec": (
+                        time.monotonic() - self.started_monotonic
+                    ),
+                    **event,
+                }
+            )
+
         def finish(self, outcome: str) -> None:
             if self.done:
                 return
@@ -258,6 +283,7 @@ def main(argv=None) -> int:  # pragma: no cover - exercised in ROS integration
                 startup_timeout_sec=options.startup_timeout,
                 idle_timeout_sec=options.idle_timeout,
                 hard_timeout_sec=options.hard_timeout,
+                motion_events=self.motion_events,
             )
             temporary = options.output.with_suffix(options.output.suffix + ".tmp")
             temporary.write_text(

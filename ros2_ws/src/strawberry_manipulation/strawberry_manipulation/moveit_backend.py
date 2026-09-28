@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+import hashlib
 import json
 import math
 import threading
@@ -654,6 +655,37 @@ class MoveItBackend:
                 # Recording is diagnostic: a missing event is an evidence gap,
                 # never a reason to report motion success or start a fallback.
                 self.node.get_logger().error(f"motion evidence emission failed: {exc}")
+
+    def authorization_scene_fingerprint(self) -> str:
+        """Hash live collision identities and geometry without a scene write.
+
+        This is intentionally an audit fingerprint, not a planning input.  It
+        lets the runtime qualification prove that virtual attachment did not
+        leave a carried object in the live PlanningScene.
+        """
+
+        with self._planning_scene_monitor.read_only() as scene:
+            message = scene.planning_scene_message
+        # Do *not* include ``robot_state.joint_state`` here.  Joint feedback
+        # continues to arrive while the virtual copy is being evaluated, and
+        # that expected monitor refresh does not constitute a PlanningScene
+        # mutation.  The collision-relevant state is the world geometry,
+        # attached geometry, and the allowed-collision matrix; that is exactly
+        # what virtual attachment is forbidden to alter in the live scene.
+        collision_snapshot = (
+            message.world,
+            message.robot_state.attached_collision_objects,
+            message.allowed_collision_matrix,
+        )
+        # ROS message ``repr`` is deterministic for equal nested primitive
+        # fields in the Jazzy bindings used here.  The digest is only compared
+        # within one process around the evaluation interval.
+        return hashlib.sha256(repr(collision_snapshot).encode("utf-8")).hexdigest()
+
+    def record_whole_chain_evaluation(self, event_type: str, payload: Mapping) -> None:
+        """Publish an authorization-boundary diagnostic without commanding."""
+
+        self._emit_motion_evidence(event_type, dict(payload))
 
     def _on_gripper_joint_state(self, message) -> None:
         receipt_ns = time.monotonic_ns()

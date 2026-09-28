@@ -20,6 +20,7 @@ from .core import (
 )
 from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
+from .whole_chain import ChainEvaluation, ChainFailureCode
 
 
 def _to_pose(message) -> Pose:
@@ -637,34 +638,103 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             """Return the ADR 0086 certificate used before any gripper command."""
 
             executor = self._executor_core
-            grasp = hand_pose_for_fruit_center(
-                target,
-                quaternion=executor.grasp_quaternion,
-                tool_center_offset_m=executor.tool_center_offset_m,
+            try:
+                before_fingerprint = self._backend.authorization_scene_fingerprint()
+            except Exception as exc:
+                return ChainEvaluation(
+                    ChainFailureCode.SCENE_INVALID,
+                    0.0,
+                    0.0,
+                    detail=f"cannot snapshot live scene before evaluation: {exc}",
+                )
+            self._backend.record_whole_chain_evaluation(
+                "WHOLE_CHAIN_EVALUATION_STARTED",
+                {
+                    "target_id": int(target_id),
+                    "live_payload_state": executor.payload_state.name,
+                    "scene_fingerprint_before": before_fingerprint,
+                    "controller_commands_during_evaluation": 0,
+                    "gripper_commands_during_evaluation": 0,
+                    "physical_attach_during_evaluation": 0,
+                },
             )
-            pregrasp = bounded_pregrasp_candidates_for_fruit_center(
-                target,
-                quaternion=executor.grasp_quaternion,
-                tool_center_offset_m=executor.tool_center_offset_m,
-                pregrasp_offset_m=executor.pregrasp_offset_m,
-            )[0]
-            escape = offset_along_local_z(grasp, -executor.retreat_distance_m)
-            bin_hand_pose = hand_pose_for_fruit_center(
-                place,
-                quaternion=executor.place_quaternion,
-                tool_center_offset_m=executor.tool_center_offset_m,
+            try:
+                grasp = hand_pose_for_fruit_center(
+                    target,
+                    quaternion=executor.grasp_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                )
+                pregrasp = bounded_pregrasp_candidates_for_fruit_center(
+                    target,
+                    quaternion=executor.grasp_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                    pregrasp_offset_m=executor.pregrasp_offset_m,
+                )[0]
+                escape = offset_along_local_z(grasp, -executor.retreat_distance_m)
+                bin_hand_pose = hand_pose_for_fruit_center(
+                    place,
+                    quaternion=executor.place_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                )
+                evaluation = self._backend.evaluate_nominal_whole_chain(
+                    target_id=target_id,
+                    target_pose=target,
+                    pregrasp_pose=pregrasp,
+                    grasp_pose=grasp,
+                    escape_pose=escape,
+                    bin_pose=bin_hand_pose,
+                    time_budget_sec=float(self.get_parameter(
+                        "whole_chain_evaluation_timeout_sec").value),
+                )
+            except Exception as exc:
+                # Preserve a paired evidence receipt even when the virtual
+                # planning path itself cannot be constructed or queried.
+                evaluation = ChainEvaluation(
+                    ChainFailureCode.SCENE_INVALID,
+                    0.0,
+                    0.0,
+                    detail=f"whole-chain evaluator raised: {exc}",
+                )
+            try:
+                after_fingerprint = self._backend.authorization_scene_fingerprint()
+            except Exception as exc:
+                evaluation = ChainEvaluation(
+                    ChainFailureCode.SCENE_INVALID,
+                    evaluation.planning_time_sec,
+                    evaluation.joint_travel_rad,
+                    evaluation.stages,
+                    f"cannot snapshot live scene after evaluation: {exc}",
+                )
+                after_fingerprint = None
+            isolated = before_fingerprint == after_fingerprint
+            if not isolated and evaluation.feasible:
+                evaluation = ChainEvaluation(
+                    ChainFailureCode.SCENE_INVALID,
+                    evaluation.planning_time_sec,
+                    evaluation.joint_travel_rad,
+                    evaluation.stages,
+                    "live planning-scene fingerprint changed during evaluation",
+                )
+            self._backend.record_whole_chain_evaluation(
+                "WHOLE_CHAIN_EVALUATION_RESULT",
+                {
+                    "target_id": int(target_id),
+                    "result": evaluation.code.value,
+                    "feasible": evaluation.feasible,
+                    "planning_time_sec": evaluation.planning_time_sec,
+                    "joint_travel_rad": evaluation.joint_travel_rad,
+                    "stages": list(evaluation.stages),
+                    "detail": evaluation.detail,
+                    "live_payload_state": executor.payload_state.name,
+                    "scene_fingerprint_before": before_fingerprint,
+                    "scene_fingerprint_after": after_fingerprint,
+                    "scene_isolated": isolated,
+                    "controller_commands_during_evaluation": 0,
+                    "gripper_commands_during_evaluation": 0,
+                    "physical_attach_during_evaluation": 0,
+                },
             )
-            return self._backend.evaluate_nominal_whole_chain(
-                target_id=target_id,
-                target_pose=target,
-                pregrasp_pose=pregrasp,
-                grasp_pose=grasp,
-                escape_pose=escape,
-                bin_pose=bin_hand_pose,
-                time_budget_sec=float(
-                    self.get_parameter("whole_chain_evaluation_timeout_sec").value
-                ),
-            )
+            return evaluation
 
         def _evaluate_target(self, request, response):
             base_frame = str(self.get_parameter("base_frame").value)

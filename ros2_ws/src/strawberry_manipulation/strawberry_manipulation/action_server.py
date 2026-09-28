@@ -15,7 +15,7 @@ from .core import (
     Pose,
     bounded_pregrasp_candidates_for_fruit_center,
     hand_pose_for_fruit_center,
-    offset_pose,
+    offset_along_local_z,
     rotate_about_base_z,
 )
 from .grasp_geometry import load_grasp_geometry
@@ -723,8 +723,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         primary_grasp,
                         orientation_index * math.pi / 2.0,
                     )
-                    retreat = offset_pose(
-                        grasp, dz=executor.retreat_distance_m
+                    # Match the executor's direction-preserving ESCAPE
+                    # primitive exactly; a preflight must not certify a
+                    # base-Z retreat that execution will not perform.
+                    retreat = offset_along_local_z(
+                        grasp, -executor.retreat_distance_m
                     )
                     route = self._backend.evaluate_pose_sequence(
                         (pregrasp, grasp, retreat)

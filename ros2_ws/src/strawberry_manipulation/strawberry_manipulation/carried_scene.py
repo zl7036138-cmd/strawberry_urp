@@ -10,7 +10,14 @@ def carried_id(track_id):
     return f"strawberry_carried_fruit_{track_id}"
 
 
-def set_carried_fruit(monitor, link_name, track_id, *, center_m=None, radius_m=.026):
+def apply_carried_fruit(scene, link_name, track_id, *, center_m=None, radius_m=.026):
+    """Apply one attachment transition to the supplied PlanningScene.
+
+    Callers that own an immutable copy of a live scene use this helper for a
+    virtual attachment.  The helper itself does not acquire a monitor lock and
+    therefore cannot mutate the live scene unless its caller explicitly gives
+    it a live ``read_write`` scene.
+    """
     from geometry_msgs.msg import Pose
     from moveit_msgs.msg import AttachedCollisionObject, CollisionObject
     from shape_msgs.msg import SolidPrimitive
@@ -37,19 +44,32 @@ def set_carried_fruit(monitor, link_name, track_id, *, center_m=None, radius_m=.
         attached.object.primitive_poses = [pose]
         # Legitimate grasp contact only. No camera/arm/environment exemptions.
         attached.touch_links = [link_name, "panda_leftfinger", "panda_rightfinger"]
+    result = scene.process_attached_collision_object(attached)
+    if result is False:
+        raise RuntimeError("MoveIt refused carried-fruit attachment update")
+    if center_m is None:
+        # MoveIt detach can leave a world object; release removes this
+        # planning-only proxy, never another tracked obstacle.
+        removal = CollisionObject()
+        removal.id = object_id
+        removal.header.frame_id = link_name
+        removal.operation = CollisionObject.REMOVE
+        scene.apply_collision_object(removal)
+    scene.current_state.update()
+    if bool(scene.knows_frame_transform(object_id)) != (center_m is not None):
+        raise RuntimeError("MoveIt carried-fruit lifecycle was not retained")
+    return object_id
+
+
+def set_carried_fruit(monitor, link_name, track_id, *, center_m=None, radius_m=.026):
+    """Apply carried geometry to the live monitor during physical attachment."""
+
     with monitor.read_write() as scene:
-        result = scene.process_attached_collision_object(attached)
-        if result is False:
-            raise RuntimeError("MoveIt refused carried-fruit attachment update")
-        if center_m is None:
-            # MoveIt detach can leave a world object; release removes this
-            # planning-only proxy, never another tracked obstacle.
-            removal = CollisionObject()
-            removal.id = object_id
-            removal.header.frame_id = link_name
-            removal.operation = CollisionObject.REMOVE
-            scene.apply_collision_object(removal)
-        scene.current_state.update()
-        if bool(scene.knows_frame_transform(object_id)) != (center_m is not None):
-            raise RuntimeError("MoveIt carried-fruit lifecycle was not retained")
+        object_id = apply_carried_fruit(
+            scene,
+            link_name,
+            track_id,
+            center_m=center_m,
+            radius_m=radius_m,
+        )
     return object_id

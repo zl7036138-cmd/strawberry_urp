@@ -22,6 +22,10 @@ from strawberry_manipulation.core import (  # noqa: E402
     pregrasp_pose_for_fruit_center,
     rotate_about_base_z,
 )
+from strawberry_manipulation.whole_chain import (  # noqa: E402
+    ChainEvaluation,
+    ChainFailureCode,
+)
 
 
 class BoundedPregraspCandidateTests(unittest.TestCase):
@@ -775,6 +779,34 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertAlmostEqual(place_pose.z, self.bin.z + 0.1054, places=6)
         self.assertAlmostEqual(place_pose.qx, 1.0, places=6)
         self.assertAlmostEqual(place_pose.qw, 0.0, places=6)
+
+    def test_whole_chain_rejection_happens_before_any_gripper_or_motion_command(self):
+        backend = FakeBackend()
+        seen = []
+
+        def reject(target_id, target, place):
+            seen.append((target_id, target, place))
+            return ChainEvaluation(
+                ChainFailureCode.TRANSPORT_FAILED,
+                0.25,
+                1.5,
+                ("PREGRASP", "TRANSPORT"),
+                "virtual carried fruit cannot enter bin corridor",
+            )
+
+        result = PickAndPlaceExecutor(
+            backend, whole_chain_authorizer=reject
+        ).execute(8, self.target, self.bin)
+        self.assertFalse(result.success)
+        self.assertEqual(result.payload_state, PayloadState.EMPTY)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertIn("TRANSPORT_FAILED", result.message)
+        self.assertEqual(len(seen), 1)
+        self.assertIn("prepare", backend.calls)
+        self.assertIn("restore", backend.calls)
+        self.assertNotIn("open", backend.calls)
+        self.assertNotIn("close", backend.calls)
+        self.assertFalse(any(isinstance(call, str) and call == "attach" for call in backend.calls))
 
 
 if __name__ == "__main__":

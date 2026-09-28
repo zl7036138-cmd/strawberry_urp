@@ -21,14 +21,21 @@ from .core import (
     rotate_about_base_z,
 )
 from .carried_geometry import local_fruit_center, transit_hand_height
-from .carried_scene import set_carried_fruit
+from .carried_scene import apply_carried_fruit, set_carried_fruit
 from .motion_evidence import MotionEvidence, serialize_joint_feedback, serialize_trajectory
 from .moveit_scene import (
     apply_fruit_collision_scene,
     apply_static_collision_scene,
+    build_fruit_removal_message,
     set_target_fruit_collision,
 )
 from .scene_geometry import FRUIT_COLLISION_RADIUS_M, STATIC_COLLISION_OBJECTS
+from .whole_chain import (
+    ChainEvaluation,
+    StageAssessment,
+    WholeChainEvaluator,
+    WholeChainRequest,
+)
 
 
 PANDA_ARM_JOINT_LIMITS_RAD = (
@@ -96,6 +103,17 @@ class PathAssessment:
     joint_travel_rad: float
     end_joint_positions: tuple[float, ...] = ()
     end_pose: Pose | None = None
+
+
+@dataclass
+class VirtualPlanningState:
+    """One adapter-owned PlanningScene copy and its propagated robot state."""
+
+    scene: object
+    robot_state: object
+    pose: Pose
+    pending_bin_pose: Pose | None = None
+    carried_center_in_hand_m: tuple[float, float, float] | None = None
 
 
 def gripper_result_allows_command(
@@ -938,6 +956,36 @@ class MoveItBackend:
                         return False, True, time.perf_counter() - started, joint_travel
                 previous = current
         return True, False, time.perf_counter() - started, joint_travel
+
+    def evaluate_nominal_whole_chain(
+        self,
+        *,
+        target_id: int,
+        target_pose: Pose,
+        pregrasp_pose: Pose,
+        grasp_pose: Pose,
+        escape_pose: Pose,
+        bin_pose: Pose,
+        time_budget_sec: float = 8.0,
+    ) -> ChainEvaluation:
+        """Certify one nominal grasp on a copy of the current PlanningScene.
+
+        This is planning-only.  In particular it never acquires ``read_write``
+        on the live monitor, invokes a controller, changes a gripper, or calls
+        the physical attach service.  The adapter installs the carried sphere
+        only in its copied scene after the hypothetical grasp state.
+        """
+
+        request = WholeChainRequest(
+            target_id=target_id,
+            target_pose=target_pose.normalized(),
+            pregrasp_pose=pregrasp_pose.normalized(),
+            grasp_pose=grasp_pose.normalized(),
+            escape_pose=escape_pose.normalized(),
+            bin_pose=bin_pose.normalized(),
+            time_budget_sec=time_budget_sec,
+        )
+        return WholeChainEvaluator(_MoveItWholeChainAdapter(self)).evaluate(request)
 
     def prepare_pick(self, target_id: int, target_pose: Pose) -> bool:
         """Keep the selected fruit solid while planning the transit motion."""
@@ -2668,6 +2716,8 @@ class MoveItBackend:
         target: Pose,
         *,
         route_name: str = "clear_corridor",
+        carried_center_in_hand_m: tuple[float, float, float] | None = None,
+        scene_centers_m: Mapping[int, tuple[float, float, float]] | None = None,
     ) -> tuple[tuple[str, Pose], ...]:
         """Build one connected plant-to-bin route.
 
@@ -2684,8 +2734,16 @@ class MoveItBackend:
 
         lift_z = max(current.z, target.z) + self.place_transit_clearance_m
         bin_transit_z = target.z + self.place_transit_clearance_m
-        carried = getattr(self, "_carried_center_in_hand_m", None)
-        scene_centers = getattr(self, "_carried_scene_centers_m", None)
+        carried = (
+            carried_center_in_hand_m
+            if carried_center_in_hand_m is not None
+            else getattr(self, "_carried_center_in_hand_m", None)
+        )
+        scene_centers = (
+            scene_centers_m
+            if scene_centers_m is not None
+            else getattr(self, "_carried_scene_centers_m", None)
+        )
         if carried is not None and scene_centers is not None:
             # Keep the carried fruit envelope clear of every remaining fruit
             # during the corridor pass, and of the plant while leaving.
@@ -4027,3 +4085,214 @@ class MoveItBackend:
         except Exception as exc:  # pragma: no cover - ROS integration only
             self.node.get_logger().error(f"MoveIt shutdown exception: {exc}")
             return False
+
+
+class _MoveItWholeChainAdapter:
+    """ADR 0086 adapter that evaluates only copied PlanningScene instances."""
+
+    def __init__(self, backend: MoveItBackend) -> None:
+        self.backend = backend
+
+    @staticmethod
+    def _pose(message) -> Pose:
+        return Pose(
+            float(message.position.x), float(message.position.y), float(message.position.z),
+            float(message.orientation.x), float(message.orientation.y),
+            float(message.orientation.z), float(message.orientation.w),
+        ).normalized()
+
+    def snapshot(self, _request: WholeChainRequest) -> VirtualPlanningState:
+        # PlanningScene advertises __deepcopy__ in MoveItPy.  Its copy carries
+        # robot state, ACM and world/attached geometry but has no monitor lock,
+        # so operations below cannot change the executor's live scene.
+        with self.backend._planning_scene_monitor.read_only() as live_scene:
+            scene = copy.deepcopy(live_scene)
+        robot_state = scene.current_state
+        robot_state.update()
+        return VirtualPlanningState(
+            scene=scene,
+            robot_state=robot_state,
+            pose=self._pose(robot_state.get_pose(self.backend.pose_link)),
+        )
+
+    def scene_is_valid(self, state: VirtualPlanningState) -> bool:
+        try:
+            state.robot_state.update()
+            return bool(
+                state.scene.is_state_valid(
+                    state.robot_state, self.backend.planning_group, False
+                )
+            )
+        except Exception:
+            return False
+
+    def _preview(
+        self, state: VirtualPlanningState, target_poses: tuple[Pose, ...]
+    ) -> StageAssessment:
+        """Seed Cartesian IK from and update the same virtual robot state."""
+
+        if not target_poses:
+            raise ValueError("virtual path requires at least one target pose")
+        current_pose = state.pose.normalized()
+        planning_started = time.perf_counter()
+        travel = 0.0
+        previous = tuple(
+            float(value)
+            for value in state.robot_state.get_joint_group_positions(
+                self.backend.planning_group
+            )
+        )
+        for target in target_poses:
+            target = target.normalized()
+            for waypoint in self.backend._dense_pose_waypoints(current_pose, target):
+                solved = state.robot_state.set_from_ik(
+                    self.backend.planning_group,
+                    self.backend._pose_message(waypoint).pose,
+                    self.backend.pose_link,
+                    0.2,
+                )
+                if not solved:
+                    return StageAssessment(
+                        False, planning_time_sec=time.perf_counter() - planning_started,
+                        joint_travel_rad=travel, detail="virtual Cartesian IK failed",
+                    )
+                state.robot_state.update()
+                current = tuple(
+                    float(value)
+                    for value in state.robot_state.get_joint_group_positions(
+                        self.backend.planning_group
+                    )
+                )
+                maximum_delta = max(
+                    abs(right - left) for left, right in zip(previous, current)
+                )
+                sample_count = max(
+                    1, math.ceil(maximum_delta / self.backend.max_collision_joint_step_rad)
+                )
+                for index in range(1, sample_count + 1):
+                    fraction = index / sample_count
+                    sample = tuple(
+                        left + fraction * (right - left)
+                        for left, right in zip(previous, current)
+                    )
+                    state.robot_state.set_joint_group_positions(
+                        self.backend.planning_group, sample
+                    )
+                    state.robot_state.update()
+                    if not state.scene.is_state_valid(
+                        state.robot_state, self.backend.planning_group, False
+                    ):
+                        return StageAssessment(
+                            False, True, time.perf_counter() - planning_started,
+                            travel, detail="virtual collision check rejected path",
+                        )
+                travel += sum(abs(right - left) for left, right in zip(previous, current))
+                previous = current
+                current_pose = waypoint
+        # Restore the exact final solve (the collision loop's final sample is
+        # mathematically equal but this makes the invariant explicit).
+        state.robot_state.set_joint_group_positions(self.backend.planning_group, previous)
+        state.robot_state.update()
+        state.pose = current_pose
+        return StageAssessment(
+            True,
+            planning_time_sec=time.perf_counter() - planning_started,
+            joint_travel_rad=travel,
+            terminal_state=state,
+        )
+
+    def pregrasp(self, state: VirtualPlanningState, request: WholeChainRequest) -> StageAssessment:
+        waypoints = tuple(
+            pose for _label, pose in self.backend._guarded_approach_waypoints(
+                state.pose, request.pregrasp_pose
+            )
+        )
+        return self._preview(state, waypoints)
+
+    def approach(self, state: VirtualPlanningState, request: WholeChainRequest) -> StageAssessment:
+        # This removal is an allowed-contact change only in the copied scene.
+        # The live target remains a hard obstacle until the executor reaches
+        # the separately authorized GRASP_CONTACT phase.
+        state.scene.apply_collision_object(
+            build_fruit_removal_message(self.backend.base_frame, request.target_id)
+        )
+        state.robot_state.update()
+        return self._preview(state, (request.grasp_pose,))
+
+    def grasp_state(self, state: VirtualPlanningState, _request: WholeChainRequest) -> StageAssessment:
+        valid = self.scene_is_valid(state)
+        return StageAssessment(
+            valid,
+            collision=not valid,
+            terminal_state=state if valid else None,
+            detail="grasp state collides with non-target geometry" if not valid else "",
+        )
+
+    def virtual_attach(self, state: VirtualPlanningState, request: WholeChainRequest) -> StageAssessment:
+        try:
+            center = local_fruit_center(state.pose, (
+                request.target_pose.x, request.target_pose.y, request.target_pose.z
+            ))
+            apply_carried_fruit(
+                state.scene,
+                self.backend.pose_link,
+                request.target_id,
+                center_m=center,
+                radius_m=(self.backend.fruit_collision_radius_m
+                          + self.backend.carried_position_uncertainty_m),
+            )
+            state.carried_center_in_hand_m = center
+            state.robot_state.update()
+        except Exception as exc:
+            return StageAssessment(False, detail=f"virtual attach failed: {exc}")
+        if not self.scene_is_valid(state):
+            return StageAssessment(False, True, detail="virtual payload overlaps scene")
+        return StageAssessment(True, terminal_state=state)
+
+    def escape(self, state: VirtualPlanningState, request: WholeChainRequest) -> StageAssessment:
+        return self._preview(state, (request.escape_pose,))
+
+    def _copy_state(self, state: VirtualPlanningState) -> VirtualPlanningState:
+        scene = copy.deepcopy(state.scene)
+        robot_state = scene.current_state
+        robot_state.update()
+        return VirtualPlanningState(
+            scene, robot_state, state.pose,
+            carried_center_in_hand_m=state.carried_center_in_hand_m,
+        )
+
+    def transport(self, state: VirtualPlanningState, request: WholeChainRequest) -> StageAssessment:
+        planning_time = 0.0
+        travel = 0.0
+        collision = False
+        centers = getattr(self.backend, "_prepared_scene_centers_m", {})
+        local_center = state.carried_center_in_hand_m
+        if local_center is None:
+            return StageAssessment(False, detail="virtual payload transform is absent")
+        for route_name in self.backend._guarded_place_route_names():
+            for bin_candidate in self.backend._bounded_place_orientation_candidates(request.bin_pose):
+                branch = self._copy_state(state)
+                waypoints = self.backend._guarded_place_waypoints(
+                    branch.pose, bin_candidate, route_name=route_name,
+                    carried_center_in_hand_m=local_center,
+                    scene_centers_m=centers,
+                )
+                assessment = self._preview(
+                    branch, tuple(pose for _label, pose in waypoints[:-1])
+                )
+                planning_time += assessment.planning_time_sec
+                travel += assessment.joint_travel_rad
+                collision = collision or assessment.collision
+                if assessment.feasible:
+                    branch.pending_bin_pose = waypoints[-1][1]
+                    return StageAssessment(
+                        True, planning_time_sec=planning_time,
+                        joint_travel_rad=travel, terminal_state=branch,
+                    )
+        return StageAssessment(False, collision, planning_time, travel,
+                               detail="no virtual carried-payload transport route")
+
+    def bin_approach(self, state: VirtualPlanningState, _request: WholeChainRequest) -> StageAssessment:
+        if state.pending_bin_pose is None:
+            return StageAssessment(False, detail="transport omitted bin entry pose")
+        return self._preview(state, (state.pending_bin_pose,))

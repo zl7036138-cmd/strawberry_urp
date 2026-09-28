@@ -204,6 +204,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("target_refinement_max_sigma_m", 0.015)
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
+            self.declare_parameter("whole_chain_evaluation_timeout_sec", 8.0)
             self.declare_parameter("bin_stability_sec", 1.0)
             self.declare_parameter(
                 "tool_center_offset_m",
@@ -501,6 +502,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     self.get_parameter("tool_center_offset_m").value
                 ),
                 target_pose_refiner=target_pose_refiner,
+                whole_chain_authorizer=self._authorize_nominal_whole_chain,
                 maximum_grasp_centering_correction_m=float(
                     self.get_parameter(
                         "maximum_grasp_centering_correction_m"
@@ -628,6 +630,41 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 return response
             finally:
                 self._goal_gate.release()
+
+        def _authorize_nominal_whole_chain(
+            self, target_id: int, target: Pose, place: Pose
+        ):
+            """Return the ADR 0086 certificate used before any gripper command."""
+
+            executor = self._executor_core
+            grasp = hand_pose_for_fruit_center(
+                target,
+                quaternion=executor.grasp_quaternion,
+                tool_center_offset_m=executor.tool_center_offset_m,
+            )
+            pregrasp = bounded_pregrasp_candidates_for_fruit_center(
+                target,
+                quaternion=executor.grasp_quaternion,
+                tool_center_offset_m=executor.tool_center_offset_m,
+                pregrasp_offset_m=executor.pregrasp_offset_m,
+            )[0]
+            escape = offset_along_local_z(grasp, -executor.retreat_distance_m)
+            bin_hand_pose = hand_pose_for_fruit_center(
+                place,
+                quaternion=executor.place_quaternion,
+                tool_center_offset_m=executor.tool_center_offset_m,
+            )
+            return self._backend.evaluate_nominal_whole_chain(
+                target_id=target_id,
+                target_pose=target,
+                pregrasp_pose=pregrasp,
+                grasp_pose=grasp,
+                escape_pose=escape,
+                bin_pose=bin_hand_pose,
+                time_budget_sec=float(
+                    self.get_parameter("whole_chain_evaluation_timeout_sec").value
+                ),
+            )
 
         def _evaluate_target(self, request, response):
             base_frame = str(self.get_parameter("base_frame").value)

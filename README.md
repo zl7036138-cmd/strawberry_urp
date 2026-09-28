@@ -15,6 +15,12 @@ validation of the new post-grasp failure path. The five-scene qualification and
 formal safety result remain **not passed**: independent collision, joint-limit,
 home/stop, and scene-terminal telemetry are still unbound.
 
+The current manipulation architecture also includes a read-only nominal
+whole-chain authorization gate (ADR 0086): before any gripper command, it
+checks a copied PlanningScene through pregrasp, grasp, virtual attachment,
+escape, transport and bin entry. This is code- and unit-verified only; fresh
+positive and deliberately blocked-bin Gazebo evidence are still required.
+
 For continuation in a new Codex task, repository, or VS Code workspace, start
 with [`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md). It separates the frozen
 v1 release from the newer Blender v2 simulator baseline and records the exact

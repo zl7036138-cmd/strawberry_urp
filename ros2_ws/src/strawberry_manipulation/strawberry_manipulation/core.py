@@ -5,13 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import IntEnum
 import math
-from typing import Callable, Protocol
+from typing import Callable, Protocol, TYPE_CHECKING
 
 from .collision_policy import (
     CollisionPhase,
     selected_fruit_contact_is_authorized,
 )
 from .payload_lifecycle import PayloadState
+
+if TYPE_CHECKING:
+    from .whole_chain import ChainEvaluation
 
 
 LEFT_SINGLE_FRUIT = "LEFT_SINGLE_FRUIT"
@@ -273,6 +276,7 @@ class PickAndPlaceExecutor:
             0.0,
         ),
         target_pose_refiner: Callable[[int, Pose], Pose] | None = None,
+        whole_chain_authorizer: Callable[[int, Pose, Pose], "ChainEvaluation"] | None = None,
         maximum_grasp_centering_correction_m: float = 0.010,
         minimum_grasp_centering_correction_m: float = 0.001,
     ) -> None:
@@ -298,6 +302,7 @@ class PickAndPlaceExecutor:
         self.grasp_quaternion = tuple(float(value) for value in grasp_quaternion)
         self.place_quaternion = tuple(float(value) for value in place_quaternion)
         self.target_pose_refiner = target_pose_refiner
+        self.whole_chain_authorizer = whole_chain_authorizer
         self.maximum_grasp_centering_correction_m = float(
             maximum_grasp_centering_correction_m
         )
@@ -375,6 +380,30 @@ class PickAndPlaceExecutor:
                 (),
                 RecoveryDisposition.HOME_REQUIRED,
             )
+
+        # ADR 0086 authorization boundary.  This is intentionally before the
+        # first gripper command: a chain that cannot escape and reach the bin
+        # must remain an EMPTY payload, even though its nominal grasp is IK
+        # reachable.  The callback owns a temporary read-only PlanningScene;
+        # it cannot attach, command, or mutate this executor's lifecycle.
+        if self.whole_chain_authorizer is not None:
+            evaluation = self.whole_chain_authorizer(
+                target_id, target_pose, place_pose
+            )
+            if not evaluation.feasible:
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "whole-chain authorization rejected before gripper close: "
+                    f"{evaluation.code.value}; {evaluation.detail}"
+                    + ("" if restored else "; failed to restore target collision obstacle"),
+                    evaluation.planning_time_sec,
+                    0.0,
+                    ("WHOLE_CHAIN_EVALUATION", evaluation.code.value),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
 
         restore_succeeded = False
         result: ExecutionResult | None = None

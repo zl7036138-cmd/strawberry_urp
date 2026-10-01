@@ -3,9 +3,10 @@
 ## Status
 
 Accepted for staged implementation. Stages A (pure candidate geometry), B
-(bounded first-feasible search), and C (certificate-to-execution identity
-binding) are implemented and covered by pure/executor-contract tests. Runtime
-plan-only qualification and a real non-nominal execution remain open.
+(bounded first-feasible search), C (certificate-to-execution identity
+binding), and D (runtime plan-only qualification) are implemented. Stage D
+has one development-scene runtime receipt with a truth-isolation audit and
+zero manipulation execution. A real non-nominal execution remains open.
 
 ## Context
 
@@ -44,8 +45,17 @@ for autonomous selection.
   historical reorientation, centering, or alternate-grasp retries that could
   change certified geometry.
 - The existing nominal `execute()` path remains temporarily for the public
-  action server. It is not the ADR 0087 path; stage D must connect runtime
-  candidate search and scene-signature capture to `execute_authorized()`.
+  action server. It is not the ADR 0087 path.
+- Stage D exposes `/strawberry/qualify_grasp_candidates`: it prepares the
+  target collision lifecycle, generates `G00`–`G14` from the perception pose,
+  evaluates them in copied PlanningScenes, emits an ordered trace, and then
+  restores the target collision object. The service is explicitly plan-only:
+  it never invokes the executor, does not retain an executable plan after
+  cleanup, and returns its certificate only as an audit artifact.
+- Stage E must re-qualify inside one live collision lifecycle and pass the
+  exact certified identity to `execute_authorized()` immediately before a
+  non-nominal execution. A plan-only certificate is intentionally not valid
+  for later execution after its target-collision cleanup.
 
 ## Non-goals
 
@@ -68,6 +78,14 @@ zero backend commands, that certificate tampering is rejected, and that the
 executor sends the exact certified pregrasp/grasp/escape geometry without
 falling back to nominal or alternate geometry.
 
-Future stages must prove plan-only runtime enumeration and a runtime case where
-nominal fails but a non-nominal candidate completes the certified execution
-chain.
+Stage D tests prove that plan-only qualification fails closed for unstable
+perception, unavailable/changed scenes, non-empty payloads, and incomplete
+cleanup. They also validate the runtime receipt sequence, frozen candidate
+order, candidate fingerprints, scene isolation, collision restoration, and
+the absence of command/gripper/attachment/contact/holding evidence. The
+development receipt in `docs/p0/ADR0087_PLAN_ONLY_EVIDENCE_2026-10-01.md`
+records an actual perception-derived `G00` certificate with no dispatched
+execution.
+
+Stage E must prove a runtime case where nominal fails but a non-nominal
+candidate completes the newly certified execution chain.

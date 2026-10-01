@@ -23,6 +23,26 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             self.source,
         )
 
+    def test_plan_only_candidate_qualification_budgets_are_explicit(self):
+        for parameter, default in (
+            ("candidate_search_per_candidate_budget_sec", "2.0"),
+            ("candidate_search_total_budget_sec", "12.0"),
+        ):
+            self.assertIn(
+                f'DeclareLaunchArgument(\n                "{parameter}", default_value="{default}"',
+                self.source,
+            )
+            self.assertIn(f'"{parameter}": ParameterValue(', self.source)
+        manipulation = (
+            ROOT.parent
+            / "strawberry_manipulation"
+            / "strawberry_manipulation"
+            / "action_server.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"/strawberry/qualify_grasp_candidates"', manipulation)
+        self.assertIn("PlanOnlyCandidateQualifier", manipulation)
+        self.assertIn("execution_dispatched", manipulation)
+
     def test_dual_camera_topics_are_distinct(self):
         self.assertIn('"camera_mount": "dual"', self.source)
         self.assertIn('"/camera/base/color/image_raw"', self.source)

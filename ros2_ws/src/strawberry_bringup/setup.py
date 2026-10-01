@@ -29,6 +29,7 @@ setup(
             "generalized_development_probe = strawberry_bringup.development_probe:main",
             "generalized_development_score = strawberry_bringup.development_gate:main",
             "generalized_feasibility_probe = strawberry_bringup.feasibility_probe:main",
+            "generalized_candidate_qualification_probe = strawberry_bringup.candidate_qualification_probe:main",
             "generalized_truth_isolation_audit = strawberry_bringup.truth_isolation_audit:main",
             "dual_observation_repeat_summary = strawberry_bringup.observation_repeat:main",
             "dual_observation_summary = strawberry_bringup.observation_sequence:main",

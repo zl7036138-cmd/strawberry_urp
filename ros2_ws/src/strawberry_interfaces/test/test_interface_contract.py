@@ -97,6 +97,44 @@ class InterfaceContractTest(unittest.TestCase):
             ],
         )
 
+    def test_candidate_qualification_schema_is_plan_only_and_traceable(self) -> None:
+        self.assertEqual(
+            schema_lines("msg/GraspCandidateEvaluation.msg"),
+            [
+                "string candidate_id",
+                "string geometry_fingerprint",
+                "string result",
+                "bool feasible",
+                "float32 allocated_budget_sec",
+                "float32 planning_time_sec",
+                "float32 joint_travel_rad",
+                "string[] stages",
+                "string detail",
+            ],
+        )
+        self.assertEqual(
+            schema_lines("srv/QualifyGraspCandidates.srv"),
+            [
+                "uint32 target_id",
+                "geometry_msgs/PoseStamped target_pose",
+                "geometry_msgs/PoseStamped place_pose",
+                "---",
+                "bool feasible",
+                "bool plan_only",
+                "bool scene_isolated",
+                "bool cleanup_succeeded",
+                "string status",
+                "string selected_candidate_id",
+                "string geometry_fingerprint",
+                "string certificate_fingerprint",
+                "string scene_signature",
+                "float32 planning_time_sec",
+                "float32 joint_travel_rad",
+                "strawberry_interfaces/GraspCandidateEvaluation[] evaluations",
+                "string message",
+            ],
+        )
+
     def test_action_goal_result_and_feedback(self) -> None:
         sections: list[list[str]] = [[]]
         for line in schema_lines("action/PickAndPlace.action"):
@@ -212,8 +250,10 @@ class InterfaceContractTest(unittest.TestCase):
             "msg/TrackedTarget.msg",
             "msg/TrackedTargetArray.msg",
             "msg/ObservationPlan.msg",
+            "msg/GraspCandidateEvaluation.msg",
             "srv/MoveToObservation.srv",
             "srv/EvaluateTarget.srv",
+            "srv/QualifyGraspCandidates.srv",
             "action/PickAndPlace.action",
         ):
             self.assertIn(f'"{interface}"', cmake)

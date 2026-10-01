@@ -18,6 +18,8 @@ from .core import (
     offset_along_local_z,
     rotate_about_base_z,
 )
+from .candidate_qualification import PlanOnlyCandidateQualifier
+from .grasp_candidates import generate_grasp_candidates
 from .grasp_geometry import load_grasp_geometry
 from .lifecycle import ExclusiveGoalGate, shutdown_executor_and_wait
 from .whole_chain import ChainEvaluation, ChainFailureCode
@@ -35,6 +37,27 @@ def _to_pose(message) -> Pose:
     )
 
 
+class _RuntimeWholeChainCandidateEvaluator:
+    """Bind one runtime target/bin context to copied-scene candidate checks."""
+
+    def __init__(self, backend, target_id: int, target_pose: Pose, bin_pose: Pose):
+        self._backend = backend
+        self._target_id = target_id
+        self._target_pose = target_pose
+        self._bin_pose = bin_pose
+
+    def evaluate(self, candidate, time_budget_sec: float) -> ChainEvaluation:
+        return self._backend.evaluate_nominal_whole_chain(
+            target_id=self._target_id,
+            target_pose=self._target_pose,
+            pregrasp_pose=candidate.pregrasp_pose,
+            grasp_pose=candidate.grasp_pose,
+            escape_pose=candidate.escape_pose,
+            bin_pose=self._bin_pose,
+            time_budget_sec=time_budget_sec,
+        )
+
+
 def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
     try:
         from ament_index_python.packages import get_package_share_directory
@@ -47,8 +70,16 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         from rclpy.qos import qos_profile_sensor_data
         from geometry_msgs.msg import PoseArray
         from strawberry_interfaces.action import PickAndPlace
-        from strawberry_interfaces.msg import TargetPose, TrackedTargetArray
-        from strawberry_interfaces.srv import EvaluateTarget, MoveToObservation
+        from strawberry_interfaces.msg import (
+            GraspCandidateEvaluation,
+            TargetPose,
+            TrackedTargetArray,
+        )
+        from strawberry_interfaces.srv import (
+            EvaluateTarget,
+            MoveToObservation,
+            QualifyGraspCandidates,
+        )
         from strawberry_sim.core import load_scene_config
         from std_srvs.srv import Trigger
         from std_msgs.msg import String
@@ -206,6 +237,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
             self.declare_parameter("whole_chain_evaluation_timeout_sec", 8.0)
+            self.declare_parameter("candidate_search_per_candidate_budget_sec", 2.0)
+            self.declare_parameter("candidate_search_total_budget_sec", 12.0)
             self.declare_parameter("whole_chain_virtual_bin_blocker_enabled", False)
             self.declare_parameter("bin_stability_sec", 1.0)
             self.declare_parameter(
@@ -530,6 +563,12 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self._evaluate_target,
                 callback_group=self._callback_group,
             )
+            self._candidate_qualification_service = self.create_service(
+                QualifyGraspCandidates,
+                "/strawberry/qualify_grasp_candidates",
+                self._qualify_grasp_candidates,
+                callback_group=self._callback_group,
+            )
             self._home_service = self.create_service(
                 Trigger,
                 "/strawberry/move_home",
@@ -741,6 +780,212 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 },
             )
             return evaluation
+
+        @staticmethod
+        def _initialize_candidate_qualification_response(response) -> None:
+            response.feasible = False
+            response.plan_only = True
+            response.scene_isolated = False
+            response.cleanup_succeeded = False
+            response.status = ""
+            response.selected_candidate_id = ""
+            response.geometry_fingerprint = ""
+            response.certificate_fingerprint = ""
+            response.scene_signature = ""
+            response.planning_time_sec = 0.0
+            response.joint_travel_rad = 0.0
+            response.evaluations = []
+            response.message = ""
+
+        @staticmethod
+        def _copy_candidate_qualification_response(
+            response, qualification, *, cleanup_succeeded: bool
+        ) -> None:
+            certificate = qualification.certificate
+            response.plan_only = True
+            response.scene_isolated = bool(qualification.scene_isolated)
+            response.cleanup_succeeded = bool(cleanup_succeeded)
+            response.feasible = bool(qualification.feasible and cleanup_succeeded)
+            response.status = (
+                qualification.status.value
+                if cleanup_succeeded
+                else "CLEANUP_FAILED"
+            )
+            response.selected_candidate_id = (
+                "" if certificate is None else certificate.candidate.candidate_id
+            )
+            response.geometry_fingerprint = (
+                "" if certificate is None else certificate.candidate.geometry_fingerprint
+            )
+            response.certificate_fingerprint = (
+                "" if certificate is None else certificate.certificate_fingerprint
+            )
+            response.scene_signature = qualification.scene_signature_before or ""
+            response.planning_time_sec = float(qualification.planning_time_sec)
+            response.joint_travel_rad = float(qualification.joint_travel_rad)
+            evaluations = []
+            for trace in qualification.evaluations:
+                item = GraspCandidateEvaluation()
+                item.candidate_id = trace.candidate_id
+                item.geometry_fingerprint = trace.geometry_fingerprint
+                item.result = trace.result.code.value
+                item.feasible = trace.result.feasible
+                item.allocated_budget_sec = float(trace.allocated_budget_sec)
+                item.planning_time_sec = float(trace.result.planning_time_sec)
+                item.joint_travel_rad = float(trace.result.joint_travel_rad)
+                item.stages = list(trace.result.stages)
+                item.detail = trace.result.detail
+                evaluations.append(item)
+            response.evaluations = evaluations
+            response.message = qualification.detail
+            if not cleanup_succeeded:
+                response.message = (
+                    f"{response.message}; " if response.message else ""
+                ) + "failed to restore target collision object after plan-only qualification"
+
+        def _qualify_grasp_candidates(self, request, response):
+            """Expose ADR 0087-D without dispatching a pick or any trajectory."""
+
+            self._initialize_candidate_qualification_response(response)
+            base_frame = str(self.get_parameter("base_frame").value)
+            if (
+                int(request.target_id) <= 0
+                or request.target_pose.header.frame_id != base_frame
+                or request.place_pose.header.frame_id != base_frame
+            ):
+                response.status = "REQUEST_INVALID"
+                response.message = (
+                    "target ID and target/place poses must be valid in the "
+                    "manipulation base frame"
+                )
+                return response
+            if not self._goal_gate.try_acquire():
+                response.status = "BACKEND_BUSY"
+                response.message = "motion backend is busy"
+                return response
+
+            target_id = int(request.target_id)
+            prepared = False
+            cleanup_succeeded = False
+            qualification = None
+            try:
+                target = _to_pose(request.target_pose.pose).normalized()
+                place = _to_pose(request.place_pose.pose).normalized()
+                executor = self._executor_core
+                if executor.payload_state.name != "EMPTY":
+                    response.status = "PAYLOAD_NOT_EMPTY"
+                    response.message = (
+                        "plan-only candidate qualification requires an EMPTY payload"
+                    )
+                    self._backend.record_whole_chain_evaluation(
+                        "CANDIDATE_QUALIFICATION_REJECTED",
+                        {
+                            "target_id": target_id,
+                            "mode": "PLAN_ONLY",
+                            "live_payload_state": executor.payload_state.name,
+                            "reason": "PAYLOAD_NOT_EMPTY",
+                            "execution_dispatched": False,
+                        },
+                    )
+                elif not self._backend.prepare_pick(target_id, target):
+                    response.status = "SETUP_FAILED"
+                    response.message = (
+                        "failed to synchronize target collision scene for "
+                        "plan-only qualification"
+                    )
+                    self._backend.record_whole_chain_evaluation(
+                        "CANDIDATE_QUALIFICATION_SETUP_FAILED",
+                        {
+                            "target_id": target_id,
+                            "mode": "PLAN_ONLY",
+                            "reason": "PREPARE_PICK_FAILED",
+                            "execution_dispatched": False,
+                        },
+                    )
+                else:
+                    prepared = True
+                    candidates = generate_grasp_candidates(
+                        target,
+                        nominal_quaternion=executor.grasp_quaternion,
+                        tool_center_offset_m=executor.tool_center_offset_m,
+                        pregrasp_offset_m=executor.pregrasp_offset_m,
+                        escape_offset_m=executor.retreat_distance_m,
+                    )
+                    bin_hand_pose = hand_pose_for_fruit_center(
+                        place,
+                        quaternion=executor.place_quaternion,
+                        tool_center_offset_m=executor.tool_center_offset_m,
+                    )
+                    qualification = PlanOnlyCandidateQualifier(
+                        evaluator=_RuntimeWholeChainCandidateEvaluator(
+                            self._backend, target_id, target, bin_hand_pose
+                        ),
+                        scene_signature_provider=(
+                            self._backend.authorization_scene_fingerprint
+                        ),
+                        per_candidate_budget_sec=float(
+                            self.get_parameter(
+                                "candidate_search_per_candidate_budget_sec"
+                            ).value
+                        ),
+                        total_budget_sec=float(
+                            self.get_parameter(
+                                "candidate_search_total_budget_sec"
+                            ).value
+                        ),
+                        event_sink=self._backend.record_whole_chain_evaluation,
+                    ).qualify(
+                        target_id=target_id,
+                        candidates=candidates,
+                        payload_state=executor.payload_state.name,
+                    )
+            except Exception as exc:
+                response.status = "EVALUATION_ERROR"
+                response.message = f"plan-only candidate qualification failed: {exc}"
+                self._backend.record_whole_chain_evaluation(
+                    "CANDIDATE_QUALIFICATION_ERROR",
+                    {
+                        "target_id": target_id,
+                        "mode": "PLAN_ONLY",
+                        "reason": str(exc),
+                        "execution_dispatched": False,
+                    },
+                )
+            finally:
+                if prepared:
+                    try:
+                        cleanup_succeeded = bool(
+                            self._backend.restore_target_collision(target_id)
+                        )
+                    except Exception as exc:
+                        cleanup_succeeded = False
+                        self.get_logger().error(
+                            "candidate qualification collision cleanup raised: "
+                            f"{exc}"
+                        )
+                    if qualification is not None:
+                        self._backend.record_whole_chain_evaluation(
+                            "CANDIDATE_QUALIFICATION_CLEANUP",
+                            {
+                                "target_id": target_id,
+                                "mode": "PLAN_ONLY",
+                                "qualification_status": qualification.status.value,
+                                "target_collision_restored": cleanup_succeeded,
+                                "execution_dispatched": False,
+                            },
+                        )
+                        self._copy_candidate_qualification_response(
+                            response,
+                            qualification,
+                            cleanup_succeeded=cleanup_succeeded,
+                        )
+                    elif not cleanup_succeeded:
+                        response.status = "CLEANUP_FAILED"
+                        response.message = (
+                            f"{response.message}; " if response.message else ""
+                        ) + "failed to restore target collision object"
+                self._goal_gate.release()
+            return response
 
         def _evaluate_target(self, request, response):
             base_frame = str(self.get_parameter("base_frame").value)

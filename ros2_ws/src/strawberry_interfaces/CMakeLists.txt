@@ -17,8 +17,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/TrackedTarget.msg"
   "msg/TrackedTargetArray.msg"
   "msg/ObservationPlan.msg"
+  "msg/GraspCandidateEvaluation.msg"
   "srv/MoveToObservation.srv"
   "srv/EvaluateTarget.srv"
+  "srv/QualifyGraspCandidates.srv"
   "action/PickAndPlace.action"
   DEPENDENCIES
     geometry_msgs

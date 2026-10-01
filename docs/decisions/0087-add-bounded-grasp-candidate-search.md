@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted for staged implementation.  Stage A (pure candidate geometry) is
-implemented and covered by pure tests.  Search, certificate/execution identity
-binding, and runtime qualification remain open.
+Accepted for staged implementation.  Stages A (pure candidate geometry) and B
+(bounded first-feasible search) are implemented and covered by pure tests.
+Certificate/execution identity binding and runtime qualification remain open.
 
 ## Context
 
@@ -25,12 +25,15 @@ for autonomous selection.
   fingerprint.  Pregrasp and escape both follow that candidate's own local
   tool Z axis.
 - A later coordinator will evaluate candidates in order through ADR 0086 and
-  select the first feasible candidate.  It must bind certificate identity to
+- The pure search coordinator evaluates candidates in order through ADR 0086
+  and selects the first feasible candidate.  It retains one immutable trace
+  row per evaluated candidate, including ID, geometry fingerprint, original
+  ADR 0086 result and allocated per-candidate budget.
+- The coordinator enforces both candidate-set total budget and per-candidate
+  budget without changing ADR 0086's per-candidate safety semantics.
+- A later execution binding must require certificate identity to equal
   execution identity: the certified candidate geometry is the only geometry
   eligible for execution.
-- Candidate-set total budget and per-candidate budget will be added with the
-  search coordinator.  ADR 0086's per-candidate safety semantics remain
-  unchanged.
 
 ## Non-goals
 
@@ -42,9 +45,11 @@ random sampling, or the public `PickAndPlace.action` contract.
 
 Stage A pure tests prove fixed count/order, nominal-first behavior, unique IDs
 and geometry fingerprints, normalized orientations, fail-closed input checks,
-and candidate-local pregrasp/escape geometry.
+and candidate-local pregrasp/escape geometry.  Stage B tests prove nominal
+early exit, first-later-feasible selection, full rejection traces, bounded
+total/per-candidate budget behavior, invalid-set fail-closed behavior, and
+unmodified candidate geometry entering the ADR 0086 request adapter.
 
-Future stages must prove first-feasible early exit, total-budget behavior,
-certificate/execution identity equality, plan-only runtime enumeration, and a
-runtime case where nominal fails but a non-nominal candidate completes the
-certified execution chain.
+Future stages must prove certificate/execution identity equality, plan-only
+runtime enumeration, and a runtime case where nominal fails but a non-nominal
+candidate completes the certified execution chain.

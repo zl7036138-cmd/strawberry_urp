@@ -614,6 +614,10 @@ class MoveItBackendStaticTests(unittest.TestCase):
 
     def test_allow_then_restore_uses_manifest_and_closes_lifecycle(self):
         backend = self.lifecycle_backend()
+        evidence = []
+        backend._emit_motion_evidence = lambda kind, payload, **_kwargs: evidence.append(
+            (kind, payload)
+        )
         with patch(
             "strawberry_manipulation.moveit_backend.set_target_fruit_collision",
             side_effect=["strawberry_fruit_1"] * 3,
@@ -628,6 +632,14 @@ class MoveItBackendStaticTests(unittest.TestCase):
         self.assertEqual(restore_call.kwargs["center_m"], (0.4, 0.1, 0.5))
         self.assertIsNone(backend._prepared_target_id)
         self.assertFalse(backend._target_contact_open)
+        self.assertIn(
+            ("TARGET_COLLISION_RESTORED", {
+                "target_id": 1,
+                "object_id": "strawberry_fruit_1",
+                "restored": True,
+            }),
+            evidence,
+        )
 
     def test_prepare_synchronizes_all_live_fruit_before_target_update(self):
         backend = self.lifecycle_backend()

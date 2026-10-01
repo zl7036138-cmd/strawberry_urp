@@ -9,6 +9,13 @@ from typing import Mapping
 EVALUATION_START = "WHOLE_CHAIN_EVALUATION_STARTED"
 EVALUATION_RESULT = "WHOLE_CHAIN_EVALUATION_RESULT"
 COMMAND_EVENTS = {"COMMAND_PREPARED", "ACTION_ACCEPTED"}
+TARGET_COLLISION_RESTORED = "TARGET_COLLISION_RESTORED"
+REJECTED_PICK_FORBIDDEN_EVENT_FRAGMENTS = (
+    "GRIPPER_CLOSE",
+    "PHYSICAL_ATTACH",
+    "CONTACT",
+    "HOLDING",
+)
 
 
 @dataclass(frozen=True)
@@ -25,6 +32,7 @@ def qualify_whole_chain_receipt(
     expected_result: str,
     expect_motion: bool,
     target_id: int | None = None,
+    require_target_collision_restore: bool = False,
 ) -> QualificationResult:
     """Check one authorization attempt in an immutable development receipt.
 
@@ -104,6 +112,38 @@ def qualify_whole_chain_receipt(
     # *during* evaluation) and payload/scene invariants here.  The executor's
     # direct unit contract separately proves that an authorization rejection
     # sends no gripper or manipulation command.
+    if require_target_collision_restore:
+        if target_id is None:
+            errors.append("target_id is required for collision-restore qualification")
+        else:
+            restorations = [
+                event for event in ordered
+                if event.get("event_type") == TARGET_COLLISION_RESTORED
+                and isinstance(event.get("payload"), Mapping)
+                and event["payload"].get("target_id") == target_id
+                # Older immutable receipts used the successful event type as
+                # the boolean claim; new receipts carry ``restored: true``
+                # explicitly.  An explicit false is never accepted.
+                and event["payload"].get("restored") is not False
+                and isinstance(result_ns, int)
+                and event.get("event_time_monotonic_ns", -1) > result_ns
+            ]
+            if not restorations:
+                errors.append("target collision was not restored after rejection")
+            else:
+                restore_ns = restorations[0].get("event_time_monotonic_ns")
+                rejected_path_events = [
+                    event.get("event_type", "") for event in ordered
+                    if isinstance(start_ns, int)
+                    and isinstance(restore_ns, int)
+                    and start_ns < event.get("event_time_monotonic_ns", -1) < restore_ns
+                ]
+                if any(
+                    fragment in event_type
+                    for event_type in rejected_path_events
+                    for fragment in REJECTED_PICK_FORBIDDEN_EVENT_FRAGMENTS
+                ):
+                    errors.append("rejected pick emitted gripper/contact/attach evidence")
     return QualificationResult(
         not errors,
         tuple(errors),

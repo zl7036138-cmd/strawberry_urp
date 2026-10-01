@@ -2,9 +2,8 @@
 
 ## Status
 
-Accepted as a code-structure and fail-closed authorization change.  The
-positive copied-scene path has now been exercised in Gazebo; the separately
-required deliberately blocked-bin negative remains open.
+Accepted and runtime-qualified for both positive and deliberately
+blocked-transport paths.
 
 ## Context
 
@@ -57,10 +56,21 @@ plant, cross the field, and enter the collection bin.
   subsequently reached the normal `TARGET_HARVESTED` terminal path.  The
   immutable receipt hash and the bounded claim are recorded in
   `docs/p0/ADR0086_RUNTIME_EVIDENCE_2026-09-28.md`.
+- Development negative evidence `adr0086_blocked_bin_v2` (seed 45504) adds a
+  virtual-only obstruction to the copied scene's transport stage.  Two
+  independent targets reached `TRANSPORT_FAILED` only after PREGRASP,
+  APPROACH, GRASP_STATE, VIRTUAL_ATTACH and ESCAPE succeeded.  Each rejection
+  remained EMPTY, changed neither live collision scene fingerprint, issued no
+  gripper/attach evidence, and was followed by an explicit same-target
+  `TARGET_COLLISION_RESTORED` event.  The bounded receipt hash and the
+  qualification result are recorded in
+  `docs/p0/ADR0086_BLOCKED_TRANSPORT_EVIDENCE_2026-10-01.md`.
 
 ## Consequences
 
 The action server now has an explicit `AUTHORIZE_PICK` boundary between target
-selection and any gripper closure.  The remaining runtime evidence obligation
-is a deliberately blocked-bin negative run.  Servo, soft vegetation contact,
-MTC migration and multi-candidate scoring remain outside this ADR.
+selection and any gripper closure.  Empty-payload recovery-home reliability
+remains a separate technical-debt item: it does not alter the authorization
+claim because a rejected Pick has not entered CONTACT or HOLDING.  Servo, soft
+vegetation contact, MTC migration and multi-candidate scoring remain outside
+this ADR.

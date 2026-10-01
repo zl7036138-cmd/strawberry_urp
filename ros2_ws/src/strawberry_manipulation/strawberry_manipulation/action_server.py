@@ -206,6 +206,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("pregrasp_offset_m", 0.15)
             self.declare_parameter("retreat_distance_m", 0.08)
             self.declare_parameter("whole_chain_evaluation_timeout_sec", 8.0)
+            self.declare_parameter("whole_chain_virtual_bin_blocker_enabled", False)
             self.declare_parameter("bin_stability_sec", 1.0)
             self.declare_parameter(
                 "tool_center_offset_m",
@@ -489,6 +490,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 ),
                 config_dict=build_moveit_config(
                     str(self.get_parameter("camera_mount").value)
+                ),
+                whole_chain_virtual_bin_blocker_enabled=bool(
+                    self.get_parameter(
+                        "whole_chain_virtual_bin_blocker_enabled"
+                    ).value
                 ),
             )
             self._backend = backend

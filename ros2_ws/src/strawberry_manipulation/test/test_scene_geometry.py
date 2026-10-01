@@ -18,6 +18,7 @@ from strawberry_manipulation.scene_geometry import (  # noqa: E402
     TABLE_TOP_PADDING_M,
     fruit_collision_id,
     static_collision_objects,
+    virtual_bin_blocker_for_development,
 )
 
 
@@ -63,6 +64,13 @@ class SceneGeometryTests(unittest.TestCase):
             ValueError, "unknown static collision profile"
         ):
             static_collision_objects("missing")
+
+    def test_development_bin_blocker_is_a_distinct_virtual_geometry_spec(self):
+        blocker = virtual_bin_blocker_for_development((0.35, -0.45, 0.365))
+        self.assertEqual(blocker.object_id, "development_virtual_blocked_bin")
+        self.assertEqual(len(blocker.boxes), 1)
+        self.assertEqual(blocker.boxes[0].center_m, (0.35, -0.45, 0.50))
+        self.assertEqual(blocker.boxes[0].size_m, (0.70, 0.70, 1.00))
 
     def test_randomized_plant_crowns_follow_every_scene_plant(self):
         objects = static_collision_objects(

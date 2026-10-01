@@ -13,6 +13,16 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
             encoding="utf-8"
         )
 
+    def test_virtual_bin_blocker_is_explicit_and_default_disabled(self):
+        self.assertIn(
+            '"whole_chain_virtual_bin_blocker_enabled", default_value="false"',
+            self.source,
+        )
+        self.assertIn(
+            '"whole_chain_virtual_bin_blocker_enabled": LaunchConfiguration(',
+            self.source,
+        )
+
     def test_dual_camera_topics_are_distinct(self):
         self.assertIn('"camera_mount": "dual"', self.source)
         self.assertIn('"/camera/base/color/image_raw"', self.source)

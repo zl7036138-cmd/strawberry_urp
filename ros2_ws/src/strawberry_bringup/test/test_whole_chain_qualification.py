@@ -39,6 +39,35 @@ class WholeChainQualificationTests(unittest.TestCase):
         result = qualify_whole_chain_receipt(receipt, expected_result="TRANSPORT_FAILED", expect_motion=False)
         self.assertTrue(result.passed)
 
+    def test_rejected_target_requires_later_explicit_collision_restore(self):
+        restored = event(
+            "TARGET_COLLISION_RESTORED", 30,
+            {"target_id": 7, "restored": True},
+        )
+        receipt = {"motion_events": [
+            event("WHOLE_CHAIN_EVALUATION_STARTED", 10, payload("STARTED") | {"target_id": 7}),
+            event("WHOLE_CHAIN_EVALUATION_RESULT", 20, payload("TRANSPORT_FAILED") | {"target_id": 7}),
+            restored,
+        ]}
+        result = qualify_whole_chain_receipt(
+            receipt, expected_result="TRANSPORT_FAILED", expect_motion=False,
+            target_id=7, require_target_collision_restore=True,
+        )
+        self.assertTrue(result.passed)
+
+    def test_rejected_target_restore_must_follow_evaluation(self):
+        receipt = {"motion_events": [
+            event("TARGET_COLLISION_RESTORED", 5, {"target_id": 7, "restored": True}),
+            event("WHOLE_CHAIN_EVALUATION_STARTED", 10, payload("STARTED") | {"target_id": 7}),
+            event("WHOLE_CHAIN_EVALUATION_RESULT", 20, payload("TRANSPORT_FAILED") | {"target_id": 7}),
+        ]}
+        result = qualify_whole_chain_receipt(
+            receipt, expected_result="TRANSPORT_FAILED", expect_motion=False,
+            target_id=7, require_target_collision_restore=True,
+        )
+        self.assertFalse(result.passed)
+        self.assertIn("target collision was not restored after rejection", result.errors)
+
     def test_target_id_selects_one_attempt_from_a_continuous_harvest(self):
         first = payload("PREGRASP_FAILED") | {"target_id": 4}
         second = payload("FEASIBLE") | {"target_id": 5}

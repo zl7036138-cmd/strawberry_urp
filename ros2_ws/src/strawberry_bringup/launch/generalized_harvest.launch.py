@@ -69,6 +69,9 @@ def generate_launch_description():
             DeclareLaunchArgument("motion_evidence_run_id", default_value=""),
             DeclareLaunchArgument("motion_evidence_scenario_id", default_value=""),
             DeclareLaunchArgument(
+                "whole_chain_virtual_bin_blocker_enabled", default_value="false"
+            ),
+            DeclareLaunchArgument(
                 "base_camera_mast_xyz", default_value="-0.35 0.45 0.05"
             ),
             DeclareLaunchArgument("base_camera_xyz", default_value="0 0 1.00"),
@@ -230,6 +233,9 @@ def generate_launch_description():
                         "camera_mount": "dual",
                         "motion_evidence_run_id": LaunchConfiguration("motion_evidence_run_id"),
                         "motion_evidence_scenario_id": LaunchConfiguration("motion_evidence_scenario_id"),
+                        "whole_chain_virtual_bin_blocker_enabled": LaunchConfiguration(
+                            "whole_chain_virtual_bin_blocker_enabled"
+                        ),
                         "fruit_pose_source": "tracked",
                         "tracked_targets_topic": "/strawberry/tracked_targets",
                         "target_refinement_topic": "",

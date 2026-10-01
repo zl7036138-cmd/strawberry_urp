@@ -22,6 +22,7 @@ idle_timeout_sec="${STRAWBERRY_PROBE_IDLE_TIMEOUT_SEC:-180}"
 hard_timeout_sec="${STRAWBERRY_PROBE_HARD_TIMEOUT_SEC:-900}"
 cleanup_smoke_sec="${STRAWBERRY_PROBE_CLEANUP_SMOKE_SEC:-0}"
 base_camera_resolution="${STRAWBERRY_BASE_CAMERA_RESOLUTION:-320x240}"
+whole_chain_virtual_bin_blocker_enabled="${STRAWBERRY_WHOLE_CHAIN_VIRTUAL_BIN_BLOCKER_ENABLED:-false}"
 if [[ ! "${cleanup_smoke_sec}" =~ ^[0-9]+$ ]]; then
   echo "STRAWBERRY_PROBE_CLEANUP_SMOKE_SEC must be a non-negative integer" >&2
   exit 2
@@ -30,6 +31,13 @@ case "${base_camera_resolution}" in
   320x240|640x480) ;;
   *)
     echo "unsupported STRAWBERRY_BASE_CAMERA_RESOLUTION: ${base_camera_resolution}" >&2
+    exit 2
+    ;;
+esac
+case "${whole_chain_virtual_bin_blocker_enabled}" in
+  true|false) ;;
+  *)
+    echo "STRAWBERRY_WHOLE_CHAIN_VIRTUAL_BIN_BLOCKER_ENABLED must be true or false" >&2
     exit 2
     ;;
 esac
@@ -55,6 +63,7 @@ setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   model_path:="${repo_root}/outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt" \
   motion_evidence_run_id:="${motion_evidence_run_id}" \
   motion_evidence_scenario_id:="${motion_evidence_scenario_id}" \
+  whole_chain_virtual_bin_blocker_enabled:="${whole_chain_virtual_bin_blocker_enabled}" \
   device:=0 \
   > "${run_dir}/launch.log" 2>&1 &
 launch_pid=$!

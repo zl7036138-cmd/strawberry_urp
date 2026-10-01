@@ -142,6 +142,7 @@ class ProbeReceiptTests(unittest.TestCase):
         self.assertIn('terminate_process_group "${launch_pgid}"', runner)
         self.assertIn('"outcome":"CLEAN"', runner)
         self.assertIn("STRAWBERRY_PROBE_CLEANUP_SMOKE_SEC", runner)
+        self.assertIn("STRAWBERRY_WHOLE_CHAIN_VIRTUAL_BIN_BLOCKER_ENABLED", runner)
         self.assertIn("STRAWBERRY_DEVELOPMENT_OUTPUT_DIR", runner)
         self.assertIn("generalized_truth_isolation_audit", runner)
         self.assertIn("generalized_development_score", runner)

@@ -78,6 +78,22 @@ class CollisionObjectSpec:
             raise ValueError("collision object must declare a CollisionRule")
 
 
+def virtual_bin_blocker_for_development(
+    bin_center_m: Vector3,
+) -> CollisionObjectSpec:
+    """Return a virtual-only obstruction for ADR 0086 negative qualification."""
+
+    return CollisionObjectSpec(
+        object_id="development_virtual_blocked_bin",
+        boxes=(
+            BoxPrimitive(
+                center_m=(float(bin_center_m[0]), float(bin_center_m[1]), 0.50),
+                size_m=(0.70, 0.70, 1.00),
+            ),
+        ),
+    )
+
+
 BLENDER_V2_STATIC_COLLISION_OBJECTS = (
     CollisionObjectSpec(
         object_id="work_table",

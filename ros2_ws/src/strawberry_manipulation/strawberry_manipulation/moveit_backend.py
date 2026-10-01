@@ -27,10 +27,15 @@ from .motion_evidence import MotionEvidence, serialize_joint_feedback, serialize
 from .moveit_scene import (
     apply_fruit_collision_scene,
     apply_static_collision_scene,
+    build_static_collision_messages,
     build_fruit_removal_message,
     set_target_fruit_collision,
 )
-from .scene_geometry import FRUIT_COLLISION_RADIUS_M, STATIC_COLLISION_OBJECTS
+from .scene_geometry import (
+    FRUIT_COLLISION_RADIUS_M,
+    STATIC_COLLISION_OBJECTS,
+    virtual_bin_blocker_for_development,
+)
 from .whole_chain import (
     ChainEvaluation,
     StageAssessment,
@@ -240,6 +245,7 @@ class MoveItBackend:
         evidence_sink: Callable | None = None,
         evidence_run_id: str | None = None,
         evidence_scenario_id: str | None = None,
+        whole_chain_virtual_bin_blocker_enabled: bool = False,
     ) -> None:
         try:
             from control_msgs.action import (
@@ -533,6 +539,11 @@ class MoveItBackend:
         self.safe_transit_corridor_y_m = float(safe_transit_corridor_y_m)
         self.fruit_collision_radius_m = float(fruit_collision_radius_m)
         self.static_collision_objects = tuple(static_collision_objects)
+        # Development-only test seam: this object is applied solely to copied
+        # ADR 0086 PlanningScenes, never to live MoveIt or Gazebo.
+        self.whole_chain_virtual_bin_blocker_enabled = bool(
+            whole_chain_virtual_bin_blocker_enabled
+        )
         static_collision_ids = [
             specification.object_id for specification in self.static_collision_objects
         ]
@@ -1144,6 +1155,10 @@ class MoveItBackend:
             self.node.get_logger().error(
                 "target collision restoration requested without a matching lifecycle"
             )
+            self._emit_motion_evidence(
+                "TARGET_COLLISION_RESTORE_FAILED",
+                {"target_id": int(target_id), "reason": "lifecycle_mismatch"},
+            )
             return False
         try:
             try:
@@ -1180,6 +1195,10 @@ class MoveItBackend:
             self.node.get_logger().error(
                 f"failed to restore target fruit collision object: {exc}"
             )
+            self._emit_motion_evidence(
+                "TARGET_COLLISION_RESTORE_FAILED",
+                {"target_id": int(target_id), "reason": str(exc)},
+            )
             return False
         self._prepared_target_id = None
         self._prepared_entity_id = None
@@ -1187,6 +1206,14 @@ class MoveItBackend:
         self._prepared_scene_centers_m = None
         self.node.get_logger().info(
             f"MoveIt target obstacle {object_id} restored from the live scene"
+        )
+        self._emit_motion_evidence(
+            "TARGET_COLLISION_RESTORED",
+            {
+                "target_id": int(target_id),
+                "object_id": object_id,
+                "restored": True,
+            },
         )
         return True
 
@@ -4304,6 +4331,15 @@ class _MoveItWholeChainAdapter:
         for route_name in self.backend._guarded_place_route_names():
             for bin_candidate in self.backend._bounded_place_orientation_candidates(request.bin_pose):
                 branch = self._copy_state(state)
+                if self.backend.whole_chain_virtual_bin_blocker_enabled:
+                    blocker = virtual_bin_blocker_for_development(
+                        (bin_candidate.x, bin_candidate.y, bin_candidate.z)
+                    )
+                    branch.scene.apply_collision_object(
+                        build_static_collision_messages(
+                            self.backend.base_frame, (blocker,)
+                        )[0]
+                    )
                 waypoints = self.backend._guarded_place_waypoints(
                     branch.pose, bin_candidate, route_name=route_name,
                     carried_center_in_hand_m=local_center,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import hmac
 import json
 import math
 
@@ -48,6 +49,36 @@ class GraspCandidate:
     tilt_x_rad: float
     tilt_y_rad: float
     geometry_fingerprint: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.candidate_id, str) or not self.candidate_id:
+            raise ValueError("candidate ID must be a non-empty string")
+        if not isinstance(self.geometry_fingerprint, str) or not self.geometry_fingerprint:
+            raise ValueError("candidate geometry fingerprint must be non-empty")
+        if not math.isfinite(self.tilt_x_rad) or not math.isfinite(self.tilt_y_rad):
+            raise ValueError("candidate tilt values must be finite")
+        for label, pose in (
+            ("grasp", self.grasp_pose),
+            ("pregrasp", self.pregrasp_pose),
+            ("escape", self.escape_pose),
+        ):
+            if not isinstance(pose, Pose):
+                raise ValueError(f"{label} pose must be a Pose")
+            if not all(
+                math.isfinite(value)
+                for value in (pose.x, pose.y, pose.z, pose.qx, pose.qy, pose.qz, pose.qw)
+            ):
+                raise ValueError(f"{label} pose must be finite")
+        expected = _fingerprint(
+            self.candidate_id,
+            self.grasp_pose,
+            self.pregrasp_pose,
+            self.escape_pose,
+            self.tilt_x_rad,
+            self.tilt_y_rad,
+        )
+        if not hmac.compare_digest(self.geometry_fingerprint, expected):
+            raise ValueError("candidate geometry fingerprint does not match geometry")
 
 
 def _quaternion_multiply(

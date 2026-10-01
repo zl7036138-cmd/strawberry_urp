@@ -1,3 +1,4 @@
+from dataclasses import replace
 import math
 from pathlib import Path
 import sys
@@ -80,6 +81,11 @@ class GraspCandidateTests(unittest.TestCase):
             generate_grasp_candidates(Pose(float("nan"), 0.0, 0.0))
         with self.assertRaisesRegex(ValueError, "offsets"):
             generate_grasp_candidates(self.target, escape_offset_m=0.0)
+
+    def test_candidate_fingerprint_cannot_be_reused_for_changed_geometry(self):
+        candidate = generate_grasp_candidates(self.target)[2]
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            replace(candidate, tilt_x_rad=candidate.tilt_x_rad + 0.01)
 
 
 if __name__ == "__main__":

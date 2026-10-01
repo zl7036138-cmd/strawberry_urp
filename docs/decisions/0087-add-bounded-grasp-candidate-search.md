@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted for staged implementation.  Stages A (pure candidate geometry) and B
-(bounded first-feasible search) are implemented and covered by pure tests.
-Certificate/execution identity binding and runtime qualification remain open.
+Accepted for staged implementation. Stages A (pure candidate geometry), B
+(bounded first-feasible search), and C (certificate-to-execution identity
+binding) are implemented and covered by pure/executor-contract tests. Runtime
+plan-only qualification and a real non-nominal execution remain open.
 
 ## Context
 
@@ -22,18 +23,29 @@ for autonomous selection.
   (local Z/yaw), random sampling, scoring, or learned grasp generation.
 - Every `GraspCandidate` is immutable and owns its `grasp_pose`,
   `pregrasp_pose`, `escape_pose`, tilt values, stable ID, and geometry
-  fingerprint.  Pregrasp and escape both follow that candidate's own local
-  tool Z axis.
-- A later coordinator will evaluate candidates in order through ADR 0086 and
+  fingerprint. The fingerprint is verified against all candidate geometry at
+  construction time. Pregrasp and escape both follow that candidate's own
+  local tool Z axis.
 - The pure search coordinator evaluates candidates in order through ADR 0086
   and selects the first feasible candidate.  It retains one immutable trace
   row per evaluated candidate, including ID, geometry fingerprint, original
   ADR 0086 result and allocated per-candidate budget.
 - The coordinator enforces both candidate-set total budget and per-candidate
   budget without changing ADR 0086's per-candidate safety semantics.
-- A later execution binding must require certificate identity to equal
-  execution identity: the certified candidate geometry is the only geometry
-  eligible for execution.
+- `AuthorizedGraspPlan` binds a positive target ID, the selected immutable
+  candidate, a feasible ADR 0086 result, scene signature, certificate time,
+  and a self-verifying certificate fingerprint.
+- `PickAndPlaceExecutor.execute_authorized()` requires a complete
+  `ExecutionIdentity` (target ID, candidate ID, geometry fingerprint, and
+  scene signature) equal to that certificate. Missing or mismatched evidence
+  fails before `prepare_pick`, planner, gripper, or attachment calls.
+- An authorized execution uses the certificate's exact `pregrasp_pose`,
+  `grasp_pose`, and `escape_pose`. It forbids target-pose refinement and all
+  historical reorientation, centering, or alternate-grasp retries that could
+  change certified geometry.
+- The existing nominal `execute()` path remains temporarily for the public
+  action server. It is not the ADR 0087 path; stage D must connect runtime
+  candidate search and scene-signature capture to `execute_authorized()`.
 
 ## Non-goals
 
@@ -50,6 +62,12 @@ early exit, first-later-feasible selection, full rejection traces, bounded
 total/per-candidate budget behavior, invalid-set fail-closed behavior, and
 unmodified candidate geometry entering the ADR 0086 request adapter.
 
-Future stages must prove certificate/execution identity equality, plan-only
-runtime enumeration, and a runtime case where nominal fails but a non-nominal
-candidate completes the certified execution chain.
+Stage C tests prove that a feasible certificate creates execution authority,
+that candidate/geometry/scene/target mismatches and missing authority cause
+zero backend commands, that certificate tampering is rejected, and that the
+executor sends the exact certified pregrasp/grasp/escape geometry without
+falling back to nominal or alternate geometry.
+
+Future stages must prove plan-only runtime enumeration and a runtime case where
+nominal fails but a non-nominal candidate completes the certified execution
+chain.

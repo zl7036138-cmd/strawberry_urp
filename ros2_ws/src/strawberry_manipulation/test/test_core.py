@@ -22,6 +22,11 @@ from strawberry_manipulation.core import (  # noqa: E402
     pregrasp_pose_for_fruit_center,
     rotate_about_base_z,
 )
+from strawberry_manipulation.grasp_authorization import (  # noqa: E402
+    ExecutionIdentity,
+    authorize_grasp_candidate,
+)
+from strawberry_manipulation.grasp_candidates import generate_grasp_candidates  # noqa: E402
 from strawberry_manipulation.whole_chain import (  # noqa: E402
     ChainEvaluation,
     ChainFailureCode,
@@ -140,6 +145,32 @@ class PickAndPlaceTests(unittest.TestCase):
     def setUp(self):
         self.target = Pose(0.4, 0.1, 0.5)
         self.bin = Pose(0.3, -0.4, 0.4)
+
+    def _authorized_plan(
+        self, candidate_index=4, *, target_id=8, scene_signature="scene-a"
+    ):
+        candidate = generate_grasp_candidates(self.target)[candidate_index]
+        return authorize_grasp_candidate(
+            candidate,
+            ChainEvaluation(
+                ChainFailureCode.FEASIBLE,
+                0.25,
+                1.5,
+                (
+                    "PREGRASP",
+                    "APPROACH",
+                    "GRASP_STATE",
+                    "VIRTUAL_ATTACH",
+                    "ESCAPE",
+                    "TRANSPORT",
+                    "BIN_APPROACH",
+                ),
+                "certified in copied planning scene",
+            ),
+            target_id=target_id,
+            scene_signature=scene_signature,
+            certificate_timestamp_ns=42,
+        )
 
     def test_successful_sequence(self):
         backend = FakeBackend()
@@ -779,6 +810,108 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertAlmostEqual(place_pose.z, self.bin.z + 0.1054, places=6)
         self.assertAlmostEqual(place_pose.qx, 1.0, places=6)
         self.assertAlmostEqual(place_pose.qw, 0.0, places=6)
+
+    def test_authorized_execution_uses_exact_certified_candidate_geometry(self):
+        backend = FakeBackend()
+        legacy_authorizer_calls = []
+
+        def legacy_authorizer(*args):
+            legacy_authorizer_calls.append(args)
+            return ChainEvaluation(ChainFailureCode.SCENE_INVALID, 0.0, 0.0)
+
+        plan = self._authorized_plan(candidate_index=4)
+        result = PickAndPlaceExecutor(
+            backend, whole_chain_authorizer=legacy_authorizer
+        ).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(legacy_authorizer_calls, [])
+        self.assertIn("AUTHORIZED_G04", result.stages)
+        moved = dict(backend.poses)
+        self.assertEqual(moved["APPROACH"], plan.candidate.pregrasp_pose)
+        self.assertEqual(moved["GRASP_POSE"], plan.candidate.grasp_pose)
+        self.assertEqual(moved["RETREAT"], plan.candidate.escape_pose)
+
+    def test_authorized_execution_identity_mismatch_denies_before_backend_command(self):
+        plan = self._authorized_plan(candidate_index=2)
+        mismatches = (
+            ExecutionIdentity(
+                8, "G03", plan.candidate.geometry_fingerprint, "scene-a"
+            ),
+            ExecutionIdentity(8, "G02", "different", "scene-a"),
+            ExecutionIdentity(
+                8, "G02", plan.candidate.geometry_fingerprint, "scene-b"
+            ),
+            ExecutionIdentity(
+                9, "G02", plan.candidate.geometry_fingerprint, "scene-a"
+            ),
+        )
+        for identity in mismatches:
+            with self.subTest(identity=identity):
+                backend = FakeBackend()
+                result = PickAndPlaceExecutor(backend).execute_authorized(
+                    8,
+                    self.target,
+                    self.bin,
+                    plan,
+                    execution_identity=identity,
+                )
+                self.assertFalse(result.success)
+                self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+                self.assertEqual(result.stages, ("AUTHORIZED_GRASP_DENIED",))
+                self.assertEqual(result.payload_state, PayloadState.EMPTY)
+                self.assertEqual(backend.calls, [])
+
+    def test_authorized_execution_without_certificate_fails_closed(self):
+        backend = FakeBackend()
+        result = PickAndPlaceExecutor(backend).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            None,
+            execution_identity=None,
+        )
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertEqual(result.stages, ("AUTHORIZED_GRASP_DENIED",))
+        self.assertEqual(result.payload_state, PayloadState.EMPTY)
+        self.assertEqual(backend.calls, [])
+
+    def test_authorized_grasp_failure_does_not_try_uncertified_geometry(self):
+        plan = self._authorized_plan(candidate_index=4)
+        backend = FakeBackend(
+            outcomes=[
+                MotionOutcome(True, 0.1, 0.2),
+                MotionOutcome(False, 0.1, 0.0, collision=True),
+                MotionOutcome(True, 0.1, 0.2),
+            ]
+        )
+        result = PickAndPlaceExecutor(backend).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.COLLISION)
+        self.assertIn("alternate geometry is forbidden", result.message)
+        self.assertFalse(
+            any(
+                call.startswith(("GRASP_RETRY", "CONTACT_CENTERING", "CONTACT_RETRY"))
+                for call in backend.calls
+            )
+        )
+        moved = dict(backend.poses)
+        self.assertEqual(moved["APPROACH"], plan.candidate.pregrasp_pose)
+        self.assertEqual(moved["GRASP_POSE"], plan.candidate.grasp_pose)
 
     def test_whole_chain_rejection_happens_before_any_gripper_or_motion_command(self):
         backend = FakeBackend()

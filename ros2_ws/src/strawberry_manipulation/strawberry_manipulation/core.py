@@ -14,6 +14,8 @@ from .collision_policy import (
 from .payload_lifecycle import PayloadState
 
 if TYPE_CHECKING:
+    from .grasp_authorization import AuthorizedGraspPlan, ExecutionIdentity
+    from .grasp_candidates import GraspCandidate
     from .whole_chain import ChainEvaluation
 
 
@@ -343,6 +345,9 @@ class PickAndPlaceExecutor:
         target_pose: Pose,
         place_pose: Pose,
         feedback: Callable[[str, float], None] | None = None,
+        *,
+        authorized_plan: "AuthorizedGraspPlan | None" = None,
+        execution_identity: "ExecutionIdentity | None" = None,
     ) -> ExecutionResult:
         if self._retained_payload_target_id is not None:
             return ExecutionResult(
@@ -370,6 +375,33 @@ class PickAndPlaceExecutor:
                 RecoveryDisposition.HOME_REQUIRED,
             )
 
+        authorized_candidate = None
+        if authorized_plan is not None or execution_identity is not None:
+            # Import locally to keep the legacy core module independent from
+            # the optional ADR 0087 layer at import time.
+            from .grasp_authorization import (
+                ExecutionAuthorizationError,
+                require_execution_identity,
+            )
+
+            try:
+                authorized_candidate = require_execution_identity(
+                    authorized_plan,
+                    execution_identity,
+                    target_id=target_id,
+                ).candidate
+            except (AttributeError, ExecutionAuthorizationError, ValueError) as exc:
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    f"authorized grasp execution denied: {exc}",
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+
         if not self.backend.prepare_pick(target_id, target_pose):
             return ExecutionResult(
                 False,
@@ -386,7 +418,7 @@ class PickAndPlaceExecutor:
         # must remain an EMPTY payload, even though its nominal grasp is IK
         # reachable.  The callback owns a temporary read-only PlanningScene;
         # it cannot attach, command, or mutate this executor's lifecycle.
-        if self.whole_chain_authorizer is not None:
+        if authorized_candidate is None and self.whole_chain_authorizer is not None:
             if feedback is not None:
                 feedback("WHOLE_CHAIN_EVALUATION", 0.05)
             try:
@@ -428,6 +460,8 @@ class PickAndPlaceExecutor:
                 )
             if feedback is not None:
                 feedback("AUTHORIZE_PICK", 0.08)
+        elif authorized_candidate is not None and feedback is not None:
+            feedback(f"AUTHORIZE_PICK_{authorized_candidate.candidate_id}", 0.08)
 
         restore_succeeded = False
         result: ExecutionResult | None = None
@@ -437,6 +471,7 @@ class PickAndPlaceExecutor:
                 target_pose,
                 place_pose,
                 feedback,
+                authorized_candidate=authorized_candidate,
             )
         finally:
             # A held fruit must stay attached to both the physical simulator and
@@ -478,12 +513,53 @@ class PickAndPlaceExecutor:
             recovery_disposition=RecoveryDisposition.MOTION_WITHHELD,
         )
 
+    def execute_authorized(
+        self,
+        target_id: int,
+        target_pose: Pose,
+        place_pose: Pose,
+        authorized_plan: "AuthorizedGraspPlan | None",
+        *,
+        execution_identity: "ExecutionIdentity | None",
+        feedback: Callable[[str, float], None] | None = None,
+    ) -> ExecutionResult:
+        """Execute only geometry frozen in a feasible ADR 0087 certificate."""
+
+        # This entry point deliberately has no legacy fallback.  The older
+        # ``execute`` API remains available to the existing nominal action
+        # server until ADR 0087-D wires its candidate-search pipeline, but a
+        # caller opting into certificate execution must fail closed instead of
+        # silently dropping back to regenerated nominal geometry.
+        if authorized_plan is None or execution_identity is None:
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "authorized grasp execution denied: execution requires an "
+                "authorized grasp plan and complete identity",
+                0.0,
+                0.0,
+                ("AUTHORIZED_GRASP_DENIED",),
+                RecoveryDisposition.HOME_REQUIRED,
+                PayloadState.EMPTY,
+            )
+
+        return self.execute(
+            target_id,
+            target_pose,
+            place_pose,
+            feedback,
+            authorized_plan=authorized_plan,
+            execution_identity=execution_identity,
+        )
+
     def _execute_prepared(
         self,
         target_id: int,
         target_pose: Pose,
         place_pose: Pose,
         feedback: Callable[[str, float], None] | None = None,
+        *,
+        authorized_candidate: "GraspCandidate | None" = None,
     ) -> ExecutionResult:
         stages: list[str] = []
         planning_time = 0.0
@@ -592,15 +668,22 @@ class PickAndPlaceExecutor:
         mark("PLAN", 0.10)
         # The goal pose denotes the fruit centre. Convert it to the Panda hand
         # origin, then approach along the hand's local tool axis.
-        primary_grasp_pose = self._hand_pose_for_fruit_center(
-            target_pose, self.grasp_quaternion
-        )
-        pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
-            target_pose,
-            quaternion=self.grasp_quaternion,
-            tool_center_offset_m=self.tool_center_offset_m,
-            pregrasp_offset_m=self.pregrasp_offset_m,
-        )
+        if authorized_candidate is None:
+            primary_grasp_pose = self._hand_pose_for_fruit_center(
+                target_pose, self.grasp_quaternion
+            )
+            pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
+                target_pose,
+                quaternion=self.grasp_quaternion,
+                tool_center_offset_m=self.tool_center_offset_m,
+                pregrasp_offset_m=self.pregrasp_offset_m,
+            )
+        else:
+            # The certificate owns the complete geometry contract.  Do not
+            # regenerate it from nominal orientation or try alternate poses.
+            primary_grasp_pose = authorized_candidate.grasp_pose
+            pregrasp_candidates = (authorized_candidate.pregrasp_pose,)
+            stages.append(f"AUTHORIZED_{authorized_candidate.candidate_id}")
         pregrasp = None
         grasp_pose = None
         last_approach = None
@@ -617,9 +700,13 @@ class PickAndPlaceExecutor:
             last_approach = approach
             if approach.success:
                 pregrasp = candidate
-                grasp_pose = rotate_about_base_z(
-                    primary_grasp_pose,
-                    orientation_index * math.pi / 2.0,
+                grasp_pose = (
+                    primary_grasp_pose
+                    if authorized_candidate is not None
+                    else rotate_about_base_z(
+                        primary_grasp_pose,
+                        orientation_index * math.pi / 2.0,
+                    )
                 )
                 selected_orientation_index = orientation_index
                 break
@@ -640,6 +727,11 @@ class PickAndPlaceExecutor:
             )
 
         mark("APPROACH", 0.25)
+        if self.target_pose_refiner is not None and authorized_candidate is not None:
+            return fail(
+                FailureCode.STALE_DATA,
+                "authorized grasp cannot be geometrically refined after certification",
+            )
         if self.target_pose_refiner is not None:
             try:
                 target_pose = self.target_pose_refiner(
@@ -675,7 +767,11 @@ class PickAndPlaceExecutor:
         grasp_motion = self.backend.move_to(grasp_pose, "GRASP_POSE")
         planning_time += grasp_motion.planning_time_sec
         execution_time += grasp_motion.execution_time_sec
-        if not grasp_motion.success and grasp_motion.collision:
+        if (
+            authorized_candidate is None
+            and not grasp_motion.success
+            and grasp_motion.collision
+        ):
             # A moving fruit can shift the final Cartesian descent onto a
             # low-elbow IK branch even though the reviewed pre-grasp remains
             # valid. Keep the same vertical tool axis and inspect the three
@@ -724,6 +820,12 @@ class PickAndPlaceExecutor:
                 if grasp_motion.collision
                 else FailureCode.PLANNING_FAILED
             )
+            if authorized_candidate is not None:
+                return fail(
+                    code,
+                    "failed to reach authorized grasp pose; alternate geometry "
+                    "is forbidden",
+                )
             return fail(
                 code,
                 "failed to reach grasp pose after three alternate orientations",
@@ -737,6 +839,11 @@ class PickAndPlaceExecutor:
         attachment_confirmed = (
             self.backend.attach(target_id) if gripper_closed else False
         )
+        if not attachment_confirmed and authorized_candidate is not None:
+            return fail(
+                FailureCode.GRASP_FAILED,
+                "authorized grasp attachment failed; alternate geometry is forbidden",
+            )
         if not attachment_confirmed:
             # A single-finger stall or strict dual-contact rejection can be
             # evidence of an off-centre grasp, but joint asymmetry alone also
@@ -858,7 +965,11 @@ class PickAndPlaceExecutor:
         # implicitly base-vertical displacement.  This remains compatible with
         # the current top-down grasp, while preserving the correct direction
         # if a later bounded candidate changes the hand orientation.
-        retreat = offset_along_local_z(grasp_pose, -self.retreat_distance_m)
+        retreat = (
+            authorized_candidate.escape_pose
+            if authorized_candidate is not None
+            else offset_along_local_z(grasp_pose, -self.retreat_distance_m)
+        )
         retreat_motion = self.backend.move_to(retreat, "RETREAT")
         planning_time += retreat_motion.planning_time_sec
         execution_time += retreat_motion.execution_time_sec

@@ -828,6 +828,7 @@ class PickAndPlaceTests(unittest.TestCase):
             self.bin,
             plan,
             execution_identity=plan.execution_identity,
+            scene_signature_provider=lambda: "scene-a",
         )
 
         self.assertTrue(result.success)
@@ -861,6 +862,7 @@ class PickAndPlaceTests(unittest.TestCase):
                     self.bin,
                     plan,
                     execution_identity=identity,
+                    scene_signature_provider=lambda: "scene-a",
                 )
                 self.assertFalse(result.success)
                 self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
@@ -876,6 +878,7 @@ class PickAndPlaceTests(unittest.TestCase):
             self.bin,
             None,
             execution_identity=None,
+            scene_signature_provider=lambda: "scene-a",
         )
         self.assertFalse(result.success)
         self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
@@ -898,6 +901,7 @@ class PickAndPlaceTests(unittest.TestCase):
             self.bin,
             plan,
             execution_identity=plan.execution_identity,
+            scene_signature_provider=lambda: "scene-a",
         )
 
         self.assertFalse(result.success)
@@ -912,6 +916,45 @@ class PickAndPlaceTests(unittest.TestCase):
         moved = dict(backend.poses)
         self.assertEqual(moved["APPROACH"], plan.candidate.pregrasp_pose)
         self.assertEqual(moved["GRASP_POSE"], plan.candidate.grasp_pose)
+
+    def test_authorized_execution_requires_matching_live_scene_after_prepare(self):
+        plan = self._authorized_plan(candidate_index=4)
+        backend = FakeBackend()
+
+        result = PickAndPlaceExecutor(backend).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+            scene_signature_provider=lambda: "scene-b",
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertEqual(result.stages, ("AUTHORIZED_GRASP_DENIED",))
+        self.assertEqual(result.payload_state, PayloadState.EMPTY)
+        self.assertEqual(backend.calls, ["prepare", "restore"])
+        self.assertEqual(backend.poses, [])
+
+    def test_authorized_execution_requires_live_scene_signature_provider(self):
+        plan = self._authorized_plan(candidate_index=4)
+        backend = FakeBackend()
+
+        result = PickAndPlaceExecutor(backend).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+            scene_signature_provider=None,
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.PLANNING_FAILED)
+        self.assertEqual(result.stages, ("AUTHORIZED_GRASP_DENIED",))
+        self.assertEqual(result.payload_state, PayloadState.EMPTY)
+        self.assertEqual(backend.calls, [])
 
     def test_whole_chain_rejection_happens_before_any_gripper_or_motion_command(self):
         backend = FakeBackend()

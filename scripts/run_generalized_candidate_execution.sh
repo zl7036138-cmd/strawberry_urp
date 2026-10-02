@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-# ADR 0087-D: call only the plan-only candidate service. This runner never
-# starts the selector/orchestrator and never sends PickAndPlace goals.
+# ADR 0087-E: run one controlled physical-parity simulation challenge.  The
+# selector/orchestrator stay disabled so this script is the only source of the
+# single PickAndPlace action.  It refuses an empty obstacle specification:
+# nominal G00 success is not evidence that adaptive candidate selection works.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${repo_root}/scripts/lib/process_group_cleanup.sh"
 source /opt/ros/jazzy/setup.bash
@@ -12,15 +14,18 @@ cd "${repo_root}"
 
 seed="${1:?seed is required}"
 scene_dir="${2:?scene directory is required}"
-run_tag="${3:-candidate_plan_only}"
+run_tag="${3:-adaptive_candidate_execution}"
 scene_stem="generalized_seed_$(printf '%06d' "${seed}")"
-run_dir="${STRAWBERRY_CANDIDATE_QUALIFICATION_OUTPUT_DIR:-.codex_tmp/generalized_candidate_qualification_seed_${seed}_${run_tag}}"
+run_dir="${STRAWBERRY_CANDIDATE_EXECUTION_OUTPUT_DIR:-.codex_tmp/generalized_candidate_execution_seed_${seed}_${run_tag}}"
 model_path="${STRAWBERRY_GENERALIZED_MODEL_PATH:-outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt}"
 base_camera_resolution="${STRAWBERRY_BASE_CAMERA_RESOLUTION:-320x240}"
-evidence_run_id="adr0087d_${seed}_${run_tag}"
-evidence_scenario_id="generalized_seed_${seed}"
 candidate_challenge_obstacle_spec="${STRAWBERRY_DEVELOPMENT_CANDIDATE_CHALLENGE_OBSTACLE_SPEC:-}"
-world_file="${STRAWBERRY_CANDIDATE_QUALIFICATION_WORLD_FILE:-${repo_root}/${scene_dir}/${scene_stem}.sdf}"
+world_file="${STRAWBERRY_CANDIDATE_EXECUTION_WORLD_FILE:-${repo_root}/${scene_dir}/${scene_stem}.sdf}"
+target_id="${STRAWBERRY_CANDIDATE_EXECUTION_TARGET_ID:-1}"
+evidence_run_id="adr0087e_${seed}_${run_tag}"
+evidence_scenario_id="generalized_seed_${seed}"
+git_commit="$(git rev-parse HEAD)"
+
 case "${base_camera_resolution}" in
   320x240|640x480) ;;
   *)
@@ -28,8 +33,16 @@ case "${base_camera_resolution}" in
     exit 2
     ;;
 esac
+if [[ -z "${candidate_challenge_obstacle_spec}" ]]; then
+  echo "ADR 0087-E requires STRAWBERRY_DEVELOPMENT_CANDIDATE_CHALLENGE_OBSTACLE_SPEC" >&2
+  exit 2
+fi
+if [[ ! -f "${world_file}" ]]; then
+  echo "ADR 0087-E world file does not exist: ${world_file}" >&2
+  exit 2
+fi
 mkdir -p "${run_dir}"
-for output in candidate_qualification_probe.json observability.json truth_isolation.json cleanup_probe.json; do
+for output in candidate_execution_probe.json observability.json truth_isolation.json cleanup_probe.json; do
   if [[ -e "${run_dir}/${output}" ]]; then
     echo "refusing to overwrite ${run_dir}/${output}" >&2
     exit 2
@@ -39,6 +52,7 @@ done
 setsid ros2 launch strawberry_bringup generalized_harvest.launch.py \
   headless:=true \
   harvest_control_enabled:=false \
+  adaptive_candidate_execution_enabled:=true \
   base_camera_resolution:="${base_camera_resolution}" \
   simulation_seed:="${seed}" \
   world_file:="${world_file}" \
@@ -77,7 +91,7 @@ trap stop_on_signal INT TERM
 ready=0
 for _ in {1..240}; do
   node_list="$(ros2 node list 2>/dev/null || true)"
-  qualification_type="$(ros2 service type /strawberry/qualify_grasp_candidates 2>/dev/null || true)"
+  action_type="$(ros2 action type /strawberry/pick_and_place 2>/dev/null || true)"
   if grep -qx "/strawberry_base_perception" <<<"${node_list}" && \
      grep -qx "/strawberry_wrist_perception" <<<"${node_list}" && \
      grep -qx "/strawberry_base_localization" <<<"${node_list}" && \
@@ -85,7 +99,7 @@ for _ in {1..240}; do
      grep -qx "/strawberry_pick_and_place" <<<"${node_list}" && \
      ! grep -qx "/strawberry_target_selector" <<<"${node_list}" && \
      ! grep -qx "/strawberry_harvest_orchestrator" <<<"${node_list}" && \
-     [[ "${qualification_type}" == "strawberry_interfaces/srv/QualifyGraspCandidates" ]]; then
+     [[ "${action_type}" == "strawberry_interfaces/action/PickAndPlace" ]]; then
     ready=1
     break
   fi
@@ -94,7 +108,7 @@ for _ in {1..240}; do
 done
 
 if [[ "${ready}" -ne 1 ]]; then
-  echo "generalized ADR 0087-D runtime did not become ready" >&2
+  echo "generalized ADR 0087-E runtime did not become ready" >&2
   exit 10
 fi
 
@@ -122,14 +136,18 @@ if [[ "${observability_status}" -ne 0 ]]; then
 fi
 
 probe_status=0
-ros2 run strawberry_bringup generalized_candidate_qualification_probe \
-  --output "${run_dir}/candidate_qualification_probe.json" \
+ros2 run strawberry_bringup generalized_candidate_execution_probe \
+  --output "${run_dir}/candidate_execution_probe.json" \
   --scene-config "${repo_root}/${scene_dir}/${scene_stem}.yaml" \
+  --world-file "${world_file}" \
+  --challenge-obstacle-spec "${candidate_challenge_obstacle_spec}" \
+  --git-commit "${git_commit}" \
   --evidence-run-id "${evidence_run_id}" \
-  --observation-window "${STRAWBERRY_CANDIDATE_QUALIFICATION_OBSERVATION_WINDOW_SEC:-15}" \
-  --startup-timeout "${STRAWBERRY_CANDIDATE_QUALIFICATION_STARTUP_TIMEOUT_SEC:-90}" \
-  --qualification-timeout "${STRAWBERRY_CANDIDATE_QUALIFICATION_TIMEOUT_SEC:-45}" \
-  --hard-timeout "${STRAWBERRY_CANDIDATE_QUALIFICATION_HARD_TIMEOUT_SEC:-180}" || probe_status=$?
+  --target-id "${target_id}" \
+  --observation-window "${STRAWBERRY_CANDIDATE_EXECUTION_OBSERVATION_WINDOW_SEC:-15}" \
+  --startup-timeout "${STRAWBERRY_CANDIDATE_EXECUTION_STARTUP_TIMEOUT_SEC:-90}" \
+  --action-timeout "${STRAWBERRY_CANDIDATE_EXECUTION_ACTION_TIMEOUT_SEC:-480}" \
+  --hard-timeout "${STRAWBERRY_CANDIDATE_EXECUTION_HARD_TIMEOUT_SEC:-600}" || probe_status=$?
 
 cleanup_status=0
 cleanup || cleanup_status=$?

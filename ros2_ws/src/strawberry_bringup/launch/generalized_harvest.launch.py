@@ -78,6 +78,12 @@ def generate_launch_description():
                 "candidate_search_total_budget_sec", default_value="12.0"
             ),
             DeclareLaunchArgument(
+                "adaptive_candidate_execution_enabled", default_value="false"
+            ),
+            DeclareLaunchArgument(
+                "development_candidate_challenge_obstacle_spec", default_value=""
+            ),
+            DeclareLaunchArgument(
                 "base_camera_mast_xyz", default_value="-0.35 0.45 0.05"
             ),
             DeclareLaunchArgument("base_camera_xyz", default_value="0 0 1.00"),
@@ -251,6 +257,14 @@ def generate_launch_description():
                         "candidate_search_total_budget_sec": ParameterValue(
                             LaunchConfiguration("candidate_search_total_budget_sec"),
                             value_type=float,
+                        ),
+                        "adaptive_candidate_execution_enabled": LaunchConfiguration(
+                            "adaptive_candidate_execution_enabled"
+                        ),
+                        "development_candidate_challenge_obstacle_spec": (
+                            LaunchConfiguration(
+                                "development_candidate_challenge_obstacle_spec"
+                            )
                         ),
                         "fruit_pose_source": "tracked",
                         "tracked_targets_topic": "/strawberry/tracked_targets",

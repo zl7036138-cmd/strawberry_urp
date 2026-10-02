@@ -16,6 +16,8 @@ from strawberry_manipulation.scene_geometry import (  # noqa: E402
     SpherePrimitive,
     STATIC_COLLISION_OBJECTS,
     TABLE_TOP_PADDING_M,
+    DEVELOPMENT_CANDIDATE_CHALLENGE_OBJECT_ID,
+    development_candidate_challenge_obstacle_from_spec,
     fruit_collision_id,
     static_collision_objects,
     virtual_bin_blocker_for_development,
@@ -71,6 +73,24 @@ class SceneGeometryTests(unittest.TestCase):
         self.assertEqual(len(blocker.boxes), 1)
         self.assertEqual(blocker.boxes[0].center_m, (0.35, -0.45, 0.50))
         self.assertEqual(blocker.boxes[0].size_m, (0.70, 0.70, 1.00))
+
+    def test_development_candidate_challenge_obstacle_is_explicit_and_strict(self):
+        obstacle = development_candidate_challenge_obstacle_from_spec(
+            "0.348, 0.153 0.730 0.025 0.025 0.050"
+        )
+        self.assertIsNotNone(obstacle)
+        self.assertEqual(
+            obstacle.object_id, DEVELOPMENT_CANDIDATE_CHALLENGE_OBJECT_ID
+        )
+        self.assertEqual(obstacle.boxes[0].center_m, (0.348, 0.153, 0.730))
+        self.assertEqual(obstacle.boxes[0].size_m, (0.025, 0.025, 0.050))
+        self.assertIsNone(development_candidate_challenge_obstacle_from_spec(""))
+        with self.assertRaisesRegex(ValueError, "six"):
+            development_candidate_challenge_obstacle_from_spec("0 0 0")
+        with self.assertRaisesRegex(ValueError, "finite"):
+            development_candidate_challenge_obstacle_from_spec(
+                "nan 0 0 1 1 1"
+            )
 
     def test_randomized_plant_crowns_follow_every_scene_plant(self):
         objects = static_collision_objects(

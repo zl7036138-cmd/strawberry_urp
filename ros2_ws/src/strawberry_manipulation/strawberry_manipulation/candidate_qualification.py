@@ -108,6 +108,7 @@ class PlanOnlyCandidateQualifier:
         default=time.monotonic_ns, repr=False
     )
     event_sink: EventSink | None = field(default=None, repr=False)
+    qualification_mode: str = "PLAN_ONLY"
 
     def __post_init__(self) -> None:
         for value, label in (
@@ -116,6 +117,8 @@ class PlanOnlyCandidateQualifier:
         ):
             if not math.isfinite(value) or value <= 0.0:
                 raise ValueError(f"{label} must be finite and positive")
+        if not isinstance(self.qualification_mode, str) or not self.qualification_mode:
+            raise ValueError("qualification mode must be a non-empty string")
 
     def _emit(self, event_type: str, payload: Mapping[str, object]) -> None:
         if self.event_sink is not None:
@@ -172,7 +175,10 @@ class PlanOnlyCandidateQualifier:
 
         start_payload = {
             "target_id": target_id,
-            "mode": "PLAN_ONLY",
+            # The coordinator itself is always non-motion.  A runtime caller
+            # may nevertheless label this qualification as a pre-execution
+            # boundary so the evidence cannot be misread as a plan-only run.
+            "mode": self.qualification_mode,
             "live_payload_state": payload_state,
             "candidate_count": len(candidates),
             "candidate_ids": [candidate.candidate_id for candidate in candidates],
@@ -339,7 +345,7 @@ class PlanOnlyCandidateQualifier:
                 "target_id": target_id,
                 "status": result.status.value,
                 "feasible": result.feasible,
-                "mode": "PLAN_ONLY",
+                "mode": self.qualification_mode,
                 "live_payload_state": payload_state,
                 "scene_signature_before": result.scene_signature_before,
                 "scene_signature_after": result.scene_signature_after,

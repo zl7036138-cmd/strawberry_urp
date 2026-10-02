@@ -177,6 +177,13 @@ class CandidateQualificationProbeTests(unittest.TestCase):
         self.assertIn("harvest_control_enabled:=false", runner)
         self.assertIn("generalized_candidate_qualification_probe", runner)
         self.assertIn("generalized_truth_isolation_audit", runner)
+        self.assertIn(
+            "STRAWBERRY_DEVELOPMENT_CANDIDATE_CHALLENGE_OBSTACLE_SPEC", runner
+        )
+        self.assertIn(
+            "development_candidate_challenge_obstacle_spec", runner
+        )
+        self.assertIn("STRAWBERRY_CANDIDATE_QUALIFICATION_WORLD_FILE", runner)
         self.assertNotIn("/strawberry/run_harvest", runner)
 
 

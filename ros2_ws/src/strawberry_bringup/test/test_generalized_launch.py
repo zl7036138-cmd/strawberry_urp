@@ -43,6 +43,33 @@ class GeneralizedLaunchContractTests(unittest.TestCase):
         self.assertIn("PlanOnlyCandidateQualifier", manipulation)
         self.assertIn("execution_dispatched", manipulation)
 
+    def test_development_candidate_challenge_obstacle_defaults_off(self):
+        self.assertIn(
+            '"development_candidate_challenge_obstacle_spec", default_value=""',
+            self.source,
+        )
+        self.assertIn(
+            '"development_candidate_challenge_obstacle_spec": (', self.source
+        )
+
+    def test_adaptive_candidate_execution_defaults_off(self):
+        self.assertIn(
+            '"adaptive_candidate_execution_enabled", default_value="false"',
+            self.source,
+        )
+        self.assertIn(
+            '"adaptive_candidate_execution_enabled": LaunchConfiguration(',
+            self.source,
+        )
+        manipulation = (
+            ROOT.parent
+            / "strawberry_manipulation"
+            / "strawberry_manipulation"
+            / "action_server.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"adaptive_candidate_execution_enabled", False', manipulation)
+        self.assertIn("RuntimeCandidateExecutionCoordinator", manipulation)
+
     def test_dual_camera_topics_are_distinct(self):
         self.assertIn('"camera_mount": "dual"', self.source)
         self.assertIn('"/camera/base/color/image_raw"', self.source)

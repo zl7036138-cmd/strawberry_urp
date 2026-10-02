@@ -11,13 +11,17 @@ import threading
 import time
 
 from .core import (
+    ExecutionResult,
+    FailureCode,
     PickAndPlaceExecutor,
     Pose,
+    RecoveryDisposition,
     bounded_pregrasp_candidates_for_fruit_center,
     hand_pose_for_fruit_center,
     offset_along_local_z,
     rotate_about_base_z,
 )
+from .candidate_execution import RuntimeCandidateExecutionCoordinator
 from .candidate_qualification import PlanOnlyCandidateQualifier
 from .grasp_candidates import generate_grasp_candidates
 from .grasp_geometry import load_grasp_geometry
@@ -88,7 +92,10 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
 
     from .moveit_backend import MoveItBackend
     from .moveit_config import build_moveit_config
-    from .scene_geometry import static_collision_objects
+    from .scene_geometry import (
+        development_candidate_challenge_obstacle_from_spec,
+        static_collision_objects,
+    )
 
     class PickAndPlaceServer(Node):
         def __init__(self) -> None:
@@ -239,7 +246,13 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("whole_chain_evaluation_timeout_sec", 8.0)
             self.declare_parameter("candidate_search_per_candidate_budget_sec", 2.0)
             self.declare_parameter("candidate_search_total_budget_sec", 12.0)
+            # ADR 0087-E is deliberately opt-in until its controlled runtime
+            # challenge proves the complete physical candidate-selection path.
+            self.declare_parameter("adaptive_candidate_execution_enabled", False)
             self.declare_parameter("whole_chain_virtual_bin_blocker_enabled", False)
+            self.declare_parameter(
+                "development_candidate_challenge_obstacle_spec", ""
+            )
             self.declare_parameter("bin_stability_sec", 1.0)
             self.declare_parameter(
                 "tool_center_offset_m",
@@ -349,6 +362,26 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self.get_logger().info(
                     f"Near-grasp visual refinement enabled on {target_refinement_topic}"
                 )
+            scene_collision_objects = static_collision_objects(
+                scene.static_collision_profile,
+                plant_positions_m=tuple(plant.position_m for plant in scene.plants),
+            )
+            challenge_obstacle = development_candidate_challenge_obstacle_from_spec(
+                str(
+                    self.get_parameter(
+                        "development_candidate_challenge_obstacle_spec"
+                    ).value
+                )
+            )
+            if challenge_obstacle is not None:
+                scene_collision_objects = scene_collision_objects + (
+                    challenge_obstacle,
+                )
+                self.get_logger().warning(
+                    "ADR 0087-E development challenge obstacle enabled: "
+                    f"{challenge_obstacle.boxes[0]}"
+                )
+
             backend = MoveItBackend(
                 self,
                 evidence_sink=publish_motion_evidence,
@@ -499,12 +532,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     fruit_obstacles if fruit_pose_source == "ground_truth" else {}
                 ),
                 fruit_collision_radius_m=scene.fruit_collision_radius_m,
-                static_collision_objects=static_collision_objects(
-                    scene.static_collision_profile,
-                    plant_positions_m=tuple(
-                        plant.position_m for plant in scene.plants
-                    ),
-                ),
+                static_collision_objects=scene_collision_objects,
                 fruit_pose_provider=(
                     self._fruit_pose_snapshot
                     if fruit_pose_source == "ground_truth"
@@ -780,6 +808,82 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 },
             )
             return evaluation
+
+        def _execute_adaptive_candidate_plan(
+            self,
+            target_id: int,
+            target_pose: Pose,
+            place_pose: Pose,
+            feedback,
+        ) -> ExecutionResult:
+            """Run ADR 0087-E instead of regenerating and executing G00.
+
+            This path is isolated behind an opt-in parameter.  It searches the
+            frozen candidate set in a copied scene, restores the temporary
+            target lifecycle, then forwards only the exact fresh certificate
+            to the executor.  The executor repeats preparation and verifies
+            the live fingerprint before it can issue a command.
+            """
+
+            try:
+                target = target_pose.normalized()
+                place = place_pose.normalized()
+                executor = self._executor_core
+                candidates = generate_grasp_candidates(
+                    target,
+                    nominal_quaternion=executor.grasp_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                    pregrasp_offset_m=executor.pregrasp_offset_m,
+                    escape_offset_m=executor.retreat_distance_m,
+                )
+                bin_hand_pose = hand_pose_for_fruit_center(
+                    place,
+                    quaternion=executor.place_quaternion,
+                    tool_center_offset_m=executor.tool_center_offset_m,
+                )
+                coordinator = RuntimeCandidateExecutionCoordinator(
+                    executor=executor,
+                    backend=self._backend,
+                    evaluator=_RuntimeWholeChainCandidateEvaluator(
+                        self._backend, target_id, target, bin_hand_pose
+                    ),
+                    per_candidate_budget_sec=float(
+                        self.get_parameter(
+                            "candidate_search_per_candidate_budget_sec"
+                        ).value
+                    ),
+                    total_budget_sec=float(
+                        self.get_parameter(
+                            "candidate_search_total_budget_sec"
+                        ).value
+                    ),
+                    event_sink=self._backend.record_whole_chain_evaluation,
+                )
+                return coordinator.execute(
+                    target_id=target_id,
+                    target_pose=target,
+                    place_pose=place,
+                    candidates=candidates,
+                    feedback=feedback,
+                )
+            except Exception as exc:
+                self._backend.record_whole_chain_evaluation(
+                    "ADAPTIVE_CANDIDATE_EXECUTION_ERROR",
+                    {
+                        "target_id": target_id,
+                        "reason": str(exc),
+                        "execution_dispatched": False,
+                    },
+                )
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    f"adaptive candidate execution setup failed: {exc}",
+                    0.0,
+                    0.0,
+                    ("CANDIDATE_EXECUTION_SETUP_FAILED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                )
 
         @staticmethod
         def _initialize_candidate_qualification_response(response) -> None:
@@ -1303,12 +1407,24 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     message.progress = progress
                     goal_handle.publish_feedback(message)
 
-                outcome = self._executor_core.execute(
-                    int(goal_handle.request.target_id),
-                    _to_pose(goal_handle.request.target_pose.pose),
-                    _to_pose(goal_handle.request.place_pose.pose),
-                    feedback,
-                )
+                target_id = int(goal_handle.request.target_id)
+                target_pose = _to_pose(goal_handle.request.target_pose.pose)
+                place_pose = _to_pose(goal_handle.request.place_pose.pose)
+                if bool(
+                    self.get_parameter(
+                        "adaptive_candidate_execution_enabled"
+                    ).value
+                ):
+                    outcome = self._execute_adaptive_candidate_plan(
+                        target_id, target_pose, place_pose, feedback
+                    )
+                else:
+                    outcome = self._executor_core.execute(
+                        target_id,
+                        target_pose,
+                        place_pose,
+                        feedback,
+                    )
                 result = PickAndPlace.Result()
                 result.success = outcome.success
                 result.failure_code = int(outcome.failure_code)

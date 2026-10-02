@@ -348,6 +348,7 @@ class PickAndPlaceExecutor:
         *,
         authorized_plan: "AuthorizedGraspPlan | None" = None,
         execution_identity: "ExecutionIdentity | None" = None,
+        scene_signature_provider: Callable[[], str] | None = None,
     ) -> ExecutionResult:
         if self._retained_payload_target_id is not None:
             return ExecutionResult(
@@ -376,6 +377,7 @@ class PickAndPlaceExecutor:
             )
 
         authorized_candidate = None
+        authorized_scene_signature = None
         if authorized_plan is not None or execution_identity is not None:
             # Import locally to keep the legacy core module independent from
             # the optional ADR 0087 layer at import time.
@@ -385,16 +387,30 @@ class PickAndPlaceExecutor:
             )
 
             try:
-                authorized_candidate = require_execution_identity(
+                authorized = require_execution_identity(
                     authorized_plan,
                     execution_identity,
                     target_id=target_id,
-                ).candidate
+                )
+                authorized_candidate = authorized.candidate
+                authorized_scene_signature = authorized.scene_signature
             except (AttributeError, ExecutionAuthorizationError, ValueError) as exc:
                 return ExecutionResult(
                     False,
                     FailureCode.PLANNING_FAILED,
                     f"authorized grasp execution denied: {exc}",
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+            if scene_signature_provider is None:
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "authorized grasp execution denied: a live planning-scene "
+                    "signature provider is required",
                     0.0,
                     0.0,
                     ("AUTHORIZED_GRASP_DENIED",),
@@ -412,6 +428,57 @@ class PickAndPlaceExecutor:
                 (),
                 RecoveryDisposition.HOME_REQUIRED,
             )
+
+        # ADR 0087-C/E identity boundary.  The candidate certificate was
+        # created against a particular collision scene with the selected
+        # target still solid.  ``prepare_pick`` reconstructs exactly that
+        # lifecycle immediately before any gripper or arm command.  If the
+        # scene no longer hashes to the certified state, even a geometrically
+        # valid candidate is stale and must not be executed.
+        if authorized_candidate is not None:
+            try:
+                observed_signature = scene_signature_provider()
+                if (
+                    not isinstance(observed_signature, str)
+                    or not observed_signature
+                ):
+                    raise ValueError("live planning-scene signature is empty")
+            except Exception as exc:
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "authorized grasp execution denied: cannot verify live "
+                    f"planning-scene identity: {exc}"
+                    + (
+                        ""
+                        if restored
+                        else "; failed to restore target collision obstacle"
+                    ),
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+            if observed_signature != authorized_scene_signature:
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "authorized grasp execution denied: live planning-scene "
+                    "signature differs from certificate"
+                    + (
+                        ""
+                        if restored
+                        else "; failed to restore target collision obstacle"
+                    ),
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
 
         # ADR 0086 authorization boundary.  This is intentionally before the
         # first gripper command: a chain that cannot escape and reach the bin
@@ -521,6 +588,7 @@ class PickAndPlaceExecutor:
         authorized_plan: "AuthorizedGraspPlan | None",
         *,
         execution_identity: "ExecutionIdentity | None",
+        scene_signature_provider: Callable[[], str] | None,
         feedback: Callable[[str, float], None] | None = None,
     ) -> ExecutionResult:
         """Execute only geometry frozen in a feasible ADR 0087 certificate."""
@@ -550,6 +618,7 @@ class PickAndPlaceExecutor:
             feedback,
             authorized_plan=authorized_plan,
             execution_identity=execution_identity,
+            scene_signature_provider=scene_signature_provider,
         )
 
     def _execute_prepared(

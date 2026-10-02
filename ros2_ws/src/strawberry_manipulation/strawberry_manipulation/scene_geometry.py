@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import re
 
 from .collision_policy import CollisionRule, HARD_COLLISION_RULE
 
@@ -18,6 +19,9 @@ Vector3 = tuple[float, float, float]
 TABLE_TOP_PADDING_M = 0.05
 FRUIT_COLLISION_RADIUS_M = 0.026
 PLANT_CROWN_CENTER_OFFSET_Z_M = 0.012
+DEVELOPMENT_CANDIDATE_CHALLENGE_OBJECT_ID = (
+    "development_candidate_challenge_obstacle"
+)
 
 
 @dataclass(frozen=True)
@@ -89,6 +93,47 @@ def virtual_bin_blocker_for_development(
             BoxPrimitive(
                 center_m=(float(bin_center_m[0]), float(bin_center_m[1]), 0.50),
                 size_m=(0.70, 0.70, 1.00),
+            ),
+        ),
+    )
+
+
+def development_candidate_challenge_obstacle_from_spec(
+    specification: str,
+) -> CollisionObjectSpec | None:
+    """Parse one physical-parity obstacle for ADR 0087-E development only.
+
+    The six numbers are ``x y z size_x size_y size_z`` in the Panda base
+    frame. An empty string disables the seam. The matching Gazebo world is
+    materialized from the same string; this helper owns MoveIt's half of the
+    physical-parity contract.
+    """
+
+    raw = str(specification).strip()
+    if not raw:
+        return None
+    fields = tuple(field for field in re.split(r"[\s,]+", raw) if field)
+    if len(fields) != 6:
+        raise ValueError(
+            "development candidate challenge obstacle must contain exactly six: "
+            "x y z size_x size_y size_z"
+        )
+    try:
+        values = tuple(float(field) for field in fields)
+    except ValueError as exc:
+        raise ValueError(
+            "development candidate challenge obstacle values must be numeric"
+        ) from exc
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError(
+            "development candidate challenge obstacle values must be finite"
+        )
+    return CollisionObjectSpec(
+        object_id=DEVELOPMENT_CANDIDATE_CHALLENGE_OBJECT_ID,
+        boxes=(
+            BoxPrimitive(
+                center_m=(values[0], values[1], values[2]),
+                size_m=(values[3], values[4], values[5]),
             ),
         ),
     )

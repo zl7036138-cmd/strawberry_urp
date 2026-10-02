@@ -881,7 +881,8 @@ class PickAndPlaceTests(unittest.TestCase):
     def test_authorized_execution_waits_for_contact_evidence_without_replacing_geometry(self):
         plan = self._authorized_plan(candidate_index=4)
         backend = FakeBackend(
-            contact_classes=["RIGHT_SINGLE_FRUIT", "BILATERAL_SAME_FRUIT"]
+            close_results=[False],
+            contact_classes=["RIGHT_SINGLE_FRUIT", "BILATERAL_SAME_FRUIT"],
         )
 
         result = PickAndPlaceExecutor(
@@ -904,6 +905,31 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(moved["APPROACH"], plan.candidate.pregrasp_pose)
         self.assertEqual(moved["GRASP_POSE"], plan.candidate.grasp_pose)
         self.assertEqual(moved["RETREAT"], plan.candidate.escape_pose)
+
+    def test_authorized_execution_never_treats_single_contact_as_closed(self):
+        plan = self._authorized_plan(candidate_index=4)
+        backend = FakeBackend(
+            close_results=[False],
+            contact_classes=["LEFT_SINGLE_FRUIT"],
+        )
+
+        result = PickAndPlaceExecutor(
+            backend,
+            authorized_contact_settle_timeout_sec=0.001,
+            authorized_contact_settle_sample_period_sec=0.001,
+        ).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+            scene_signature_provider=lambda: "scene-a",
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
+        self.assertNotIn("attach", backend.calls)
+        self.assertNotIn("CONTACT_CENTERING_PREP", backend.calls)
 
     def test_authorized_execution_identity_mismatch_denies_before_backend_command(self):
         plan = self._authorized_plan(candidate_index=2)

@@ -978,15 +978,20 @@ class PickAndPlaceExecutor:
 
         mark("GRASP", 0.40)
         gripper_closed = self.backend.close_gripper()
-        if gripper_closed:
-            self._set_payload_state(PayloadState.CONTACT)
-            mark("CONTACT", 0.42)
-        if authorized_candidate is not None and gripper_closed:
+        if authorized_candidate is not None:
             # The certificate binds only geometry and scene state. Waiting for
             # a fresh contact report is therefore safe, whereas changing pose
             # or trying an alternate orientation would violate its identity.
-            # ``attach`` below remains the strict final authority.
-            self._settle_authorized_contact_evidence()
+            # A bilateral contact report is stronger than a controller's
+            # position residual when the fruit deliberately prevents full
+            # finger closure. ``attach`` below remains the strict final
+            # authority, so a single-sided result never authorizes motion.
+            settled_contact = self._settle_authorized_contact_evidence()
+            if settled_contact == BILATERAL_SAME_FRUIT:
+                gripper_closed = True
+        if gripper_closed:
+            self._set_payload_state(PayloadState.CONTACT)
+            mark("CONTACT", 0.42)
         attachment_confirmed = (
             self.backend.attach(target_id) if gripper_closed else False
         )

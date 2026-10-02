@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import math
 import json
 import os
@@ -246,6 +247,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("whole_chain_evaluation_timeout_sec", 8.0)
             self.declare_parameter("candidate_search_per_candidate_budget_sec", 2.0)
             self.declare_parameter("candidate_search_total_budget_sec", 12.0)
+            self.declare_parameter("adaptive_candidate_scene_lease_sec", 600.0)
+            self.declare_parameter("adaptive_candidate_scene_fresh_wait_sec", 3.0)
             # ADR 0087-E is deliberately opt-in until its controlled runtime
             # challenge proves the complete physical candidate-selection path.
             self.declare_parameter("adaptive_candidate_execution_enabled", False)
@@ -841,30 +844,77 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     quaternion=executor.place_quaternion,
                     tool_center_offset_m=executor.tool_center_offset_m,
                 )
-                coordinator = RuntimeCandidateExecutionCoordinator(
-                    executor=executor,
-                    backend=self._backend,
-                    evaluator=_RuntimeWholeChainCandidateEvaluator(
-                        self._backend, target_id, target, bin_hand_pose
-                    ),
-                    per_candidate_budget_sec=float(
-                        self.get_parameter(
-                            "candidate_search_per_candidate_budget_sec"
-                        ).value
-                    ),
-                    total_budget_sec=float(
-                        self.get_parameter(
-                            "candidate_search_total_budget_sec"
-                        ).value
-                    ),
-                    event_sink=self._backend.record_whole_chain_evaluation,
+                lease_duration_sec = float(
+                    self.get_parameter("adaptive_candidate_scene_lease_sec").value
                 )
-                return coordinator.execute(
-                    target_id=target_id,
-                    target_pose=target,
-                    place_pose=place,
-                    candidates=candidates,
-                    feedback=feedback,
+                fresh_scene_wait_sec = float(
+                    self.get_parameter(
+                        "adaptive_candidate_scene_fresh_wait_sec"
+                    ).value
+                )
+                if (
+                    not math.isfinite(lease_duration_sec)
+                    or lease_duration_sec <= 0.0
+                    or not math.isfinite(fresh_scene_wait_sec)
+                    or fresh_scene_wait_sec < 0.0
+                    or not self._backend.begin_adaptive_collision_scene_lease(
+                        target_id,
+                        target,
+                        maximum_duration_sec=lease_duration_sec,
+                        fresh_scene_wait_sec=fresh_scene_wait_sec,
+                    )
+                ):
+                    return ExecutionResult(
+                        False,
+                        FailureCode.PLANNING_FAILED,
+                        "adaptive candidate execution could not freeze a bounded "
+                        "pre-motion visual collision scene",
+                        0.0,
+                        0.0,
+                        ("ADAPTIVE_SCENE_LEASE_FAILED",),
+                        RecoveryDisposition.MOTION_WITHHELD,
+                    )
+                try:
+                    coordinator = RuntimeCandidateExecutionCoordinator(
+                        executor=executor,
+                        backend=self._backend,
+                        evaluator=_RuntimeWholeChainCandidateEvaluator(
+                            self._backend, target_id, target, bin_hand_pose
+                        ),
+                        per_candidate_budget_sec=float(
+                            self.get_parameter(
+                                "candidate_search_per_candidate_budget_sec"
+                            ).value
+                        ),
+                        total_budget_sec=float(
+                            self.get_parameter(
+                                "candidate_search_total_budget_sec"
+                            ).value
+                        ),
+                        event_sink=self._backend.record_whole_chain_evaluation,
+                    )
+                    result = coordinator.execute(
+                        target_id=target_id,
+                        target_pose=target,
+                        place_pose=place,
+                        candidates=candidates,
+                        feedback=feedback,
+                    )
+                finally:
+                    lease_released = bool(
+                        self._backend.end_adaptive_collision_scene_lease(target_id)
+                    )
+                if lease_released:
+                    return result
+                return replace(
+                    result,
+                    success=False,
+                    failure_code=FailureCode.PLANNING_FAILED,
+                    message=(
+                        f"{result.message}; adaptive collision-scene lease "
+                        "release failed"
+                    ),
+                    recovery_disposition=RecoveryDisposition.MOTION_WITHHELD,
                 )
             except Exception as exc:
                 self._backend.record_whole_chain_evaluation(

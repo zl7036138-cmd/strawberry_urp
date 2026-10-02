@@ -427,7 +427,7 @@ class PickAndPlaceTests(unittest.TestCase):
             result.recovery_disposition, RecoveryDisposition.MOTION_WITHHELD
         )
 
-    def test_asymmetric_contact_gets_one_measured_centering_retry(self):
+    def test_left_contact_gets_one_negative_local_y_centering_retry(self):
         backend = FakeBackend(
             close_results=[False, True],
             centering_offsets=[0.0045],
@@ -443,7 +443,7 @@ class PickAndPlaceTests(unittest.TestCase):
         poses = dict(backend.poses)
         self.assertEqual(
             poses["CONTACT_CENTERING_GRASP"],
-            offset_along_local_y(poses["GRASP_POSE"], 0.0045),
+            offset_along_local_y(poses["GRASP_POSE"], -0.0045),
         )
         self.assertEqual(
             poses["RETREAT"].qz,
@@ -466,7 +466,7 @@ class PickAndPlaceTests(unittest.TestCase):
             rotate_about_base_z(poses["GRASP_POSE"], math.pi / 2.0),
         )
 
-    def test_right_contact_and_negative_asymmetry_get_centering_retry(self):
+    def test_right_contact_and_negative_asymmetry_corrects_positive_local_y(self):
         backend = FakeBackend(
             close_results=[False, True],
             centering_offsets=[-0.0045],
@@ -479,7 +479,7 @@ class PickAndPlaceTests(unittest.TestCase):
         poses = dict(backend.poses)
         self.assertEqual(
             poses["CONTACT_CENTERING_GRASP"],
-            offset_along_local_y(poses["GRASP_POSE"], -0.0045),
+            offset_along_local_y(poses["GRASP_POSE"], 0.0045),
         )
 
     def test_out_of_bounds_measured_centering_fails_closed(self):
@@ -496,7 +496,7 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertNotIn("CONTACT_CENTERING_PREP", backend.calls)
         self.assertNotIn("CONTACT_RETRY_PREP", backend.calls)
 
-    def test_contact_side_overrides_unreliable_joint_difference_sign(self):
+    def test_right_contact_overrides_unreliable_joint_difference_sign(self):
         backend = FakeBackend(
             close_results=[False, True],
             centering_offsets=[0.0045],
@@ -509,10 +509,10 @@ class PickAndPlaceTests(unittest.TestCase):
         poses = dict(backend.poses)
         self.assertEqual(
             poses["CONTACT_CENTERING_GRASP"],
-            offset_along_local_y(poses["GRASP_POSE"], -0.0045),
+            offset_along_local_y(poses["GRASP_POSE"], 0.0045),
         )
 
-    def test_left_contact_corrects_positive_despite_negative_joint_difference(self):
+    def test_left_contact_corrects_negative_despite_joint_difference(self):
         backend = FakeBackend(
             close_results=[False, True],
             centering_offsets=[-0.0065],
@@ -525,7 +525,7 @@ class PickAndPlaceTests(unittest.TestCase):
         poses = dict(backend.poses)
         self.assertEqual(
             poses["CONTACT_CENTERING_GRASP"],
-            offset_along_local_y(poses["GRASP_POSE"], 0.0065),
+            offset_along_local_y(poses["GRASP_POSE"], -0.0065),
         )
 
     def test_centering_rejects_nonfruit_or_ambiguous_contact(self):
@@ -930,6 +930,67 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
         self.assertNotIn("attach", backend.calls)
         self.assertNotIn("CONTACT_CENTERING_PREP", backend.calls)
+
+    def test_authorized_single_contact_returns_evidence_not_uncertified_motion(self):
+        plan = self._authorized_plan(candidate_index=4)
+        backend = FakeBackend(
+            close_results=[False],
+            contact_classes=["RIGHT_SINGLE_FRUIT"],
+            centering_offsets=[0.004],
+        )
+
+        result = PickAndPlaceExecutor(
+            backend,
+            authorized_contact_settle_timeout_sec=0.0,
+        ).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+            scene_signature_provider=lambda: "scene-a",
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.failure_code, FailureCode.GRASP_FAILED)
+        self.assertEqual(result.payload_state, PayloadState.EMPTY)
+        self.assertEqual(result.recovery_disposition, RecoveryDisposition.AT_HOME)
+        self.assertIsNotNone(result.contact_centering_hint)
+        hint = result.contact_centering_hint
+        self.assertEqual(hint.source_candidate_id, "G04")
+        self.assertEqual(
+            hint.source_geometry_fingerprint,
+            plan.candidate.geometry_fingerprint,
+        )
+        self.assertEqual(hint.contact_class, "RIGHT_SINGLE_FRUIT")
+        self.assertAlmostEqual(hint.local_y_offset_m, 0.004)
+        self.assertNotIn("attach", backend.calls)
+        self.assertFalse(
+            any(call.startswith("CONTACT_CENTERING") for call in backend.calls)
+        )
+
+    def test_authorized_single_contact_hint_respects_correction_bounds(self):
+        plan = self._authorized_plan(candidate_index=4)
+        for measured_offset in (0.0005, 0.011):
+            with self.subTest(measured_offset=measured_offset):
+                backend = FakeBackend(
+                    close_results=[False],
+                    contact_classes=["LEFT_SINGLE_FRUIT"],
+                    centering_offsets=[measured_offset],
+                )
+                result = PickAndPlaceExecutor(
+                    backend,
+                    authorized_contact_settle_timeout_sec=0.0,
+                ).execute_authorized(
+                    8,
+                    self.target,
+                    self.bin,
+                    plan,
+                    execution_identity=plan.execution_identity,
+                    scene_signature_provider=lambda: "scene-a",
+                )
+                self.assertFalse(result.success)
+                self.assertIsNone(result.contact_centering_hint)
 
     def test_authorized_execution_identity_mismatch_denies_before_backend_command(self):
         plan = self._authorized_plan(candidate_index=2)

@@ -18,6 +18,7 @@ from .core import (
     DEFAULT_TOOL_CENTER_OFFSET_M,
     Pose,
     hand_pose_for_fruit_center,
+    offset_along_local_y,
     offset_along_local_z,
 )
 
@@ -32,6 +33,7 @@ TILT_SEQUENCE_DEGREES: tuple[tuple[int, int], ...] = (
     (20, 10), (20, -10), (-20, 10), (-20, -10),
 )
 DEFAULT_ESCAPE_OFFSET_M = 0.08
+CONTACT_CENTERING_SCALE_SEQUENCE: tuple[float, ...] = (1.0, 0.75, 0.5, 0.25)
 
 
 @dataclass(frozen=True)
@@ -195,3 +197,92 @@ def generate_grasp_candidates(
             )
         )
     return tuple(candidates)
+
+
+def recenter_grasp_candidate(
+    source: GraspCandidate,
+    *,
+    local_y_offset_m: float,
+    correction_index: int = 1,
+) -> GraspCandidate:
+    """Create one translated-contact candidate for whole-chain certification.
+
+    The measured correction is applied to pre-grasp and grasp so the fingers
+    meet the fruit around a corrected centre.  The candidate then rejoins the
+    source candidate's already feasible escape waypoint.  That diagonal
+    post-grasp segment is not assumed safe: it remains part of this new,
+    indivisible geometry contract and must pass ADR 0086 before the candidate
+    can receive a new ADR 0087-C execution certificate.
+
+    Keeping the source escape waypoint is deliberate.  Runtime evidence from
+    the controlled challenge showed that translating the escape waypoint by
+    only 1.5--5.8 mm destroyed an otherwise valid narrow transport corridor.
+    """
+
+    if not isinstance(source, GraspCandidate):
+        raise ValueError("source must be a GraspCandidate")
+    if (
+        not isinstance(correction_index, int)
+        or isinstance(correction_index, bool)
+        or correction_index <= 0
+    ):
+        raise ValueError("correction index must be a positive integer")
+    if not math.isfinite(local_y_offset_m) or abs(local_y_offset_m) <= 0.0:
+        raise ValueError("centering offset must be finite and non-zero")
+
+    candidate_id = f"{source.candidate_id}-C{correction_index:02d}"
+    grasp = offset_along_local_y(source.grasp_pose, local_y_offset_m)
+    pregrasp = offset_along_local_y(source.pregrasp_pose, local_y_offset_m)
+    escape = source.escape_pose
+    return GraspCandidate(
+        candidate_id=candidate_id,
+        grasp_pose=grasp,
+        pregrasp_pose=pregrasp,
+        escape_pose=escape,
+        tilt_x_rad=source.tilt_x_rad,
+        tilt_y_rad=source.tilt_y_rad,
+        geometry_fingerprint=_fingerprint(
+            candidate_id,
+            grasp,
+            pregrasp,
+            escape,
+            source.tilt_x_rad,
+            source.tilt_y_rad,
+        ),
+    )
+
+
+def generate_recentered_grasp_candidates(
+    source: GraspCandidate,
+    *,
+    measured_local_y_offset_m: float,
+    scale_sequence: tuple[float, ...] = CONTACT_CENTERING_SCALE_SEQUENCE,
+) -> tuple[GraspCandidate, ...]:
+    """Generate the frozen full-to-partial centering correction ladder."""
+
+    if not isinstance(source, GraspCandidate):
+        raise ValueError("source must be a GraspCandidate")
+    if (
+        not math.isfinite(measured_local_y_offset_m)
+        or abs(measured_local_y_offset_m) <= 0.0
+    ):
+        raise ValueError("measured centering offset must be finite and non-zero")
+    if not isinstance(scale_sequence, tuple) or not scale_sequence:
+        raise ValueError("centering scale sequence must be a non-empty tuple")
+    normalized_scales = tuple(float(scale) for scale in scale_sequence)
+    if any(
+        not math.isfinite(scale) or scale <= 0.0 or scale > 1.0
+        for scale in normalized_scales
+    ):
+        raise ValueError("centering scales must be finite in (0, 1]")
+    if len(set(normalized_scales)) != len(normalized_scales):
+        raise ValueError("centering scales must be unique")
+
+    return tuple(
+        recenter_grasp_candidate(
+            source,
+            local_y_offset_m=measured_local_y_offset_m * scale,
+            correction_index=index,
+        )
+        for index, scale in enumerate(normalized_scales, start=1)
+    )

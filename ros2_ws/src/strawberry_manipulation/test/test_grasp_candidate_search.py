@@ -12,7 +12,10 @@ from strawberry_manipulation.grasp_candidate_search import (  # noqa: E402
     FirstFeasibleCandidateSearch,
     WholeChainCandidateEvaluator,
 )
-from strawberry_manipulation.grasp_candidates import generate_grasp_candidates  # noqa: E402
+from strawberry_manipulation.grasp_candidates import (  # noqa: E402
+    generate_grasp_candidates,
+    recenter_grasp_candidate,
+)
 from strawberry_manipulation.whole_chain import (  # noqa: E402
     ChainEvaluation,
     ChainFailureCode,
@@ -101,6 +104,34 @@ class GraspCandidateSearchTests(unittest.TestCase):
     def test_invalid_candidate_set_does_not_call_evaluator(self):
         evaluator = RecordingEvaluator([ChainFailureCode.FEASIBLE])
         result = FirstFeasibleCandidateSearch(evaluator).search(())
+        self.assertEqual(result.status, CandidateSearchStatus.CANDIDATE_SET_INVALID)
+        self.assertEqual(evaluator.calls, [])
+
+    def test_explicit_first_candidate_contract_supports_single_recertification(self):
+        corrected = recenter_grasp_candidate(
+            self.candidates[4],
+            local_y_offset_m=0.003,
+        )
+        evaluator = RecordingEvaluator([ChainFailureCode.FEASIBLE])
+
+        result = FirstFeasibleCandidateSearch(
+            evaluator,
+            required_first_candidate_id=corrected.candidate_id,
+        ).search((corrected,))
+
+        self.assertEqual(result.status, CandidateSearchStatus.FOUND)
+        self.assertEqual(result.selected_candidate, corrected)
+        self.assertEqual([call[0] for call in evaluator.calls], ["G04-C01"])
+
+    def test_non_nominal_candidate_without_explicit_contract_is_rejected(self):
+        corrected = recenter_grasp_candidate(
+            self.candidates[4],
+            local_y_offset_m=0.003,
+        )
+        evaluator = RecordingEvaluator([ChainFailureCode.FEASIBLE])
+
+        result = FirstFeasibleCandidateSearch(evaluator).search((corrected,))
+
         self.assertEqual(result.status, CandidateSearchStatus.CANDIDATE_SET_INVALID)
         self.assertEqual(evaluator.calls, [])
 

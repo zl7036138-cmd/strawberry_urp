@@ -33,6 +33,157 @@ class FakeFuture:
 
 
 class MoveItBackendStaticTests(unittest.TestCase):
+    def test_adaptive_scene_lease_preserves_visual_manifest_for_bounded_action(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend.dynamic_fruit_manifest = True
+        backend.maximum_cached_collision_scene_age_sec = 120.0
+        backend.maximum_cached_target_drift_m = 0.05
+        backend._cached_collision_scene_centers_m = None
+        backend._cached_collision_scene_monotonic = None
+        backend._locked_collision_scene_target_id = None
+        backend._adaptive_collision_scene_lease_target_id = None
+        backend._adaptive_collision_scene_lease_deadline = None
+        backend._fruit_centers_for_planning = lambda: MappingProxyType(
+            {7: (0.4, 0.1, 0.5), 8: (0.5, 0.2, 0.6)}
+        )
+        synchronized = []
+        backend._synchronize_fruit_collision_scene = (
+            lambda centers: synchronized.append(dict(centers))
+        )
+        backend.authorization_scene_fingerprint = lambda: "scene-lease"
+        evidence = []
+        backend._emit_motion_evidence = (
+            lambda event_type, payload: evidence.append((event_type, payload))
+        )
+        target = Pose(0.4, 0.1, 0.5)
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            return_value=10.0,
+        ):
+            started = backend.begin_adaptive_collision_scene_lease(
+                7,
+                target,
+                maximum_duration_sec=600.0,
+            )
+
+        self.assertTrue(started)
+        self.assertEqual(len(synchronized), 1)
+        self.assertEqual(backend._adaptive_collision_scene_lease_target_id, 7)
+        self.assertEqual(evidence[0][0], "ADAPTIVE_COLLISION_SCENE_LEASE_STARTED")
+        self.assertFalse(evidence[0][1]["truth_source"])
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            return_value=250.0,
+        ):
+            retained = backend._bounded_cached_collision_scene(7, target)
+        self.assertEqual(retained[8], (0.5, 0.2, 0.6))
+
+        self.assertTrue(backend.end_adaptive_collision_scene_lease(7))
+        self.assertIsNone(backend._adaptive_collision_scene_lease_target_id)
+        self.assertIsNone(backend._locked_collision_scene_target_id)
+        self.assertEqual(evidence[-1][0], "ADAPTIVE_COLLISION_SCENE_LEASE_ENDED")
+
+    def test_adaptive_scene_lease_expires_fail_closed(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend._cached_collision_scene_centers_m = MappingProxyType(
+            {7: (0.4, 0.1, 0.5)}
+        )
+        backend._cached_collision_scene_monotonic = 10.0
+        backend._adaptive_collision_scene_lease_target_id = 7
+        backend._adaptive_collision_scene_lease_deadline = 20.0
+        backend.maximum_cached_collision_scene_age_sec = 120.0
+        backend.maximum_cached_target_drift_m = 0.05
+
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            return_value=20.1,
+        ):
+            with self.assertRaisesRegex(ValueError, "lease expired"):
+                backend._bounded_cached_collision_scene(
+                    7,
+                    Pose(0.4, 0.1, 0.5),
+                )
+
+    def test_adaptive_scene_lease_waits_boundedly_for_fresh_visual_scene(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        backend.node = SimpleNamespace(get_logger=lambda: self.Logger())
+        backend._cached_collision_scene_centers_m = None
+        backend._cached_collision_scene_monotonic = None
+        backend._locked_collision_scene_target_id = None
+        backend._adaptive_collision_scene_lease_target_id = None
+        backend._adaptive_collision_scene_lease_deadline = None
+        attempts = []
+
+        def visual_scene():
+            attempts.append(len(attempts) + 1)
+            if len(attempts) < 3:
+                raise RuntimeError("tracked fruit collision scene is stale")
+            return MappingProxyType({7: (0.4, 0.1, 0.5)})
+
+        backend._fruit_centers_for_planning = visual_scene
+        synchronized = []
+        backend._synchronize_fruit_collision_scene = (
+            lambda centers: synchronized.append(dict(centers))
+        )
+        backend.authorization_scene_fingerprint = lambda: "fresh-scene"
+        evidence = []
+        backend._emit_motion_evidence = (
+            lambda event_type, payload: evidence.append((event_type, payload))
+        )
+
+        clock = iter((10.0, 10.0, 10.05, 10.10, 10.10))
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            side_effect=lambda: next(clock),
+        ), patch("strawberry_manipulation.moveit_backend.time.sleep") as sleep:
+            started = backend.begin_adaptive_collision_scene_lease(
+                7,
+                Pose(0.4, 0.1, 0.5),
+                maximum_duration_sec=600.0,
+                fresh_scene_wait_sec=3.0,
+                fresh_scene_poll_sec=0.05,
+            )
+
+        self.assertTrue(started)
+        self.assertEqual(attempts, [1, 2, 3])
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(synchronized, [{7: (0.4, 0.1, 0.5)}])
+        self.assertAlmostEqual(
+            evidence[0][1]["fresh_scene_wait_elapsed_sec"], 0.10
+        )
+
+    def test_adaptive_scene_lease_fails_closed_when_fresh_wait_expires(self):
+        backend = MoveItBackend.__new__(MoveItBackend)
+        logger = self.Logger()
+        backend.node = SimpleNamespace(get_logger=lambda: logger)
+        backend._cached_collision_scene_centers_m = None
+        backend._cached_collision_scene_monotonic = None
+        backend._locked_collision_scene_target_id = None
+        backend._adaptive_collision_scene_lease_target_id = None
+        backend._adaptive_collision_scene_lease_deadline = None
+        backend._fruit_centers_for_planning = lambda: (_ for _ in ()).throw(
+            RuntimeError("tracked fruit collision scene is stale")
+        )
+
+        clock = iter((10.0, 10.0, 10.1))
+        with patch(
+            "strawberry_manipulation.moveit_backend.time.monotonic",
+            side_effect=lambda: next(clock),
+        ), patch("strawberry_manipulation.moveit_backend.time.sleep"):
+            started = backend.begin_adaptive_collision_scene_lease(
+                7,
+                Pose(0.4, 0.1, 0.5),
+                maximum_duration_sec=600.0,
+                fresh_scene_wait_sec=0.1,
+                fresh_scene_poll_sec=0.05,
+            )
+
+        self.assertFalse(started)
+        self.assertIsNone(backend._adaptive_collision_scene_lease_target_id)
+        self.assertIsNone(backend._locked_collision_scene_target_id)
+
     def test_joint_limit_margin_rejects_hard_limit_and_accepts_interior(self):
         interior = (0.0, 0.0, 0.0, -1.5, 0.0, 1.5, 0.0)
         at_joint_five_limit = (0.0, 0.0, 0.0, -1.5, -2.8973, 1.5, 0.0)

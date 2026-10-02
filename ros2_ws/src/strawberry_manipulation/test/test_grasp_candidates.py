@@ -10,8 +10,11 @@ sys.path.insert(0, str(PACKAGE_ROOT))
 
 from strawberry_manipulation.core import DEFAULT_GRASP_QUATERNION, Pose  # noqa: E402
 from strawberry_manipulation.grasp_candidates import (  # noqa: E402
+    CONTACT_CENTERING_SCALE_SEQUENCE,
     TILT_SEQUENCE_DEGREES,
     generate_grasp_candidates,
+    generate_recentered_grasp_candidates,
+    recenter_grasp_candidate,
 )
 
 
@@ -86,6 +89,105 @@ class GraspCandidateTests(unittest.TestCase):
         candidate = generate_grasp_candidates(self.target)[2]
         with self.assertRaisesRegex(ValueError, "fingerprint"):
             replace(candidate, tilt_x_rad=candidate.tilt_x_rad + 0.01)
+
+    def test_contact_centering_creates_a_new_closed_geometry_contract(self):
+        source = generate_grasp_candidates(self.target)[12]
+        corrected = recenter_grasp_candidate(
+            source,
+            local_y_offset_m=-0.004,
+        )
+
+        self.assertEqual(corrected.candidate_id, "G12-C01")
+        self.assertNotEqual(
+            corrected.geometry_fingerprint,
+            source.geometry_fingerprint,
+        )
+        self.assertEqual(corrected.tilt_x_rad, source.tilt_x_rad)
+        self.assertEqual(corrected.tilt_y_rad, source.tilt_y_rad)
+        for source_pose, corrected_pose in (
+            (source.grasp_pose, corrected.grasp_pose),
+            (source.pregrasp_pose, corrected.pregrasp_pose),
+        ):
+            distance = math.sqrt(
+                (corrected_pose.x - source_pose.x) ** 2
+                + (corrected_pose.y - source_pose.y) ** 2
+                + (corrected_pose.z - source_pose.z) ** 2
+            )
+            self.assertAlmostEqual(distance, 0.004)
+            self.assertEqual(
+                (
+                    corrected_pose.qx,
+                    corrected_pose.qy,
+                    corrected_pose.qz,
+                    corrected_pose.qw,
+                ),
+                (
+                    source_pose.qx,
+                    source_pose.qy,
+                    source_pose.qz,
+                    source_pose.qw,
+                ),
+            )
+        self.assertEqual(corrected.escape_pose, source.escape_pose)
+
+    def test_contact_centering_rejoins_the_certified_source_escape(self):
+        source = generate_grasp_candidates(self.target)[12]
+        corrected = recenter_grasp_candidate(
+            source,
+            local_y_offset_m=-0.005,
+        )
+
+        self.assertEqual(corrected.escape_pose, source.escape_pose)
+        self.assertNotEqual(corrected.grasp_pose, source.grasp_pose)
+        self.assertNotEqual(corrected.pregrasp_pose, source.pregrasp_pose)
+
+    def test_contact_centering_rejects_invalid_inputs(self):
+        source = generate_grasp_candidates(self.target)[0]
+        with self.assertRaisesRegex(ValueError, "finite and non-zero"):
+            recenter_grasp_candidate(source, local_y_offset_m=0.0)
+        with self.assertRaisesRegex(ValueError, "positive integer"):
+            recenter_grasp_candidate(
+                source,
+                local_y_offset_m=0.002,
+                correction_index=0,
+            )
+
+    def test_contact_centering_ladder_is_deterministic_full_to_partial(self):
+        source = generate_grasp_candidates(self.target)[12]
+
+        candidates = generate_recentered_grasp_candidates(
+            source,
+            measured_local_y_offset_m=-0.008,
+        )
+
+        self.assertEqual(
+            tuple(candidate.candidate_id for candidate in candidates),
+            ("G12-C01", "G12-C02", "G12-C03", "G12-C04"),
+        )
+        self.assertEqual(CONTACT_CENTERING_SCALE_SEQUENCE, (1.0, 0.75, 0.5, 0.25))
+        expected_distances = (0.008, 0.006, 0.004, 0.002)
+        for candidate, expected_distance in zip(
+            candidates,
+            expected_distances,
+            strict=True,
+        ):
+            distance = math.sqrt(
+                (candidate.grasp_pose.x - source.grasp_pose.x) ** 2
+                + (candidate.grasp_pose.y - source.grasp_pose.y) ** 2
+                + (candidate.grasp_pose.z - source.grasp_pose.z) ** 2
+            )
+            self.assertAlmostEqual(distance, expected_distance)
+
+    def test_contact_centering_ladder_rejects_invalid_scales(self):
+        source = generate_grasp_candidates(self.target)[0]
+        for scales in ((), (1.0, 1.0), (1.1,), (0.0,)):
+            with self.subTest(scales=scales):
+                with self.assertRaises(ValueError):
+                    generate_recentered_grasp_candidates(
+                        source,
+                        measured_local_y_offset_m=0.004,
+                        scale_sequence=scales,
+                    )
 
 
 if __name__ == "__main__":

@@ -6,7 +6,10 @@ Accepted for staged implementation. Stages A (pure candidate geometry), B
 (bounded first-feasible search), C (certificate-to-execution identity
 binding), and D (runtime plan-only qualification) are implemented. Stage D
 has one development-scene runtime receipt with a truth-isolation audit and
-zero manipulation execution. A real non-nominal execution remains open.
+zero manipulation execution. Stage E's execution boundary and bounded
+physical-contact recovery are implemented and fail closed, but the first
+controlled challenge was physically unsatisfiable under the complete gate.
+A successful real non-nominal execution therefore remains open.
 
 ## Context
 
@@ -56,6 +59,16 @@ for autonomous selection.
   exact certified identity to `execute_authorized()` immediately before a
   non-nominal execution. A plan-only certificate is intentionally not valid
   for later execution after its target-collision cleanup.
+- Stage E freezes one perception-derived collision manifest for the bounded
+  action. Lease acquisition may wait at most three seconds for a message that
+  satisfies the unchanged 0.75-second tracker freshness contract; it issues
+  no command while waiting and fails closed when no fresh scene arrives.
+- A certified physical grasp that returns `EMPTY` and safely reaches home may
+  consume exactly one contact-driven reauthorization. The coordinator first
+  evaluates at most four still-untried candidates from the frozen order. If
+  no untried candidate exists, it evaluates a bounded contact-centering
+  translation ladder. Every fallback receives a fresh ADR 0086 certificate;
+  no third physical attempt is permitted.
 
 ## Non-goals
 
@@ -89,3 +102,9 @@ execution.
 
 Stage E must prove a runtime case where nominal fails but a non-nominal
 candidate completes the newly certified execution chain.
+
+The first controlled Stage E challenge is retained as a negative result in
+`docs/p0/ADR0087E_CONTROLLED_CHALLENGE_NEGATIVE_2026-10-02.md`. It proves
+scene isolation, exact non-nominal dispatch, safe empty-payload recovery and
+bounded follow-on rejection, but it does not satisfy the positive completion
+criterion above.

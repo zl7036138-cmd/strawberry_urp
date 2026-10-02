@@ -573,6 +573,8 @@ class MoveItBackend:
         self._cached_collision_scene_centers_m: MappingProxyType | None = None
         self._cached_collision_scene_monotonic: float | None = None
         self._locked_collision_scene_target_id: int | None = None
+        self._adaptive_collision_scene_lease_target_id: int | None = None
+        self._adaptive_collision_scene_lease_deadline: float | None = None
         self._PoseStamped = PoseStamped
         self._FollowJointTrajectory = FollowJointTrajectory
         self._ParallelGripperCommand = ParallelGripperCommand
@@ -878,7 +880,21 @@ class MoveItBackend:
                 f"is available{detail}"
             )
         age = time.monotonic() - float(captured)
-        maximum_age = float(self.maximum_cached_collision_scene_age_sec)
+        lease_target = getattr(
+            self, "_adaptive_collision_scene_lease_target_id", None
+        )
+        lease_deadline = getattr(
+            self, "_adaptive_collision_scene_lease_deadline", None
+        )
+        if lease_target == target_id and lease_deadline is not None:
+            if time.monotonic() > float(lease_deadline):
+                raise ValueError("adaptive collision-scene lease expired")
+            maximum_age = max(
+                float(self.maximum_cached_collision_scene_age_sec),
+                float(lease_deadline) - float(captured),
+            )
+        else:
+            maximum_age = float(self.maximum_cached_collision_scene_age_sec)
         if age < 0.0 or age > maximum_age:
             raise ValueError(
                 f"pre-occlusion visual collision snapshot is stale by {age:.3f} "
@@ -901,6 +917,138 @@ class MoveItBackend:
             f"obstacle_count={len(recovered)}"
         )
         return MappingProxyType(recovered)
+
+    def begin_adaptive_collision_scene_lease(
+        self,
+        target_id: int,
+        target_pose: Pose,
+        *,
+        maximum_duration_sec: float,
+        fresh_scene_wait_sec: float = 3.0,
+        fresh_scene_poll_sec: float = 0.05,
+    ) -> bool:
+        """Freeze one visual obstacle manifest for a bounded adaptive action.
+
+        A failed physical contact can occlude or perturb the live tracker while
+        the robot reverses its certified approach and returns home.  Mixing a
+        newly reconstructed obstacle inventory into the correction
+        qualification would compare different scenes.  This lease retains the
+        last validated pre-motion visual manifest for only the current target
+        and hard action duration; it neither reads simulator truth nor changes
+        collision thresholds.
+        """
+
+        if (
+            not isinstance(target_id, int)
+            or isinstance(target_id, bool)
+            or target_id <= 0
+            or not math.isfinite(maximum_duration_sec)
+            or maximum_duration_sec <= 0.0
+            or not math.isfinite(fresh_scene_wait_sec)
+            or fresh_scene_wait_sec < 0.0
+            or not math.isfinite(fresh_scene_poll_sec)
+            or fresh_scene_poll_sec <= 0.0
+        ):
+            return False
+        if getattr(self, "_adaptive_collision_scene_lease_target_id", None) is not None:
+            self.node.get_logger().error(
+                "cannot begin an adaptive collision-scene lease while one is active"
+            )
+            return False
+        previous_locked_target = getattr(
+            self, "_locked_collision_scene_target_id", None
+        )
+        previous_cached_centers = getattr(
+            self, "_cached_collision_scene_centers_m", None
+        )
+        previous_cached_monotonic = getattr(
+            self, "_cached_collision_scene_monotonic", None
+        )
+        wait_started = time.monotonic()
+        try:
+            locked_target = previous_locked_target
+            if locked_target == target_id:
+                centers = self._bounded_cached_collision_scene(target_id, target_pose)
+            else:
+                wait_deadline = wait_started + float(fresh_scene_wait_sec)
+                while True:
+                    try:
+                        centers = self._fruit_centers_for_planning()
+                        break
+                    except Exception:
+                        remaining = wait_deadline - time.monotonic()
+                        if remaining <= 0.0:
+                            raise
+                        # The arm is still stationary and no execution
+                        # authorization exists at this boundary.  Waiting for
+                        # a fresh perception message therefore cannot create
+                        # an unplanned motion; the unchanged provider freshness
+                        # contract remains the final authority.
+                        time.sleep(min(float(fresh_scene_poll_sec), remaining))
+                if target_id not in centers:
+                    raise ValueError(
+                        f"target {target_id} is absent from the live visual scene"
+                    )
+                self._synchronize_fruit_collision_scene(centers)
+            now = time.monotonic()
+            fresh_scene_wait_elapsed_sec = max(0.0, now - wait_started)
+            cached = dict(centers)
+            cached[target_id] = (
+                float(target_pose.x),
+                float(target_pose.y),
+                float(target_pose.z),
+            )
+            self._cached_collision_scene_centers_m = MappingProxyType(cached)
+            self._cached_collision_scene_monotonic = now
+            self._locked_collision_scene_target_id = int(target_id)
+            self._adaptive_collision_scene_lease_target_id = int(target_id)
+            self._adaptive_collision_scene_lease_deadline = (
+                now + float(maximum_duration_sec)
+            )
+            scene_signature = self.authorization_scene_fingerprint()
+        except Exception as exc:
+            self._adaptive_collision_scene_lease_target_id = None
+            self._adaptive_collision_scene_lease_deadline = None
+            self._locked_collision_scene_target_id = previous_locked_target
+            self._cached_collision_scene_centers_m = previous_cached_centers
+            self._cached_collision_scene_monotonic = previous_cached_monotonic
+            self.node.get_logger().error(
+                f"failed to begin adaptive collision-scene lease: {exc}"
+            )
+            return False
+        self._emit_motion_evidence(
+            "ADAPTIVE_COLLISION_SCENE_LEASE_STARTED",
+            {
+                "target_id": int(target_id),
+                "maximum_duration_sec": float(maximum_duration_sec),
+                "fresh_scene_wait_limit_sec": float(fresh_scene_wait_sec),
+                "fresh_scene_wait_elapsed_sec": fresh_scene_wait_elapsed_sec,
+                "obstacle_count": len(cached),
+                "scene_signature": scene_signature,
+                "truth_source": False,
+            },
+        )
+        return True
+
+    def end_adaptive_collision_scene_lease(self, target_id: int) -> bool:
+        """Close the target-scoped visual-scene lease without commanding motion."""
+
+        if getattr(self, "_adaptive_collision_scene_lease_target_id", None) != target_id:
+            self.node.get_logger().error(
+                "adaptive collision-scene lease end target does not match"
+            )
+            return False
+        self._adaptive_collision_scene_lease_target_id = None
+        self._adaptive_collision_scene_lease_deadline = None
+        if getattr(self, "_locked_collision_scene_target_id", None) == target_id:
+            self._locked_collision_scene_target_id = None
+            self._cached_collision_scene_centers_m = None
+            self._cached_collision_scene_monotonic = None
+        self._emit_motion_evidence(
+            "ADAPTIVE_COLLISION_SCENE_LEASE_ENDED",
+            {"target_id": int(target_id), "released": True},
+        )
+        return True
 
     def lock_pre_observation_collision_scene(
         self, target_id: int, target_pose: Pose

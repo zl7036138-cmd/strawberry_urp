@@ -85,6 +85,7 @@ class FirstFeasibleCandidateSearch:
     evaluator: CandidateEvaluator
     per_candidate_budget_sec: float = 2.0
     total_budget_sec: float = 12.0
+    required_first_candidate_id: str = "G00"
     clock: Callable[[], float] = field(default=time.perf_counter, repr=False)
 
     def __post_init__(self) -> None:
@@ -94,9 +95,13 @@ class FirstFeasibleCandidateSearch:
         ):
             if not math.isfinite(value) or value <= 0.0:
                 raise ValueError(f"{label} must be finite and positive")
+        if (
+            not isinstance(self.required_first_candidate_id, str)
+            or not self.required_first_candidate_id
+        ):
+            raise ValueError("required first candidate ID must be non-empty")
 
-    @staticmethod
-    def _validate(candidates: tuple[GraspCandidate, ...]) -> str | None:
+    def _validate(self, candidates: tuple[GraspCandidate, ...]) -> str | None:
         if not candidates:
             return "candidate set is empty"
         ids = tuple(candidate.candidate_id for candidate in candidates)
@@ -105,8 +110,11 @@ class FirstFeasibleCandidateSearch:
             return "candidate IDs must be unique"
         if len(fingerprints) != len(set(fingerprints)):
             return "candidate geometry fingerprints must be unique"
-        if candidates[0].candidate_id != "G00":
-            return "candidate set must begin with nominal G00"
+        if candidates[0].candidate_id != self.required_first_candidate_id:
+            return (
+                "candidate set must begin with required candidate "
+                f"{self.required_first_candidate_id}"
+            )
         return None
 
     def search(self, candidates: tuple[GraspCandidate, ...]) -> CandidateSearchResult:

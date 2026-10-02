@@ -103,6 +103,7 @@ class PlanOnlyCandidateQualifier:
     scene_signature_provider: Callable[[], str]
     per_candidate_budget_sec: float = 2.0
     total_budget_sec: float = 12.0
+    required_first_candidate_id: str = "G00"
     clock: Callable[[], float] = field(default=time.perf_counter, repr=False)
     certificate_clock_ns: Callable[[], int] = field(
         default=time.monotonic_ns, repr=False
@@ -119,6 +120,11 @@ class PlanOnlyCandidateQualifier:
                 raise ValueError(f"{label} must be finite and positive")
         if not isinstance(self.qualification_mode, str) or not self.qualification_mode:
             raise ValueError("qualification mode must be a non-empty string")
+        if (
+            not isinstance(self.required_first_candidate_id, str)
+            or not self.required_first_candidate_id
+        ):
+            raise ValueError("required first candidate ID must be non-empty")
 
     def _emit(self, event_type: str, payload: Mapping[str, object]) -> None:
         if self.event_sink is not None:
@@ -182,6 +188,7 @@ class PlanOnlyCandidateQualifier:
             "live_payload_state": payload_state,
             "candidate_count": len(candidates),
             "candidate_ids": [candidate.candidate_id for candidate in candidates],
+            "required_first_candidate_id": self.required_first_candidate_id,
             "candidate_geometry_fingerprints": [
                 candidate.geometry_fingerprint for candidate in candidates
             ],
@@ -200,6 +207,7 @@ class PlanOnlyCandidateQualifier:
                 ),
                 per_candidate_budget_sec=self.per_candidate_budget_sec,
                 total_budget_sec=self.total_budget_sec,
+                required_first_candidate_id=self.required_first_candidate_id,
                 clock=self.clock,
             )
             search = qualifier.search(candidates)

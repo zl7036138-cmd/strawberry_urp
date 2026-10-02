@@ -124,6 +124,39 @@ class Pose:
 
 
 @dataclass(frozen=True)
+class ContactCenteringHint:
+    """Bounded physical evidence for a separately re-certified grasp.
+
+    This is not an execution authorization.  It records what the closed hand
+    observed while executing one exact certificate so that a higher-level
+    coordinator may construct a *new* candidate and send it through the full
+    ADR 0086 qualification boundary.  The executor never consumes this hint
+    as permission to move.
+    """
+
+    source_candidate_id: str
+    source_geometry_fingerprint: str
+    contact_class: str
+    local_y_offset_m: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_candidate_id, str) or not self.source_candidate_id:
+            raise ValueError("centering hint requires a source candidate ID")
+        if (
+            not isinstance(self.source_geometry_fingerprint, str)
+            or not self.source_geometry_fingerprint
+        ):
+            raise ValueError("centering hint requires a source geometry fingerprint")
+        if self.contact_class not in {LEFT_SINGLE_FRUIT, RIGHT_SINGLE_FRUIT}:
+            raise ValueError("centering hint requires unique single-sided fruit contact")
+        if (
+            not math.isfinite(self.local_y_offset_m)
+            or abs(self.local_y_offset_m) <= 0.0
+        ):
+            raise ValueError("centering hint offset must be finite and non-zero")
+
+
+@dataclass(frozen=True)
 class ExecutionResult:
     success: bool
     failure_code: FailureCode
@@ -133,6 +166,7 @@ class ExecutionResult:
     stages: tuple[str, ...]
     recovery_disposition: RecoveryDisposition = RecoveryDisposition.MOTION_WITHHELD
     payload_state: PayloadState = PayloadState.EMPTY
+    contact_centering_hint: ContactCenteringHint | None = None
 
 
 @dataclass(frozen=True)
@@ -413,6 +447,44 @@ class PickAndPlaceExecutor:
             contact_class_reader,
             timeout_sec=self.authorized_contact_settle_timeout_sec,
             sample_period_sec=self.authorized_contact_settle_sample_period_sec,
+        )
+
+    def _authorized_contact_centering_hint(
+        self,
+        candidate: "GraspCandidate",
+        contact_class: str | None,
+    ) -> ContactCenteringHint | None:
+        """Return bounded single-contact evidence without authorizing motion."""
+
+        if contact_class not in {LEFT_SINGLE_FRUIT, RIGHT_SINGLE_FRUIT}:
+            return None
+        try:
+            measured_offset = self.backend.gripper_centering_offset_m()
+        except Exception:
+            return None
+        if measured_offset is None or not math.isfinite(measured_offset):
+            return None
+        magnitude = abs(float(measured_offset))
+        if (
+            magnitude < self.minimum_grasp_centering_correction_m
+            or magnitude > self.maximum_grasp_centering_correction_m
+        ):
+            return None
+        # The pad labels describe which finger touched the fruit, while the
+        # candidate offset is expressed in the hand frame.  In the Panda hand
+        # model the right pad lies on +local-Y and the left pad on -local-Y.
+        # Move the hand *toward* the contacted pad so the opposite finger can
+        # close around the same fruit.  The controlled G12 challenge measured
+        # the old opposite convention making a right-only asymmetry grow from
+        # 5.8 mm to 8.7 mm, so this mapping is fixed by physical evidence.
+        signed_offset = (
+            -magnitude if contact_class == LEFT_SINGLE_FRUIT else magnitude
+        )
+        return ContactCenteringHint(
+            source_candidate_id=candidate.candidate_id,
+            source_geometry_fingerprint=candidate.geometry_fingerprint,
+            contact_class=contact_class,
+            local_y_offset_m=signed_offset,
         )
 
     def execute(
@@ -723,6 +795,7 @@ class PickAndPlaceExecutor:
             message: str,
             *,
             recover_home: bool = True,
+            contact_centering_hint: ContactCenteringHint | None = None,
         ) -> ExecutionResult:
             nonlocal attached, place_route_recovery_available
             nonlocal planning_time, execution_time
@@ -744,6 +817,7 @@ class PickAndPlaceExecutor:
                     tuple(stages),
                     RecoveryDisposition.MOTION_WITHHELD,
                     self._payload_state,
+                    None,
                 )
 
             opened = self.backend.open_gripper()
@@ -797,6 +871,7 @@ class PickAndPlaceExecutor:
                 tuple(stages),
                 recovery_disposition,
                 self._payload_state,
+                contact_centering_hint,
             )
 
         if not self.backend.open_gripper():
@@ -996,9 +1071,15 @@ class PickAndPlaceExecutor:
             self.backend.attach(target_id) if gripper_closed else False
         )
         if not attachment_confirmed and authorized_candidate is not None:
+            centering_hint = self._authorized_contact_centering_hint(
+                authorized_candidate,
+                settled_contact,
+            )
             return fail(
                 FailureCode.GRASP_FAILED,
-                "authorized grasp attachment failed; alternate geometry is forbidden",
+                "authorized grasp attachment failed; direct alternate geometry is "
+                "forbidden",
+                contact_centering_hint=centering_hint,
             )
         if not attachment_confirmed:
             # A single-finger stall or strict dual-contact rejection can be
@@ -1047,9 +1128,9 @@ class PickAndPlaceExecutor:
                         "centering correction",
                     )
                 if fruit_contact_class == LEFT_SINGLE_FRUIT:
-                    centering_offset_m = abs(centering_offset_m)
-                elif fruit_contact_class == RIGHT_SINGLE_FRUIT:
                     centering_offset_m = -abs(centering_offset_m)
+                elif fruit_contact_class == RIGHT_SINGLE_FRUIT:
+                    centering_offset_m = abs(centering_offset_m)
                 else:
                     return fail(
                         FailureCode.GRASP_FAILED,

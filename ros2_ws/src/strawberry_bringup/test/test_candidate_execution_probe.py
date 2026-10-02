@@ -24,6 +24,11 @@ def event(event_type, timestamp, payload):
 
 def valid_events(target_id=7):
     return [
+        event("ADAPTIVE_COLLISION_SCENE_LEASE_STARTED", 5, {
+            "target_id": target_id, "maximum_duration_sec": 600.0,
+            "obstacle_count": 4, "scene_signature": "lease-scene",
+            "truth_source": False,
+        }),
         event("ADAPTIVE_CANDIDATE_EXECUTION_STARTED", 10, {
             "target_id": target_id,
             "live_payload_state": "EMPTY",
@@ -72,6 +77,9 @@ def valid_events(target_id=7):
             "target_id": target_id, "candidate_id": "G02",
             "geometry_fingerprint": "fp2", "certificate_fingerprint": "cert2",
             "success": True,
+        }),
+        event("ADAPTIVE_COLLISION_SCENE_LEASE_ENDED", 110, {
+            "target_id": target_id, "released": True,
         }),
     ]
 

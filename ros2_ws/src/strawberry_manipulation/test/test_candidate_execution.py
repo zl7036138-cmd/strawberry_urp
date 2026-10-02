@@ -352,7 +352,7 @@ class RuntimeCandidateExecutionTests(unittest.TestCase):
         ]
         self.assertEqual(approach_poses[-1], expected.pregrasp_pose)
 
-    def test_single_contact_prefers_next_untried_orientation_once(self):
+    def test_single_contact_prefers_measured_translation_over_untried_orientation(self):
         backend = _Backend(
             close_results=(False, True),
             contact_classes=("RIGHT_SINGLE_FRUIT", None),
@@ -361,8 +361,7 @@ class RuntimeCandidateExecutionTests(unittest.TestCase):
         evaluator = _Evaluator(
             {
                 "G00": ChainFailureCode.FEASIBLE,
-                "G01": ChainFailureCode.APPROACH_FAILED,
-                "G02": ChainFailureCode.FEASIBLE,
+                "G00-C01": ChainFailureCode.FEASIBLE,
             }
         )
         events = []
@@ -375,7 +374,7 @@ class RuntimeCandidateExecutionTests(unittest.TestCase):
         )
 
         self.assertTrue(result.success, result)
-        self.assertEqual(evaluator.calls, ["G00", "G01", "G02"])
+        self.assertEqual(evaluator.calls, ["G00", "G00-C01"])
         started = next(
             payload
             for event, payload in events
@@ -383,11 +382,17 @@ class RuntimeCandidateExecutionTests(unittest.TestCase):
         )
         self.assertEqual(
             started["reauthorization_strategy"],
-            "NEXT_UNTRIED_ORIENTATION",
+            "CENTERING_TRANSLATION",
         )
-        self.assertEqual(started["corrected_candidate_ids"], ["G01", "G02"])
-        self.assertEqual(started["correction_scale_factors"], [])
-        self.assertIn("AUTHORIZED_G02", result.stages)
+        self.assertEqual(
+            started["corrected_candidate_ids"],
+            ["G00-C01", "G00-C02", "G00-C03", "G00-C04"],
+        )
+        self.assertEqual(
+            started["correction_scale_factors"],
+            [1.0, 0.75, 0.5, 0.25],
+        )
+        self.assertIn("AUTHORIZED_G00-C01", result.stages)
 
     def test_searches_to_later_candidate_then_executes_exact_certificate(self):
         backend = _Backend()

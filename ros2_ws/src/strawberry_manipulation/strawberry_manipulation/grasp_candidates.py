@@ -27,10 +27,10 @@ from .core import (
 # remaining candidates increase local approach-axis tilt in deterministic rings.
 TILT_SEQUENCE_DEGREES: tuple[tuple[int, int], ...] = (
     (0, 0),
-    (10, 0), (-10, 0), (0, 10), (0, -10),
-    (10, 10), (10, -10), (-10, 10), (-10, -10),
-    (20, 0), (-20, 0),
-    (20, 10), (20, -10), (-20, 10), (-20, -10),
+    (5, 0), (-5, 0), (0, 5), (0, -5),
+    (5, 5), (5, -5), (-5, 5), (-5, -5),
+    (10, 0), (-10, 0),
+    (10, 5), (10, -5), (-10, 5), (-10, -5),
 )
 DEFAULT_ESCAPE_OFFSET_M = 0.08
 CONTACT_CENTERING_SCALE_SEQUENCE: tuple[float, ...] = (1.0, 0.75, 0.5, 0.25)

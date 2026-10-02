@@ -138,38 +138,31 @@ class RuntimeCandidateExecutionCoordinator:
             return initial_result
 
         try:
-            # A plan-only FEASIBLE grasp can still expose a physical contact
-            # obstruction that the simplified collision geometry does not
-            # model (the controlled G12 challenge pinned one finger fully
-            # open).  In that case, prefer the next frozen orientations that
-            # the first-feasible search did not reach.  This is still exactly
-            # one reauthorization and at most four candidates.  Only when no
-            # untried orientation remains do we use the measured translation
-            # ladder.
-            untried_orientations = tuple(remaining_candidates[:4])
-            if untried_orientations:
-                corrected_candidates = untried_orientations
-                reauthorization_strategy = "NEXT_UNTRIED_ORIENTATION"
-                correction_scales: tuple[float, ...] = ()
-            else:
-                generated_corrections = generate_recentered_grasp_candidates(
-                    source_candidate,
-                    measured_local_y_offset_m=hint.local_y_offset_m,
+            # A unique single-finger fruit contact is directional evidence of
+            # lateral mis-centring, not evidence that an unrelated orientation
+            # is better.  Preserve the certified orientation and search only
+            # the bounded full-to-partial translation ladder derived from the
+            # measured asymmetry.  Later frozen orientations remain valuable
+            # to the pre-contact first-feasible search, but must not displace
+            # stronger physical contact evidence after a failed close.
+            generated_corrections = generate_recentered_grasp_candidates(
+                source_candidate,
+                measured_local_y_offset_m=hint.local_y_offset_m,
+            )
+            corrected_candidates = tuple(
+                candidate
+                for candidate, scale in zip(
+                    generated_corrections,
+                    CONTACT_CENTERING_SCALE_SEQUENCE,
+                    strict=True,
                 )
-                corrected_candidates = tuple(
-                    candidate
-                    for candidate, scale in zip(
-                        generated_corrections,
-                        CONTACT_CENTERING_SCALE_SEQUENCE,
-                        strict=True,
-                    )
-                    if abs(hint.local_y_offset_m * scale)
-                    >= self.executor.minimum_grasp_centering_correction_m
-                )
-                reauthorization_strategy = "CENTERING_TRANSLATION"
-                correction_scales = CONTACT_CENTERING_SCALE_SEQUENCE[
-                    :len(corrected_candidates)
-                ]
+                if abs(hint.local_y_offset_m * scale)
+                >= self.executor.minimum_grasp_centering_correction_m
+            )
+            reauthorization_strategy = "CENTERING_TRANSLATION"
+            correction_scales = CONTACT_CENTERING_SCALE_SEQUENCE[
+                :len(corrected_candidates)
+            ]
             if not corrected_candidates:
                 raise ValueError("no correction remains above the minimum bound")
         except Exception as exc:

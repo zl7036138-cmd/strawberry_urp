@@ -22,7 +22,11 @@ for autonomous selection.
 ## Decision
 
 - Generate a finite, deterministic set of fifteen local approach-axis tilts
-  around the nominal orientation.  The frozen order begins with nominal `G00`.
+  around the nominal orientation. The order begins with nominal `G00`; after
+  the 10-degree terminal-grasp ring repeatedly produced mirrored single-finger
+  contact in physical simulation, the evidence-qualified v2 geometry uses a
+  5-degree first ring and a 10-degree outer ring. Geometry fingerprints make
+  every certificate from the superseded 10/20-degree ring non-reusable.
 - Tilts use local X/Y rotations only; first version does not use finger-roll
   (local Z/yaw), random sampling, scoring, or learned grasp generation.
 - Every `GraspCandidate` is immutable and owns its `grasp_pose`,
@@ -64,11 +68,12 @@ for autonomous selection.
   satisfies the unchanged 0.75-second tracker freshness contract; it issues
   no command while waiting and fails closed when no fresh scene arrives.
 - A certified physical grasp that returns `EMPTY` and safely reaches home may
-  consume exactly one contact-driven reauthorization. The coordinator first
-  evaluates at most four still-untried candidates from the frozen order. If
-  no untried candidate exists, it evaluates a bounded contact-centering
-  translation ladder. Every fallback receives a fresh ADR 0086 certificate;
-  no third physical attempt is permitted.
+  consume exactly one contact-driven reauthorization. A unique single-fruit
+  contact supplies stronger directional evidence than an untried
+  orientation, so the coordinator evaluates the bounded full-to-partial
+  contact-centering translation ladder while preserving the certified source
+  orientation. Every correction receives a fresh ADR 0086 certificate; no
+  third physical attempt is permitted.
 
 ## Non-goals
 
@@ -107,4 +112,9 @@ The first controlled Stage E challenge is retained as a negative result in
 `docs/p0/ADR0087E_CONTROLLED_CHALLENGE_NEGATIVE_2026-10-02.md`. It proves
 scene isolation, exact non-nominal dispatch, safe empty-payload recovery and
 bounded follow-on rejection, but it does not satisfy the positive completion
-criterion above.
+criterion above. Follow-up mirrored challenges show that the current
+10-degree terminal grasp tilts produce repeatable single-finger contact in
+this plant geometry. The next Stage E iteration must therefore qualify a
+smaller tilt ring or separate the obstacle-avoiding approach direction from
+the final bilateral closure orientation; safety thresholds and retry limits
+remain unchanged.

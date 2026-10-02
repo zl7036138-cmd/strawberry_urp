@@ -95,9 +95,71 @@ payload remained empty, and no fallback execution was dispatched.
 - Corrected grasps rejoin the source escape waypoint, but the diagonal join is
   explicitly planned and collision-checked as part of the new certificate.
 - Physical failure may trigger only one reauthorization and at most one more
-  physical execution. Untried frozen orientations are preferred over repeated
-  same-orientation translation; at most four are evaluated.
+  physical execution. A unique single-fruit contact is treated as stronger
+  directional evidence than an untried orientation, so the bounded
+  full-to-partial same-orientation translation ladder is evaluated first.
 - No safety threshold was lowered and no rejected candidate moved the robot.
+
+## Follow-up controlled challenges
+
+Two later challenge placements proved that first-feasible search and physical
+grasp contact must be judged separately.
+
+### G03 challenge — search succeeds, physical contact remains unilateral
+
+- Obstacle: `0.3970 0.1350 0.7000 0.012 0.034 0.002`
+- World SHA-256:
+  `6D3F0F70A62EDC7FE4BCC54F339D044A06F75A521BE32DBB6AA13C56D83EBF0F`
+- Runtime receipt:
+  `.codex_tmp/adr0087e_challenge_20261002/execution_45504_g00_g01_block_g02_open_r4_centering/candidate_execution_probe.json`
+- Receipt SHA-256:
+  `7BB880099EE16E7E77418913FFF4A242EE1158F1D8FC904743B90D42C72D7525`
+
+The copied-scene search produced the intended deterministic sequence:
+
+```text
+G00 -> APPROACH_FAILED
+G01 -> APPROACH_FAILED
+G02 -> APPROACH_FAILED
+G03 -> FEASIBLE
+```
+
+Execution used the exact `G03` certificate. Physical closure produced
+`RIGHT_SINGLE_FRUIT` with a 6.536 mm measured asymmetry. The evidence-derived
+`G03-C01` translation received a new seven-stage certificate and was the only
+second physical execution. It reduced the asymmetry to 3.274 mm, confirming
+the correction direction, but the opposite finger remained pinned at its
+fully open 40 mm position. Attachment was correctly denied and recovery ended
+at home with an empty payload.
+
+### Raised G02 challenge — mirrored contact and recovery fail-closed
+
+- Obstacle: `0.3970 0.1350 0.7800 0.012 0.034 0.002`
+- World SHA-256:
+  `D9B2EFBDD0A95A67AACBD29D45EFAA407630A5BF037ACC34AEAAC07CB074597B`
+- Runtime receipt:
+  `.codex_tmp/adr0087e_challenge_20261002/execution_45504_g00_g01_block_g02_open_z780_r1/candidate_execution_probe.json`
+- Receipt SHA-256:
+  `B4DC1A07B72DD9DE6CDD3A2CB6563CD1BC4403DF7184B33331D0178A88663E68`
+
+Raising the obstacle away from the closing height changed the first feasible
+candidate to `G02` after `G00` and `G01` failed. The physical result mirrored
+the earlier geometry: `LEFT_SINGLE_FRUIT`, with the other finger fully open.
+The subsequent recovery retreat did not complete, so the coordinator withheld
+home motion and did not attempt contact reauthorization. This is the intended
+fail-closed result.
+
+These runs show that the current 10-degree tilted terminal grasps are not yet
+positive ADR 0087-E evidence in this plant geometry. The next design step is
+to separate obstacle-avoiding approach geometry from the final bilateral
+closure orientation, or introduce a smaller bounded tilt ring, and qualify
+that change before another physical run.
+
+They also exposed an obsolete harness assumption: the execution runner
+defaulted to `track_id=1`, while the same perception scene assigned the stable
+ripe target `track_id=2`. The runner now defaults to automatic deterministic
+stable-ripe selection (`target_id=0`); an explicit positive ID is development
+override only. No simulator truth is used for this selection.
 
 ## Verification
 

@@ -97,6 +97,8 @@ class CandidateExecutionProbeTests(unittest.TestCase):
         self.assertIn("STRAWBERRY_DEVELOPMENT_CANDIDATE_CHALLENGE_OBSTACLE_SPEC", runner)
         self.assertIn("generalized_candidate_execution_probe", runner)
         self.assertIn("--target-id", runner)
+        self.assertIn('STRAWBERRY_CANDIDATE_EXECUTION_TARGET_ID:-0', runner)
+        self.assertNotIn('STRAWBERRY_CANDIDATE_EXECUTION_TARGET_ID:-1', runner)
         self.assertNotIn("/strawberry/run_harvest", runner)
 
     def test_builds_valid_nonformal_physical_challenge_receipt(self):

@@ -30,6 +30,16 @@ class GraspCandidateTests(unittest.TestCase):
             tuple(f"G{index:02d}" for index in range(15)),
         )
         self.assertEqual(TILT_SEQUENCE_DEGREES[0], (0, 0))
+        self.assertEqual(
+            TILT_SEQUENCE_DEGREES,
+            (
+                (0, 0),
+                (5, 0), (-5, 0), (0, 5), (0, -5),
+                (5, 5), (5, -5), (-5, 5), (-5, -5),
+                (10, 0), (-10, 0),
+                (10, 5), (10, -5), (-10, 5), (-10, -5),
+            ),
+        )
         self.assertEqual((candidates[0].tilt_x_rad, candidates[0].tilt_y_rad), (0.0, 0.0))
 
     def test_output_is_deterministic_normalized_and_fingerprinted(self):

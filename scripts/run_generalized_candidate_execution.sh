@@ -21,7 +21,11 @@ model_path="${STRAWBERRY_GENERALIZED_MODEL_PATH:-outputs/perception/yolo11s_640_
 base_camera_resolution="${STRAWBERRY_BASE_CAMERA_RESOLUTION:-320x240}"
 candidate_challenge_obstacle_spec="${STRAWBERRY_DEVELOPMENT_CANDIDATE_CHALLENGE_OBSTACLE_SPEC:-}"
 world_file="${STRAWBERRY_CANDIDATE_EXECUTION_WORLD_FILE:-${repo_root}/${scene_dir}/${scene_stem}.sdf}"
-target_id="${STRAWBERRY_CANDIDATE_EXECUTION_TARGET_ID:-1}"
+# Zero means: deterministically choose the highest-ranked stable ripe track.
+# A positive value remains available for a deliberately pinned development
+# probe, but generalized execution must not assume tracker IDs match simulator
+# entity IDs or remain constant when scene appearance changes.
+target_id="${STRAWBERRY_CANDIDATE_EXECUTION_TARGET_ID:-0}"
 evidence_run_id="adr0087e_${seed}_${run_tag}"
 evidence_scenario_id="generalized_seed_${seed}"
 git_commit="$(git rev-parse HEAD)"

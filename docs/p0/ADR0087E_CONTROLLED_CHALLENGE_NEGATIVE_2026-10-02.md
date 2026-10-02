@@ -169,5 +169,7 @@ The complete ROS workspace regression after these changes reports:
 896 tests, 0 errors, 0 failures, 0 skipped
 ```
 
-ADR 0087-E remains open until a new controlled scene produces an auditable
-successful non-nominal grasp, transport, placement and safe return.
+These negative results remain the evidence basis for the smaller tilt ring.
+The later clean-commit-bound positive result is recorded separately in
+`ADR0087E_CONTROLLED_CHALLENGE_POSITIVE_2026-10-02.md` and closes ADR 0087-E
+for its bounded controlled-challenge scope.

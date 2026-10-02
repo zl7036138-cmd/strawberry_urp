@@ -2,14 +2,14 @@
 
 ## Status
 
-Accepted for staged implementation. Stages A (pure candidate geometry), B
-(bounded first-feasible search), C (certificate-to-execution identity
-binding), and D (runtime plan-only qualification) are implemented. Stage D
-has one development-scene runtime receipt with a truth-isolation audit and
-zero manipulation execution. Stage E's execution boundary and bounded
-physical-contact recovery are implemented and fail closed, but the first
-controlled challenge was physically unsatisfiable under the complete gate.
-A successful real non-nominal execution therefore remains open.
+Accepted and runtime-qualified for the bounded controlled-challenge scope.
+Stages A (pure candidate geometry), B (bounded first-feasible search), C
+(certificate-to-execution identity binding), D (runtime plan-only
+qualification), and E (controlled non-nominal physical execution) are
+implemented. Stage E now has a clean-commit-bound positive receipt in which
+`G00`–`G02` fail, `G03` is certified and executes the complete grasp, transport,
+release and return chain. Multi-fruit and formal 30-seed acceptance remain
+outside this ADR.
 
 ## Context
 
@@ -105,8 +105,10 @@ development receipt in `docs/p0/ADR0087_PLAN_ONLY_EVIDENCE_2026-10-01.md`
 records an actual perception-derived `G00` certificate with no dispatched
 execution.
 
-Stage E must prove a runtime case where nominal fails but a non-nominal
-candidate completes the newly certified execution chain.
+Stage E required a runtime case where nominal fails but a non-nominal
+candidate completes the newly certified execution chain. The bound positive
+receipt is recorded in
+`docs/p0/ADR0087E_CONTROLLED_CHALLENGE_POSITIVE_2026-10-02.md`.
 
 The first controlled Stage E challenge is retained as a negative result in
 `docs/p0/ADR0087E_CONTROLLED_CHALLENGE_NEGATIVE_2026-10-02.md`. It proves
@@ -117,4 +119,5 @@ criterion above. Follow-up mirrored challenges show that the current
 this plant geometry. The next Stage E iteration must therefore qualify a
 smaller tilt ring or separate the obstacle-avoiding approach direction from
 the final bilateral closure orientation; safety thresholds and retry limits
-remain unchanged.
+remain unchanged. The qualified 5-degree ring subsequently completed `G03`
+without contact reauthorization, closing Stage E for its controlled scope.

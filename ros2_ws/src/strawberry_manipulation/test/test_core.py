@@ -21,6 +21,7 @@ from strawberry_manipulation.core import (  # noqa: E402
     offset_along_local_y,
     pregrasp_pose_for_fruit_center,
     rotate_about_base_z,
+    wait_for_bilateral_contact,
 )
 from strawberry_manipulation.grasp_authorization import (  # noqa: E402
     ExecutionIdentity,
@@ -47,6 +48,44 @@ class BoundedPregraspCandidateTests(unittest.TestCase):
         self.assertEqual(
             candidates[3], rotate_about_base_z(primary, 3.0 * math.pi / 2.0)
         )
+
+
+class ContactSettleTests(unittest.TestCase):
+    def test_waits_for_fresh_bilateral_contact_without_motion(self):
+        samples = iter(("RIGHT_SINGLE_FRUIT", "BILATERAL_SAME_FRUIT"))
+        now = [0.0]
+        sleeps = []
+
+        def sleep(duration):
+            sleeps.append(duration)
+            now[0] += duration
+
+        result = wait_for_bilateral_contact(
+            lambda: next(samples),
+            timeout_sec=0.20,
+            sample_period_sec=0.05,
+            monotonic=lambda: now[0],
+            sleep=sleep,
+        )
+
+        self.assertEqual(result, "BILATERAL_SAME_FRUIT")
+        self.assertEqual(sleeps, [0.05])
+
+    def test_returns_last_single_contact_when_window_expires(self):
+        now = [0.0]
+
+        def sleep(duration):
+            now[0] += duration
+
+        result = wait_for_bilateral_contact(
+            lambda: "LEFT_SINGLE_FRUIT",
+            timeout_sec=0.10,
+            sample_period_sec=0.04,
+            monotonic=lambda: now[0],
+            sleep=sleep,
+        )
+
+        self.assertEqual(result, "LEFT_SINGLE_FRUIT")
 
 
 class FakeBackend:
@@ -834,6 +873,33 @@ class PickAndPlaceTests(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(legacy_authorizer_calls, [])
         self.assertIn("AUTHORIZED_G04", result.stages)
+        moved = dict(backend.poses)
+        self.assertEqual(moved["APPROACH"], plan.candidate.pregrasp_pose)
+        self.assertEqual(moved["GRASP_POSE"], plan.candidate.grasp_pose)
+        self.assertEqual(moved["RETREAT"], plan.candidate.escape_pose)
+
+    def test_authorized_execution_waits_for_contact_evidence_without_replacing_geometry(self):
+        plan = self._authorized_plan(candidate_index=4)
+        backend = FakeBackend(
+            contact_classes=["RIGHT_SINGLE_FRUIT", "BILATERAL_SAME_FRUIT"]
+        )
+
+        result = PickAndPlaceExecutor(
+            backend,
+            authorized_contact_settle_timeout_sec=0.02,
+            authorized_contact_settle_sample_period_sec=0.001,
+        ).execute_authorized(
+            8,
+            self.target,
+            self.bin,
+            plan,
+            execution_identity=plan.execution_identity,
+            scene_signature_provider=lambda: "scene-a",
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(backend.calls.count("contact_class"), 2)
+        self.assertLess(backend.calls.index("contact_class"), backend.calls.index("attach"))
         moved = dict(backend.poses)
         self.assertEqual(moved["APPROACH"], plan.candidate.pregrasp_pose)
         self.assertEqual(moved["GRASP_POSE"], plan.candidate.grasp_pose)

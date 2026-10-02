@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import IntEnum
 import math
+import time
 from typing import Callable, Protocol, TYPE_CHECKING
 
 from .collision_policy import (
@@ -25,6 +26,52 @@ BILATERAL_SAME_FRUIT = "BILATERAL_SAME_FRUIT"
 NO_FRUIT_CONTACT = "NO_FRUIT_CONTACT"
 AMBIGUOUS_FRUIT_CONTACT = "AMBIGUOUS_FRUIT_CONTACT"
 CONTACT_CLASS_UNAVAILABLE = "CONTACT_CLASS_UNAVAILABLE"
+
+
+def wait_for_bilateral_contact(
+    read_contact_class: Callable[[], str | None],
+    *,
+    timeout_sec: float,
+    sample_period_sec: float,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> str | None:
+    """Observe a bounded post-close contact window without moving the hand.
+
+    Gazebo contact messages arrive asynchronously from the gripper-controller
+    result. In particular, one pad can be reported a simulation frame before
+    the other even when the hand geometry has not changed. This helper is not
+    an attachment decision: it only gives the existing strict attachment gate
+    a short opportunity to see fresh bilateral evidence. It never commands a
+    joint, changes a candidate pose, or accepts a one-sided contact.
+    """
+
+    if not callable(read_contact_class):
+        raise ValueError("contact reader must be callable")
+    if (
+        not math.isfinite(timeout_sec)
+        or not math.isfinite(sample_period_sec)
+        or timeout_sec < 0.0
+        or sample_period_sec <= 0.0
+    ):
+        raise ValueError("contact settle bounds are invalid")
+
+    deadline = monotonic() + float(timeout_sec)
+    last_contact_class: str | None = None
+    while True:
+        try:
+            observed = read_contact_class()
+        except Exception:
+            # The attachment service remains the fail-closed authority if a
+            # diagnostic read is temporarily unavailable.
+            return last_contact_class
+        last_contact_class = observed if isinstance(observed, str) else None
+        if last_contact_class == BILATERAL_SAME_FRUIT:
+            return last_contact_class
+        remaining = deadline - monotonic()
+        if remaining <= 0.0:
+            return last_contact_class
+        sleep(min(float(sample_period_sec), remaining))
 
 
 class FailureCode(IntEnum):
@@ -281,6 +328,8 @@ class PickAndPlaceExecutor:
         whole_chain_authorizer: Callable[[int, Pose, Pose], "ChainEvaluation"] | None = None,
         maximum_grasp_centering_correction_m: float = 0.010,
         minimum_grasp_centering_correction_m: float = 0.001,
+        authorized_contact_settle_timeout_sec: float = 0.35,
+        authorized_contact_settle_sample_period_sec: float = 0.05,
     ) -> None:
         if pregrasp_offset_m <= 0.0 or retreat_distance_m <= 0.0:
             raise ValueError("motion offsets must be positive")
@@ -296,6 +345,13 @@ class PickAndPlaceExecutor:
             <= minimum_grasp_centering_correction_m
         ):
             raise ValueError("grasp centering correction bounds are invalid")
+        if (
+            not math.isfinite(authorized_contact_settle_timeout_sec)
+            or not math.isfinite(authorized_contact_settle_sample_period_sec)
+            or authorized_contact_settle_timeout_sec < 0.0
+            or authorized_contact_settle_sample_period_sec <= 0.0
+        ):
+            raise ValueError("authorized contact settle bounds are invalid")
         self.backend = backend
         self.pregrasp_offset_m = pregrasp_offset_m
         self.retreat_distance_m = retreat_distance_m
@@ -310,6 +366,12 @@ class PickAndPlaceExecutor:
         )
         self.minimum_grasp_centering_correction_m = float(
             minimum_grasp_centering_correction_m
+        )
+        self.authorized_contact_settle_timeout_sec = float(
+            authorized_contact_settle_timeout_sec
+        )
+        self.authorized_contact_settle_sample_period_sec = float(
+            authorized_contact_settle_sample_period_sec
         )
         # A retained fruit makes the planning-scene lifecycle intentionally
         # non-reentrant.  There is no generic autonomous recovery that can
@@ -337,6 +399,20 @@ class PickAndPlaceExecutor:
             center,
             quaternion=quaternion,
             tool_center_offset_m=self.tool_center_offset_m,
+        )
+
+    def _settle_authorized_contact_evidence(self) -> str | None:
+        """Wait briefly for physical bilateral contact without altering geometry."""
+
+        contact_class_reader = getattr(
+            self.backend, "gripper_fruit_contact_class", None
+        )
+        if not callable(contact_class_reader):
+            return None
+        return wait_for_bilateral_contact(
+            contact_class_reader,
+            timeout_sec=self.authorized_contact_settle_timeout_sec,
+            sample_period_sec=self.authorized_contact_settle_sample_period_sec,
         )
 
     def execute(
@@ -905,6 +981,12 @@ class PickAndPlaceExecutor:
         if gripper_closed:
             self._set_payload_state(PayloadState.CONTACT)
             mark("CONTACT", 0.42)
+        if authorized_candidate is not None and gripper_closed:
+            # The certificate binds only geometry and scene state. Waiting for
+            # a fresh contact report is therefore safe, whereas changing pose
+            # or trying an alternate orientation would violate its identity.
+            # ``attach`` below remains the strict final authority.
+            self._settle_authorized_contact_evidence()
         attachment_confirmed = (
             self.backend.attach(target_id) if gripper_closed else False
         )

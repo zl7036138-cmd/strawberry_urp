@@ -66,6 +66,14 @@
     {
       "test_id_suffix": "BundleAndExperimentTest.test_experiment_matrix_pins_opt1_primary_and_historical_baseline",
       "reason": "requires an ignored historical experiment contract"
+    },
+    {
+      "test_id_suffix": "ProbeReceiptTests.test_cleanup_library_terminates_live_process_group",
+      "reason": "sends signals to a real POSIX process group and is retained in the controlled local WSL full suite rather than shared CI runners"
+    },
+    {
+      "test_id_suffix": "ProbeReceiptTests.test_cleanup_library_kills_term_resistant_group",
+      "reason": "sends SIGKILL to a real POSIX process group and is retained in the controlled local WSL full suite rather than shared CI runners"
     }
   ]
 }

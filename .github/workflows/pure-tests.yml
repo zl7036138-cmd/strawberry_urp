@@ -2,7 +2,7 @@ name: Pure Python tests
 
 on:
   push:
-    branches: [main, codex/wp01-evidence-validation]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

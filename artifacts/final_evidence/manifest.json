@@ -1,5 +1,5 @@
 {
-  "code_baseline_commit": "e21b7043508e950277ce3e84c92d0464741802b2",
+  "code_baseline_commit": "b4c10d8534c56fa43e9bf175d4f7b023af6a13b8",
   "files": [
     {
       "bytes": 62,
@@ -107,11 +107,11 @@
       "sha256": "f51d018653225fc5b5766358f426c5cb296bd5ab588b8eadeafd1ec99544ab4a"
     },
     {
-      "bytes": 1737,
+      "bytes": 966,
       "expected_hash_verified": true,
       "expected_sha256": null,
       "path": "artifacts/final_evidence/FINAL_TEST_RECEIPT.json",
-      "sha256": "e92b5375cf25bd537c537aa2d11ff372c86ae60900670becac402c34afb11219"
+      "sha256": "8bcc93e716f2d241003aaeb2e9ee92e42382a78d9d109f089a4f61a2ff445716"
     },
     {
       "bytes": 1276,
@@ -131,7 +131,7 @@
   "five_scene_multi_fruit_gate_passed": false,
   "formal_30_seed_matrix_opened": false,
   "formal_acceptance_claimed": false,
-  "generated_at_utc": "2026-10-03T01:53:37.913007+00:00",
+  "generated_at_utc": "2026-10-03T02:06:56.212058+00:00",
   "schema_version": 1,
   "scope": "final_closure_key_runtime_evidence",
   "verification": {

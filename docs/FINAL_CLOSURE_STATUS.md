@@ -23,7 +23,9 @@ licensing, and reproducibility.
 - `config/final_run_profiles.yaml`: explicit standard and adaptive-demo profiles.
 - `artifacts/final_evidence/`: permanent copies of key ADR 0086/0087 receipts,
   challenge world, hashes, and final test receipt.
-- `.github/workflows/pure-tests.yml`: externally visible dependency-light test.
+- `.github/workflows/pure-tests.yml`: externally visible clean-clone test;
+  `config/clone_safe_test_exclusions.json` makes every local-artifact exclusion
+  explicit while the complete 1040-test result remains separately archived.
 - `artifacts/final_evidence/FINAL_TEST_RECEIPT.json`: canonical Ubuntu/WSL
   dependency-light result, 1040 tests with 0 failures and 0 errors.
 - `artifacts/final_evidence/FINAL_ROS_TEST_RECEIPT.json`: full ROS/colcon result,

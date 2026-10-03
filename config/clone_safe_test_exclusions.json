@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "profile": "github_clean_clone",
+  "policy": "Exclude only tests whose asserted inputs are intentionally ignored datasets, model weights, or historical local optimization artifacts. The full local suite remains mandatory for the closure receipt.",
+  "exclusions": [
+    {
+      "test_id_suffix": "P4QualificationTests.test_contract_emits_balanced_interleaved_schedule",
+      "reason": "requires the ignored P4 model checkpoint bound by the qualification contract"
+    },
+    {
+      "test_id_suffix": "P4QualificationTests.test_contract_rejects_threshold_or_motion_relaxation",
+      "reason": "requires the ignored P4 model checkpoint bound by the qualification contract"
+    },
+    {
+      "test_id_suffix": "P4QualificationTests.test_heavy_or_unripe_failure_fails_closed",
+      "reason": "requires the ignored P4 model checkpoint bound by the qualification contract"
+    },
+    {
+      "test_id_suffix": "P4QualificationTests.test_passing_records_pass",
+      "reason": "requires the ignored P4 model checkpoint bound by the qualification contract"
+    },
+    {
+      "test_id_suffix": "PerceptionRepeatedDevGateTests.test_bound_waiver_and_model_evidence_verify",
+      "reason": "requires ignored model and perception evidence files"
+    },
+    {
+      "test_id_suffix": "PerceptionRepeatedDevSummaryTests.test_complete_fixture_passes",
+      "reason": "requires ignored perception development evidence"
+    },
+    {
+      "test_id_suffix": "PerceptionRepeatedDevSummaryTests.test_missing_result_is_infrastructure_failure",
+      "reason": "requires ignored perception development evidence"
+    },
+    {
+      "test_id_suffix": "PerceptionRepeatedDevSummaryTests.test_negative_control_attempt_fails",
+      "reason": "requires ignored perception development evidence"
+    },
+    {
+      "test_id_suffix": "MultipositionManifestTests.test_frozen_manifest_expands_to_fifteen_no_motion_scenarios",
+      "reason": "requires an ignored detector checkpoint"
+    },
+    {
+      "test_id_suffix": "MultipositionManifestTests.test_manifest_rejects_position_drift",
+      "reason": "requires an ignored detector checkpoint"
+    },
+    {
+      "test_id_suffix": "SimulatorAdaptationTrainingTests.test_authorization_binds_contract_decision_and_config",
+      "reason": "requires ignored training authorization artifacts"
+    },
+    {
+      "test_id_suffix": "SimulatorAdaptationTrainingTests.test_completed_claim_preserves_exact_checkpoint_inventory",
+      "reason": "requires ignored training claim artifacts"
+    },
+    {
+      "test_id_suffix": "SimulatorAdaptationTrainingTests.test_materialized_manifest_has_frozen_counts_and_canonical_digest",
+      "reason": "requires the ignored 789-image materialized training derivative"
+    },
+    {
+      "test_id_suffix": "SimulatorAdaptationTrainingTests.test_real_failure_and_counterfactual_cannot_promote",
+      "reason": "requires ignored optimization evidence"
+    },
+    {
+      "test_id_suffix": "SimulatorAdaptationTrainingTests.test_synthetic_selection_passes_without_real_access",
+      "reason": "requires ignored optimization evidence"
+    },
+    {
+      "test_id_suffix": "BundleAndExperimentTest.test_experiment_matrix_pins_opt1_primary_and_historical_baseline",
+      "reason": "requires an ignored historical experiment contract"
+    }
+  ]
+}

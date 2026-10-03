@@ -161,8 +161,10 @@ Dependency-light regression:
 ```
 
 Canonical closure result: 1040 tests, 0 failures, 0 errors, 3 environment
-skips. GitHub Actions runs the same dependency-light entry point on pushes and
-pull requests. The full local ROS/colcon closure run also passes: 897 tests,
+skips. GitHub Actions runs the explicitly recorded clone-safe subset of the
+same dependency-light runner; tests needing intentionally ignored datasets,
+weights, or local historical artifacts remain in the full local receipt. The
+full local ROS/colcon closure run also passes: 897 tests,
 0 failures, 0 errors, 0 skips. Its machine-readable receipt is
 `artifacts/final_evidence/FINAL_ROS_TEST_RECEIPT.json`. Full ROS/Gazebo testing
 remains local because it requires ROS 2 Jazzy, Gazebo Harmonic, MoveIt, and the

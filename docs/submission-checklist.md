@@ -35,7 +35,8 @@ code. The old archive remains immutable historical evidence.
 - [x] Manifest verifies critical expected hashes.
 - [x] Canonical Ubuntu/WSL pure suite: 1040 tests, 0 failures, 0 errors, 3 skips.
 - [x] Noncanonical Windows failures are retained and clearly labelled.
-- [x] GitHub Actions pure-test workflow is present.
+- [x] GitHub Actions clone-safe workflow and explicit local-artifact exclusion
+  manifest are present; the full 1040-test local receipt remains separate.
 - [ ] GitHub Actions is green on the pushed closure commit.
 - [x] Current closure baseline full ROS/colcon receipt is archived: 897 tests,
   0 failures, 0 errors, 0 skips.

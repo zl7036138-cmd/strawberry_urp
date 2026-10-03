@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "gate_id": "blender_v2_pregrasp_planning_post_contact_v1",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_PREGRASP_PLANNING",
+  "status": "FROZEN_EXECUTION_AUTHORIZED",
+  "decision_record": {
+    "path": "docs/decisions/0046-freeze-v2-pregrasp-planning-requalification.md",
+    "size_bytes": 2651,
+    "sha256": "67ea181bc87f47120503c645ad02fec2c7362836642d55584655045ee6dada8b"
+  },
+  "bindings": {
+    "acceptance_decision": {
+      "path": "docs/decisions/0045-accept-v2-gripper-contact-and-scene-bound-geometry.md",
+      "size_bytes": 2764,
+      "sha256": "2b66d3d62464bfedbc488df048a113c554a5c8cb559053d60b1a9a200c7b082e"
+    },
+    "contact_runtime_result": {
+      "path": "results/development/blender_v2_gripper_contact_round_trip_v1/summary.json",
+      "size_bytes": 13188,
+      "sha256": "525adf334468f06fe5d9ae1500335f1ad0c132e000edefe64a6d7a23c1f27b7f"
+    },
+    "grasp_geometry_config": {
+      "path": "ros2_ws/src/strawberry_manipulation/config/grasp_geometry.yaml",
+      "size_bytes": 668,
+      "sha256": "e23678ec96679625059ed88f262ddf5c6051abdff948e30e26743d9a67e96b5c"
+    },
+    "grasp_geometry_loader": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/grasp_geometry.py",
+      "size_bytes": 4259,
+      "sha256": "6ccc8495bc21f35803bf41bdd833237bf9f9a4793c73b809dd1be64ffc3a861b"
+    },
+    "pregrasp_shadow": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/pregrasp_shadow.py",
+      "size_bytes": 28876,
+      "sha256": "0a1fbf6ae3619c106f06c279c1de364d5de4e1909be6133b240bdbbe0385fdb8"
+    },
+    "oracle_handoff": {
+      "path": "artifacts/simulation/blender_v2_pregrasp_oracle_handoff_v1.json",
+      "size_bytes": 474,
+      "sha256": "90019f1db63aff580bb8b3faa1d8e89dfc3f177be1dec1b722fb9f22f3727cb7"
+    },
+    "validator": {
+      "path": "scripts/validate_blender_v2_pregrasp_requalification.py",
+      "size_bytes": 10860,
+      "sha256": "455abebb3595523c5c3a83b9f88d1d67b6af1f4dadf06997b33746e45de57796"
+    },
+    "runner": {
+      "path": "scripts/run_blender_v2_pregrasp_requalification.sh",
+      "size_bytes": 2970,
+      "sha256": "bd317921ea910a0e89d2b6bc3236ded70641824fa0dde702ea7e672a59df590f"
+    }
+  },
+  "parameters": {
+    "expected_target_id": 1,
+    "target_topic": "/strawberry/oracle/target_pose",
+    "camera_mount": "dual",
+    "expected_grasp_profile": "blender_v2_26mm",
+    "expected_tool_center_offset_m": 0.0964,
+    "pregrasp_offset_m": 0.15,
+    "planning_attempts": 3,
+    "minimum_target_samples": 15,
+    "minimum_joint_samples": 10,
+    "maximum_target_age_sec": 0.5,
+    "maximum_joint_delta_rad": 0.002
+  },
+  "thresholds": {
+    "required_collision_count": 7,
+    "maximum_moveit_state_delta_rad": 0.002,
+    "require_selected_collision_retained": true,
+    "require_trajectory_discarded": true,
+    "required_control_command_count": 0
+  },
+  "safety": {
+    "formal_acceptance": false,
+    "held_out_test_access_authorized": false,
+    "oracle_target_authorized": true,
+    "robot_motion_authorized": false,
+    "gripper_command_authorized": false,
+    "attachment_authorized": false,
+    "perception_authorized": false,
+    "localization_authorized": false,
+    "manipulation_authorized": false,
+    "orchestrator_authorized": false,
+    "trajectory_execution_authorized": false,
+    "pick_action_authorized": false
+  },
+  "execution": {
+    "maximum_trials": 1,
+    "retry_authorized": false,
+    "output_directory": "results/development/blender_v2_pregrasp_planning_post_contact_v1"
+  }
+}

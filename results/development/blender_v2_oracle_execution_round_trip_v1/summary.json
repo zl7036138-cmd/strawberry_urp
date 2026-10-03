@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "gate": "blender_v2_oracle_execution_round_trip_v1",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_ORACLE_EXECUTION",
+  "passed": false,
+  "formal_acceptance": false,
+  "held_out_test_accessed": false,
+  "pick_authorized": false,
+  "single_oracle_action_authorized": true,
+  "action_execution_succeeded": true,
+  "evidence_complete": false,
+  "validator_completed": false,
+  "contract": {
+    "path": "config/blender_v2_oracle_execution_round_trip_v1.json",
+    "size_bytes": 4982,
+    "sha256": "4e7e20fd2a79249f2db4468ad5b8776a553242452646279bf734f3f633f20354"
+  },
+  "trial_result": {
+    "path": "results/development/blender_v2_oracle_execution_round_trip_v1/trial_01.json",
+    "size_bytes": 10018,
+    "sha256": "840672289e52af82860984e43d9178eb60fea327694dfdbd9fc0945c898ded95"
+  },
+  "launch_log": {
+    "path": "results/development/blender_v2_oracle_execution_round_trip_v1/launch.log",
+    "size_bytes": 41555,
+    "sha256": "45a92baa674f5279628e12e8dd97119d0813c8ab4ec215b62b0db5119f635e4d"
+  },
+  "action": {
+    "success": true,
+    "status": 4,
+    "failure_code": 0,
+    "message": "pick-and-place completed",
+    "planning_time_sec": 0.0403,
+    "execution_time_sec": 92.2741,
+    "stages": [
+      "PLAN",
+      "APPROACH",
+      "GRASP",
+      "RETREAT",
+      "PLACE",
+      "VERIFY",
+      "DONE"
+    ]
+  },
+  "observations": {
+    "left_raw_contact_count": 281,
+    "right_raw_contact_count": 276,
+    "left_processed_contact_seen": true,
+    "right_processed_contact_seen": true,
+    "unexpected_fruit_contacts": [],
+    "attach_detach_round_trip_observed": true,
+    "final_attached": false,
+    "final_ready_joint_error_rad": 6.23e-13,
+    "final_open_recovery_error_m": 1.11875516086e-7,
+    "target_final_position_m": [
+      0.35002571833383417,
+      -0.44998024363410666,
+      0.4500400938393492
+    ],
+    "initial_arm_positions": {},
+    "initial_final_joint_delta_rad": null
+  },
+  "violations": [
+    "initial arm state snapshot was empty",
+    "initial-to-final arm-joint delta was unavailable",
+    "validator raised TypeError while converting a null delta instead of recording a fail-closed violation"
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "kind": "strawberry_urp_protected_resource_ledger",
+  "ledger_id": "strawberry-urp-resource-ledger-v1",
+  "updated_at_utc": "2026-09-08T23:26:41Z",
+  "resources": [
+    {
+      "resource_id": "formal-simulation-p3-v1-165-trials",
+      "resource_class": "formal_simulation_legacy",
+      "state": "EXHAUSTED",
+      "release_authorized": true,
+      "maximum_consumptions": 1,
+      "consumptions": [
+        {
+          "consumption_id": "p3-formal-matrix-v1",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": "results/p3/formal_matrix_v1/claim_snapshot.json"
+        }
+      ],
+      "result": "39/135 positive trials succeeded; historical evaluation failed its retained performance gate"
+    },
+    {
+      "resource_id": "formal-simulation-generalized-v1-30-scenes",
+      "resource_class": "formal_simulation",
+      "state": "PROTECTED",
+      "release_authorized": false,
+      "maximum_consumptions": 1,
+      "consumptions": [],
+      "matrix": {
+        "path": "config/generalized_harvest_matrix_v1.json",
+        "sha256": "2f9cc23d04947ab1ec1101010818a59e882d8cf04b6dd18cffb2ddc417493c2d",
+        "size_bytes": 4838
+      },
+      "materialization": {
+        "path": ".codex_tmp/generalized_formal_matrix_v1_final/materialization_manifest.json",
+        "sha256": "400c85a7bbb8f9b780d1fdbc1582aef083b4b1bec7589b5a7fd63eb7ee3d7960",
+        "size_bytes": 7967,
+        "behavioral_consumption": false
+      },
+      "release_rule": "Requires an accepted G4 freeze and separate project-owner authorization."
+    },
+    {
+      "resource_id": "formal-real-image-test-v1-115-images",
+      "resource_class": "formal_real_image",
+      "state": "PROTECTED",
+      "release_authorized": false,
+      "maximum_consumptions": 1,
+      "consumptions": [],
+      "split_manifest": {
+        "path": "data/processed/zenodo_6126677/split_manifest.json",
+        "sha256": "4a146b792ec6838f0b00782dc6145ebce352034678ca35cdc3ae9436eacfe237",
+        "size_bytes": 686465,
+        "test_count": 115,
+        "canonical_test_sha256": "43c6fef9294117788c210514ee7ce64e5bbac5e6acc05e1c5bcc7f6b3aa9dc20"
+      },
+      "inspection_boundary": "P0 inspected split metadata only; no test image, label, prediction, or metric was opened or evaluated.",
+      "release_rule": "Requires an accepted G4 freeze and separate project-owner authorization independent of the simulation release."
+    },
+    {
+      "resource_id": "qualification-generalized-46001-46018",
+      "resource_class": "qualification_simulation",
+      "state": "EXHAUSTED",
+      "release_authorized": true,
+      "maximum_consumptions": 1,
+      "consumptions": [
+        {
+          "consumption_id": "qualification-b00-460xx-zero-motion",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_qualification_b00/sweep_summary.json"
+        }
+      ]
+    },
+    {
+      "resource_id": "qualification-generalized-46101-46118",
+      "resource_class": "qualification_simulation",
+      "state": "EXHAUSTED",
+      "release_authorized": true,
+      "maximum_consumptions": 1,
+      "consumptions": [
+        {
+          "consumption_id": "qualification-b00-461xx-zero-motion",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_qualification_b00_640x480_centroid_gate/sweep_summary.json"
+        }
+      ]
+    },
+    {
+      "resource_id": "qualification-generalized-46201-46218",
+      "resource_class": "qualification_simulation",
+      "state": "EXHAUSTED",
+      "release_authorized": true,
+      "maximum_consumptions": 1,
+      "consumptions": [
+        {
+          "consumption_id": "qualification-b01-462xx-zero-motion-and-runtime",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_runtime_qualification_b01_640x480_camera_bound/qualification_runtime_summary.json"
+        }
+      ],
+      "result": "0/5 scenes completed two fruits; overall_pass=false"
+    },
+    {
+      "resource_id": "development-generalized-45101-45518",
+      "resource_class": "development_simulation",
+      "state": "EXHAUSTED",
+      "release_authorized": true,
+      "maximum_consumptions": 5,
+      "consumptions": [
+        {
+          "consumption_id": "development-451xx",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_discovery_layout_v2_b00"
+        },
+        {
+          "consumption_id": "development-452xx",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_discovery_b01_640x480/sweep_summary.json"
+        },
+        {
+          "consumption_id": "development-453xx",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_discovery_b02_640x480_center_fallback/sweep_summary.json"
+        },
+        {
+          "consumption_id": "development-454xx",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_discovery_b03_640x480_centroid_gate/sweep_summary.json"
+        },
+        {
+          "consumption_id": "development-455xx",
+          "run_identity_status": "LEGACY_INCOMPLETE",
+          "evidence": ".codex_tmp/generalized_feasibility_discovery_b04_640x480_primary_clearance/sweep_summary.json"
+        }
+      ],
+      "policy": "These blocks are development history and cannot be relabeled as fresh qualification resources."
+    }
+  ],
+  "global_policy": {
+    "directory_renames_do_not_reset_consumption": true,
+    "unknown_resource_state_is_not_authorization": true,
+    "resume_requires_same_consumption_identity": true,
+    "formal_simulation_and_real_image_release_are_separate": true
+  }
+}

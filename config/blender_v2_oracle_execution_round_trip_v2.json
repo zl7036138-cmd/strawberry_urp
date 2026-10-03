@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "gate_id": "blender_v2_oracle_execution_round_trip_v2",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_ORACLE_EXECUTION_MEASUREMENT_V2",
+  "status": "FROZEN_MEASUREMENT_REQUALIFICATION_AUTHORIZED",
+  "decision_record": {
+    "path": "docs/decisions/0049-preserve-v1-evidence-failure-and-freeze-v2-measurement.md",
+    "size_bytes": 2842,
+    "sha256": "332a04014d962b48eb36f6d5d4cc61444d6af050caf7a50b1b654a5f8bbf9454"
+  },
+  "bindings": {
+    "v1_contract": {
+      "path": "config/blender_v2_oracle_execution_round_trip_v1.json",
+      "size_bytes": 4982,
+      "sha256": "4e7e20fd2a79249f2db4468ad5b8776a553242452646279bf734f3f633f20354"
+    },
+    "v1_failed_summary": {
+      "path": "results/development/blender_v2_oracle_execution_round_trip_v1/summary.json",
+      "size_bytes": 2164,
+      "sha256": "4a37548e859a61599397f88e4805f6a33f4597b3c2a68db6ec3be916fb0cc64c"
+    },
+    "v1_trial": {
+      "path": "results/development/blender_v2_oracle_execution_round_trip_v1/trial_01.json",
+      "size_bytes": 10018,
+      "sha256": "840672289e52af82860984e43d9178eb60fea327694dfdbd9fc0945c898ded95"
+    },
+    "scene_manifest": {
+      "path": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "size_bytes": 1927,
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093"
+    },
+    "grasp_geometry_config": {
+      "path": "ros2_ws/src/strawberry_manipulation/config/grasp_geometry.yaml",
+      "size_bytes": 668,
+      "sha256": "e23678ec96679625059ed88f262ddf5c6051abdff948e30e26743d9a67e96b5c"
+    },
+    "executor_core": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/core.py",
+      "size_bytes": 14755,
+      "sha256": "6b0f6a17c145cf0c6da912fd3c66dc4a248effd45120cacb668db2ac68f59942"
+    },
+    "action_server": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/action_server.py",
+      "size_bytes": 17558,
+      "sha256": "863c70e4e28776daa676e758cb992c0cf6af2d38e91280d2d80b13b56e22494a"
+    },
+    "moveit_backend": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/moveit_backend.py",
+      "size_bytes": 44826,
+      "sha256": "ae72c7b77eb9c6dddc2a0e45636e0c2b69fff40887cebc59639196dbf6c10cf7"
+    },
+    "system_launch": {
+      "path": "ros2_ws/src/strawberry_bringup/launch/system.launch.py",
+      "size_bytes": 16488,
+      "sha256": "fee8b8e531015a2399af6319c6ea55866559ef403293ebaab053e0aa50a907d9"
+    },
+    "sim_launch": {
+      "path": "ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "size_bytes": 13264,
+      "sha256": "185dea9f22687cfafddb33e675bcb5c4d9aa813832e3ad2c4f5e43eb9a577667"
+    },
+    "oracle_client": {
+      "path": "scripts/test_oracle_pick_and_place.py",
+      "size_bytes": 26733,
+      "sha256": "8af2bb8b1dc5a1b3c49450c9aa0bcda4eb8f271f886cb5def20c3efbef73cbdd"
+    },
+    "v1_validator": {
+      "path": "scripts/validate_blender_v2_oracle_execution.py",
+      "size_bytes": 13757,
+      "sha256": "9e0993d8a7f234dda48194f3315ae0a2a4eeef4cbc246360a5a34e1a687d21bf"
+    },
+    "initial_state_probe": {
+      "path": "scripts/capture_blender_v2_execution_initial_state.py",
+      "size_bytes": 6577,
+      "sha256": "54cce3829493b9eb7e98e1d90751694b92c7b8d1f348759cd4c0192e17842c7f"
+    },
+    "validator": {
+      "path": "scripts/validate_blender_v2_oracle_execution_v2.py",
+      "size_bytes": 11188,
+      "sha256": "b710c17b96802e38e838243f95db45a389cef315a65c1e24882c808724675723"
+    },
+    "runner": {
+      "path": "scripts/run_blender_v2_oracle_execution_round_trip_v2.sh",
+      "size_bytes": 3478,
+      "sha256": "b80f0a16ecc1ba79763b48e7e310550ddb84ca4d3a6ab5224ae12850a93aa3af"
+    }
+  },
+  "parameters": {
+    "target_id": 1,
+    "target_topic": "/strawberry/ground_truth/fruit_1/pose",
+    "camera_mount": "dual",
+    "grasp_profile": "blender_v2_26mm",
+    "tool_center_offset_m": 0.0964,
+    "gripper_open_width_m_per_finger": 0.04,
+    "gripper_closed_width_m_per_finger": 0.022,
+    "place_position_m": [
+      0.35,
+      -0.45,
+      0.45
+    ],
+    "stability_samples": 10,
+    "stability_tolerance_m": 0.001,
+    "initial_state_samples": 10
+  },
+  "thresholds": {
+    "maximum_planning_time_sec": 5.0,
+    "maximum_ready_joint_error_rad": 0.02,
+    "maximum_home_return_delta_rad": 0.02,
+    "maximum_open_recovery_error_m": 0.003,
+    "require_processed_dual_contact": true,
+    "require_raw_dual_contact": true,
+    "require_attach_detach_round_trip": true,
+    "require_clean_shutdown": true
+  },
+  "safety": {
+    "formal_acceptance": false,
+    "held_out_test_access_authorized": false,
+    "single_measurement_requalification_authorized": true,
+    "robot_motion_authorized": true,
+    "gripper_command_authorized": true,
+    "attachment_authorized": true,
+    "perception_authorized": false,
+    "localization_authorized": false,
+    "oracle_provider_authorized": false,
+    "orchestrator_authorized": false,
+    "pose_control_authorized": false,
+    "repeated_execution_authorized": false,
+    "general_pick_authorized": false
+  },
+  "execution": {
+    "maximum_trials": 1,
+    "retry_authorized": false,
+    "output_directory": "results/development/blender_v2_oracle_execution_round_trip_v2"
+  }
+}

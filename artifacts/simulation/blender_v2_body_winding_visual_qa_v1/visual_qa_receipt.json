@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "blender_v2_body_winding_visual_qa",
+  "recorded_date": "2026-07-27",
+  "status": "PASSED",
+  "scope": "NON_ACCEPTANCE_POST_WINDING_VISUAL_INSPECTION",
+  "inspection": {
+    "ripe_body_visible": true,
+    "unripe_body_visible": true,
+    "calyx_visible": true,
+    "materials_preserved": true,
+    "gross_mesh_holes_observed": false,
+    "gross_inside_out_rendering_observed": false,
+    "canonical_plant_retained": true,
+    "camera_and_lighting_unchanged": true
+  },
+  "images": [
+    {
+      "target_model": "strawberry_1",
+      "maturity": "RIPE",
+      "path": "strawberry_1/rgb.png",
+      "size_bytes": 70920,
+      "sha256": "b7efeeabf1dcc8ef7eab31f449f36589c4698b98fc7ec15e821679cd5b8f3d2d"
+    },
+    {
+      "target_model": "strawberry_2",
+      "maturity": "UNRIPE",
+      "path": "strawberry_2/rgb.png",
+      "size_bytes": 71028,
+      "sha256": "7f02ed9939d259f1a5e312c7c5770cd29d8551045c621e80c8a4493733e54385"
+    }
+  ],
+  "robot_motion_started": false,
+  "perception_control_started": false,
+  "formal_acceptance": false,
+  "formal_real_test_accessed": false
+}

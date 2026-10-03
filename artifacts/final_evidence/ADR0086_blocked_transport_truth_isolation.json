@@ -1,0 +1,181 @@
+{
+  "allowed_nodes": [
+    "/attachment_manager"
+  ],
+  "missing_required_nodes": [],
+  "overall_pass": true,
+  "required_nodes": [
+    "/strawberry_base_localization",
+    "/strawberry_harvest_orchestrator",
+    "/strawberry_pick_and_place",
+    "/strawberry_target_selector",
+    "/strawberry_wrist_localization"
+  ],
+  "schema_version": 1,
+  "scope": "GENERALIZED_RUNTIME_TRUTH_ISOLATION_AUDIT",
+  "subscriptions": {
+    "/_ros2cli_daemon_0_7f84b13cef6e4d9d9acf5db316fc2bf4": [],
+    "/attachment_manager": [
+      "/clock",
+      "/strawberry/sim/fruit_1/attached_state",
+      "/strawberry/sim/fruit_1/bin_contact",
+      "/strawberry/sim/fruit_1/left_contact",
+      "/strawberry/sim/fruit_1/right_contact",
+      "/strawberry/sim/fruit_1/stem_attached_state",
+      "/strawberry/sim/fruit_2/attached_state",
+      "/strawberry/sim/fruit_2/bin_contact",
+      "/strawberry/sim/fruit_2/left_contact",
+      "/strawberry/sim/fruit_2/right_contact",
+      "/strawberry/sim/fruit_2/stem_attached_state",
+      "/strawberry/sim/fruit_3/attached_state",
+      "/strawberry/sim/fruit_3/bin_contact",
+      "/strawberry/sim/fruit_3/left_contact",
+      "/strawberry/sim/fruit_3/right_contact",
+      "/strawberry/sim/fruit_3/stem_attached_state",
+      "/strawberry/sim/fruit_4/attached_state",
+      "/strawberry/sim/fruit_4/bin_contact",
+      "/strawberry/sim/fruit_4/left_contact",
+      "/strawberry/sim/fruit_4/right_contact",
+      "/strawberry/sim/fruit_4/stem_attached_state",
+      "/strawberry/sim/fruit_5/attached_state",
+      "/strawberry/sim/fruit_5/bin_contact",
+      "/strawberry/sim/fruit_5/left_contact",
+      "/strawberry/sim/fruit_5/right_contact",
+      "/strawberry/sim/fruit_5/stem_attached_state",
+      "/tf",
+      "/tf_static"
+    ],
+    "/controller_manager": [
+      "/clock",
+      "/parameter_events",
+      "/strawberry/sim/robot_description"
+    ],
+    "/generalized_truth_isolation_auditor": [],
+    "/ground_truth_publisher": [
+      "/clock",
+      "/strawberry/sim/fruit_1/pose_tf",
+      "/strawberry/sim/fruit_2/pose_tf",
+      "/strawberry/sim/fruit_3/pose_tf",
+      "/strawberry/sim/fruit_4/pose_tf",
+      "/strawberry/sim/fruit_5/pose_tf"
+    ],
+    "/gz_ros_control": [
+      "/parameter_events"
+    ],
+    "/joint_state_broadcaster": [
+      "/clock",
+      "/parameter_events"
+    ],
+    "/panda_arm_controller": [
+      "/clock",
+      "/panda_arm_controller/joint_trajectory",
+      "/panda_arm_controller/speed_scaling_input",
+      "/parameter_events"
+    ],
+    "/panda_gripper_controller": [
+      "/clock",
+      "/parameter_events"
+    ],
+    "/panda_gripper_right_controller": [
+      "/clock",
+      "/parameter_events"
+    ],
+    "/panda_robot_state_publisher": [
+      "/clock",
+      "/joint_states",
+      "/parameter_events"
+    ],
+    "/strawberry_base_localization": [
+      "/camera/base/camera_info",
+      "/camera/base/depth/image_raw",
+      "/clock",
+      "/joint_states",
+      "/strawberry/base/detections",
+      "/strawberry/completed_track_id",
+      "/tf",
+      "/tf_static"
+    ],
+    "/strawberry_base_perception": [
+      "/camera/base/color/image_raw",
+      "/clock"
+    ],
+    "/strawberry_contact_monitor": [
+      "/strawberry/sim/fruit_contacts",
+      "/strawberry/sim/gripper/left_contacts",
+      "/strawberry/sim/gripper/right_contacts"
+    ],
+    "/strawberry_gz_bridge": [
+      "/clock",
+      "/parameter_events",
+      "/strawberry/sim/fruit_1/attach_command",
+      "/strawberry/sim/fruit_1/detach_command",
+      "/strawberry/sim/fruit_1/stem_attach_command",
+      "/strawberry/sim/fruit_1/stem_detach_command",
+      "/strawberry/sim/fruit_2/attach_command",
+      "/strawberry/sim/fruit_2/detach_command",
+      "/strawberry/sim/fruit_2/stem_attach_command",
+      "/strawberry/sim/fruit_2/stem_detach_command",
+      "/strawberry/sim/fruit_3/attach_command",
+      "/strawberry/sim/fruit_3/detach_command",
+      "/strawberry/sim/fruit_3/stem_attach_command",
+      "/strawberry/sim/fruit_3/stem_detach_command",
+      "/strawberry/sim/fruit_4/attach_command",
+      "/strawberry/sim/fruit_4/detach_command",
+      "/strawberry/sim/fruit_4/stem_attach_command",
+      "/strawberry/sim/fruit_4/stem_detach_command",
+      "/strawberry/sim/fruit_5/attach_command",
+      "/strawberry/sim/fruit_5/detach_command",
+      "/strawberry/sim/fruit_5/stem_attach_command",
+      "/strawberry/sim/fruit_5/stem_detach_command"
+    ],
+    "/strawberry_harvest_orchestrator": [
+      "/clock",
+      "/strawberry/pick_and_place/_action/feedback",
+      "/strawberry/pick_and_place/_action/status",
+      "/strawberry/selection_status",
+      "/strawberry/target_pose",
+      "/strawberry/tracked_targets",
+      "/strawberry/wrist/target_pose",
+      "/strawberry/wrist_observation_plan",
+      "/strawberry/wrist_observation_pose"
+    ],
+    "/strawberry_pick_and_place": [
+      "/clock",
+      "/joint_states",
+      "/panda_arm_controller/follow_joint_trajectory/_action/feedback",
+      "/panda_arm_controller/follow_joint_trajectory/_action/status",
+      "/panda_gripper_controller/gripper_cmd/_action/feedback",
+      "/panda_gripper_controller/gripper_cmd/_action/status",
+      "/panda_gripper_right_controller/gripper_cmd/_action/feedback",
+      "/panda_gripper_right_controller/gripper_cmd/_action/status",
+      "/strawberry/tracked_targets"
+    ],
+    "/strawberry_pose_control_bridge": [
+      "/parameter_events"
+    ],
+    "/strawberry_target_selector": [
+      "/clock",
+      "/strawberry/completed_track_id",
+      "/strawberry/tracked_targets"
+    ],
+    "/strawberry_world_control_bridge": [
+      "/parameter_events"
+    ],
+    "/strawberry_wrist_localization": [
+      "/camera/wrist/camera_info",
+      "/camera/wrist/depth/image_raw",
+      "/clock",
+      "/joint_states",
+      "/strawberry/wrist/detections",
+      "/strawberry/wrist/target_hint",
+      "/tf",
+      "/tf_static"
+    ],
+    "/strawberry_wrist_perception": [
+      "/camera/wrist/color/image_raw",
+      "/clock"
+    ]
+  },
+  "truth_topic_prefix": "/strawberry/ground_truth",
+  "violations": []
+}

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v3",
+  "scope": "development_only_rgbd_and_safe_runtime_progress",
+  "extends": "generalized_development_outcome_v2",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "geometry_layer_selection": "Within the frozen ambiguity margin, prefer the support-dominant layer while retaining the minimum-error plausibility guard and the ambiguity support-ratio rejection.",
+    "target_selection_diagnostics": "NO_PICK records stable per-track rejection codes and measured quality values.",
+    "manipulation_feasibility": "Non-executing feasibility and execution share the same finite primary plus bounded-retry pregrasp set.",
+    "development_diagnostic": "scripts/diagnose_generalized_rgbd_frame.py is read-only and uses simulator truth only for offline development scoring."
+  },
+  "development_probes": {
+    "seed_44003": {
+      "role": "rgbd_layer_recall_and_safe_no_pick_requalification",
+      "truth_ripe_count_for_scoring_only": 4,
+      "stable_ripe_tracks_before": 1,
+      "stable_ripe_tracks_after": 2,
+      "recovered_target_localization_error_m": 0.0043,
+      "outcome": "NO_PICK",
+      "finding": "The repaired layer choice recovered a well-supported ripe target; the remaining candidates continued to fail conservative bin-clearance or reachability gates."
+    },
+    "seed_44012": {
+      "role": "fresh_selector_to_wrist_observation_probe",
+      "selected_track_id": 2,
+      "selected_clearance_m": 0.0325,
+      "selected_position_sigma_m": 0.007588,
+      "selected_observation_count": 30,
+      "wrist_observation_candidate_count": 12,
+      "furthest_confirmed_state": "WRIST_OBSERVATION",
+      "complete_pick_proved": false,
+      "terminal_receipt_valid": false,
+      "terminal_receipt_issue": "The host C drive filled during the run.",
+      "remaining_failures": [
+        "Wrist localization later disagreed with the selected target by approximately 0.854 m.",
+        "MoveIt later reported that the start state was out of bounds."
+      ]
+    }
+  },
+  "verification": {
+    "targeted_test_count": 62,
+    "targeted_test_failures": 0,
+    "subsets": {
+      "strawberry_localization": 33,
+      "strawberry_manipulation_core": 22,
+      "strawberry_harvest_planning": 7
+    },
+    "successful_colcon_builds": [
+      "strawberry_localization",
+      "strawberry_manipulation",
+      "strawberry_bringup"
+    ],
+    "last_full_regression": {
+      "test_count": 483,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "current_full_regression_rerun": false,
+    "rerun_blocker": "Host C drive free space was approximately 35 MB at the milestone audit."
+  },
+  "decision": {
+    "detector_qualification_passed": true,
+    "identified_rgbd_layer_defect_repaired": true,
+    "complete_perception_controlled_pick_proved": false,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "next_required_work": [
+      "Restore sufficient host disk space before starting more Gazebo or full-regression runs.",
+      "Reproduce seed 44012 with a valid terminal receipt and repair wrist re-localization and start-state validity.",
+      "Run the complete regression suite.",
+      "Obtain one complete perception-controlled development pick and a completed multi-fruit development batch.",
+      "Run the 30 one-attempt formal scenarios only after the runtime gate passes."
+    ]
+  }
+}

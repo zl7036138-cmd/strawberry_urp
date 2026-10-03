@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify that both Panda fingers follow one ros2_control gripper command."""
+"""Verify an explicit two-controller Panda gripper close/open round trip."""
 
 from __future__ import annotations
 
@@ -55,11 +55,18 @@ def main() -> int:
         qos_profile_sensor_data,
     )
     del subscription  # rclpy node retains the subscription
-    client = ActionClient(
-        node,
-        ParallelGripperCommand,
-        "/panda_gripper_controller/gripper_cmd",
-    )
+    clients = {
+        "panda_finger_joint1": ActionClient(
+            node,
+            ParallelGripperCommand,
+            "/panda_gripper_controller/gripper_cmd",
+        ),
+        "panda_finger_joint2": ActionClient(
+            node,
+            ParallelGripperCommand,
+            "/panda_gripper_right_controller/gripper_cmd",
+        ),
+    }
     report: dict[str, object] = {}
 
     def current_pair() -> tuple[float, float]:
@@ -90,35 +97,48 @@ def main() -> int:
         raise TimeoutError(f"fingers did not reach {target}: {pair}")
 
     def command(position: float) -> tuple[float, float]:
-        goal = ParallelGripperCommand.Goal()
-        goal.command.name = ["panda_finger_joint1"]
-        goal.command.position = [position]
-        goal.command.effort = [40.0]
-        goal_handle = wait_future(
-            node,
-            client.send_goal_async(goal),
-            args.timeout_sec,
-        )
-        if not goal_handle.accepted:
-            raise RuntimeError(f"gripper rejected position {position}")
-        wrapped = wait_future(
-            node,
-            goal_handle.get_result_async(),
-            args.timeout_sec,
-        )
-        if wrapped.status != GoalStatus.STATUS_SUCCEEDED:
-            raise RuntimeError(
-                f"gripper action ended with status {wrapped.status} at {position}"
+        pending = {}
+        for joint_name, client in clients.items():
+            goal = ParallelGripperCommand.Goal()
+            goal.command.name = [joint_name]
+            goal.command.position = [position]
+            goal.command.effort = [40.0]
+            pending[joint_name] = client.send_goal_async(goal)
+        handles = {
+            joint_name: wait_future(node, future, args.timeout_sec)
+            for joint_name, future in pending.items()
+        }
+        for joint_name, handle in handles.items():
+            if not handle.accepted:
+                raise RuntimeError(
+                    f"gripper rejected {joint_name} position {position}"
+                )
+        results = {
+            joint_name: wait_future(
+                node,
+                handle.get_result_async(),
+                args.timeout_sec,
             )
+            for joint_name, handle in handles.items()
+        }
+        for joint_name, wrapped in results.items():
+            if wrapped.status != GoalStatus.STATUS_SUCCEEDED:
+                raise RuntimeError(
+                    f"{joint_name} action ended with status "
+                    f"{wrapped.status} at {position}"
+                )
         return wait_for_position(position)
 
     try:
-        if not client.wait_for_server(timeout_sec=args.timeout_sec):
-            raise RuntimeError("Panda gripper action server is unavailable")
+        for joint_name, client in clients.items():
+            if not client.wait_for_server(timeout_sec=args.timeout_sec):
+                raise RuntimeError(
+                    f"Panda gripper action server is unavailable for "
+                    f"{joint_name}"
+                )
 
-        # Start from the known open state, close fully, and reopen.  Reaching
-        # both endpoints proves that gz_ros2_control is applying the URDF mimic
-        # relation even when DART reports no native physics mimic constraint.
+        # DART does not apply the URDF mimic constraint. Reaching both
+        # endpoints proves that the two explicit controllers remain symmetric.
         report["initial_open"] = command(args.open_position)
         report["closed"] = command(args.closed_position)
         report["reopened"] = command(args.open_position)

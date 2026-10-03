@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v4",
+  "scope": "development_only_wrist_identity_and_uncertainty_progress",
+  "extends": "generalized_runtime_progress_v3",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "corrections_to_v3_preliminary_interpretation": {
+    "0.854_m_value": "This was an apparent-fruit-size consistency residual in a rejected depth layer, not a measured base-to-wrist target-position disagreement.",
+    "moveit_start_state": "Fresh seed-44012 pre-hint, target-hint, and wrist-uncertainty runs did not reproduce a start-state-out-of-bounds diagnostic.",
+    "evidence_rule": "Only a terminal recorder receipt may prove a completed pick or batch; stage log reachability alone is insufficient."
+  },
+  "changes": {
+    "wrist_target_identity": "The base-camera target pose is published as a bounded 3-D wrist hint. The wrist localizer accepts only a stable ripe track within 50 mm and republishes the base-owned track ID.",
+    "fresh_stationary_tracking": "Each target hint resets wrist-local camera tracks. The post-motion hint therefore requires the normal minimum observations to be rebuilt from stationary frames.",
+    "fail_closed_confirmation": "Wrist confirmations now reject invalid IDs, ID mismatches, non-finite measurements, excessive corrections, low confidence, and high uncertainty with stable reason codes.",
+    "runtime_uncertainty": "The wrist runtime applies a 0.5 bounded calibration to the geometry estimator's conservative size-residual uncertainty after all depth-layer rejection gates pass.",
+    "frozen_evidence_boundary": "Support-ranked near-tie preprocessing and runtime uncertainty calibration live in generalized_depth.py. The frozen localization core is restored byte-for-byte to its recorded 27119-byte SHA-256 binding."
+  },
+  "development_probes": {
+    "seed_44012_pre_hint": {
+      "runtime_receipt_sha256": "c6b825702293b17626303d19508a6e83a5cbc76fae2ca439166698b3ee88930e",
+      "launch_log_sha256": "b720e61687aee812b4dfe277694b30b6dfe3d1c9c66d3862711e77174e5083f4",
+      "outcome": "FAILED",
+      "finding": "The wrist view could contain multiple accurately localized ripe fruits; choosing minimum uncertainty without the base target hint could select the wrong fruit identity."
+    },
+    "seed_44012_target_hint": {
+      "runtime_receipt_sha256": "1ac541942798fe87f881630ecf5e2b8315cb2b3439d4675019634ecd90694fa9",
+      "launch_log_sha256": "95281b478ef5f73f88970b78ee9c6d8a06da591d39074612a0ecc704537504c8",
+      "outcome": "FAILED",
+      "finding": "Target identity remained bound to the base selection and the next fail-closed bottleneck was explicitly reported as WRIST_CONFIRMATION_REJECTED_HIGH_UNCERTAINTY."
+    },
+    "seed_44012_wrist_uncertainty": {
+      "runtime_receipt_sha256": "06338443eed94e50f71d71684009a60e4a5e8c2b0b01cc4180b4856df2ad92f8",
+      "launch_log_sha256": "c46f79af618f7567697bda6c1df70e9c443fb39bae25e22658391b47460636b2",
+      "recorder_outcome": "WALL_TIMEOUT",
+      "recorder_final_state": "PICKING",
+      "recorder_final_event": "PICK_SENT",
+      "furthest_logged_manipulation_state": "PLACE",
+      "logged_state_sequence": [
+        "WRIST_OBSERVATION",
+        "APPROACH",
+        "GRASP_POSE",
+        "RETREAT",
+        "PLACE"
+      ],
+      "complete_pick_proved": false,
+      "terminal_receipt_valid": false,
+      "finding": "The fixes crossed wrist confirmation and reached guarded placement, but the recorder expired before a terminal action result. This proves deeper pipeline reachability, not a successful pick."
+    }
+  },
+  "verification": {
+    "targeted_test_count": 78,
+    "targeted_test_failures": 0,
+    "full_regression": {
+      "test_count": 493,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "frozen_localization_core": {
+      "size_bytes": 27119,
+      "sha256": "14ae123a98b7083ef87bca8eb782ff024e49bc99056efc594c0076465985b9ec",
+      "binding_match": true
+    }
+  },
+  "host_maintenance": {
+    "removed_only_regenerable_or_diagnostic_data": true,
+    "project_sources_or_git_history_removed": false,
+    "wsl_vhdx_size_before_gb": 26.32,
+    "wsl_vhdx_size_after_gb": 24.51,
+    "final_c_drive_free_gb_approx": 2.85
+  },
+  "decision": {
+    "wrist_identity_defect_repaired": true,
+    "wrist_uncertainty_bottleneck_crossed_in_development": true,
+    "complete_perception_controlled_pick_proved": false,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "formal_30_seed_matrix_remains_sealed": true,
+    "next_required_work": [
+      "Make the development recorder and launch cleanup outlive the longest bounded manipulation action and always capture a terminal receipt.",
+      "Diagnose the long guarded-place execution and prove one complete perception-controlled development pick.",
+      "Complete one multi-fruit development batch without truth-assisted runtime decisions.",
+      "Run the 30 one-attempt formal scenarios only after the runtime gate passes."
+    ]
+  }
+}

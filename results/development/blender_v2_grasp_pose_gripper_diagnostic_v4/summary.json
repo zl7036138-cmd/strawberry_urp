@@ -1,0 +1,738 @@
+{
+  "approach_motion": {
+    "collision": false,
+    "execution_time_sec": 44.319152832995314,
+    "planning_time_sec": 0.016081358004157664,
+    "success": true
+  },
+  "attachment_command_started": false,
+  "classification": "MEASURED_CLOSE_WITH_BILATERAL_TARGET_CONTACT",
+  "close_command": {
+    "completed_elapsed_sec": 103.050665,
+    "measured_position_validation_passed": false,
+    "observed_position_m": 0.02475945188583215,
+    "observed_position_source": "joint_states_fallback",
+    "positions_before_m": {
+      "panda_finger_joint1": 0.04,
+      "panda_finger_joint2": 0.03999999091210679
+    },
+    "reached_goal": true,
+    "result_state": {},
+    "stalled": false,
+    "started_elapsed_sec": 102.847126,
+    "status": 4,
+    "status_succeeded": true,
+    "target_position_m_per_finger": 0.022
+  },
+  "close_window_finger_samples": [
+    {
+      "elapsed_sec": 102.774436,
+      "positions_m": {
+        "panda_finger_joint1": 0.04,
+        "panda_finger_joint2": 0.03999999981482925
+      }
+    },
+    {
+      "elapsed_sec": 102.790746,
+      "positions_m": {
+        "panda_finger_joint1": 0.04,
+        "panda_finger_joint2": 0.03999998785913037
+      }
+    },
+    {
+      "elapsed_sec": 102.791935,
+      "positions_m": {
+        "panda_finger_joint1": 0.04,
+        "panda_finger_joint2": 0.0399999577855885
+      }
+    },
+    {
+      "elapsed_sec": 102.792533,
+      "positions_m": {
+        "panda_finger_joint1": 0.04,
+        "panda_finger_joint2": 0.039999909950194014
+      }
+    },
+    {
+      "elapsed_sec": 102.810844,
+      "positions_m": {
+        "panda_finger_joint1": 0.04,
+        "panda_finger_joint2": 0.03999999091210679
+      }
+    },
+    {
+      "elapsed_sec": 102.876764,
+      "positions_m": {
+        "panda_finger_joint1": 0.04,
+        "panda_finger_joint2": 0.03999999483572463
+      }
+    },
+    {
+      "elapsed_sec": 102.900647,
+      "positions_m": {
+        "panda_finger_joint1": 0.03800000000023546,
+        "panda_finger_joint2": 0.03999997516574693
+      }
+    },
+    {
+      "elapsed_sec": 102.951934,
+      "positions_m": {
+        "panda_finger_joint1": 0.03600000000027266,
+        "panda_finger_joint2": 0.03999994462436798
+      }
+    },
+    {
+      "elapsed_sec": 102.95324,
+      "positions_m": {
+        "panda_finger_joint1": 0.034000000000309866,
+        "panda_finger_joint2": 0.038067490650124054
+      }
+    },
+    {
+      "elapsed_sec": 102.95389,
+      "positions_m": {
+        "panda_finger_joint1": 0.03200000000034707,
+        "panda_finger_joint2": 0.03606749065012837
+      }
+    },
+    {
+      "elapsed_sec": 102.982401,
+      "positions_m": {
+        "panda_finger_joint1": 0.030000000000384275,
+        "panda_finger_joint2": 0.03406749065013268
+      }
+    },
+    {
+      "elapsed_sec": 102.992294,
+      "positions_m": {
+        "panda_finger_joint1": 0.02800000000042148,
+        "panda_finger_joint2": 0.032067490650137
+      }
+    },
+    {
+      "elapsed_sec": 103.007935,
+      "positions_m": {
+        "panda_finger_joint1": 0.026000000000458684,
+        "panda_finger_joint2": 0.03006749065014131
+      }
+    },
+    {
+      "elapsed_sec": 103.014764,
+      "positions_m": {
+        "panda_finger_joint1": 0.02400000000049589,
+        "panda_finger_joint2": 0.028067490650145625
+      }
+    },
+    {
+      "elapsed_sec": 103.048659,
+      "positions_m": {
+        "panda_finger_joint1": 0.02475945188583215,
+        "panda_finger_joint2": 0.026922244784571628
+      }
+    },
+    {
+      "elapsed_sec": 103.099753,
+      "positions_m": {
+        "panda_finger_joint1": 0.025661961048514408,
+        "panda_finger_joint2": 0.02603499990960116
+      }
+    },
+    {
+      "elapsed_sec": 103.141274,
+      "positions_m": {
+        "panda_finger_joint1": 0.025839107008514325,
+        "panda_finger_joint2": 0.02587261174838705
+      }
+    },
+    {
+      "elapsed_sec": 103.167715,
+      "positions_m": {
+        "panda_finger_joint1": 0.025864384551421423,
+        "panda_finger_joint2": 0.025861633232151144
+      }
+    },
+    {
+      "elapsed_sec": 103.185512,
+      "positions_m": {
+        "panda_finger_joint1": 0.025873182609860976,
+        "panda_finger_joint2": 0.02586672001602675
+      }
+    },
+    {
+      "elapsed_sec": 103.187533,
+      "positions_m": {
+        "panda_finger_joint1": 0.025880054879819592,
+        "panda_finger_joint2": 0.025873358084923467
+      }
+    },
+    {
+      "elapsed_sec": 103.218515,
+      "positions_m": {
+        "panda_finger_joint1": 0.025886555574963735,
+        "panda_finger_joint2": 0.02588002904291061
+      }
+    },
+    {
+      "elapsed_sec": 103.234614,
+      "positions_m": {
+        "panda_finger_joint1": 0.025892807651901967,
+        "panda_finger_joint2": 0.025886642318697424
+      }
+    },
+    {
+      "elapsed_sec": 103.235643,
+      "positions_m": {
+        "panda_finger_joint1": 0.025898840657568516,
+        "panda_finger_joint2": 0.02589319765318847
+      }
+    },
+    {
+      "elapsed_sec": 103.252015,
+      "positions_m": {
+        "panda_finger_joint1": 0.02590468047948,
+        "panda_finger_joint2": 0.025899694758238525
+      }
+    },
+    {
+      "elapsed_sec": 103.297534,
+      "positions_m": {
+        "panda_finger_joint1": 0.02591032698397802,
+        "panda_finger_joint2": 0.025906125857461562
+      }
+    },
+    {
+      "elapsed_sec": 103.355407,
+      "positions_m": {
+        "panda_finger_joint1": 0.025915817056249443,
+        "panda_finger_joint2": 0.02591249602763573
+      }
+    },
+    {
+      "elapsed_sec": 103.356127,
+      "positions_m": {
+        "panda_finger_joint1": 0.025921178186586968,
+        "panda_finger_joint2": 0.025918808261838688
+      }
+    },
+    {
+      "elapsed_sec": 103.401759,
+      "positions_m": {
+        "panda_finger_joint1": 0.025926428504863985,
+        "panda_finger_joint2": 0.025925063361665158
+      }
+    },
+    {
+      "elapsed_sec": 103.418045,
+      "positions_m": {
+        "panda_finger_joint1": 0.02593158352402333,
+        "panda_finger_joint2": 0.025931261970615835
+      }
+    },
+    {
+      "elapsed_sec": 103.419477,
+      "positions_m": {
+        "panda_finger_joint1": 0.0259366570550444,
+        "panda_finger_joint2": 0.025937404791610476
+      }
+    },
+    {
+      "elapsed_sec": 103.454958,
+      "positions_m": {
+        "panda_finger_joint1": 0.025941661448620756,
+        "panda_finger_joint2": 0.02594349260006329
+      }
+    },
+    {
+      "elapsed_sec": 103.46494,
+      "positions_m": {
+        "panda_finger_joint1": 0.025946607738943313,
+        "panda_finger_joint2": 0.025949526232797452
+      }
+    },
+    {
+      "elapsed_sec": 103.483624,
+      "positions_m": {
+        "panda_finger_joint1": 0.025951505773611837,
+        "panda_finger_joint2": 0.025955506578143075
+      }
+    },
+    {
+      "elapsed_sec": 103.507446,
+      "positions_m": {
+        "panda_finger_joint1": 0.025956345328637012,
+        "panda_finger_joint2": 0.02596142876980125
+      }
+    },
+    {
+      "elapsed_sec": 103.52567,
+      "positions_m": {
+        "panda_finger_joint1": 0.025960642758970223,
+        "panda_finger_joint2": 0.025967141387647892
+      }
+    },
+    {
+      "elapsed_sec": 103.580107,
+      "positions_m": {
+        "panda_finger_joint1": 0.025964247899040557,
+        "panda_finger_joint2": 0.025972589102421166
+      }
+    },
+    {
+      "elapsed_sec": 103.588019,
+      "positions_m": {
+        "panda_finger_joint1": 0.02596723788531605,
+        "panda_finger_joint2": 0.025977786302489335
+      }
+    },
+    {
+      "elapsed_sec": 103.636399,
+      "positions_m": {
+        "panda_finger_joint1": 0.025969682153343374,
+        "panda_finger_joint2": 0.02598274632572709
+      }
+    },
+    {
+      "elapsed_sec": 103.651161,
+      "positions_m": {
+        "panda_finger_joint1": 0.025971643183765474,
+        "panda_finger_joint2": 0.02598748155029013
+      }
+    },
+    {
+      "elapsed_sec": 103.657564,
+      "positions_m": {
+        "panda_finger_joint1": 0.025973177176718976,
+        "panda_finger_joint2": 0.025992003476997618
+      }
+    },
+    {
+      "elapsed_sec": 103.692429,
+      "positions_m": {
+        "panda_finger_joint1": 0.025974334661468167,
+        "panda_finger_joint2": 0.02599632280411636
+      }
+    },
+    {
+      "elapsed_sec": 103.712304,
+      "positions_m": {
+        "panda_finger_joint1": 0.025975161047476235,
+        "panda_finger_joint2": 0.026000449495265015
+      }
+    },
+    {
+      "elapsed_sec": 103.717158,
+      "positions_m": {
+        "panda_finger_joint1": 0.025975697122521565,
+        "panda_finger_joint2": 0.026004392841088086
+      }
+    },
+    {
+      "elapsed_sec": 103.743813,
+      "positions_m": {
+        "panda_finger_joint1": 0.025975979502930395,
+        "panda_finger_joint2": 0.026008161515287617
+      }
+    },
+    {
+      "elapsed_sec": 103.75378,
+      "positions_m": {
+        "panda_finger_joint1": 0.02597604104051182,
+        "panda_finger_joint2": 0.02601176362554448
+      }
+    },
+    {
+      "elapsed_sec": 103.807733,
+      "positions_m": {
+        "panda_finger_joint1": 0.025975911190342642,
+        "panda_finger_joint2": 0.02601520675981069
+      }
+    },
+    {
+      "elapsed_sec": 103.824299,
+      "positions_m": {
+        "panda_finger_joint1": 0.025975616343152583,
+        "panda_finger_joint2": 0.026018498028408027
+      }
+    },
+    {
+      "elapsed_sec": 103.874181,
+      "positions_m": {
+        "panda_finger_joint1": 0.025975180125701627,
+        "panda_finger_joint2": 0.0260216441023272
+      }
+    },
+    {
+      "elapsed_sec": 103.890179,
+      "positions_m": {
+        "panda_finger_joint1": 0.025974623672216823,
+        "panda_finger_joint2": 0.026024651248084035
+      }
+    },
+    {
+      "elapsed_sec": 103.892704,
+      "positions_m": {
+        "panda_finger_joint1": 0.025973965869662167,
+        "panda_finger_joint2": 0.02602752535945543
+      }
+    },
+    {
+      "elapsed_sec": 103.947381,
+      "positions_m": {
+        "panda_finger_joint1": 0.02597322357935,
+        "panda_finger_joint2": 0.026030271986387115
+      }
+    },
+    {
+      "elapsed_sec": 103.948731,
+      "positions_m": {
+        "panda_finger_joint1": 0.025972411837162205,
+        "panda_finger_joint2": 0.026032896361337456
+      }
+    },
+    {
+      "elapsed_sec": 103.949493,
+      "positions_m": {
+        "panda_finger_joint1": 0.025971544034432477,
+        "panda_finger_joint2": 0.026035403423296563
+      }
+    },
+    {
+      "elapsed_sec": 103.976423,
+      "positions_m": {
+        "panda_finger_joint1": 0.025970632081344484,
+        "panda_finger_joint2": 0.026037797839697167
+      }
+    },
+    {
+      "elapsed_sec": 103.991267,
+      "positions_m": {
+        "panda_finger_joint1": 0.02596968655452345,
+        "panda_finger_joint2": 0.026040084026413324
+      }
+    },
+    {
+      "elapsed_sec": 104.040642,
+      "positions_m": {
+        "panda_finger_joint1": 0.025968716830337923,
+        "panda_finger_joint2": 0.02604226616602421
+      }
+    }
+  ],
+  "closed_width_m_per_finger": 0.022,
+  "diagnostic_passed": false,
+  "errors": [],
+  "finger_positions_after_close_m": {
+    "panda_finger_joint1": 0.025968716830337923,
+    "panda_finger_joint2": 0.02604226616602421
+  },
+  "finger_positions_after_reopen_m": {
+    "panda_finger_joint1": 0.04,
+    "panda_finger_joint2": 0.039999931193282864
+  },
+  "fruit_displacement_during_close_m": 0.0019093301924892473,
+  "grasp_motion": {
+    "collision": false,
+    "execution_time_sec": 9.702470538999478,
+    "planning_time_sec": 0.003355810000357451,
+    "success": true
+  },
+  "initial_finger_positions_m": {
+    "panda_finger_joint1": 0.03999983346925595,
+    "panda_finger_joint2": 0.03999983346922925
+  },
+  "initial_open_command": {
+    "completed_elapsed_sec": 45.514499,
+    "measured_position_validation_passed": true,
+    "observed_position_m": 0.03999959745861111,
+    "observed_position_source": "joint_states_fallback",
+    "positions_before_m": {
+      "panda_finger_joint1": 0.039999632941061285,
+      "panda_finger_joint2": 0.03999961090063908
+    },
+    "reached_goal": true,
+    "result_state": {},
+    "stalled": false,
+    "started_elapsed_sec": 45.460971,
+    "status": 4,
+    "status_succeeded": true,
+    "target_position_m_per_finger": 0.04
+  },
+  "initial_truth_position_m": [
+    0.419064753,
+    -0.053479813,
+    0.546111838
+  ],
+  "measured_close_travel_m": 0.014138366767848857,
+  "minimum_close_window_finger_positions_m": {
+    "panda_finger_joint1": 0.02400000000049589,
+    "panda_finger_joint2": 0.025861633232151144
+  },
+  "non_target_contact_seen": false,
+  "observation_motion": {
+    "collision": false,
+    "execution_time_sec": 36.15390112100067,
+    "planning_time_sec": 0.031609047000529245,
+    "success": true
+  },
+  "observation_pose_control_close_command": {
+    "completed_elapsed_sec": 45.719179,
+    "measured_position_validation_passed": true,
+    "observed_position_m": 0.022000000000036105,
+    "observed_position_source": "joint_states_fallback",
+    "positions_before_m": {
+      "panda_finger_joint1": 0.03999959745861111,
+      "panda_finger_joint2": 0.039999620508617856
+    },
+    "reached_goal": true,
+    "result_state": {},
+    "stalled": false,
+    "started_elapsed_sec": 45.514512,
+    "status": 4,
+    "status_succeeded": true,
+    "target_position_m_per_finger": 0.022
+  },
+  "observation_pose_control_closed_positions_m": {
+    "panda_finger_joint1": 0.021999999999998993,
+    "panda_finger_joint2": 0.022000000000059826
+  },
+  "observation_pose_control_reopen_command": {
+    "completed_elapsed_sec": 46.392586,
+    "measured_position_validation_passed": true,
+    "observed_position_m": 0.039999999999457206,
+    "observed_position_source": "joint_states_fallback",
+    "positions_before_m": {
+      "panda_finger_joint1": 0.021999999999998993,
+      "panda_finger_joint2": 0.022000000000059826
+    },
+    "reached_goal": true,
+    "result_state": {},
+    "stalled": false,
+    "started_elapsed_sec": 46.219256,
+    "status": 4,
+    "status_succeeded": true,
+    "target_position_m_per_finger": 0.04
+  },
+  "open_width_m_per_finger": 0.04,
+  "pick_action_started": false,
+  "place_motion_started": false,
+  "planning_started": true,
+  "processed_target_contact_seen": {
+    "left": true,
+    "right": true
+  },
+  "raw_contact_pairs": {
+    "left": [
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_leftfinger::panda_leftfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ]
+    ],
+    "right": [
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ],
+      [
+        "panda::panda_rightfinger::panda_rightfinger_collision",
+        "strawberry_1::fruit_link::fruit_collision"
+      ]
+    ]
+  },
+  "raw_target_contact_seen": {
+    "left": true,
+    "right": true
+  },
+  "recovery_home_succeeded": true,
+  "recovery_retreat_motion": {
+    "collision": false,
+    "execution_time_sec": 10.903129537000495,
+    "planning_time_sec": 0.002686366999114398,
+    "success": true
+  },
+  "reopen_command": {
+    "completed_elapsed_sec": 104.220829,
+    "measured_position_validation_passed": true,
+    "observed_position_m": 0.04,
+    "observed_position_source": "joint_states_fallback",
+    "positions_before_m": {
+      "panda_finger_joint1": 0.025968716830337923,
+      "panda_finger_joint2": 0.02604226616602421
+    },
+    "reached_goal": true,
+    "result_state": {},
+    "stalled": false,
+    "started_elapsed_sec": 104.050745,
+    "status": 4,
+    "status_succeeded": true,
+    "target_position_m_per_finger": 0.04
+  },
+  "safe_recovery_complete": true,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_GRASP_POSE_GRIPPER_DIAGNOSTIC",
+  "target_center_m": [
+    0.41586261443329753,
+    -0.05537905848329585,
+    0.5502943966316053
+  ],
+  "target_center_source": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_perception_pick_once_v3/execution_readiness.json",
+  "target_id": 1,
+  "tool_center_offset_m": 0.0964,
+  "truth_after_close_m": [
+    0.4191310547936388,
+    -0.055387712236804346,
+    0.5460791828577908
+  ],
+  "truth_before_close_m": [
+    0.419064753,
+    -0.053479813,
+    0.546111838
+  ]
+}

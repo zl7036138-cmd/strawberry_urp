@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v11",
+  "scope": "development_only_truth_free_multi_target_scheduling_and_safe_recovery",
+  "extends": "generalized_runtime_progress_v10",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "pre_observation_collision_scene_lock": "A target-scoped visual obstacle snapshot is bounded to 120 wall seconds and 0.05 m selected-target drift; each different target requires a fresh live visual scene.",
+    "completed_target_reselection": "A completed identity triggers exactly one deterministic reselection over the selector's cached tracked-target message; all normal freshness and safety gates remain active.",
+    "joint_limit_margin": "Every seven-joint observation, Cartesian preview and execution path stays at least 0.01 rad inside Panda hard limits.",
+    "failure_retreat": "An unattached physical-grasp failure reverses to the last collision-checked pre-grasp pose before home; a failed retreat withholds the long home motion.",
+    "home_tracking": "Named-home trajectories use 0.10 rad/s and retry once only after a zero-motion planning failure.",
+    "bin_verification_client_deadline": "The manipulation client waits 15 wall seconds for the simulator's unchanged one-simulated-second physical bin-contact verdict.",
+    "terminal_scan_diagnostics": "Harvest, skip and terminal receipts contain visible tracks, selector status and wall ages for both snapshots."
+  },
+  "development_runtime_probes": {
+    "seed_44008_zero_motion_home_replan_v31": {
+      "outcome": "SUCCESS",
+      "truth_free_physical_pick_and_place_completed": true,
+      "additional_ripe_track_observed_after_completion": true,
+      "completed_multi_target_dispatch": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "f7e69605701ffdd10d1740f4b13178c2527ba730325d77c5440fe9059af97b42",
+      "cleanup_receipt_sha256": "9103d0d306500614b1095ed7d3df8eaf2bd15efa2dff37f7e925ced85c8c7f4b"
+    },
+    "seed_44008_slower_home_v35": {
+      "outcome": "FAILED_SAFE",
+      "target_ids_processed": [1, 2],
+      "multi_target_dispatch_proved": true,
+      "recovery_home_between_targets_proved": true,
+      "harvested_target_ids": [],
+      "skipped_target_ids": [1, 2],
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "426db8bcd1d57ad9c09d954c26cd3a52ce20f59311805b836e64c37dace3decf",
+      "cleanup_receipt_sha256": "3e047c469d97fcb4aa950edf64567e3a2d7cc2d8586be104176b23844be32ab1"
+    },
+    "seed_44008_bin_verify_timeout_v36": {
+      "outcome": "FAILED_SAFE",
+      "target_ids_processed": [1, 2],
+      "physical_contact_resolved_attachments": 2,
+      "explicit_bin_verification_failures": 2,
+      "terminal_reason": "neither released fruit maintained one simulated second of physical collection-bin contact",
+      "unripe_pick_count": 0,
+      "recovery_home_failures": 0,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "0dc3abc7c5e473d6d13bfa1fdfd7398a0c1a63121ea9455402b729c06dc49e51",
+      "cleanup_receipt_sha256": "2cb6baac4f08d180c9a84d76f526c70f0536b3b5af87e5a60a4e698b288a6a08"
+    }
+  },
+  "verification": {
+    "full_regression": {
+      "test_count": 683,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "truth_free_single_fruit_pick_and_place_runtime_proved": true,
+    "multi_target_dispatch_runtime_proved": true,
+    "per_target_failure_isolation_runtime_proved": true,
+    "safe_recovery_between_targets_runtime_proved": true,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "current_primary_blocker": "released fruit does not maintain the required physical collection-bin contact",
+    "next_required_work": [
+      "Diagnose release pose, hand clearance and collection-bin contact geometry without using truth for control.",
+      "Add deterministic collision-checked multi-drop placement only after one release pose is physically verified.",
+      "Obtain a development batch with at least two TARGET_HARVESTED outcomes across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

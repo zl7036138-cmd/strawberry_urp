@@ -12,6 +12,11 @@ VALID_ATTACHMENT_STATES = {
     "attached": True,
     "detached": False,
 }
+NO_FRUIT_CONTACT = "NO_FRUIT_CONTACT"
+LEFT_SINGLE_FRUIT = "LEFT_SINGLE_FRUIT"
+RIGHT_SINGLE_FRUIT = "RIGHT_SINGLE_FRUIT"
+BILATERAL_SAME_FRUIT = "BILATERAL_SAME_FRUIT"
+AMBIGUOUS_FRUIT_CONTACT = "AMBIGUOUS_FRUIT_CONTACT"
 
 
 def parse_attachment_state(value: str) -> bool:
@@ -81,18 +86,15 @@ def dual_pad_geometric_contact(
         return False
     if math.dist(fruit_xyz, right_xyz) > maximum:
         return False
-    separation = tuple(
-        right_xyz[index] - left_xyz[index] for index in range(3)
-    )
+    separation = tuple(right_xyz[index] - left_xyz[index] for index in range(3))
     separation_squared = sum(value * value for value in separation)
     if separation_squared <= 1e-12:
         return False
-    fruit_from_left = tuple(
-        fruit_xyz[index] - left_xyz[index] for index in range(3)
+    fruit_from_left = tuple(fruit_xyz[index] - left_xyz[index] for index in range(3))
+    projection = (
+        sum(fruit_from_left[index] * separation[index] for index in range(3))
+        / separation_squared
     )
-    projection = sum(
-        fruit_from_left[index] * separation[index] for index in range(3)
-    ) / separation_squared
     return 0.0 <= projection <= 1.0
 
 
@@ -110,6 +112,13 @@ class FruitSpec:
     @property
     def ground_truth_pose_topic(self) -> str:
         return f"/strawberry/ground_truth/fruit_{self.target_id}/pose"
+
+
+@dataclass(frozen=True)
+class PlantSpec:
+    plant_id: int
+    model_name: str
+    position_m: tuple[float, float, float]
 
 
 @dataclass(frozen=True)
@@ -142,15 +151,25 @@ class SceneConfig:
     world_name: str
     base_frame: str
     camera_optical_frame: str
+    static_collision_profile: str
+    fruit_collision_radius_m: float
     fruits: tuple[FruitSpec, ...]
+    plants: tuple[PlantSpec, ...]
     bin_bounds: BinBounds
     bin_stability_sec: float
 
     def __post_init__(self) -> None:
         if self.schema_version != 1:
             raise ValueError(f"unsupported scene schema_version {self.schema_version}")
-        if not self.world_name or not self.base_frame or not self.camera_optical_frame:
+        if (
+            not self.world_name
+            or not self.base_frame
+            or not self.camera_optical_frame
+            or not self.static_collision_profile
+        ):
             raise ValueError("world and frame names must be non-empty")
+        if self.fruit_collision_radius_m <= 0.0:
+            raise ValueError("fruit collision radius must be positive")
         if not self.fruits:
             raise ValueError("scene must contain at least one fruit")
         target_ids = [fruit.target_id for fruit in self.fruits]
@@ -161,6 +180,14 @@ class SceneConfig:
             raise ValueError("target_id values must be unique")
         if len(model_names) != len(set(model_names)):
             raise ValueError("fruit model names must be unique")
+        plant_ids = [plant.plant_id for plant in self.plants]
+        plant_model_names = [plant.model_name for plant in self.plants]
+        if any(plant_id <= 0 for plant_id in plant_ids):
+            raise ValueError("plant_id values must be positive")
+        if len(plant_ids) != len(set(plant_ids)):
+            raise ValueError("plant_id values must be unique")
+        if len(plant_model_names) != len(set(plant_model_names)):
+            raise ValueError("plant model names must be unique")
         if self.bin_stability_sec <= 0.0:
             raise ValueError("bin stability duration must be positive")
 
@@ -183,11 +210,41 @@ def _mapping(value: Any, field: str) -> Mapping[str, Any]:
 
 def scene_config_from_mapping(data: Mapping[str, Any]) -> SceneConfig:
     frames = _mapping(data.get("frames"), "frames")
+    planning_scene = _mapping(data.get("planning_scene", {}), "planning_scene")
     bin_data = _mapping(data.get("bin"), "bin")
     bounds_data = _mapping(bin_data.get("interior_bounds_m"), "bin.interior_bounds_m")
     fruit_rows = data.get("fruits")
     if not isinstance(fruit_rows, list):
         raise ValueError("fruits must be a list")
+
+    plant_rows = data.get("plants")
+    if plant_rows is None:
+        legacy_plant = data.get("plant")
+        plant_rows = [] if legacy_plant is None else [legacy_plant]
+    if not isinstance(plant_rows, list):
+        raise ValueError("plants must be a list")
+
+    plants: list[PlantSpec] = []
+    for index, raw in enumerate(plant_rows):
+        row = _mapping(raw, f"plants[{index}]")
+        model_name = str(row.get("model_name", "")).strip()
+        if not model_name:
+            raise ValueError(f"plants[{index}].model_name must be non-empty")
+        pose = row.get("pose_in_robot_base")
+        if not isinstance(pose, (list, tuple)) or len(pose) not in (3, 6, 7):
+            raise ValueError(
+                f"plants[{index}].pose_in_robot_base must contain 3, 6, or 7 values"
+            )
+        plants.append(
+            PlantSpec(
+                plant_id=int(row.get("plant_id", index + 1)),
+                model_name=model_name,
+                position_m=tuple(
+                    _finite(value, f"plants[{index}].pose_in_robot_base")
+                    for value in pose[:3]
+                ),
+            )
+        )
 
     fruits: list[FruitSpec] = []
     for index, raw in enumerate(fruit_rows):
@@ -220,7 +277,18 @@ def scene_config_from_mapping(data: Mapping[str, Any]) -> SceneConfig:
         world_name=str(data.get("world_name", "")).strip(),
         base_frame=str(frames.get("robot_base", "")).strip(),
         camera_optical_frame=str(frames.get("camera_optical", "")).strip(),
+        static_collision_profile=str(
+            planning_scene.get("static_collision_profile", "blender_v2")
+        ).strip(),
+        fruit_collision_radius_m=_finite(
+            # Schema-v1 manifests predate this explicit field.  Preserve the
+            # hash-frozen tabletop-v1 contract with its historical 35 mm
+            # sphere while requiring the canonical v2 scene to override it.
+            data.get("fruit_collision_radius_m", 0.035),
+            "fruit_collision_radius_m",
+        ),
         fruits=tuple(fruits),
+        plants=tuple(plants),
         bin_bounds=bounds,
         bin_stability_sec=_finite(
             bin_data.get("required_stability_sec"), "bin.required_stability_sec"
@@ -289,6 +357,51 @@ class BinStabilityTracker:
         self._latest_pose.pop(target_id, None)
 
 
+class ContactStabilityTracker:
+    """Require uninterrupted, fresh physical contact for a fixed duration."""
+
+    def __init__(
+        self,
+        required_stability_sec: float,
+        contact_freshness_sec: float = 0.25,
+    ) -> None:
+        if required_stability_sec <= 0.0 or contact_freshness_sec <= 0.0:
+            raise ValueError("contact stability bounds must be positive")
+        self.required_stability_sec = float(required_stability_sec)
+        self.contact_freshness_sec = float(contact_freshness_sec)
+        self._entered_at: dict[int, float] = {}
+        self._last_stamp: dict[int, float] = {}
+        self._active: dict[int, bool] = {}
+
+    def update(self, target_id: int, active: bool, stamp_sec: float) -> None:
+        if target_id <= 0:
+            raise ValueError("target_id must be positive")
+        stamp = _finite(stamp_sec, "stamp_sec")
+        previous = self._last_stamp.get(target_id)
+        if previous is not None and (
+            stamp < previous or stamp - previous > self.contact_freshness_sec
+        ):
+            self._entered_at.pop(target_id, None)
+        self._last_stamp[target_id] = stamp
+        self._active[target_id] = bool(active)
+        if active:
+            self._entered_at.setdefault(target_id, stamp)
+        else:
+            self._entered_at.pop(target_id, None)
+
+    def is_stable(self, target_id: int, now_sec: float) -> bool:
+        now = _finite(now_sec, "now_sec")
+        stamp = self._last_stamp.get(target_id)
+        entered = self._entered_at.get(target_id)
+        if not self._active.get(target_id, False) or stamp is None or entered is None:
+            return False
+        age = now - stamp
+        return (
+            0.0 <= age <= self.contact_freshness_sec
+            and now - entered >= self.required_stability_sec
+        )
+
+
 @dataclass(frozen=True)
 class AttachmentDecision:
     allowed: bool
@@ -324,7 +437,9 @@ class AttachmentGate:
         if not backend_enabled:
             return AttachmentDecision(False, "attachment backend is disabled")
         if not backend_initialized:
-            return AttachmentDecision(False, "attachment backend is not initialized detached")
+            return AttachmentDecision(
+                False, "attachment backend is not initialized detached"
+            )
         if not state_known:
             return AttachmentDecision(False, "attachment state is unknown")
         if attached:
@@ -335,11 +450,88 @@ class AttachmentGate:
         )
         for side, active, stamp in contacts:
             if not active or stamp is None:
-                return AttachmentDecision(False, f"{side} gripper contact is not active")
+                return AttachmentDecision(
+                    False, f"{side} gripper contact is not active"
+                )
             age = now - _finite(stamp, f"{side}_stamp_sec")
             if age < 0.0 or age > self.contact_freshness_sec:
                 return AttachmentDecision(False, f"{side} gripper contact is stale")
         return AttachmentDecision(True, "dual gripper contact confirmed")
+
+
+def select_unique_contact_target(
+    allowed_by_target_id: Mapping[int, bool],
+) -> tuple[int | None, str]:
+    """Resolve exactly one simulated fruit from bilateral pad contact.
+
+    No pose or tracker identity is accepted here.  The simulator adapter acts
+    like a physical grasp switch: exactly one fruit must satisfy the strict
+    dual-contact gate, otherwise attachment fails closed.
+    """
+
+    if any(target_id <= 0 for target_id in allowed_by_target_id):
+        raise ValueError("contact target IDs must be positive")
+    candidates = tuple(
+        sorted(
+            target_id
+            for target_id, allowed in allowed_by_target_id.items()
+            if bool(allowed)
+        )
+    )
+    if len(candidates) == 1:
+        return candidates[0], "unique dual-contact fruit confirmed"
+    if not candidates:
+        return None, "no fruit has fresh bilateral gripper contact"
+    return None, "bilateral gripper contact is ambiguous across multiple fruits"
+
+
+def classify_anonymous_fruit_contacts(
+    contacts_by_target_id: Mapping[
+        int, tuple[bool, float | None, bool, float | None]
+    ],
+    *,
+    now_sec: float,
+    freshness_sec: float,
+) -> str:
+    """Classify fresh fruit-pad contact without disclosing fruit identity.
+
+    The result deliberately contains neither a target ID nor a pose.  It is a
+    physical observation used only to decide whether a bounded centering move
+    is justified after a failed bilateral grasp.
+    """
+
+    now = _finite(now_sec, "now_sec")
+    freshness = _finite(freshness_sec, "freshness_sec")
+    if freshness <= 0.0:
+        raise ValueError("contact freshness must be positive")
+    if any(target_id <= 0 for target_id in contacts_by_target_id):
+        raise ValueError("contact target IDs must be positive")
+
+    def fresh(active: bool, stamp_sec: float | None) -> bool:
+        if not active or stamp_sec is None:
+            return False
+        age = now - _finite(stamp_sec, "contact_stamp_sec")
+        return 0.0 <= age <= freshness
+
+    left_ids: set[int] = set()
+    right_ids: set[int] = set()
+    for target_id, (left, left_stamp, right, right_stamp) in (
+        contacts_by_target_id.items()
+    ):
+        if fresh(left, left_stamp):
+            left_ids.add(target_id)
+        if fresh(right, right_stamp):
+            right_ids.add(target_id)
+
+    if not left_ids and not right_ids:
+        return NO_FRUIT_CONTACT
+    if len(left_ids) == 1 and not right_ids:
+        return LEFT_SINGLE_FRUIT
+    if len(right_ids) == 1 and not left_ids:
+        return RIGHT_SINGLE_FRUIT
+    if len(left_ids) == 1 and left_ids == right_ids:
+        return BILATERAL_SAME_FRUIT
+    return AMBIGUOUS_FRUIT_CONTACT
 
 
 def normalize_entity_name(frame_id: str) -> str:
@@ -370,14 +562,35 @@ def fruit_models_in_contacts(
         raise ValueError("contact model names must be unique")
 
     def components(name: str) -> frozenset[str]:
-        return frozenset(
-            part for part in name.replace("::", "/").split("/") if part
-        )
+        return frozenset(part for part in name.replace("::", "/").split("/") if part)
 
     active: set[int] = set()
     for first, second in collision_pairs:
         names = components(first) | components(second)
         for target_id, model_name in model_by_target_id.items():
             if model_name in names:
+                active.add(target_id)
+    return frozenset(active)
+
+
+def fruit_models_contacting_entity(
+    collision_pairs: list[tuple[str, str]],
+    model_by_target_id: Mapping[int, str],
+    entity_name: str,
+) -> frozenset[int]:
+    """Return fruits whose collision pair also contains one named entity."""
+
+    if not entity_name.strip():
+        raise ValueError("contact entity name must be non-empty")
+    active: set[int] = set()
+    for pair in collision_pairs:
+        components = [
+            frozenset(part for part in name.replace("::", "/").split("/") if part)
+            for name in pair
+        ]
+        if not any(entity_name in names for names in components):
+            continue
+        for target_id, model_name in model_by_target_id.items():
+            if any(model_name in names for names in components):
                 active.add(target_id)
     return frozenset(active)

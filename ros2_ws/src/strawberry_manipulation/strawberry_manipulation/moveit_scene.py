@@ -10,7 +10,10 @@ from .scene_geometry import (
 )
 
 
-def build_static_collision_messages(base_frame: str):
+def build_static_collision_messages(
+    base_frame: str,
+    static_collision_objects=STATIC_COLLISION_OBJECTS,
+):
     """Create ROS collision messages without importing ROS at module load."""
 
     if not base_frame:
@@ -25,7 +28,7 @@ def build_static_collision_messages(base_frame: str):
         ) from exc
 
     messages = []
-    for specification in STATIC_COLLISION_OBJECTS:
+    for specification in tuple(static_collision_objects):
         collision_object = CollisionObject()
         collision_object.header.frame_id = base_frame
         collision_object.id = specification.object_id
@@ -43,10 +46,17 @@ def build_static_collision_messages(base_frame: str):
     return messages
 
 
-def apply_static_collision_scene(planning_scene_monitor, base_frame: str) -> tuple[str, ...]:
-    """Apply table and bin primitives under one planning-scene write lock."""
+def apply_static_collision_scene(
+    planning_scene_monitor,
+    base_frame: str,
+    static_collision_objects=STATIC_COLLISION_OBJECTS,
+) -> tuple[str, ...]:
+    """Apply scene-bound static primitives under one write lock."""
 
-    messages = build_static_collision_messages(base_frame)
+    messages = build_static_collision_messages(
+        base_frame,
+        static_collision_objects,
+    )
     with planning_scene_monitor.read_write() as scene:
         for collision_object in messages:
             scene.apply_collision_object(collision_object)

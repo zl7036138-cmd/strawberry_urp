@@ -1,0 +1,114 @@
+{
+  "camera_mount": "dual",
+  "clock_unsynchronized_target_samples_ignored": 0,
+  "collision_scene": {
+    "after_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "before_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "expected_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "missing_after": [],
+    "missing_before": [],
+    "selected_fruit_collision_retained": true
+  },
+  "control_command_count": 0,
+  "control_interface_created": false,
+  "controller_configuration_keys": [],
+  "expected_target_id": 1,
+  "formal_acceptance": false,
+  "generated_at_utc": "2026-07-27T02:21:26.986417+00:00",
+  "grasp_geometry_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation/config/grasp_geometry.yaml",
+  "grasp_geometry_profile": "blender_v2_26mm",
+  "gripper_command_sent": false,
+  "handoff_input": {
+    "bytes": 474,
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/artifacts/simulation/blender_v2_pregrasp_oracle_handoff_v1.json",
+    "sha256": "90019f1db63aff580bb8b3faa1d8e89dfc3f177be1dec1b722fb9f22f3727cb7"
+  },
+  "held_out_test_consumed": false,
+  "joint_sample_count": 10,
+  "minimum_target_samples": 15,
+  "moveit_state_delta_rad": 0.0,
+  "observed_joint_delta_rad": 8.470329472543003e-21,
+  "observed_target_ids": [
+    1
+  ],
+  "pick_action_called": false,
+  "pick_authorized": false,
+  "planning_attempt_count": 1,
+  "planning_attempts": [
+    {
+      "attempt": 1,
+      "endpoint_orientation_error_rad": 0.009426221548719233,
+      "endpoint_position_error_m": 0.0008324484194464473,
+      "planning_time_sec": 0.03863846200056287,
+      "success": true,
+      "trajectory_waypoint_count": 24
+    }
+  ],
+  "planning_passed": true,
+  "pregrasp_pose": {
+    "frame_id": "panda_link0",
+    "orientation_xyzw": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "position_xyz_m": [
+      0.419064753,
+      -0.053479813,
+      0.792511838
+    ],
+    "pregrasp_offset_m": 0.15,
+    "tool_center_offset_m": 0.0964
+  },
+  "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml",
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_PREGRASP_PLANNING_SHADOW",
+  "state_history": [
+    "HANDOFF_RECEIPT_VALIDATED",
+    "READ_ONLY_MOVEIT_READY",
+    "PLANNING_COLLISION_SCENE_VALIDATED",
+    "PLANNING_TARGET_FROZEN",
+    "PREGRASP_GOAL_CONSTRUCTED",
+    "PREGRASP_PLAN_REQUESTED",
+    "TRAJECTORY_DISCARDED",
+    "STOP_BEFORE_TRAJECTORY_EXECUTION"
+  ],
+  "target_age_sec": {
+    "at_plan_completion": 0.019000000000000128,
+    "maximum": 0.30000000000000027,
+    "minimum": 0.0
+  },
+  "target_sample_count": 15,
+  "target_topic": "/strawberry/oracle/target_pose",
+  "trajectory_discarded": true,
+  "trajectory_executed": false,
+  "trajectory_execution_requested": false,
+  "trajectory_execution_time_sec": 0.0,
+  "trajectory_generated": true,
+  "violations": []
+}

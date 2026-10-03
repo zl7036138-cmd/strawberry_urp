@@ -1,0 +1,130 @@
+{
+  "checks": {
+    "ambiguous_layers_fail_closed": true,
+    "clear_geometry_accurate": true,
+    "clear_legacy_accurate": true,
+    "missing_fruit_fails_closed": true,
+    "occluded_geometry_recovers_fruit": true,
+    "occluded_legacy_selects_foreground": true
+  },
+  "inputs": {
+    "bounding_box_xywh": [
+      20,
+      20,
+      60,
+      60
+    ],
+    "geometry_expected_depth_tolerance_m": 0.08,
+    "image_shape": [
+      100,
+      100
+    ],
+    "intrinsics": {
+      "cx": 50.0,
+      "cy": 50.0,
+      "fx": 600.0,
+      "fy": 600.0
+    },
+    "target_radius_m": 0.026,
+    "target_surface_depth_m": 0.5
+  },
+  "kind": "occlusion_aware_depth_layer_offline_diagnostic",
+  "scenarios": {
+    "ambiguous_candidate_layers": {
+      "geometry_layer": {
+        "reason": "multiple depth layers are geometrically ambiguous: best_error=0.015 m, second_error=0.015 m, second_support_ratio=1.000",
+        "status": "REJECTED"
+      },
+      "legacy_center_median": {
+        "absolute_error_m": 0.005000010132789612,
+        "depth_m": 0.4949999898672104,
+        "selected_pixel": [
+          50.0,
+          50.0
+        ],
+        "sigma_m": 0.022239000883698463,
+        "status": "ESTIMATED",
+        "valid_pixels": 324
+      }
+    },
+    "center_occluded_fruit_visible_at_edges": {
+      "geometry_layer": {
+        "absolute_error_m": 0.0,
+        "depth_m": 0.5,
+        "selected_pixel": [
+          50.38941954445261,
+          50.0
+        ],
+        "sigma_m": 0.005350405742979625,
+        "status": "ESTIMATED",
+        "valid_pixels": 1361
+      },
+      "legacy_center_median": {
+        "absolute_error_m": 0.3199999928474426,
+        "depth_m": 0.18000000715255737,
+        "selected_pixel": [
+          50.0,
+          50.0
+        ],
+        "sigma_m": 0.0,
+        "status": "ESTIMATED",
+        "valid_pixels": 324
+      }
+    },
+    "clear_fruit": {
+      "geometry_layer": {
+        "absolute_error_m": 0.0,
+        "depth_m": 0.5,
+        "selected_pixel": [
+          50.0,
+          50.0
+        ],
+        "sigma_m": 0.005350405742979625,
+        "status": "ESTIMATED",
+        "valid_pixels": 2453
+      },
+      "legacy_center_median": {
+        "absolute_error_m": 0.0,
+        "depth_m": 0.5,
+        "selected_pixel": [
+          50.0,
+          50.0
+        ],
+        "sigma_m": 0.0,
+        "status": "ESTIMATED",
+        "valid_pixels": 324
+      }
+    },
+    "fruit_depth_absent": {
+      "geometry_layer": {
+        "reason": "nearest depth layer is inconsistent with detected fruit size: error=0.315 m, limit=0.080 m",
+        "status": "REJECTED"
+      },
+      "legacy_center_median": {
+        "absolute_error_m": 0.3199999928474426,
+        "depth_m": 0.18000000715255737,
+        "selected_pixel": [
+          50.0,
+          50.0
+        ],
+        "sigma_m": 0.0,
+        "status": "ESTIMATED",
+        "valid_pixels": 324
+      }
+    }
+  },
+  "schema_version": 1,
+  "scope": {
+    "formal_p3_or_p4_evidence": false,
+    "held_out_real_test_consumed": false,
+    "robot_motion": false,
+    "ros_runtime": false,
+    "runtime_promotion_authorized": false,
+    "synthetic_depth_only": true
+  },
+  "source": {
+    "core_path": "ros2_ws/src/strawberry_localization/strawberry_localization/core.py",
+    "core_sha256": "b8f1999d771cf4a5171719419e2ad7a52fe5ee22f2894bd63d5eddabf62efb65"
+  },
+  "status": "PASS"
+}

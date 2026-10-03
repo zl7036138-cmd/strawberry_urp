@@ -1,0 +1,195 @@
+{
+  "action": {
+    "execution_time_sec": 89.9585,
+    "failure_code": 0,
+    "message": "pick-and-place completed",
+    "planning_time_sec": 0.0343,
+    "status": 4,
+    "success": true
+  },
+  "attachment_started": true,
+  "contacts": {
+    "left": {
+      "first_processed_true_sec": 44.4143,
+      "first_raw_contact_sec": 44.4141,
+      "processed_messages": 320,
+      "processed_seen_true": true,
+      "processed_true_messages": 320,
+      "raw_contact_pairs": [
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ]
+      ],
+      "raw_contacts": 320,
+      "raw_max_contacts_per_message": 1,
+      "raw_messages": 320
+    },
+    "right": {
+      "first_processed_true_sec": 44.4191,
+      "first_raw_contact_sec": 44.4188,
+      "processed_messages": 315,
+      "processed_seen_true": true,
+      "processed_true_messages": 315,
+      "raw_contact_pairs": [
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ]
+      ],
+      "raw_contacts": 315,
+      "raw_max_contacts_per_message": 1,
+      "raw_messages": 315
+    }
+  },
+  "contract": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/config/blender_v2_oracle_execution_round_trip_v2.json",
+    "sha256": "7b722af4a68ea52a4b9532da491d88e8ce1c250d4de92960f40547390da63929",
+    "size_bytes": 5223
+  },
+  "formal_acceptance": false,
+  "gate": "blender_v2_oracle_execution_round_trip_v2",
+  "generated_at_utc": "2026-07-27T03:03:45.679362+00:00",
+  "gripper_command_started": true,
+  "held_out_test_accessed": false,
+  "localization_started": false,
+  "manipulation_started": true,
+  "observations": {
+    "attachment_events": [
+      {
+        "attached": true,
+        "elapsed_sec": 45.1871,
+        "stage": "GRASP",
+        "state": "attached"
+      },
+      {
+        "attached": false,
+        "elapsed_sec": 94.5148,
+        "stage": "PLACE",
+        "state": "detached"
+      }
+    ],
+    "home_return_delta_rad": 7.714695549054795e-11,
+    "initial_ready_error_rad": 7.776934651815282e-11,
+    "open_recovery_error_m": 1.1187551610114532e-07,
+    "planning_time_sec": 0.0343,
+    "preflight_complete_joint_sample_count": 10,
+    "preflight_ready_error_rad": 7.776934651815282e-11,
+    "preflight_target_attached": false,
+    "shutdown_clean": true,
+    "stages": [
+      "PLAN",
+      "APPROACH",
+      "GRASP",
+      "RETREAT",
+      "PLACE",
+      "VERIFY",
+      "DONE"
+    ],
+    "unexpected_fruit_contacts": []
+  },
+  "oracle_provider_started": false,
+  "orchestrator_started": false,
+  "passed": true,
+  "perception_started": false,
+  "pick_action_started": true,
+  "pick_authorized": false,
+  "pose_control_started": false,
+  "preflight_result": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_oracle_execution_round_trip_v2/initial_state.json",
+    "sha256": "b5903cc7f2994703de9969452b154fcfb9af06514703674b2f5bf143e86199fb",
+    "size_bytes": 898
+  },
+  "resolved_inputs": {
+    "action_server": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/strawberry_manipulation/action_server.py",
+      "sha256": "863c70e4e28776daa676e758cb992c0cf6af2d38e91280d2d80b13b56e22494a",
+      "size_bytes": 17558
+    },
+    "decision_record": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/docs/decisions/0049-preserve-v1-evidence-failure-and-freeze-v2-measurement.md",
+      "sha256": "332a04014d962b48eb36f6d5d4cc61444d6af050caf7a50b1b654a5f8bbf9454",
+      "size_bytes": 2842
+    },
+    "executor_core": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/strawberry_manipulation/core.py",
+      "sha256": "6b0f6a17c145cf0c6da912fd3c66dc4a248effd45120cacb668db2ac68f59942",
+      "size_bytes": 14755
+    },
+    "grasp_geometry_config": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/config/grasp_geometry.yaml",
+      "sha256": "e23678ec96679625059ed88f262ddf5c6051abdff948e30e26743d9a67e96b5c",
+      "size_bytes": 668
+    },
+    "initial_state_probe": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/capture_blender_v2_execution_initial_state.py",
+      "sha256": "54cce3829493b9eb7e98e1d90751694b92c7b8d1f348759cd4c0192e17842c7f",
+      "size_bytes": 6577
+    },
+    "moveit_backend": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/strawberry_manipulation/moveit_backend.py",
+      "sha256": "ae72c7b77eb9c6dddc2a0e45636e0c2b69fff40887cebc59639196dbf6c10cf7",
+      "size_bytes": 44826
+    },
+    "oracle_client": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/test_oracle_pick_and_place.py",
+      "sha256": "8af2bb8b1dc5a1b3c49450c9aa0bcda4eb8f271f886cb5def20c3efbef73cbdd",
+      "size_bytes": 26733
+    },
+    "runner": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/run_blender_v2_oracle_execution_round_trip_v2.sh",
+      "sha256": "b80f0a16ecc1ba79763b48e7e310550ddb84ca4d3a6ab5224ae12850a93aa3af",
+      "size_bytes": 3478
+    },
+    "scene_manifest": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    },
+    "sim_launch": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "sha256": "185dea9f22687cfafddb33e675bcb5c4d9aa813832e3ad2c4f5e43eb9a577667",
+      "size_bytes": 13264
+    },
+    "system_launch": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_bringup/launch/system.launch.py",
+      "sha256": "fee8b8e531015a2399af6319c6ea55866559ef403293ebaab053e0aa50a907d9",
+      "size_bytes": 16488
+    },
+    "v1_contract": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/config/blender_v2_oracle_execution_round_trip_v1.json",
+      "sha256": "4e7e20fd2a79249f2db4468ad5b8776a553242452646279bf734f3f633f20354",
+      "size_bytes": 4982
+    },
+    "v1_failed_summary": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_oracle_execution_round_trip_v1/summary.json",
+      "sha256": "4a37548e859a61599397f88e4805f6a33f4597b3c2a68db6ec3be916fb0cc64c",
+      "size_bytes": 2164
+    },
+    "v1_trial": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_oracle_execution_round_trip_v1/trial_01.json",
+      "sha256": "840672289e52af82860984e43d9178eb60fea327694dfdbd9fc0945c898ded95",
+      "size_bytes": 10018
+    },
+    "v1_validator": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/validate_blender_v2_oracle_execution.py",
+      "sha256": "9e0993d8a7f234dda48194f3315ae0a2a4eeef4cbc246360a5a34e1a687d21bf",
+      "size_bytes": 13757
+    },
+    "validator": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/validate_blender_v2_oracle_execution_v2.py",
+      "sha256": "b710c17b96802e38e838243f95db45a389cef315a65c1e24882c808724675723",
+      "size_bytes": 11188
+    }
+  },
+  "robot_motion_started": true,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_ORACLE_EXECUTION_MEASUREMENT_V2",
+  "single_measurement_requalification_authorized": true,
+  "trial_result": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_oracle_execution_round_trip_v2/trial_01.json",
+    "sha256": "185966b4b8f88d87170a64827c3086405e43be7d7ebfe2e86027e852206fc1ee",
+    "size_bytes": 10100
+  },
+  "violations": []
+}

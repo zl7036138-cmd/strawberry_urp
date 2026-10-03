@@ -1,0 +1,23 @@
+schema_version: 1
+
+# Scene-specific hand geometry. Selection requires an exact world-name and
+# fruit-radius match so the archived 35 mm tabletop contract cannot silently
+# inherit the Blender-v2 parameters.
+profiles:
+  - profile_id: tabletop_v1_35mm
+    world_name: strawberry_orchard
+    fruit_collision_radius_m: 0.035
+    tool_center_offset_m: 0.1054
+    gripper_open_width_m_per_finger: 0.040
+    gripper_closed_width_m_per_finger: 0.025
+    gripper_position_tolerance_m_per_finger: 0.003
+
+  - profile_id: blender_v2_26mm
+    world_name: strawberry_orchard
+    fruit_collision_radius_m: 0.026
+    tool_center_offset_m: 0.0964
+    gripper_open_width_m_per_finger: 0.040
+    gripper_closed_width_m_per_finger: 0.022
+    # The qualified sweep bounds the maximum commanded-to-first-contact
+    # cross-jaw residual at 3.857 mm per finger.
+    gripper_position_tolerance_m_per_finger: 0.0039

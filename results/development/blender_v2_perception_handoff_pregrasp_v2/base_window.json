@@ -1,0 +1,1866 @@
+{
+  "completed": true,
+  "formal_acceptance": false,
+  "frames": [
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 1,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 500000000,
+      "stamp_sec": 1,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 2,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 600000000,
+      "stamp_sec": 1,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 3,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 700000000,
+      "stamp_sec": 1,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 4,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 800000000,
+      "stamp_sec": 1,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 5,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 900000000,
+      "stamp_sec": 1,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 6,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 0,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 7,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 100000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 8,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 200000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 9,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 300000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 10,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 400000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 11,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 500000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 12,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 600000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 13,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 700000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 14,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 800000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 15,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 900000000,
+      "stamp_sec": 2,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 16,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 0,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 17,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 100000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 18,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 200000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 19,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 300000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 20,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 400000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 21,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 500000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 22,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 600000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 23,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 700000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 24,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 800000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 25,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 900000000,
+      "stamp_sec": 3,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 26,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 0,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 27,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 100000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 28,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 200000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 29,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 300000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 30,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 400000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 31,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 500000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 32,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 600000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 33,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 700000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 34,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 800000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 35,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 900000000,
+      "stamp_sec": 4,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 36,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 0,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 37,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 100000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 38,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 200000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 39,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 300000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 40,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 400000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 41,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 500000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 42,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 600000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 43,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 700000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 44,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 800000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 45,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 900000000,
+      "stamp_sec": 5,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 46,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 0,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 47,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 100000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 48,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 200000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 49,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 300000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 50,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 400000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 51,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 500000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 52,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 600000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 53,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 700000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 54,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 800000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 55,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 900000000,
+      "stamp_sec": 6,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 56,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 0,
+      "stamp_sec": 7,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 57,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 100000000,
+      "stamp_sec": 7,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 58,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 200000000,
+      "stamp_sec": 7,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 59,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 300000000,
+      "stamp_sec": 7,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    },
+    {
+      "detection_confidences": [
+        0.6357963681221008
+      ],
+      "detection_count": 1,
+      "detection_rois": [
+        {
+          "area_px": 256,
+          "height": 16,
+          "maturity": 1,
+          "target_id": 1,
+          "width": 16,
+          "x_offset": 151,
+          "y_offset": 131
+        }
+      ],
+      "frame_index": 60,
+      "ripe_confidences": [
+        0.6357963681221008
+      ],
+      "ripe_detection_count": 1,
+      "stamp_nanosec": 400000000,
+      "stamp_sec": 7,
+      "target_pose_ids": [
+        1
+      ],
+      "target_pose_received": true,
+      "unripe_confidences": [],
+      "unripe_detection_count": 0
+    }
+  ],
+  "generated_at_utc": "2026-07-27T03:54:07.112305+00:00",
+  "held_out_test_consumed": false,
+  "lighting": "nominal",
+  "occlusion": "natural_plant",
+  "readiness_gate": {
+    "enabled": false,
+    "measurement_started_after_detection_index": 0,
+    "qualifying_run_end_detection_index": null,
+    "qualifying_run_start_detection_index": null,
+    "required_consecutive_target_pose_frames": 0,
+    "satisfied": true,
+    "telemetry": null
+  },
+  "required_frames": 60,
+  "ros_domain_id": 231,
+  "scenario_id": "blender_v2_dual_base_overview_same_world",
+  "schema_version": 2,
+  "scope": "NON_ACCEPTANCE_POST_SETUP_SHADOW_WINDOW",
+  "summary": {
+    "confidence": {
+      "all": {
+        "count": 60,
+        "maximum": 0.6357963681221008,
+        "mean": 0.6357963681221008,
+        "median": 0.6357963681221008,
+        "minimum": 0.6357963681221008
+      },
+      "ripe": {
+        "count": 60,
+        "maximum": 0.6357963681221008,
+        "mean": 0.6357963681221008,
+        "median": 0.6357963681221008,
+        "minimum": 0.6357963681221008
+      },
+      "unripe": {
+        "count": 0,
+        "maximum": null,
+        "mean": null,
+        "median": null,
+        "minimum": null
+      }
+    },
+    "detection_count": 60,
+    "frame_count": 60,
+    "frames_with_any_detection": 60,
+    "frames_with_ripe_detection": 60,
+    "frames_with_target_pose": 60,
+    "frames_with_unripe_detection": 0,
+    "ripe_detection_count": 60,
+    "roi": {
+      "count": 60,
+      "maximum_area_px": 256,
+      "mean_area_px": 256.0,
+      "median_area_px": 256.0,
+      "minimum_area_px": 256
+    },
+    "unripe_detection_count": 0
+  },
+  "warmup_frames_discarded": 10,
+  "window_boundary": "base_overview_before_robot_motion"
+}

@@ -26,3 +26,19 @@ ros2 launch strawberry_sim sim.launch.py \
   world_file:="$(ros2 pkg prefix strawberry_sim)/share/strawberry_sim/worlds/strawberry_tabletop_benchmark_v1.sdf" \
   scene_config_file:="$(ros2 pkg prefix strawberry_sim)/share/strawberry_sim/config/scene_tabletop_v1.yaml"
 ```
+
+The larger Blender field is an opt-in, no-motion qualification scene. It keeps
+the accepted v2 default unchanged and starts with the dual base/wrist cameras:
+
+```bash
+ros2 launch strawberry_sim field_v3.launch.py headless:=false
+```
+
+Field-v3 now qualifies scene loading, scale, rendering, sensor topics, target-1
+wrist visibility, no-motion RGB-D localization, field-specific MoveIt
+collisions, and controller-free pre-grasp planning. Its consolidated
+60-sample run has 4.856 mm median/P95 centre error, retains all nine expected
+collision objects, and discards a successful 47-waypoint plan without sending
+a control command. The launcher deliberately disables fruit attachment and
+pose-control services; field-v3 motion remains blocked until a separately
+frozen Oracle execution gate is authorized and passes.

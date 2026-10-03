@@ -1,0 +1,50 @@
+# Development candidate 2. Candidate 1 remained underfit on the validation
+# split (unripe recall 0). Continue from its best weights, use a conventional
+# fine-tuning learning rate, and preserve maturity colour cues by reducing HSV
+# augmentation. The independent qualification split remains absent.
+model: outputs/perception/yolo11s_640_generalized_dev_v1/weights/best.pt
+data: data/processed/generalized_development_capture_v1/dataset.yaml
+task: detect
+mode: train
+imgsz: 640
+epochs: 48
+batch: 8
+device: 0
+workers: 4
+pretrained: true
+optimizer: SGD
+lr0: 0.001
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 1.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
+seed: 20260813
+deterministic: true
+amp: false
+patience: 0
+save: true
+save_period: 12
+cache: false
+close_mosaic: 8
+hsv_h: 0.003
+hsv_s: 0.15
+hsv_v: 0.15
+degrees: 0.0
+translate: 0.04
+scale: 0.15
+shear: 0.0
+perspective: 0.0
+flipud: 0.0
+fliplr: 0.5
+bgr: 0.0
+mosaic: 0.25
+mixup: 0.0
+cutmix: 0.0
+copy_paste: 0.0
+project: ../../outputs/perception
+name: yolo11s_640_generalized_dev_v2
+exist_ok: false
+plots: true
+verbose: true

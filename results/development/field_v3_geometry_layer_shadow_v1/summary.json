@@ -1,0 +1,63 @@
+{
+  "bindings": {
+    "collision_scene_audit": {
+      "path": "results/development/field_v3_geometry_layer_shadow_v1/collision_scene_audit.json",
+      "sha256": "742d4a7e23fe40e691db0da401b8005c88d8474867a515afe127d502a6cb8493",
+      "size_bytes": 3076
+    },
+    "shadow_window": {
+      "path": "results/development/field_v3_geometry_layer_shadow_v1/shadow_window.json",
+      "sha256": "2843915508f6adf972fb2d0cbc746b8230c1506a5baaa1b446f522abccf0dd0a",
+      "size_bytes": 64890
+    },
+    "target_pose_accuracy": {
+      "path": "results/development/field_v3_geometry_layer_shadow_v1/target_pose_accuracy.json",
+      "sha256": "b0294bbe1c962afd2ae467a468df464186664eb529a67686a6d64704d7311568",
+      "size_bytes": 22354
+    }
+  },
+  "checks": {
+    "accuracy_passed": true,
+    "all_collisions_present": true,
+    "handoff_passed": true,
+    "no_accuracy_control_commands": true,
+    "no_control_interface": true,
+    "no_gripper_command": true,
+    "no_pick_action": true,
+    "no_trajectory_command": true,
+    "no_violations": true,
+    "pick_not_authorized": true,
+    "readiness_satisfied": true,
+    "sixty_accuracy_samples": true,
+    "sixty_measured_frames": true,
+    "sixty_ripe_frames": true,
+    "sixty_target_pose_frames": true,
+    "target_one_only": true,
+    "window_completed": true,
+    "zero_joint_delta": true
+  },
+  "kind": "field_v3_geometry_layer_shadow_summary",
+  "measurements": {
+    "accuracy_sample_count": 60,
+    "frame_count": 60,
+    "maximum_error_mm": 3.1480081966391324,
+    "median_error_mm": 3.1480081966390525,
+    "median_position_sigma_m": 0.02809837833046913,
+    "observed_joint_delta_rad": 0.0,
+    "ripe_detection_frame_count": 60,
+    "target_pose_frame_count": 60
+  },
+  "schema_version": 1,
+  "scope": {
+    "fixed_scene": true,
+    "fixed_seed": true,
+    "fixed_target": true,
+    "formal_p3_or_p4_evidence": false,
+    "held_out_real_test_consumed": false,
+    "natural_field_occlusion_only": true,
+    "robot_motion": false,
+    "runtime_promotion_authorized": false,
+    "synthetic_benchmark_occlusion_tested": false
+  },
+  "status": "PASS"
+}

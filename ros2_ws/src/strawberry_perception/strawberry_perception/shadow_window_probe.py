@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from datetime import datetime, timezone
 import json
 import os
@@ -32,6 +33,100 @@ def find_consecutive_true_run(
         else:
             run_count = 0
     return None
+
+
+def classify_readiness_frame(
+    *,
+    detection_ids: Sequence[int],
+    ripe_detection_ids: Sequence[int],
+    target_pose_ids: Sequence[int],
+) -> str:
+    """Attribute one detection timestamp at the wrist-readiness boundary."""
+
+    detections = {int(value) for value in detection_ids if int(value) > 0}
+    ripe = {int(value) for value in ripe_detection_ids if int(value) > 0}
+    targets = {int(value) for value in target_pose_ids if int(value) > 0}
+    if not detections:
+        return "NO_DETECTION"
+    if not ripe:
+        return "NO_RIPE_DETECTION"
+    if not targets:
+        return "TARGET_POSE_MISSING"
+    if ripe.isdisjoint(targets):
+        return "TARGET_IDENTITY_MISMATCH"
+    return "READY"
+
+
+def summarize_readiness_trace(
+    frames: Sequence[Mapping[str, object]],
+    required_count: int,
+    *,
+    recent_frame_limit: int = 60,
+) -> dict[str, object]:
+    """Summarize streak length, reset causes, identity, and localization delay."""
+
+    if required_count <= 0:
+        raise ValueError("required consecutive count must be positive")
+    if recent_frame_limit <= 0:
+        raise ValueError("recent frame limit must be positive")
+
+    statuses = [str(frame.get("status", "")) for frame in frames]
+    status_counts = Counter(statuses)
+    qualifying_run = find_consecutive_true_run(
+        [status == "READY" for status in statuses],
+        required_count,
+    )
+    current_streak = 0
+    maximum_streak = 0
+    reset_reason_counts: Counter[str] = Counter()
+    reset_count = 0
+    for status in statuses:
+        if status == "READY":
+            current_streak += 1
+            maximum_streak = max(maximum_streak, current_streak)
+            continue
+        if current_streak:
+            reset_count += 1
+            reset_reason_counts[status] += 1
+        current_streak = 0
+
+    delays = [
+        float(frame["target_pose_delay_sec"])
+        for frame in frames
+        if frame.get("target_pose_delay_sec") is not None
+    ]
+    return {
+        "observed_detection_frame_count": len(frames),
+        "status_counts": {
+            name: int(status_counts.get(name, 0))
+            for name in (
+                "READY",
+                "NO_DETECTION",
+                "NO_RIPE_DETECTION",
+                "TARGET_POSE_MISSING",
+                "TARGET_IDENTITY_MISMATCH",
+            )
+        },
+        "maximum_consecutive_ready_frames": maximum_streak,
+        "terminal_consecutive_ready_frames": current_streak,
+        "streak_reset_count": reset_count,
+        "streak_reset_reason_counts": dict(sorted(reset_reason_counts.items())),
+        "qualifying_run_start_detection_index": (
+            qualifying_run[0] + 1 if qualifying_run is not None else None
+        ),
+        "qualifying_run_end_detection_index": (
+            qualifying_run[1] if qualifying_run is not None else None
+        ),
+        "matched_target_pose_delay_sec": {
+            "count": len(delays),
+            "minimum": min(delays) if delays else None,
+            "mean": statistics.fmean(delays) if delays else None,
+            "maximum": max(delays) if delays else None,
+        },
+        "recent_frames": [
+            dict(frame) for frame in frames[-recent_frame_limit:]
+        ],
+    }
 
 
 def summarize_window_frames(
@@ -164,10 +259,14 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             self.set_parameters([Parameter("use_sim_time", value=True)])
             self.detections = []
             self.target_ids_by_stamp: dict[tuple[int, int], set[int]] = {}
+            self.detection_receipts_by_stamp: dict[
+                tuple[int, int], float
+            ] = {}
+            self.target_receipts_by_stamp: dict[tuple[int, int], float] = {}
             self.create_subscription(
                 StrawberryDetectionArray,
                 "/strawberry/shadow/detections",
-                self.detections.append,
+                self._on_detection,
                 10,
             )
             self.create_subscription(
@@ -177,11 +276,19 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
                 10,
             )
 
+        def _on_detection(self, message) -> None:
+            stamp = _stamp_key(message.header.stamp)
+            self.detections.append(message)
+            self.detection_receipts_by_stamp.setdefault(
+                stamp, time.monotonic()
+            )
+
         def _on_target(self, message) -> None:
             stamp = _stamp_key(message.header.stamp)
             self.target_ids_by_stamp.setdefault(stamp, set()).add(
                 int(message.target_id)
             )
+            self.target_receipts_by_stamp.setdefault(stamp, time.monotonic())
 
         def spin_until(self, predicate, timeout_sec: float, description: str) -> None:
             deadline = time.monotonic() + timeout_sec
@@ -201,29 +308,162 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
         def target_pose_readiness_run(
             self, required_count: int
         ) -> tuple[int, int] | None:
-            statuses = [
-                bool(self.target_ids_by_stamp.get(_stamp_key(message.header.stamp)))
-                for message in self.detections
-            ]
-            return find_consecutive_true_run(statuses, required_count)
+            telemetry = self.target_pose_readiness_telemetry(required_count)
+            start = telemetry["qualifying_run_start_detection_index"]
+            end = telemetry["qualifying_run_end_detection_index"]
+            if start is None or end is None:
+                return None
+            return int(start) - 1, int(end)
+
+        def target_pose_readiness_telemetry(
+            self, required_count: int
+        ) -> dict[str, object]:
+            records = []
+            detection_stamps = set()
+            for index, message in enumerate(self.detections, start=1):
+                stamp = _stamp_key(message.header.stamp)
+                detection_stamps.add(stamp)
+                detection_ids = sorted(
+                    {
+                        int(item.target_id)
+                        for item in message.detections
+                        if int(item.target_id) > 0
+                    }
+                )
+                ripe_detection_ids = sorted(
+                    {
+                        int(item.target_id)
+                        for item in message.detections
+                        if (
+                            int(item.target_id) > 0
+                            and int(item.maturity) == int(item.RIPE)
+                        )
+                    }
+                )
+                target_pose_ids = sorted(
+                    self.target_ids_by_stamp.get(stamp, set())
+                )
+                detection_receipt = self.detection_receipts_by_stamp.get(
+                    stamp
+                )
+                target_receipt = self.target_receipts_by_stamp.get(stamp)
+                delay = (
+                    target_receipt - detection_receipt
+                    if (
+                        detection_receipt is not None
+                        and target_receipt is not None
+                    )
+                    else None
+                )
+                records.append(
+                    {
+                        "detection_index": index,
+                        "stamp_sec": stamp[0],
+                        "stamp_nanosec": stamp[1],
+                        "detection_ids": detection_ids,
+                        "ripe_detection_ids": ripe_detection_ids,
+                        "target_pose_ids": target_pose_ids,
+                        "target_pose_delay_sec": delay,
+                        "status": classify_readiness_frame(
+                            detection_ids=detection_ids,
+                            ripe_detection_ids=ripe_detection_ids,
+                            target_pose_ids=target_pose_ids,
+                        ),
+                    }
+                )
+            telemetry = summarize_readiness_trace(records, required_count)
+            telemetry["observed_target_pose_stamp_count"] = len(
+                self.target_ids_by_stamp
+            )
+            telemetry["orphan_target_pose_stamp_count"] = len(
+                set(self.target_ids_by_stamp) - detection_stamps
+            )
+            return telemetry
 
     rclpy.init(args=args)
     node = WindowNode()
     try:
         readiness_run = None
+        readiness_telemetry = None
         measurement_start = 0
         required_ready = options.ready_consecutive_target_pose_frames
         if required_ready:
-            node.spin_until(
-                lambda: node.target_pose_readiness_run(required_ready) is not None,
-                options.timeout_sec,
-                (
-                    f"{required_ready} consecutive detection frames with "
-                    "matching TargetPose"
-                ),
-            )
+            try:
+                node.spin_until(
+                    lambda: (
+                        node.target_pose_readiness_run(required_ready)
+                        is not None
+                    ),
+                    options.timeout_sec,
+                    (
+                        f"{required_ready} consecutive detection frames with "
+                        "identity-matched TargetPose"
+                    ),
+                )
+            except RuntimeError as error:
+                telemetry = node.target_pose_readiness_telemetry(
+                    required_ready
+                )
+                failed_result = {
+                    "schema_version": 2,
+                    "generated_at_utc": datetime.now(
+                        timezone.utc
+                    ).isoformat(),
+                    "scope": "NON_ACCEPTANCE_POST_SETUP_SHADOW_WINDOW",
+                    "formal_acceptance": False,
+                    "held_out_test_consumed": False,
+                    "scenario_id": options.scenario_id,
+                    "lighting": options.lighting,
+                    "occlusion": options.occlusion,
+                    "ros_domain_id": int(
+                        os.environ.get("ROS_DOMAIN_ID", "0")
+                    ),
+                    "window_boundary": options.window_boundary,
+                    "completed": False,
+                    "failure": {
+                        "stage": "WRIST_READINESS_GATE",
+                        "message": str(error),
+                    },
+                    "readiness_gate": {
+                        "enabled": True,
+                        "required_consecutive_target_pose_frames": (
+                            required_ready
+                        ),
+                        "satisfied": False,
+                        "telemetry": telemetry,
+                    },
+                    "required_frames": options.frames,
+                    "frames": [],
+                }
+                options.output_json.parent.mkdir(
+                    parents=True, exist_ok=True
+                )
+                options.output_json.write_text(
+                    json.dumps(
+                        failed_result, indent=2, sort_keys=True
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                print(
+                    json.dumps(
+                        {
+                            "completed": False,
+                            "failure": failed_result["failure"],
+                            "readiness_gate": (
+                                failed_result["readiness_gate"]
+                            ),
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                raise
             readiness_run = node.target_pose_readiness_run(required_ready)
             measurement_start = len(node.detections)
+            readiness_telemetry = node.target_pose_readiness_telemetry(
+                required_ready
+            )
 
         total_frames = (
             measurement_start + options.warmup_frames + options.frames
@@ -292,7 +532,7 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             )
         summary = summarize_window_frames(frame_records, options.frames)
         result = {
-            "schema_version": 1,
+            "schema_version": 2,
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "scope": "NON_ACCEPTANCE_POST_SETUP_SHADOW_WINDOW",
             "formal_acceptance": False,
@@ -302,6 +542,7 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
             "occlusion": options.occlusion,
             "ros_domain_id": int(os.environ.get("ROS_DOMAIN_ID", "0")),
             "window_boundary": options.window_boundary,
+            "completed": True,
             "warmup_frames_discarded": options.warmup_frames,
             "readiness_gate": {
                 "enabled": bool(required_ready),
@@ -314,6 +555,7 @@ def main(args=None) -> int:  # pragma: no cover - exercised by ROS integration
                     readiness_run[1] if readiness_run is not None else None
                 ),
                 "measurement_started_after_detection_index": measurement_start,
+                "telemetry": readiness_telemetry,
             },
             "required_frames": options.frames,
             "summary": summary,

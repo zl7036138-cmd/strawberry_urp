@@ -1,0 +1,35 @@
+{
+  "arm_positions_rad": {
+    "panda_joint1": 1.8669961410215985e-18,
+    "panda_joint2": -0.7849999999978018,
+    "panda_joint3": 5.543058873502209e-13,
+    "panda_joint4": -2.3560000000244914,
+    "panda_joint5": -7.879476754228671e-12,
+    "panda_joint6": 1.5709999999719686,
+    "panda_joint7": 0.785
+  },
+  "attachment_events": [
+    {
+      "attached": true,
+      "state": "attached"
+    },
+    {
+      "attached": false,
+      "state": "detached"
+    }
+  ],
+  "complete_joint_sample_count": 10,
+  "control_command_count": 0,
+  "finger_positions_m": {
+    "panda_finger_joint1": 0.039999832447375,
+    "panda_finger_joint2": 0.039999832447306066
+  },
+  "generated_at_utc": "2026-07-27T03:25:43.145065+00:00",
+  "passed": true,
+  "ready_error_rad": 2.8031355014945802e-11,
+  "required_samples": 10,
+  "schema_version": 1,
+  "target_attached": false,
+  "target_id": 1,
+  "violations": []
+}

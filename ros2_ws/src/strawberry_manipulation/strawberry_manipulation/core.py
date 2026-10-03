@@ -6,7 +6,72 @@ from dataclasses import dataclass, replace
 from enum import IntEnum
 import math
 import time
-from typing import Callable, Protocol
+from typing import Callable, Protocol, TYPE_CHECKING
+
+from .collision_policy import (
+    CollisionPhase,
+    selected_fruit_contact_is_authorized,
+)
+from .payload_lifecycle import PayloadState
+
+if TYPE_CHECKING:
+    from .grasp_authorization import AuthorizedGraspPlan, ExecutionIdentity
+    from .grasp_candidates import GraspCandidate
+    from .whole_chain import ChainEvaluation
+
+
+LEFT_SINGLE_FRUIT = "LEFT_SINGLE_FRUIT"
+RIGHT_SINGLE_FRUIT = "RIGHT_SINGLE_FRUIT"
+BILATERAL_SAME_FRUIT = "BILATERAL_SAME_FRUIT"
+NO_FRUIT_CONTACT = "NO_FRUIT_CONTACT"
+AMBIGUOUS_FRUIT_CONTACT = "AMBIGUOUS_FRUIT_CONTACT"
+CONTACT_CLASS_UNAVAILABLE = "CONTACT_CLASS_UNAVAILABLE"
+
+
+def wait_for_bilateral_contact(
+    read_contact_class: Callable[[], str | None],
+    *,
+    timeout_sec: float,
+    sample_period_sec: float,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> str | None:
+    """Observe a bounded post-close contact window without moving the hand.
+
+    Gazebo contact messages arrive asynchronously from the gripper-controller
+    result. In particular, one pad can be reported a simulation frame before
+    the other even when the hand geometry has not changed. This helper is not
+    an attachment decision: it only gives the existing strict attachment gate
+    a short opportunity to see fresh bilateral evidence. It never commands a
+    joint, changes a candidate pose, or accepts a one-sided contact.
+    """
+
+    if not callable(read_contact_class):
+        raise ValueError("contact reader must be callable")
+    if (
+        not math.isfinite(timeout_sec)
+        or not math.isfinite(sample_period_sec)
+        or timeout_sec < 0.0
+        or sample_period_sec <= 0.0
+    ):
+        raise ValueError("contact settle bounds are invalid")
+
+    deadline = monotonic() + float(timeout_sec)
+    last_contact_class: str | None = None
+    while True:
+        try:
+            observed = read_contact_class()
+        except Exception:
+            # The attachment service remains the fail-closed authority if a
+            # diagnostic read is temporarily unavailable.
+            return last_contact_class
+        last_contact_class = observed if isinstance(observed, str) else None
+        if last_contact_class == BILATERAL_SAME_FRUIT:
+            return last_contact_class
+        remaining = deadline - monotonic()
+        if remaining <= 0.0:
+            return last_contact_class
+        sleep(min(float(sample_period_sec), remaining))
 
 
 class FailureCode(IntEnum):
@@ -21,6 +86,18 @@ class FailureCode(IntEnum):
     GRASP_FAILED = 8
     PLACE_FAILED = 9
     STALE_DATA = 10
+
+
+class RecoveryDisposition(IntEnum):
+    """Typed permission for motion after an action result.
+
+    Zero is intentionally the fail-closed value used when the executor cannot
+    prove that an independent recovery-home command is safe.
+    """
+
+    MOTION_WITHHELD = 0
+    AT_HOME = 1
+    HOME_REQUIRED = 2
 
 
 @dataclass(frozen=True)
@@ -47,6 +124,39 @@ class Pose:
 
 
 @dataclass(frozen=True)
+class ContactCenteringHint:
+    """Bounded physical evidence for a separately re-certified grasp.
+
+    This is not an execution authorization.  It records what the closed hand
+    observed while executing one exact certificate so that a higher-level
+    coordinator may construct a *new* candidate and send it through the full
+    ADR 0086 qualification boundary.  The executor never consumes this hint
+    as permission to move.
+    """
+
+    source_candidate_id: str
+    source_geometry_fingerprint: str
+    contact_class: str
+    local_y_offset_m: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_candidate_id, str) or not self.source_candidate_id:
+            raise ValueError("centering hint requires a source candidate ID")
+        if (
+            not isinstance(self.source_geometry_fingerprint, str)
+            or not self.source_geometry_fingerprint
+        ):
+            raise ValueError("centering hint requires a source geometry fingerprint")
+        if self.contact_class not in {LEFT_SINGLE_FRUIT, RIGHT_SINGLE_FRUIT}:
+            raise ValueError("centering hint requires unique single-sided fruit contact")
+        if (
+            not math.isfinite(self.local_y_offset_m)
+            or abs(self.local_y_offset_m) <= 0.0
+        ):
+            raise ValueError("centering hint offset must be finite and non-zero")
+
+
+@dataclass(frozen=True)
 class ExecutionResult:
     success: bool
     failure_code: FailureCode
@@ -54,6 +164,9 @@ class ExecutionResult:
     planning_time_sec: float
     execution_time_sec: float
     stages: tuple[str, ...]
+    recovery_disposition: RecoveryDisposition = RecoveryDisposition.MOTION_WITHHELD
+    payload_state: PayloadState = PayloadState.EMPTY
+    contact_centering_hint: ContactCenteringHint | None = None
 
 
 @dataclass(frozen=True)
@@ -75,18 +188,26 @@ class MotionBackend(Protocol):
 
     def close_gripper(self) -> bool: ...
 
+    def gripper_centering_offset_m(self) -> float | None: ...
+
+    def gripper_fruit_contact_class(self) -> str | None: ...
+
     def open_gripper(self) -> bool: ...
 
     def attach(self, target_id: int) -> bool: ...
 
     def detach(self, target_id: int) -> bool: ...
 
+    def return_via_recorded_place_route(self) -> MotionOutcome: ...
+
     def move_home(self) -> bool: ...
 
     def fruit_in_bin(self, target_id: int, stable_for_sec: float) -> bool: ...
 
 
-def offset_pose(pose: Pose, *, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0) -> Pose:
+def offset_pose(
+    pose: Pose, *, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0
+) -> Pose:
     """Apply a base-frame translation while preserving orientation."""
 
     return replace(pose.normalized(), x=pose.x + dx, y=pose.y + dy, z=pose.z + dz)
@@ -109,14 +230,33 @@ def offset_along_local_z(pose: Pose, distance_m: float) -> Pose:
     )
 
 
-def alternate_approach(pose: Pose) -> Pose:
-    """Rotate the tool 90 degrees about base Z for the one allowed retry."""
+def offset_along_local_y(pose: Pose, distance_m: float) -> Pose:
+    """Translate along the pose's local +Y finger-closing axis."""
 
     pose = pose.normalized()
-    half = math.pi / 4.0
+    if not math.isfinite(distance_m):
+        raise ValueError("finger-axis offset must be finite")
+    axis_x = 2.0 * (pose.qx * pose.qy - pose.qw * pose.qz)
+    axis_y = 1.0 - 2.0 * (pose.qx**2 + pose.qz**2)
+    axis_z = 2.0 * (pose.qy * pose.qz + pose.qw * pose.qx)
+    return replace(
+        pose,
+        x=pose.x + distance_m * axis_x,
+        y=pose.y + distance_m * axis_y,
+        z=pose.z + distance_m * axis_z,
+    )
+
+
+def rotate_about_base_z(pose: Pose, angle_rad: float) -> Pose:
+    """Rotate a pose orientation about base-frame Z."""
+
+    pose = pose.normalized()
+    if not math.isfinite(angle_rad):
+        raise ValueError("base-Z rotation must be finite")
+    half = angle_rad / 2.0
     rz = math.sin(half)
     rw = math.cos(half)
-    # q_retry = q_z90 * q_original
+    # q_rotated = q_z * q_original
     return replace(
         pose,
         qx=rw * pose.qx - rz * pose.qy,
@@ -124,6 +264,12 @@ def alternate_approach(pose: Pose) -> Pose:
         qz=rw * pose.qz + rz * pose.qw,
         qw=rw * pose.qw - rz * pose.qz,
     ).normalized()
+
+
+def alternate_approach(pose: Pose) -> Pose:
+    """Rotate the tool 90 degrees about base Z for the approach retry."""
+
+    return rotate_about_base_z(pose, math.pi / 2.0)
 
 
 DEFAULT_GRASP_QUATERNION = (1.0, 0.0, 0.0, 0.0)
@@ -144,9 +290,7 @@ def hand_pose_for_fruit_center(
     if not math.isfinite(tool_center_offset_m) or tool_center_offset_m <= 0.0:
         raise ValueError("tool center offset must be positive and finite")
     qx, qy, qz, qw = (float(value) for value in quaternion)
-    oriented_center = replace(
-        center, qx=qx, qy=qy, qz=qz, qw=qw
-    ).normalized()
+    oriented_center = replace(center, qx=qx, qy=qy, qz=qz, qw=qw).normalized()
     return offset_along_local_z(oriented_center, -tool_center_offset_m)
 
 
@@ -169,6 +313,33 @@ def pregrasp_pose_for_fruit_center(
     return offset_along_local_z(hand_pose, -pregrasp_offset_m)
 
 
+def bounded_pregrasp_candidates_for_fruit_center(
+    center: Pose,
+    *,
+    quaternion: tuple[float, float, float, float] = DEFAULT_GRASP_QUATERNION,
+    tool_center_offset_m: float = DEFAULT_TOOL_CENTER_OFFSET_M,
+    pregrasp_offset_m: float = DEFAULT_PREGRASP_OFFSET_M,
+) -> tuple[Pose, Pose, Pose, Pose]:
+    """Return the four bounded finger orientations used by execution.
+
+    A quarter turn about base Z leaves the vertical tool axis unchanged while
+    giving the Panda wrist four deterministic IK branches.  Every candidate is
+    still planned and collision checked; this is pose coverage, not a relaxed
+    reachability or safety threshold.
+    """
+
+    primary = pregrasp_pose_for_fruit_center(
+        center,
+        quaternion=quaternion,
+        tool_center_offset_m=tool_center_offset_m,
+        pregrasp_offset_m=pregrasp_offset_m,
+    )
+    return tuple(
+        rotate_about_base_z(primary, quarter_turn * math.pi / 2.0)
+        for quarter_turn in range(4)
+    )
+
+
 class PickAndPlaceExecutor:
     def __init__(
         self,
@@ -187,6 +358,12 @@ class PickAndPlaceExecutor:
             0.0,
             0.0,
         ),
+        target_pose_refiner: Callable[[int, Pose], Pose] | None = None,
+        whole_chain_authorizer: Callable[[int, Pose, Pose], "ChainEvaluation"] | None = None,
+        maximum_grasp_centering_correction_m: float = 0.010,
+        minimum_grasp_centering_correction_m: float = 0.001,
+        authorized_contact_settle_timeout_sec: float = 0.35,
+        authorized_contact_settle_sample_period_sec: float = 0.05,
     ) -> None:
         if pregrasp_offset_m <= 0.0 or retreat_distance_m <= 0.0:
             raise ValueError("motion offsets must be positive")
@@ -194,6 +371,21 @@ class PickAndPlaceExecutor:
             raise ValueError("tool center offset must be positive")
         if len(grasp_quaternion) != 4 or len(place_quaternion) != 4:
             raise ValueError("grasp and place quaternions must contain four values")
+        if (
+            not math.isfinite(maximum_grasp_centering_correction_m)
+            or not math.isfinite(minimum_grasp_centering_correction_m)
+            or minimum_grasp_centering_correction_m <= 0.0
+            or maximum_grasp_centering_correction_m
+            <= minimum_grasp_centering_correction_m
+        ):
+            raise ValueError("grasp centering correction bounds are invalid")
+        if (
+            not math.isfinite(authorized_contact_settle_timeout_sec)
+            or not math.isfinite(authorized_contact_settle_sample_period_sec)
+            or authorized_contact_settle_timeout_sec < 0.0
+            or authorized_contact_settle_sample_period_sec <= 0.0
+        ):
+            raise ValueError("authorized contact settle bounds are invalid")
         self.backend = backend
         self.pregrasp_offset_m = pregrasp_offset_m
         self.retreat_distance_m = retreat_distance_m
@@ -201,6 +393,36 @@ class PickAndPlaceExecutor:
         self.tool_center_offset_m = tool_center_offset_m
         self.grasp_quaternion = tuple(float(value) for value in grasp_quaternion)
         self.place_quaternion = tuple(float(value) for value in place_quaternion)
+        self.target_pose_refiner = target_pose_refiner
+        self.whole_chain_authorizer = whole_chain_authorizer
+        self.maximum_grasp_centering_correction_m = float(
+            maximum_grasp_centering_correction_m
+        )
+        self.minimum_grasp_centering_correction_m = float(
+            minimum_grasp_centering_correction_m
+        )
+        self.authorized_contact_settle_timeout_sec = float(
+            authorized_contact_settle_timeout_sec
+        )
+        self.authorized_contact_settle_sample_period_sec = float(
+            authorized_contact_settle_sample_period_sec
+        )
+        # A retained fruit makes the planning-scene lifecycle intentionally
+        # non-reentrant.  There is no generic autonomous recovery that can
+        # prove an arbitrary carried payload route is safe, so a later goal is
+        # refused until an explicit operator/supervisor intervention restarts
+        # the manipulation node in a known empty state.
+        self._payload_state = PayloadState.EMPTY
+        self._retained_payload_target_id: int | None = None
+
+    @property
+    def payload_state(self) -> PayloadState:
+        """Current lifecycle state, exposed for diagnostics and pure tests."""
+
+        return self._payload_state
+
+    def _set_payload_state(self, state: PayloadState) -> None:
+        self._payload_state = PayloadState(state)
 
     def _hand_pose_for_fruit_center(
         self,
@@ -213,13 +435,84 @@ class PickAndPlaceExecutor:
             tool_center_offset_m=self.tool_center_offset_m,
         )
 
+    def _settle_authorized_contact_evidence(self) -> str | None:
+        """Wait briefly for physical bilateral contact without altering geometry."""
+
+        contact_class_reader = getattr(
+            self.backend, "gripper_fruit_contact_class", None
+        )
+        if not callable(contact_class_reader):
+            return None
+        return wait_for_bilateral_contact(
+            contact_class_reader,
+            timeout_sec=self.authorized_contact_settle_timeout_sec,
+            sample_period_sec=self.authorized_contact_settle_sample_period_sec,
+        )
+
+    def _authorized_contact_centering_hint(
+        self,
+        candidate: "GraspCandidate",
+        contact_class: str | None,
+    ) -> ContactCenteringHint | None:
+        """Return bounded single-contact evidence without authorizing motion."""
+
+        if contact_class not in {LEFT_SINGLE_FRUIT, RIGHT_SINGLE_FRUIT}:
+            return None
+        try:
+            measured_offset = self.backend.gripper_centering_offset_m()
+        except Exception:
+            return None
+        if measured_offset is None or not math.isfinite(measured_offset):
+            return None
+        magnitude = abs(float(measured_offset))
+        if (
+            magnitude < self.minimum_grasp_centering_correction_m
+            or magnitude > self.maximum_grasp_centering_correction_m
+        ):
+            return None
+        # The pad labels describe which finger touched the fruit, while the
+        # candidate offset is expressed in the hand frame.  In the Panda hand
+        # model the right pad lies on +local-Y and the left pad on -local-Y.
+        # Move the hand *toward* the contacted pad so the opposite finger can
+        # close around the same fruit.  The controlled G12 challenge measured
+        # the old opposite convention making a right-only asymmetry grow from
+        # 5.8 mm to 8.7 mm, so this mapping is fixed by physical evidence.
+        signed_offset = (
+            -magnitude if contact_class == LEFT_SINGLE_FRUIT else magnitude
+        )
+        return ContactCenteringHint(
+            source_candidate_id=candidate.candidate_id,
+            source_geometry_fingerprint=candidate.geometry_fingerprint,
+            contact_class=contact_class,
+            local_y_offset_m=signed_offset,
+        )
+
     def execute(
         self,
         target_id: int,
         target_pose: Pose,
         place_pose: Pose,
         feedback: Callable[[str, float], None] | None = None,
+        *,
+        authorized_plan: "AuthorizedGraspPlan | None" = None,
+        execution_identity: "ExecutionIdentity | None" = None,
+        scene_signature_provider: Callable[[], str] | None = None,
     ) -> ExecutionResult:
+        if self._retained_payload_target_id is not None:
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "payload interlock active for target "
+                f"{self._retained_payload_target_id}; retained fruit remains "
+                f"in {self._payload_state.name}, so all new motion is withheld",
+                0.0,
+                0.0,
+                ("PAYLOAD_INTERLOCK",),
+                RecoveryDisposition.MOTION_WITHHELD,
+                self._payload_state,
+            )
+
+        self._set_payload_state(PayloadState.EMPTY)
         if target_id <= 0:
             return ExecutionResult(
                 False,
@@ -228,7 +521,50 @@ class PickAndPlaceExecutor:
                 0.0,
                 0.0,
                 (),
+                RecoveryDisposition.HOME_REQUIRED,
             )
+
+        authorized_candidate = None
+        authorized_scene_signature = None
+        if authorized_plan is not None or execution_identity is not None:
+            # Import locally to keep the legacy core module independent from
+            # the optional ADR 0087 layer at import time.
+            from .grasp_authorization import (
+                ExecutionAuthorizationError,
+                require_execution_identity,
+            )
+
+            try:
+                authorized = require_execution_identity(
+                    authorized_plan,
+                    execution_identity,
+                    target_id=target_id,
+                )
+                authorized_candidate = authorized.candidate
+                authorized_scene_signature = authorized.scene_signature
+            except (AttributeError, ExecutionAuthorizationError, ValueError) as exc:
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    f"authorized grasp execution denied: {exc}",
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+            if scene_signature_provider is None:
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "authorized grasp execution denied: a live planning-scene "
+                    "signature provider is required",
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
 
         if not self.backend.prepare_pick(target_id, target_pose):
             return ExecutionResult(
@@ -238,27 +574,141 @@ class PickAndPlaceExecutor:
                 0.0,
                 0.0,
                 (),
+                RecoveryDisposition.HOME_REQUIRED,
             )
 
+        # ADR 0087-C/E identity boundary.  The candidate certificate was
+        # created against a particular collision scene with the selected
+        # target still solid.  ``prepare_pick`` reconstructs exactly that
+        # lifecycle immediately before any gripper or arm command.  If the
+        # scene no longer hashes to the certified state, even a geometrically
+        # valid candidate is stale and must not be executed.
+        if authorized_candidate is not None:
+            try:
+                observed_signature = scene_signature_provider()
+                if (
+                    not isinstance(observed_signature, str)
+                    or not observed_signature
+                ):
+                    raise ValueError("live planning-scene signature is empty")
+            except Exception as exc:
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "authorized grasp execution denied: cannot verify live "
+                    f"planning-scene identity: {exc}"
+                    + (
+                        ""
+                        if restored
+                        else "; failed to restore target collision obstacle"
+                    ),
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+            if observed_signature != authorized_scene_signature:
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "authorized grasp execution denied: live planning-scene "
+                    "signature differs from certificate"
+                    + (
+                        ""
+                        if restored
+                        else "; failed to restore target collision obstacle"
+                    ),
+                    0.0,
+                    0.0,
+                    ("AUTHORIZED_GRASP_DENIED",),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+
+        # ADR 0086 authorization boundary.  This is intentionally before the
+        # first gripper command: a chain that cannot escape and reach the bin
+        # must remain an EMPTY payload, even though its nominal grasp is IK
+        # reachable.  The callback owns a temporary read-only PlanningScene;
+        # it cannot attach, command, or mutate this executor's lifecycle.
+        if authorized_candidate is None and self.whole_chain_authorizer is not None:
+            if feedback is not None:
+                feedback("WHOLE_CHAIN_EVALUATION", 0.05)
+            try:
+                evaluation = self.whole_chain_authorizer(
+                    target_id, target_pose, place_pose
+                )
+            except Exception as exc:
+                # The authorization boundary is deliberately fail-closed.  In
+                # particular, an exception while constructing or evaluating a
+                # virtual PlanningScene must not leave the real target
+                # collision object removed and must not unlock the gripper
+                # sequence.
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "whole-chain authorization raised before gripper close: "
+                    f"{exc}"
+                    + ("" if restored else "; failed to restore target collision obstacle"),
+                    0.0,
+                    0.0,
+                    ("WHOLE_CHAIN_EVALUATION", "SCENE_INVALID"),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+            if not evaluation.feasible:
+                restored = bool(self.backend.restore_target_collision(target_id))
+                return ExecutionResult(
+                    False,
+                    FailureCode.PLANNING_FAILED,
+                    "whole-chain authorization rejected before gripper close: "
+                    f"{evaluation.code.value}; {evaluation.detail}"
+                    + ("" if restored else "; failed to restore target collision obstacle"),
+                    evaluation.planning_time_sec,
+                    0.0,
+                    ("WHOLE_CHAIN_EVALUATION", evaluation.code.value),
+                    RecoveryDisposition.HOME_REQUIRED,
+                    PayloadState.EMPTY,
+                )
+            if feedback is not None:
+                feedback("AUTHORIZE_PICK", 0.08)
+        elif authorized_candidate is not None and feedback is not None:
+            feedback(f"AUTHORIZE_PICK_{authorized_candidate.candidate_id}", 0.08)
+
         restore_succeeded = False
+        result: ExecutionResult | None = None
         try:
             result = self._execute_prepared(
                 target_id,
                 target_pose,
                 place_pose,
                 feedback,
+                authorized_candidate=authorized_candidate,
             )
         finally:
-            # _execute_prepared performs all physical failure recovery (and the
-            # normal move home) before returning.  Keeping scene restoration in
-            # this finally block makes every post-prepare exit close the target
-            # contact corridor, including unexpected exceptions.
-            try:
-                restore_succeeded = bool(
-                    self.backend.restore_target_collision(target_id)
-                )
-            except Exception:
-                restore_succeeded = False
+            # A held fruit must stay attached to both the physical simulator and
+            # MoveIt's carried-body model. Restoring its old world obstacle would
+            # erase that lifecycle and can duplicate the fruit in the planning
+            # scene. All ordinary post-grasp failures therefore stop in place.
+            if self._payload_state.retains_fruit:
+                self._retained_payload_target_id = target_id
+                restore_succeeded = True
+            else:
+                # _execute_prepared performs all physical failure recovery (and
+                # the normal move home) before returning. Keeping scene
+                # restoration here closes every empty/released contact corridor.
+                try:
+                    restore_succeeded = bool(
+                        self.backend.restore_target_collision(target_id)
+                    )
+                except Exception:
+                    restore_succeeded = False
+
+        # Let an unexpected backend exception propagate after the finally block.
+        assert result is not None
 
         if restore_succeeded and result.success:
             if feedback is not None:
@@ -272,11 +722,51 @@ class PickAndPlaceExecutor:
             result,
             success=False,
             failure_code=(
-                FailureCode.PLANNING_FAILED
-                if result.success
-                else result.failure_code
+                FailureCode.PLANNING_FAILED if result.success else result.failure_code
             ),
             message=message,
+            recovery_disposition=RecoveryDisposition.MOTION_WITHHELD,
+        )
+
+    def execute_authorized(
+        self,
+        target_id: int,
+        target_pose: Pose,
+        place_pose: Pose,
+        authorized_plan: "AuthorizedGraspPlan | None",
+        *,
+        execution_identity: "ExecutionIdentity | None",
+        scene_signature_provider: Callable[[], str] | None,
+        feedback: Callable[[str, float], None] | None = None,
+    ) -> ExecutionResult:
+        """Execute only geometry frozen in a feasible ADR 0087 certificate."""
+
+        # This entry point deliberately has no legacy fallback.  The older
+        # ``execute`` API remains available to the existing nominal action
+        # server until ADR 0087-D wires its candidate-search pipeline, but a
+        # caller opting into certificate execution must fail closed instead of
+        # silently dropping back to regenerated nominal geometry.
+        if authorized_plan is None or execution_identity is None:
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "authorized grasp execution denied: execution requires an "
+                "authorized grasp plan and complete identity",
+                0.0,
+                0.0,
+                ("AUTHORIZED_GRASP_DENIED",),
+                RecoveryDisposition.HOME_REQUIRED,
+                PayloadState.EMPTY,
+            )
+
+        return self.execute(
+            target_id,
+            target_pose,
+            place_pose,
+            feedback,
+            authorized_plan=authorized_plan,
+            execution_identity=execution_identity,
+            scene_signature_provider=scene_signature_provider,
         )
 
     def _execute_prepared(
@@ -285,11 +775,15 @@ class PickAndPlaceExecutor:
         target_pose: Pose,
         place_pose: Pose,
         feedback: Callable[[str, float], None] | None = None,
+        *,
+        authorized_candidate: "GraspCandidate | None" = None,
     ) -> ExecutionResult:
         stages: list[str] = []
         planning_time = 0.0
         execution_time = 0.0
         attached = False
+        unattached_recovery_retreat: Pose | None = None
+        place_route_recovery_available = False
 
         def mark(stage: str, progress: float) -> None:
             stages.append(stage)
@@ -301,20 +795,73 @@ class PickAndPlaceExecutor:
             message: str,
             *,
             recover_home: bool = True,
+            contact_centering_hint: ContactCenteringHint | None = None,
         ) -> ExecutionResult:
-            nonlocal attached
-            # Never carry a fruit into the recovery motion.  A failed detach is
-            # treated as a hard stop because moving home with an active Gazebo
-            # constraint can damage the simulated scene and hide the real fault.
-            detached = True
+            nonlocal attached, place_route_recovery_available
+            nonlocal planning_time, execution_time
+            recovery_disposition = RecoveryDisposition.MOTION_WITHHELD
+            # Once attachment is confirmed, a generic detach/open/home recovery
+            # turns a transport-planning failure into an uncontrolled fruit
+            # release. Retain the physical constraint, carried-body collision
+            # geometry and closed gripper instead. Only the authorized AT_BIN
+            # release transition below may detach a held fruit.
             if attached:
-                detached = self.backend.detach(target_id)
-                attached = not detached
-            self.backend.open_gripper()
-            if not detached:
-                message = f"{message}; attachment release failed, recovery motion withheld"
+                mark("PAYLOAD_HELD_MOTION_WITHHELD", 0.75)
+                return ExecutionResult(
+                    False,
+                    code,
+                    f"{message}; payload remains {self._payload_state.name} with "
+                    "gripper closed, so detach/open/recovery motion are withheld",
+                    planning_time,
+                    execution_time,
+                    tuple(stages),
+                    RecoveryDisposition.MOTION_WITHHELD,
+                    self._payload_state,
+                    None,
+                )
+
+            opened = self.backend.open_gripper()
+            if self._payload_state is PayloadState.CONTACT and opened:
+                self._set_payload_state(PayloadState.EMPTY)
+            if not opened:
+                message = f"{message}; failed to open empty or released gripper"
             elif recover_home:
-                self.backend.move_home()
+                retreat_succeeded = True
+                if place_route_recovery_available:
+                    # Once the hand has entered the collection-bin corridor,
+                    # an independent home plan can sweep through the bin or
+                    # neighbouring fruit.  The successful forward PLACE path
+                    # is the only reviewed way back to the safe retreat
+                    # checkpoint, including release/verification failures.
+                    return_motion = self.backend.return_via_recorded_place_route()
+                    place_route_recovery_available = False
+                    planning_time += return_motion.planning_time_sec
+                    execution_time += return_motion.execution_time_sec
+                    stages.append("RECOVERY_RETURN_ROUTE")
+                    retreat_succeeded = return_motion.success
+                    if not retreat_succeeded:
+                        message = (
+                            f"{message}; recorded place-route recovery failed, "
+                            "home motion withheld"
+                        )
+                elif unattached_recovery_retreat is not None:
+                    retreat = self.backend.move_to(
+                        unattached_recovery_retreat,
+                        "RECOVERY_RETREAT",
+                    )
+                    planning_time += retreat.planning_time_sec
+                    execution_time += retreat.execution_time_sec
+                    stages.append("RECOVERY_RETREAT")
+                    retreat_succeeded = retreat.success
+                    if not retreat_succeeded:
+                        message = (
+                            f"{message}; recovery retreat failed, home motion withheld"
+                        )
+                if retreat_succeeded:
+                    if self.backend.move_home():
+                        recovery_disposition = RecoveryDisposition.AT_HOME
+                    else:
+                        message = f"{message}; recovery home motion failed"
             return ExecutionResult(
                 False,
                 code,
@@ -322,6 +869,9 @@ class PickAndPlaceExecutor:
                 planning_time,
                 execution_time,
                 tuple(stages),
+                recovery_disposition,
+                self._payload_state,
+                contact_centering_hint,
             )
 
         if not self.backend.open_gripper():
@@ -332,61 +882,338 @@ class PickAndPlaceExecutor:
                 planning_time,
                 execution_time,
                 tuple(stages),
+                RecoveryDisposition.HOME_REQUIRED,
             )
 
         mark("PLAN", 0.10)
         # The goal pose denotes the fruit centre. Convert it to the Panda hand
         # origin, then approach along the hand's local tool axis.
-        grasp_pose = self._hand_pose_for_fruit_center(
-            target_pose, self.grasp_quaternion
-        )
-        pregrasp = pregrasp_pose_for_fruit_center(
-            target_pose,
-            quaternion=self.grasp_quaternion,
-            tool_center_offset_m=self.tool_center_offset_m,
-            pregrasp_offset_m=self.pregrasp_offset_m,
-        )
-        approach = self.backend.move_to(pregrasp, "APPROACH")
-        planning_time += approach.planning_time_sec
-        execution_time += approach.execution_time_sec
-        if not approach.success:
-            retry_pose = alternate_approach(pregrasp)
-            retry = self.backend.move_to(retry_pose, "APPROACH_RETRY")
-            planning_time += retry.planning_time_sec
-            execution_time += retry.execution_time_sec
-            if not retry.success:
-                code = FailureCode.COLLISION if retry.collision else FailureCode.PLANNING_FAILED
-                return fail(
-                    code,
-                    "approach planning failed after one alternate orientation",
-                    recover_home=False,
+        if authorized_candidate is None:
+            primary_grasp_pose = self._hand_pose_for_fruit_center(
+                target_pose, self.grasp_quaternion
+            )
+            pregrasp_candidates = bounded_pregrasp_candidates_for_fruit_center(
+                target_pose,
+                quaternion=self.grasp_quaternion,
+                tool_center_offset_m=self.tool_center_offset_m,
+                pregrasp_offset_m=self.pregrasp_offset_m,
+            )
+        else:
+            # The certificate owns the complete geometry contract.  Do not
+            # regenerate it from nominal orientation or try alternate poses.
+            primary_grasp_pose = authorized_candidate.grasp_pose
+            pregrasp_candidates = (authorized_candidate.pregrasp_pose,)
+            stages.append(f"AUTHORIZED_{authorized_candidate.candidate_id}")
+        pregrasp = None
+        grasp_pose = None
+        last_approach = None
+        selected_orientation_index = None
+        for orientation_index, candidate in enumerate(pregrasp_candidates):
+            stage = "APPROACH" if orientation_index == 0 else (
+                "APPROACH_RETRY"
+                if orientation_index == 1
+                else f"APPROACH_RETRY_{orientation_index}"
+            )
+            approach = self.backend.move_to(candidate, stage)
+            planning_time += approach.planning_time_sec
+            execution_time += approach.execution_time_sec
+            last_approach = approach
+            if approach.success:
+                pregrasp = candidate
+                grasp_pose = (
+                    primary_grasp_pose
+                    if authorized_candidate is not None
+                    else rotate_about_base_z(
+                        primary_grasp_pose,
+                        orientation_index * math.pi / 2.0,
+                    )
                 )
+                selected_orientation_index = orientation_index
+                break
+            # Once a controller moved, it is unsafe to search another branch
+            # from an unreviewed physical state.
+            if approach.execution_time_sec > 1.0e-6:
+                break
+        if pregrasp is None or grasp_pose is None:
+            code = (
+                FailureCode.COLLISION
+                if last_approach is not None and last_approach.collision
+                else FailureCode.PLANNING_FAILED
+            )
+            return fail(
+                code,
+                "approach planning failed after four bounded orientations",
+                recover_home=False,
+            )
 
         mark("APPROACH", 0.25)
+        if self.target_pose_refiner is not None and authorized_candidate is not None:
+            return fail(
+                FailureCode.STALE_DATA,
+                "authorized grasp cannot be geometrically refined after certification",
+            )
+        if self.target_pose_refiner is not None:
+            try:
+                target_pose = self.target_pose_refiner(
+                    target_id, target_pose
+                ).normalized()
+            except Exception as exc:
+                return fail(
+                    FailureCode.STALE_DATA,
+                    f"target pose refinement failed: {exc}",
+                )
+            primary_grasp_pose = self._hand_pose_for_fruit_center(
+                target_pose, self.grasp_quaternion
+            )
+            grasp_pose = rotate_about_base_z(
+                primary_grasp_pose,
+                int(selected_orientation_index) * math.pi / 2.0,
+            )
+        if not selected_fruit_contact_is_authorized(CollisionPhase.GRASP_CONTACT):
+            return fail(
+                FailureCode.PLANNING_FAILED,
+                "selected-fruit contact is not authorized in this execution phase",
+            )
         if not self.backend.allow_target_contact(target_id):
             return fail(
                 FailureCode.PLANNING_FAILED,
                 "failed to open the target contact corridor",
             )
+        # Until bilateral contact creates an attachment, every failure at the
+        # fruit first reverses the already collision-checked approach.  A
+        # direct long home sweep from physical single-sided contact is both
+        # less predictable and harder for the controller to track.
+        unattached_recovery_retreat = pregrasp
         grasp_motion = self.backend.move_to(grasp_pose, "GRASP_POSE")
         planning_time += grasp_motion.planning_time_sec
         execution_time += grasp_motion.execution_time_sec
+        if (
+            authorized_candidate is None
+            and not grasp_motion.success
+            and grasp_motion.collision
+        ):
+            # A moving fruit can shift the final Cartesian descent onto a
+            # low-elbow IK branch even though the reviewed pre-grasp remains
+            # valid. Keep the same vertical tool axis and inspect the three
+            # remaining quarter-turn finger orientations. Every reorientation
+            # and descent remains collision checked, and the search is bounded.
+            alternate_orientation_indices = tuple(
+                index
+                for index in range(4)
+                if index != selected_orientation_index
+            )
+            for retry_number, orientation_index in enumerate(
+                alternate_orientation_indices, start=1
+            ):
+                alternate_grasp_pose = rotate_about_base_z(
+                    primary_grasp_pose,
+                    orientation_index * math.pi / 2.0,
+                )
+                alternate_pregrasp_pose = offset_along_local_z(
+                    alternate_grasp_pose,
+                    -self.pregrasp_offset_m,
+                )
+                suffix = "" if retry_number == 1 else f"_{retry_number}"
+                retry_preparation = self.backend.move_to(
+                    alternate_pregrasp_pose,
+                    f"GRASP_RETRY_PREP{suffix}",
+                )
+                planning_time += retry_preparation.planning_time_sec
+                execution_time += retry_preparation.execution_time_sec
+                grasp_motion = retry_preparation
+                if not retry_preparation.success:
+                    continue
+                unattached_recovery_retreat = alternate_pregrasp_pose
+                grasp_motion = self.backend.move_to(
+                    alternate_grasp_pose,
+                    f"GRASP_POSE_RETRY{suffix}",
+                )
+                planning_time += grasp_motion.planning_time_sec
+                execution_time += grasp_motion.execution_time_sec
+                if grasp_motion.success:
+                    grasp_pose = alternate_grasp_pose
+                    unattached_recovery_retreat = alternate_pregrasp_pose
+                    break
         if not grasp_motion.success:
-            code = FailureCode.COLLISION if grasp_motion.collision else FailureCode.PLANNING_FAILED
-            return fail(code, "failed to reach grasp pose")
+            code = (
+                FailureCode.COLLISION
+                if grasp_motion.collision
+                else FailureCode.PLANNING_FAILED
+            )
+            if authorized_candidate is not None:
+                return fail(
+                    code,
+                    "failed to reach authorized grasp pose; alternate geometry "
+                    "is forbidden",
+                )
+            return fail(
+                code,
+                "failed to reach grasp pose after three alternate orientations",
+            )
 
         mark("GRASP", 0.40)
-        if not self.backend.close_gripper() or not self.backend.attach(target_id):
-            return fail(FailureCode.GRASP_FAILED, "gripper contact or simulated attachment failed")
+        gripper_closed = self.backend.close_gripper()
+        if authorized_candidate is not None:
+            # The certificate binds only geometry and scene state. Waiting for
+            # a fresh contact report is therefore safe, whereas changing pose
+            # or trying an alternate orientation would violate its identity.
+            # A bilateral contact report is stronger than a controller's
+            # position residual when the fruit deliberately prevents full
+            # finger closure. ``attach`` below remains the strict final
+            # authority, so a single-sided result never authorizes motion.
+            settled_contact = self._settle_authorized_contact_evidence()
+            if settled_contact == BILATERAL_SAME_FRUIT:
+                gripper_closed = True
+        if gripper_closed:
+            self._set_payload_state(PayloadState.CONTACT)
+            mark("CONTACT", 0.42)
+        attachment_confirmed = (
+            self.backend.attach(target_id) if gripper_closed else False
+        )
+        if not attachment_confirmed and authorized_candidate is not None:
+            centering_hint = self._authorized_contact_centering_hint(
+                authorized_candidate,
+                settled_contact,
+            )
+            return fail(
+                FailureCode.GRASP_FAILED,
+                "authorized grasp attachment failed; direct alternate geometry is "
+                "forbidden",
+                contact_centering_hint=centering_hint,
+            )
+        if not attachment_confirmed:
+            # A single-finger stall or strict dual-contact rejection can be
+            # evidence of an off-centre grasp, but joint asymmetry alone also
+            # occurs when foliage or the mechanism blocks a finger.  The
+            # generalized runtime therefore requires an identity-free raw
+            # fruit-contact class consistent with the measured direction.
+            # Legacy fixed-scene backends retain the bounded orthogonal retry.
+            contact_class_reader = getattr(
+                self.backend, "gripper_fruit_contact_class", None
+            )
+            fruit_contact_class = (
+                contact_class_reader() if callable(contact_class_reader) else None
+            )
+            centering_offset_m = self.backend.gripper_centering_offset_m()
+            if not self.backend.open_gripper():
+                return fail(
+                    FailureCode.GRASP_FAILED,
+                    "failed to reopen gripper after asymmetric contact",
+                )
+            self._set_payload_state(PayloadState.EMPTY)
+            if (
+                centering_offset_m is not None
+                and abs(centering_offset_m)
+                > self.maximum_grasp_centering_correction_m
+            ):
+                return fail(
+                    FailureCode.GRASP_FAILED,
+                    "measured finger asymmetry requires an out-of-bounds "
+                    "centering correction",
+                )
+            if fruit_contact_class is not None:
+                if centering_offset_m is None:
+                    return fail(
+                        FailureCode.GRASP_FAILED,
+                        "fruit contact was observed but finger asymmetry could "
+                        "not be measured safely",
+                    )
+                if (
+                    abs(centering_offset_m)
+                    < self.minimum_grasp_centering_correction_m
+                ):
+                    return fail(
+                        FailureCode.GRASP_FAILED,
+                        "single-sided fruit contact has no reliable measurable "
+                        "centering correction",
+                    )
+                if fruit_contact_class == LEFT_SINGLE_FRUIT:
+                    centering_offset_m = -abs(centering_offset_m)
+                elif fruit_contact_class == RIGHT_SINGLE_FRUIT:
+                    centering_offset_m = abs(centering_offset_m)
+                else:
+                    return fail(
+                        FailureCode.GRASP_FAILED,
+                        "centering retry rejected because anonymous fruit contact "
+                        f"class {fruit_contact_class} is not a unique single-sided "
+                        "fruit contact",
+                    )
+            use_centering = (
+                centering_offset_m is not None
+                and abs(centering_offset_m)
+                >= self.minimum_grasp_centering_correction_m
+            )
+            alternate_grasp_pose = (
+                offset_along_local_y(grasp_pose, centering_offset_m)
+                if use_centering
+                else rotate_about_base_z(grasp_pose, math.pi / 2.0)
+            )
+            alternate_pregrasp_pose = rotate_about_base_z(
+                offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
+                math.pi / 2.0,
+            )
+            if use_centering:
+                alternate_pregrasp_pose = offset_along_local_y(
+                    offset_along_local_z(grasp_pose, -self.pregrasp_offset_m),
+                    centering_offset_m,
+                )
+            retry_stage_prefix = (
+                "CONTACT_CENTERING" if use_centering else "CONTACT_RETRY"
+            )
+            retry_preparation = self.backend.move_to(
+                alternate_pregrasp_pose,
+                f"{retry_stage_prefix}_PREP",
+            )
+            planning_time += retry_preparation.planning_time_sec
+            execution_time += retry_preparation.execution_time_sec
+            if retry_preparation.success:
+                unattached_recovery_retreat = alternate_pregrasp_pose
+                retry_grasp = self.backend.move_to(
+                    alternate_grasp_pose,
+                    f"{retry_stage_prefix}_GRASP",
+                )
+                planning_time += retry_grasp.planning_time_sec
+                execution_time += retry_grasp.execution_time_sec
+                if retry_grasp.success:
+                    grasp_pose = alternate_grasp_pose
+                    unattached_recovery_retreat = alternate_pregrasp_pose
+                    gripper_closed = self.backend.close_gripper()
+                    if gripper_closed:
+                        self._set_payload_state(PayloadState.CONTACT)
+                        mark("CONTACT", 0.42)
+                    attachment_confirmed = (
+                        self.backend.attach(target_id)
+                        if gripper_closed
+                        else False
+                    )
+        if not attachment_confirmed:
+            return fail(
+                FailureCode.GRASP_FAILED,
+                "dual-finger contact or simulated attachment failed after one "
+                "bounded contact retry",
+            )
         attached = True
+        self._set_payload_state(PayloadState.HOLDING)
+        unattached_recovery_retreat = None
+        mark("HOLDING", 0.45)
 
         mark("RETREAT", 0.55)
-        retreat = offset_pose(grasp_pose, dz=self.retreat_distance_m)
+        # Escape is the reverse of the active tool-axis approach, not an
+        # implicitly base-vertical displacement.  This remains compatible with
+        # the current top-down grasp, while preserving the correct direction
+        # if a later bounded candidate changes the hand orientation.
+        retreat = (
+            authorized_candidate.escape_pose
+            if authorized_candidate is not None
+            else offset_along_local_z(grasp_pose, -self.retreat_distance_m)
+        )
         retreat_motion = self.backend.move_to(retreat, "RETREAT")
         planning_time += retreat_motion.planning_time_sec
         execution_time += retreat_motion.execution_time_sec
         if not retreat_motion.success:
             return fail(FailureCode.PLANNING_FAILED, "retreat planning failed")
+        self._set_payload_state(PayloadState.ESCAPED)
+        mark("ESCAPED", 0.60)
 
         mark("PLACE", 0.75)
         # Enter the open bin from above.  Local +Z points down, so the hand
@@ -399,16 +1226,76 @@ class PickAndPlaceExecutor:
         planning_time += place_motion.planning_time_sec
         execution_time += place_motion.execution_time_sec
         if not place_motion.success:
+            if place_motion.execution_time_sec > 1.0e-6:
+                return fail(
+                    FailureCode.PLACE_FAILED,
+                    "failed to reach collection bin after controller motion "
+                    "began; no complete recorded return route is available, "
+                    "home motion withheld",
+                    recover_home=False,
+                )
             return fail(FailureCode.PLACE_FAILED, "failed to reach collection bin")
-        if not self.backend.open_gripper() or not self.backend.detach(target_id):
-            return fail(FailureCode.PLACE_FAILED, "failed to release fruit")
+        place_route_recovery_available = True
+        self._set_payload_state(PayloadState.AT_BIN)
+        mark("AT_BIN", 0.82)
+        # Remove the rigid simulation constraint before opening the physical
+        # fingers.  Opening while the fruit is still welded to the hand can
+        # preload it against one finger; the later detach then releases that
+        # asymmetric impulse and makes an otherwise central bin drop
+        # nondeterministic.  Closed fingers continue to support the fruit for
+        # the short interval between detach and the symmetric open command.
+        if not self.backend.detach(target_id):
+            return fail(FailureCode.PLACE_FAILED, "failed to detach fruit for release")
         attached = False
+        self._set_payload_state(PayloadState.RELEASED)
+        if not self.backend.open_gripper():
+            return fail(FailureCode.PLACE_FAILED, "failed to open gripper for release")
+        mark("RELEASED", 0.86)
 
         mark("VERIFY", 0.90)
         if not self.backend.fruit_in_bin(target_id, self.bin_stability_sec):
             return fail(FailureCode.PLACE_FAILED, "fruit did not remain in bin")
 
-        self.backend.move_home()
+        # Leave the bin along the same connected transport corridor that was
+        # actually executed on the way in.  The backend retimes that route
+        # from fresh joint feedback and revalidates it against the current
+        # open-gripper collision scene.  A failed check is a hard stop: an
+        # independently replanned long sweep from inside the bin is exactly
+        # the recovery path that contacted an unharvested fruit and pinned
+        # joint 5 in the diagnosed DART failures.
+        mark("RETURN_ROUTE", 0.95)
+        return_motion = self.backend.return_via_recorded_place_route()
+        place_route_recovery_available = False
+        planning_time += return_motion.planning_time_sec
+        execution_time += return_motion.execution_time_sec
+        if not return_motion.success:
+            return ExecutionResult(
+                False,
+                (
+                    FailureCode.COLLISION
+                    if return_motion.collision
+                    else FailureCode.PLANNING_FAILED
+                ),
+                "pick-and-place completed but recorded place-route return failed; "
+                "home motion withheld",
+                planning_time,
+                execution_time,
+                tuple(stages),
+                RecoveryDisposition.MOTION_WITHHELD,
+                self._payload_state,
+            )
+
+        if not self.backend.move_home():
+            return ExecutionResult(
+                False,
+                FailureCode.PLANNING_FAILED,
+                "pick-and-place completed but final home motion failed",
+                planning_time,
+                execution_time,
+                tuple(stages),
+                RecoveryDisposition.MOTION_WITHHELD,
+                self._payload_state,
+            )
         return ExecutionResult(
             True,
             FailureCode.NONE,
@@ -416,4 +1303,6 @@ class PickAndPlaceExecutor:
             planning_time,
             execution_time,
             tuple(stages),
+            RecoveryDisposition.AT_HOME,
+            self._payload_state,
         )

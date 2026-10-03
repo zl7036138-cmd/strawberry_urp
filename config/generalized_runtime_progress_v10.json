@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v10",
+  "scope": "development_only_contact_gating_place_timeout_and_home_idempotence",
+  "extends": "generalized_runtime_progress_v9",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "anonymous_contact_class": "The simulator reports only NO_FRUIT_CONTACT, LEFT_SINGLE_FRUIT, RIGHT_SINGLE_FRUIT, BILATERAL_SAME_FRUIT or AMBIGUOUS_FRUIT_CONTACT; no entity identity or pose leaves the simulator lifecycle.",
+    "contact_directed_centering": "Exactly one single-sided fruit pad selects the signed local-Y direction and the absolute finger-position half-difference selects magnitude; one retry is bounded to 0.001--0.010 m.",
+    "physical_place_deadline": "Generalized floor contact must still remain fresh and continuous for 1.0 simulated second; only the wall-clock wait increases from 3.0 to 12.0 seconds.",
+    "idempotent_recovery_home": "A stationary named-home plan succeeds only when all seven live joints are within 0.03 rad of the frozen ready posture."
+  },
+  "development_runtime_probes": {
+    "seed_44008_contact_class_v23b": {
+      "outcome": "PLACE_FAILED",
+      "truth_free_bilateral_attachment": true,
+      "gravity_enabled_transport_and_detach_completed": true,
+      "terminal_reason": "no stable physical collection-bin floor contact before the original 3.0 s wall timeout",
+      "runtime_receipt_sha256": "8bd93d804186d79f51b548beedab7f8fc2853af3df338cf32b7466f8eb8112dc",
+      "cleanup_receipt_accepted": false,
+      "cleanup_note": "The external Windows tool deadline interrupted the parent runner; surviving exact process groups were subsequently terminated manually."
+    },
+    "seed_44008_bin_timeout_home_v25": {
+      "outcome": "FAILED_SAFE",
+      "anonymous_contact_class": "LEFT_SINGLE_FRUIT",
+      "raw_signed_half_difference_m": -0.006533,
+      "finding": "The contact pad, not the raw joint-difference sign, must select correction direction.",
+      "stationary_home_live_joint_confirmation_succeeded": true,
+      "runtime_receipt_sha256": "1329dd603a32e7747555e0634bb051c878d5f30a735f216ccf483bf0b0c6d8c8",
+      "cleanup_receipt_accepted": false,
+      "cleanup_note": "The external Windows tool deadline interrupted the parent runner; surviving exact process groups were subsequently terminated manually."
+    },
+    "seed_44008_contact_directed_centering_v26c": {
+      "outcome": "FAILED_SAFE",
+      "grasp_stage_reached": false,
+      "terminal_reason": "final connected feasibility and later tracked collision scene synchronization failed",
+      "global_scan_home_reached": true,
+      "contact_directed_centering_exercised": false,
+      "extended_floor_contact_deadline_exercised": false,
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN",
+      "runtime_receipt_sha256": "0015bede0ffd1de9708fb5a4f6c90c0992e85a51cbe3bf39f67e4d0b2925aff9",
+      "cleanup_receipt_sha256": "5fdf65b846d7b5e4274e37992e4b5d16f8f6c0285fe66e31b959f3321931ad2f"
+    }
+  },
+  "verification": {
+    "full_regression": {
+      "test_count": 668,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 2
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "anonymous_contact_gate_implemented": true,
+    "idempotent_home_runtime_proved": true,
+    "truth_free_physical_attachment_runtime_proved": true,
+    "contact_directed_centering_runtime_proved": false,
+    "extended_floor_contact_deadline_runtime_proved": false,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "next_required_work": [
+      "Exercise the contact-directed centering branch in a controlled development run without weakening its 10 mm bound.",
+      "Complete a gravity-enabled, contact-resolved and 1 s floor-contact-verified harvest under the 12 s wall deadline.",
+      "Obtain development batches with at least two successful harvested fruits across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

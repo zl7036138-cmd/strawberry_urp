@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "kind": "strawberry_urp_p0_baseline_manifest",
+  "baseline_id": "p0-baseline-2026-09-09",
+  "captured_at_utc": "2026-09-08T23:26:41Z",
+  "repository": {
+    "path_at_capture": "C:/Users/12753/Documents/New project/strawberry_urp",
+    "remote": "https://github.com/zl7036138-cmd/strawberry_urp.git",
+    "audit_branch": "codex/wrist-readiness-diagnostics",
+    "p0_branch": "codex/p0-evidence-foundation",
+    "branch_transition_local": "2026-09-08T22:00:14+08:00",
+    "head": "6f25868b0d946f7ce1a73206d3676889121f6712",
+    "audit_branch_upstream": "origin/codex/wrist-readiness-diagnostics",
+    "upstream_head": "6d148b1db119a5a94df7e10d5238fe114810d3e5",
+    "ahead_of_upstream_commit_count": 35,
+    "tracked_file_count": 958
+  },
+  "working_tree": {
+    "state": "declared_dirty",
+    "inherited_change_count": 9,
+    "untracked_nonignored_count_before_p0": 0,
+    "declaration": "docs/p0/inherited_change_ledger_2026-09-09.json",
+    "claim_policy": "A new run may claim this tree only when the validator proves the exact nine paths and working hashes; any additional change must be separately declared."
+  },
+  "production_entry_assessment": {
+    "launch": {
+      "path": "ros2_ws/src/strawberry_bringup/launch/generalized_harvest.launch.py",
+      "sha256": "b24bbe48d6a1fd7fbae7ab529349526163871eb98c043baf7d6e65e32e7a819a",
+      "size_bytes": 11148,
+      "identity": "inherited_dirty_bytes"
+    },
+    "project_config": {
+      "path": "config/project.yaml",
+      "sha256": "9e51276fbb7e0a628f9336d16a1159111ddbe62640179d1e21b19e10866093cc",
+      "size_bytes": 700
+    },
+    "development_runtime_config": {
+      "path": "config/generalized_runtime_development_matrix_v2.json",
+      "sha256": "87a4f33cbf82b8d8fb5cbee56c5debb5249214b7747d2f21b6ae6a9bf699886c",
+      "size_bytes": 2419
+    },
+    "declared_default_model": {
+      "path": "weights/yolo11s_640_best.pt",
+      "exists": false,
+      "identity_status": "UNKNOWN"
+    },
+    "latest_observed_generalized_candidate": {
+      "path": "outputs/perception/yolo11s_640_generalized_dev_v2/weights/best.pt",
+      "sha256": "f6c29fb4e1714246078ab25702032c25c24cfa601c7a393807d03747a89fd673",
+      "size_bytes": 19164570,
+      "selection_status": "observed_in_recent_receipts_but_not_a_unique_repository_default"
+    },
+    "conclusion": "No single complete production identity can be inferred from the launch default alone; each run must bind the explicit model and every runtime configuration artifact."
+  },
+  "scoring_entry_assessment": {
+    "development_scorer": {
+      "path": "ros2_ws/src/strawberry_bringup/strawberry_bringup/development_gate.py",
+      "sha256": "292fe228c81a50df62be16799039bfe80729a86682bdc961cdc6a3b4b74f3218",
+      "size_bytes": 16556,
+      "known_counterexamples": [
+        "RECOVERY_HOME_FAILED can still set run_safety_pass",
+        "wrong physical ripe target can pass when counts agree"
+      ]
+    },
+    "formal_generalized_scorer": {
+      "path": "ros2_ws/src/strawberry_benchmark/strawberry_benchmark/generalized_acceptance.py",
+      "sha256": "4dfb4601802775ec6bd2be8514bc16e50b806426b95790996b1252c1cb06daec",
+      "size_bytes": 16448,
+      "known_counterexamples": [
+        "contradictory outcome and scene_complete fields can pass",
+        "localization error and sigma samples can be severely incomplete",
+        "syntactically valid hashes are not file bindings"
+      ]
+    }
+  },
+  "historical_result_binding_assessment": [
+    {
+      "evidence": "results/p3/formal_matrix_v1/summary.json",
+      "sha256": "91567b319f4562042bcde4ab03ceda3a26afe3e6bb3e8a54d364cedb61cd4957",
+      "status": "LEGACY_PARTIAL",
+      "reason": "165/165 result hashes were independently rechecked, but the run predates the complete P0 identity schema."
+    },
+    {
+      "evidence": ".codex_tmp/generalized_runtime_qualification_b01_640x480_camera_bound/qualification_runtime_summary.json",
+      "sha256": "820a1a61c9a945b48084053c4c5a21811fe6291039e5c25253593fd47e617fbe",
+      "status": "LEGACY_PARTIAL",
+      "reason": "The summary binds a clean commit and 35/35 run files, but lacks a complete environment/install/protocol identity."
+    },
+    {
+      "evidence": ".codex_tmp/generalized_runtime_dev_primary_clearance_45509_v1/runtime_probe.json",
+      "sha256": "f49c8301af8385cc76728c5aa551d05b6e94ddf00bc333c87733a2be8c13ee3f",
+      "status": "INDETERMINATE",
+      "reason": "No exact source commit or dirty-diff binding is present."
+    },
+    {
+      "evidence": ".codex_tmp/generalized_runtime_dev_primary_clearance_45510_v1/runtime_probe.json",
+      "sha256": "d6d0c66c9ce4e4232d99cc2b84656bb2e993fbf996a8578eab7bb002e13068f7",
+      "status": "INDETERMINATE",
+      "reason": "No exact source commit or dirty-diff binding is present."
+    }
+  ],
+  "baseline_limits": [
+    "Directory names and modification times are not version evidence.",
+    "Existing build/install directories are not a clean-rebuild receipt.",
+    "All historical results without a complete sidecar identity remain LEGACY_PARTIAL or INDETERMINATE; this manifest does not retrofit missing facts.",
+    "No robot behavior experiment or protected formal evaluation was run while producing this baseline."
+  ]
+}

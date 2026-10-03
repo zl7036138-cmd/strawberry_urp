@@ -265,3 +265,75 @@ processed exactly 501 registered training images with `baseline__best` and
 generated 34 review candidates: 22 cross-class conflicts and 12 high-confidence
 unmatched boxes. No validation/test inference, training, label modification,
 motion, or stage-gate acceptance occurred. The packet is pending user review.
+
+ADR 0056 accepts the Blender-v2 natural-plant v3 diagnostic as a working
+no-motion dual-camera chain. Base selection, one collision-planned observation
+move, 60/60 wrist target poses, stationary handoff, and controller-free
+pre-grasp planning all pass; the trajectory is discarded with zero control
+commands. The execution-readiness gate then fails closed because the perceived
+centre is 29.177346 mm from truth and lies outside both qualified grasp-geometry
+limits. Perception execution remains unauthorized. The next bounded milestone
+is a frozen natural-plant depth-region or fruit-mask localization diagnostic,
+followed by the same geometry check and a separate repeatability decision.
+
+ADR 0057 resolves the natural-plant localization parameter-routing fault and
+bounded gripper stall-window fault, then accepts one complete Blender-v2
+perception-derived development pick with bilateral contact, attach/detach,
+bin verification, reopen, and home recovery.
+
+ADRs 0058-0060 add the opt-in field-v3 scene from `st1.blend`. Its no-motion
+dual-camera localization and collision-parity gates pass first. The final
+fixed-seed runner then completes three consecutive perception-derived
+pick/place cycles with all seven stages, bilateral raw/processed target
+contact, attach/detach, release, and recovery. DART's unsupported finger mimic
+is replaced by two explicit single-joint controllers with independent
+measured-position validation. This is a non-formal fixed-scene development
+repeat, not varied-pose, hardware, damage, or sim-to-real acceptance.
+
+## Post-P6 development extensions
+
+These milestones extend the engineering system after the frozen P0–P6 formal
+programme. They do not rewrite P3/P4 results or open the formal 30-seed matrix.
+
+### D1 — truth-isolated generalized runtime and one two-fruit development run
+
+ADRs 0061–0084 add geometry-aware localization, multi-target tracking, dynamic
+wrist observation, MoveIt preflight, completed-track tombstones, failure
+recovery, carried-fruit collision geometry, qualified drop slots, and strict
+runtime truth isolation. Development seed 45504 completes two distinct ripe
+fruits in one batch. The run is accepted as behavior evidence only: independent
+collision, joint-limit, home/stop, and scene-terminal telemetry were not all
+bound, so the five-scene development gate remains closed.
+
+### D2 — payload lifecycle and pre-grasp whole-chain authorization
+
+ADR 0085 separates payload ownership from collision and recovery semantics.
+The explicit lifecycle is `EMPTY → CONTACT → HOLDING → ESCAPED → AT_BIN →
+RELEASED`; ordinary held-payload failure cannot detach, open, or home.
+
+ADR 0086 adds a copied-PlanningScene whole-chain gate before the first gripper
+command. Positive runtime evidence reaches FEASIBLE through seven stages.
+Deliberately blocked transport reaches `TRANSPORT_FAILED` after virtual attach
+and escape while the real payload remains empty and the rejected pick issues no
+grasp motion. Both paths are accepted for their development scope.
+
+### D3 — bounded adaptive candidate search and exact execution
+
+ADR 0087 generates fifteen deterministic local-X/Y tilt candidates, evaluates
+them first-feasible through ADR 0086, and binds target/candidate/geometry/scene
+identity into `AuthorizedGraspPlan`. Plan-only runtime qualification proves the
+zero-command candidate boundary. A controlled challenge then rejects G00–G02,
+certifies G03, and executes the exact certified geometry through grasp, bin
+release, verification, and return home.
+
+D3 proves that bounded search can replace one manual angle adjustment. It does
+not prove a general adaptive-success-rate increase, multi-fruit acceptance, or
+formal 30-seed generalization. Final delivery keeps adaptive execution opt-in.
+
+### Closure milestone — documentation, evidence, and release readiness
+
+The closure pass freezes two run profiles, archives key raw ADR 0086/0087
+receipts, adds a dependency-light GitHub CI workflow, supplies licensing and
+asset-provenance indexes, and creates a short final architecture entry point.
+Publication to `main`, the final tag, release, and archive remain administrative
+gates that occur only after the closure branch and CI are verified.

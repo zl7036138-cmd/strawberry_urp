@@ -1,0 +1,360 @@
+{
+  "attachment_started": true,
+  "contract": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/config/blender_v2_gripper_contact_round_trip_v1.json",
+    "sha256": "fd2662664c2e885a867dcf6a5f146b35bafffa160e7c097f6e0a3ac1850e2eb4",
+    "size_bytes": 4198
+  },
+  "formal_acceptance": false,
+  "formal_held_out_test_accessed": false,
+  "gate": "blender_v2_gripper_contact_round_trip_v1",
+  "generated_at_utc": "2026-07-27T01:52:35.289612+00:00",
+  "gripper_command_started": true,
+  "localization_started": false,
+  "observations": {
+    "attach_message": "Gazebo attachment confirmed",
+    "attach_succeeded": true,
+    "close_action": {
+      "command_m_per_finger": 0.022,
+      "reached_goal": false,
+      "result_state": {},
+      "stalled": true,
+      "status": 4,
+      "status_succeeded": true
+    },
+    "close_succeeded_or_stalled": true,
+    "closed_finger_positions_m": {
+      "panda_finger_joint1": 0.025694608527308288,
+      "panda_finger_joint2": 0.026012576300634135
+    },
+    "closed_finger_symmetry_error_m": 0.00031796777332584666,
+    "commanded_target_position_m": [
+      0.30701957002649344,
+      -1.0251205408500326e-11,
+      0.4938695582321363
+    ],
+    "detach_message": "Gazebo detachment confirmed",
+    "detach_succeeded": true,
+    "final_arm_joints_rad": {
+      "panda_joint1": 2.2387481408633955e-15,
+      "panda_joint2": -0.7849999999925261,
+      "panda_joint3": 1.9089677167033276e-12,
+      "panda_joint4": -2.3560000000834607,
+      "panda_joint5": -2.7224082746165152e-11,
+      "panda_joint6": 1.5709999999048159,
+      "panda_joint7": 0.785
+    },
+    "final_finger_positions_m": {
+      "panda_finger_joint1": 0.03999999999998721,
+      "panda_finger_joint2": 0.03813530559324149
+    },
+    "fruit_projected_between_pads": true,
+    "fruit_projection_between_pads": 0.5000766358981029,
+    "gripper_command_count": 3,
+    "initial_arm_joints_rad": {
+      "panda_joint1": 1.104780329721659e-17,
+      "panda_joint2": -0.7849999999933565,
+      "panda_joint3": 1.6957784617168704e-12,
+      "panda_joint4": -2.3560000000741983,
+      "panda_joint5": -2.4205737143411622e-11,
+      "panda_joint6": 1.5709999999153916,
+      "panda_joint7": 0.785
+    },
+    "initial_detach_message": "fruit is already detached",
+    "initial_detach_ready": true,
+    "initial_finger_positions_m": {
+      "panda_finger_joint1": 0.03999987299049493,
+      "panda_finger_joint2": 0.03999987159889789
+    },
+    "initial_open_action": {
+      "command_m_per_finger": 0.04,
+      "reached_goal": true,
+      "result_state": {},
+      "stalled": false,
+      "status": 4,
+      "status_succeeded": true
+    },
+    "initial_open_succeeded": true,
+    "maximum_arm_joint_delta_rad": 8.398504114381922e-11,
+    "measured_contact_width_m_per_finger": 0.025853592413971213,
+    "non_target_contact_seen": false,
+    "observed_target_position_m": [
+      0.30701957002649344,
+      -1.0251188786725152e-11,
+      0.4938695582321363
+    ],
+    "open_recovery_error_m": 0.001864694406758509,
+    "pad_center_distances_m": {
+      "left": 0.028083652793071665,
+      "right": 0.028076355917629844
+    },
+    "pad_positions_m": {
+      "left": [
+        0.30702980284940273,
+        -0.025700061038642294,
+        0.5048695582274906
+      ],
+      "right": [
+        0.3070092149403225,
+        0.02600712358736592,
+        0.5048695582256586
+      ]
+    },
+    "pick_action_started": false,
+    "planning_started": false,
+    "processed_left_target_contact_seen": true,
+    "processed_right_target_contact_seen": true,
+    "raw_contact_pairs": {
+      "left": [
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_leftfinger::panda_leftfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ]
+      ],
+      "right": [
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ],
+        [
+          "panda::panda_rightfinger::panda_rightfinger_collision",
+          "strawberry_1::fruit_link::fruit_collision"
+        ]
+      ]
+    },
+    "raw_left_target_contact_seen": true,
+    "raw_right_target_contact_seen": true,
+    "reopen_action": {
+      "command_m_per_finger": 0.04,
+      "reached_goal": true,
+      "result_state": {},
+      "stalled": false,
+      "status": 4,
+      "status_succeeded": true
+    },
+    "reopen_succeeded": true,
+    "restore_pose_error_m": 9.965738997543672e-06,
+    "restored_target_position_m": [
+      0.41906436756492266,
+      -0.0534897710490863,
+      0.5461119062053011
+    ],
+    "target_pose_error_m": 1.662177517408537e-17
+  },
+  "orchestrator_started": false,
+  "passed": true,
+  "perception_started": false,
+  "pick_action_started": false,
+  "pick_authorized": false,
+  "planning_started": false,
+  "resolved_inputs": {
+    "attachment_manager": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/strawberry_sim/attachment_manager.py",
+      "sha256": "4f62ad8ec7f9caf8400a622763c67a743b2f2f2c017b64f0bb65cbc687b86ea6",
+      "size_bytes": 28483
+    },
+    "contact_gate_logic": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/strawberry_manipulation/gripper_contact_gate.py",
+      "sha256": "9c4478c41acaf00f6a3cb83e99b83b59ddf3e6887bfde3723355c7f4a9dbf7b1",
+      "size_bytes": 9528
+    },
+    "controller_config": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/config/panda_controllers.yaml",
+      "sha256": "52dfbbc12c0479dad2fd325ef0fa143b7109b51a49c2b6705e554ec40b98b335",
+      "size_bytes": 1767
+    },
+    "decision_record": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/docs/decisions/0044-freeze-blender-v2-gripper-contact-round-trip.md",
+      "sha256": "d9813b489b9a2da822ea672bfda344a719f5471a4a3653c7048941e3090065f1",
+      "size_bytes": 3650
+    },
+    "geometry_contract": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/config/blender_v2_gripper_geometry_sweep_v1.json",
+      "sha256": "e1a6b137d7ee78d23d7780f2f2912f967d920cda04262ac450608c1b92e7009f",
+      "size_bytes": 4270
+    },
+    "geometry_result": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/blender_v2_gripper_geometry_sweep_v1/summary.json",
+      "sha256": "70dd93e29aa72bad8b5b0c5be50596fe35f60f565946fb71270ca45747ba5781",
+      "size_bytes": 77616
+    },
+    "panda_xacro": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/urdf/panda_gz.urdf.xacro",
+      "sha256": "f1f539d478caa7ba47c031290f342672e1b866249a49c9929f0a62df31ebd43f",
+      "size_bytes": 11855
+    },
+    "runtime_probe": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/run_blender_v2_gripper_contact_trial.py",
+      "sha256": "804a754db9d10f942a7f8d6fbf5311d3d1cdd1d6d8d5b1fee85c41095735644d",
+      "size_bytes": 22078
+    },
+    "runtime_runner": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/scripts/run_blender_v2_gripper_contact_gate.sh",
+      "sha256": "e829108acd8907d1a99bcf508c759c83995d82b8f5f79854c3f97e70c60ca050",
+      "size_bytes": 2269
+    },
+    "scene_manifest": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    },
+    "sim_launch": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "sha256": "185dea9f22687cfafddb33e675bcb5c4d9aa813832e3ad2c4f5e43eb9a577667",
+      "size_bytes": 13264
+    }
+  },
+  "robot_arm_motion_started": false,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_GRIPPER_CONTACT_RUNTIME",
+  "simulated_fruit_motion_started": true,
+  "violations": []
+}

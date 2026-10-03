@@ -25,8 +25,15 @@ uint8 GRASP_FAILED=8
 uint8 PLACE_FAILED=9
 uint8 STALE_DATA=10
 
+# Fail-closed post-action recovery contract.  Zero deliberately means that
+# no independent motion may be issued after this result.
+uint8 RECOVERY_MOTION_WITHHELD=0
+uint8 RECOVERY_AT_HOME=1
+uint8 RECOVERY_HOME_REQUIRED=2
+
 bool success
 uint8 failure_code
+uint8 recovery_disposition
 float32 planning_time_sec
 float32 execution_time_sec
 string message

@@ -1,0 +1,11 @@
+# Spawn directly in the previously qualified dual-camera observation posture.
+# This is an initial condition, not a commanded trajectory. It raises the wrist
+# camera above the lower field target while field-v3 motion remains blocked.
+initial_positions:
+  panda_joint1: 1.310378291
+  panda_joint2: -1.226559177
+  panda_joint3: -0.407194827
+  panda_joint4: -2.183882804
+  panda_joint5: -0.932691443
+  panda_joint6: 1.439854511
+  panda_joint7: -1.599777898

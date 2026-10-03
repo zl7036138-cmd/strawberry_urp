@@ -1,0 +1,11 @@
+# Copyright 2026 Strawberry URP Team
+# SPDX-License-Identifier: Apache-2.0
+
+uint32 target_id
+geometry_msgs/PoseStamped target_pose
+geometry_msgs/PoseStamped observation_pose
+---
+bool success
+float32 planning_time_sec
+float32 execution_time_sec
+string message

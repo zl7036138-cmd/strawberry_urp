@@ -1,0 +1,378 @@
+{
+  "action_status": 4,
+  "diagnostics": {
+    "arm_recovery": {
+      "final_positions_rad": {
+        "panda_joint1": 3.4093617381037555e-17,
+        "panda_joint2": -0.784999999999952,
+        "panda_joint3": 1.2749436062279871e-14,
+        "panda_joint4": -2.3560000000005425,
+        "panda_joint5": -1.7920750140001588e-13,
+        "panda_joint6": 1.5709999999993771,
+        "panda_joint7": 0.7850000000000007
+      },
+      "initial_positions_rad": {
+        "panda_joint1": 1.2335835478107088e-17,
+        "panda_joint2": -0.7849999999927703,
+        "panda_joint3": 1.84630228580772e-12,
+        "panda_joint4": -2.356000000080753,
+        "panda_joint5": -2.6358650963721054e-11,
+        "panda_joint6": 1.570999999907931,
+        "panda_joint7": 0.785
+      },
+      "joint_sample_count": 4529,
+      "maximum_initial_final_delta_rad": 9.144618395851012e-11
+    },
+    "attachment_state": {
+      "events": [
+        {
+          "attached": true,
+          "elapsed_sec": 48.4528,
+          "stage": "GRASP",
+          "state": "attached"
+        },
+        {
+          "attached": false,
+          "elapsed_sec": 97.8382,
+          "stage": "PLACE",
+          "state": "detached"
+        }
+      ],
+      "final_attached": false,
+      "initial_attached": null
+    },
+    "contacts": {
+      "left": {
+        "first_processed_true_sec": 47.676,
+        "first_raw_contact_sec": 47.6755,
+        "processed_messages": 308,
+        "processed_seen_true": true,
+        "processed_true_messages": 308,
+        "raw_contact_pairs": [
+          [
+            "panda::panda_leftfinger::panda_leftfinger_collision",
+            "strawberry_1::fruit_link::fruit_collision"
+          ]
+        ],
+        "raw_contacts": 308,
+        "raw_max_contacts_per_message": 1,
+        "raw_messages": 308
+      },
+      "right": {
+        "first_processed_true_sec": 47.6807,
+        "first_raw_contact_sec": 47.6804,
+        "processed_messages": 303,
+        "processed_seen_true": true,
+        "processed_true_messages": 303,
+        "raw_contact_pairs": [
+          [
+            "panda::panda_rightfinger::panda_rightfinger_collision",
+            "strawberry_1::fruit_link::fruit_collision"
+          ]
+        ],
+        "raw_contacts": 303,
+        "raw_max_contacts_per_message": 1,
+        "raw_messages": 303
+      }
+    },
+    "fingers": {
+      "panda_finger_joint1": {
+        "latest_m": 0.039999888124483914,
+        "max_m": 0.04,
+        "min_m": 0.023627285405207227,
+        "samples_during_grasp": 40
+      },
+      "panda_finger_joint2": {
+        "latest_m": 0.03999989922020524,
+        "max_m": 0.039999986165629116,
+        "min_m": 0.025014593585413657,
+        "samples_during_grasp": 40
+      }
+    },
+    "fruit_contacts": {
+      "first_pair_events": [
+        {
+          "arm_joint_positions_rad": [
+            0.018990567748103527,
+            -0.40307629632314557,
+            -0.11145360016654642,
+            -1.9421961748187333,
+            -0.0436599740872802,
+            1.5413887323747322,
+            0.7005173756223522
+          ],
+          "elapsed_sec": 47.6756,
+          "pair": [
+            "strawberry_1::fruit_link::fruit_collision",
+            "panda::panda_leftfinger::panda_leftfinger_collision"
+          ],
+          "stage": "GRASP"
+        },
+        {
+          "arm_joint_positions_rad": [
+            0.018990567748103527,
+            -0.40307629632314557,
+            -0.11145360016654642,
+            -1.9421961748187333,
+            -0.0436599740872802,
+            1.5413887323747322,
+            0.7005173756223522
+          ],
+          "elapsed_sec": 47.6805,
+          "pair": [
+            "strawberry_1::fruit_link::fruit_collision",
+            "panda::panda_rightfinger::panda_rightfinger_collision"
+          ],
+          "stage": "GRASP"
+        }
+      ],
+      "raw_contact_pairs": [
+        [
+          "strawberry_1::fruit_link::fruit_collision",
+          "panda::panda_leftfinger::panda_leftfinger_collision"
+        ],
+        [
+          "strawberry_1::fruit_link::fruit_collision",
+          "panda::panda_rightfinger::panda_rightfinger_collision"
+        ]
+      ],
+      "raw_contacts": 611,
+      "raw_messages": 308
+    },
+    "gripper_recovery": {
+      "final_positions_m": {
+        "panda_finger_joint1": 0.039999888124483914,
+        "panda_finger_joint2": 0.03999989922020524
+      },
+      "initial_positions_m": {
+        "panda_finger_joint1": 0.03999983244737496,
+        "panda_finger_joint2": 0.039999832447375
+      }
+    },
+    "pad_geometry": {
+      "left": {
+        "first_position_m": [
+          0.41906457280421716,
+          -0.09347966658690972,
+          0.7071114170298026
+        ],
+        "latest_position_m": [
+          0.41906475548183775,
+          -0.07930776625322365,
+          0.5571118139037836
+        ],
+        "min_center_distance_m": 0.02804519125601769,
+        "position_at_min_distance_m": [
+          0.4190647554818056,
+          -0.0792963940036063,
+          0.5571118139035863
+        ],
+        "samples_during_grasp_path": 254,
+        "target_at_min_distance_m": [
+          0.41909040836446726,
+          -0.05348178657653217,
+          0.5461510594632081
+        ]
+      },
+      "right": {
+        "first_position_m": [
+          0.4190645498220025,
+          -0.013479844967152314,
+          0.7071113775491893
+        ],
+        "latest_position_m": [
+          0.41906475533730775,
+          -0.02760610629795863,
+          0.5571118130066672
+        ],
+        "min_center_distance_m": 0.028045969500948696,
+        "position_at_min_distance_m": [
+          0.4190647553374745,
+          -0.027665811959021083,
+          0.5571118130077031
+        ],
+        "samples_during_grasp_path": 254,
+        "target_at_min_distance_m": [
+          0.41909040471058295,
+          -0.053481346274757105,
+          0.5461512502780409
+        ]
+      }
+    },
+    "pad_midpoint_geometry": {
+      "hand_pose_at_min_distance": {
+        "orientation_xyzw": [
+          0.9999999999999999,
+          1.3977297964873354e-09,
+          -1.7420749172162308e-10,
+          8.67589585337525e-09
+        ],
+        "position_m": [
+          0.41906475543939126,
+          -0.053479811353252735,
+          0.6425118134556225
+        ]
+      },
+      "latest_position_m": [
+        0.4190647554095728,
+        -0.053456936275591144,
+        0.5571118134552254
+      ],
+      "max_pad_separation_m": 0.07999999547894215,
+      "max_target_distance_m": 0.16099955928962284,
+      "midpoint_at_min_target_distance_m": [
+        0.4190647554095728,
+        -0.053456936275591144,
+        0.5571118134552254
+      ],
+      "min_pad_separation_m": 0.051630582044585226,
+      "min_target_distance_m": 0.010959079498401605,
+      "offset_at_min_distance_m": [
+        -2.5629384051595316e-05,
+        7.950230606068587e-07,
+        0.010959049500522289
+      ],
+      "samples_during_grasp_path": 254,
+      "target_at_min_distance_m": [
+        0.41909038479362437,
+        -0.05345773129865175,
+        0.5461527639547031
+      ]
+    },
+    "target_displacement_events": [
+      {
+        "elapsed_sec": 48.6166,
+        "position_m": [
+          0.4191011423853063,
+          -0.05345984949427508,
+          0.5473297498441955
+        ],
+        "stage": "RETREAT",
+        "threshold_m": 0.001
+      },
+      {
+        "elapsed_sec": 48.9115,
+        "position_m": [
+          0.41911276070513975,
+          -0.053462454730209344,
+          0.5515577710192027
+        ],
+        "stage": "RETREAT",
+        "threshold_m": 0.005
+      },
+      {
+        "elapsed_sec": 49.2176,
+        "position_m": [
+          0.4191025024737376,
+          -0.05346023916227772,
+          0.5563973591699577
+        ],
+        "stage": "RETREAT",
+        "threshold_m": 0.01
+      },
+      {
+        "elapsed_sec": 51.987,
+        "position_m": [
+          0.41911261983124737,
+          -0.053463324932089364,
+          0.5962631574988697
+        ],
+        "stage": "RETREAT",
+        "threshold_m": 0.05
+      },
+      {
+        "elapsed_sec": 56.3953,
+        "position_m": [
+          0.4190903746974228,
+          -0.053457426907429204,
+          0.6461527547993016
+        ],
+        "stage": "PLACE",
+        "threshold_m": 0.1
+      },
+      {
+        "elapsed_sec": 72.5493,
+        "position_m": [
+          0.37971193222522953,
+          -0.27969685318752685,
+          0.646151156482261
+        ],
+        "stage": "PLACE",
+        "threshold_m": 0.25
+      }
+    ],
+    "target_final_position_m": [
+      0.3500256433719366,
+      -0.44997760468752135,
+      0.45004093208605656
+    ],
+    "target_max_displacement_by_stage_m": {
+      "APPROACH": 0.0,
+      "DONE": 0.41377109183030497,
+      "GRASP": 0.00015866046386207893,
+      "PLACE": 0.4147149318001992,
+      "PLAN": 0.0,
+      "RETREAT": 0.08004093716477223,
+      "VERIFY": 0.41377109183030497,
+      "WAITING": 0.0
+    },
+    "target_max_displacement_during_grasp_m": 0.00015866046386207893,
+    "target_max_displacement_m": 0.4147149318001992,
+    "target_pose_samples_during_action": 2607
+  },
+  "execution_time_sec": 93.3766,
+  "failure_code": 0,
+  "feedback": [
+    {
+      "elapsed_sec": 0.1128,
+      "progress": 0.1,
+      "stage": "PLAN"
+    },
+    {
+      "elapsed_sec": 37.0827,
+      "progress": 0.25,
+      "stage": "APPROACH"
+    },
+    {
+      "elapsed_sec": 47.4815,
+      "progress": 0.4,
+      "stage": "GRASP"
+    },
+    {
+      "elapsed_sec": 48.4686,
+      "progress": 0.55,
+      "stage": "RETREAT"
+    },
+    {
+      "elapsed_sec": 54.3367,
+      "progress": 0.75,
+      "stage": "PLACE"
+    },
+    {
+      "elapsed_sec": 97.8692,
+      "progress": 0.9,
+      "stage": "VERIFY"
+    },
+    {
+      "elapsed_sec": 110.7757,
+      "progress": 1.0,
+      "stage": "DONE"
+    }
+  ],
+  "message": "pick-and-place completed",
+  "place_position_m": [
+    0.35,
+    -0.45,
+    0.45
+  ],
+  "planning_time_sec": 0.0777,
+  "result_success": true,
+  "success": true,
+  "target_id": 1,
+  "target_position_m": [
+    0.41906475300000007,
+    -0.053479813,
+    0.5461118380000002
+  ],
+  "target_topic": "/strawberry/ground_truth/fruit_1/pose"
+}

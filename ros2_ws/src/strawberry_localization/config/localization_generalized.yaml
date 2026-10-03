@@ -1,0 +1,87 @@
+/**:
+  ros__parameters:
+    use_sim_time: true
+    target_frame: panda_link0
+    confidence_threshold: 0.60
+    detections_topic: /strawberry/detections
+    # The localizer's compatibility winner is kept separate; generalized
+    # control accepts only the safety-ranked selector output.
+    target_pose_topic: /strawberry/localization_best_pose
+    tracked_targets_topic: /strawberry/tracked_targets
+    camera_info_topic: /camera/base/camera_info
+    depth_topic: /camera/base/depth/image_raw
+    # Generalized control never uses a fixed attention rectangle.
+    selection_roi_min_x_px: -1
+    selection_roi_min_y_px: -1
+    selection_roi_max_x_px: -1
+    selection_roi_max_y_px: -1
+    stale_after_sec: 0.50
+    sync_tolerance_sec: 0.05
+    sensor_cache_capacity: 60
+    sensor_cache_retention_sec: 2.0
+    sensor_qos_depth: 30
+    center_fraction: 0.30
+    min_depth_m: 0.05
+    max_depth_m: 5.0
+    min_valid_pixels: 9
+    surface_to_center_offset_m: 0.026
+    depth_estimator_mode: geometry_layer
+    geometry_search_fraction: 1.0
+    geometry_layer_gap_m: 0.015
+    geometry_min_layer_fraction: 0.03
+    geometry_expected_depth_tolerance_m: 0.08
+    # Natural foliage can produce a weak near layer whose apparent-size
+    # residual is only slightly better than the supported fruit surface.  The
+    # generalized preprocessor may prefer the support-dominant layer anywhere
+    # inside this conservative conflict window; similarly supported layers
+    # remain ambiguous and fail closed in the frozen core estimator.
+    geometry_ambiguity_margin_m: 0.040
+    geometry_ambiguity_min_support_ratio: 0.50
+    geometry_bbox_quantization_margin_px: 2.0
+    # A primary layer at the detector edge is usually foreground foliage. It
+    # must fail into the independently gated centre-seeded fallback.
+    geometry_max_selected_centroid_distance_fraction: 0.15
+    # Reject planter/table layers well behind a supported fruit/leaf surface.
+    geometry_foreground_band_m: 0.06
+    # A lone leaf sliver must not truncate a substantially supported fruit
+    # layer behind it; require aggregate near-band support before masking.
+    geometry_foreground_min_band_fraction: 0.20
+    # YOLO boxes under-fit the rendered fruit silhouette by about one pixel.
+    geometry_bbox_padding_px: 1
+    # Base overview apparent radius; wrist launch overrides this independently.
+    geometry_target_radius_m: 0.026
+    # The detector box center is more stable than the visible depth-layer
+    # centroid under one-sided leaf occlusion. Depth still supplies range.
+    use_bbox_center_bearing: true
+    # Base-camera size residual is a safety/systematic bound. Do not halve it:
+    # the 18-scene observability sweep found 52-90 mm biased depth layers that
+    # otherwise appeared to be below the 15 mm control uncertainty gate.
+    geometry_size_residual_sigma_weight: 1.0
+    # If apparent-size geometry rejects an occluded box, permit one bounded
+    # detector-centre fallback. It remains at the 15 mm control limit and must
+    # still pass stable tracking, MoveIt and wrist-camera confirmation.
+    center_layer_fallback_enabled: true
+    center_layer_min_support_fraction: 0.14
+    center_layer_max_centroid_distance_fraction: 0.25
+    center_layer_max_geometry_residual_m: 0.30
+    center_layer_ambiguity_margin_fraction: 0.05
+    center_layer_min_sigma_m: 0.015
+    # Truth remains available to benchmark scorers only, never to control.
+    ground_truth_association_enabled: false
+    tracking_association_distance_m: 0.06
+    # Completed/skip tombstones use a narrower gate so the same physical fruit
+    # cannot return with a new ID while a distinct neighbour remains eligible.
+    tracking_completed_suppression_distance_m: 0.04
+    tracking_max_age_sec: 0.75
+    tracking_minimum_observations: 3
+    tracking_smoothing_alpha: 0.35
+    # Correlated video frames cannot average away calibration/model bias.
+    tracking_uncertainty_floor_m: 0.005
+    # Update overview tracks only at the collision-checked global scan pose.
+    # Arm motion and stationary wrist views can otherwise occlude a second
+    # fruit and permanently inflate its conservative sigma.
+    tracking_reference_gate_enabled: true
+    tracking_reference_joint_positions_rad: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
+    tracking_reference_joint_tolerance_rad: 0.03
+    allow_stationary_latest_tf_fallback: false
+    allow_stationary_sensor_sync_fallback: false

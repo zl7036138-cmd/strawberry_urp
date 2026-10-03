@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-artifact_root="${STRAWBERRY_COLCON_ROOT:-${repo_root}/ros2_ws}"
+artifact_root="${STRAWBERRY_COLCON_ROOT:-${HOME}/.cache/strawberry_urp/colcon}"
 output_dir="${1:-${repo_root}/results/development/dual_sequential_observation_v1}"
 model_path="${2:-${repo_root}/outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt}"
 domain_id="${3:-222}"
@@ -42,7 +42,7 @@ perception_config="$(
 )/share/strawberry_perception/config/perception.yaml"
 localization_config="$(
   ros2 pkg prefix strawberry_localization
-)/share/strawberry_localization/config/localization.yaml"
+)/share/strawberry_localization/config/localization_blender_v2.yaml"
 
 sim_pid=""
 pipeline_pids=()
@@ -97,6 +97,7 @@ start_base_pipeline() {
     -p target_pose_topic:=/strawberry/shadow/target_pose \
     -p depth_topic:=/camera/base/depth/image_raw \
     -p camera_info_topic:=/camera/base/camera_info \
+    -p surface_to_center_offset_m:=0.026 \
     -p allow_stationary_latest_tf_fallback:=false \
     >"${output_dir}/base_localization.log" 2>&1 &
   pipeline_pids+=("$!")
@@ -128,6 +129,8 @@ start_wrist_pipeline() {
     -p target_pose_topic:=/strawberry/shadow/target_pose \
     -p depth_topic:=/camera/wrist/depth/image_raw \
     -p camera_info_topic:=/camera/wrist/camera_info \
+    -p surface_to_center_offset_m:=0.026 \
+    -p sensor_qos_depth:=30 \
     -p selection_roi_min_x_px:="${roi_min_x}" \
     -p selection_roi_min_y_px:="${roi_min_y}" \
     -p selection_roi_max_x_px:="${roi_max_x}" \
@@ -210,6 +213,32 @@ timeout --signal=TERM 180 ros2 run strawberry_perception shadow_window_probe \
   --post-window-wait-sec 2 \
   --window-boundary after_wrist_observation_settle_before_pick_motion \
   >"${output_dir}/wrist_window.log" 2>&1
+timeout --signal=TERM 90 python \
+  "${repo_root}/scripts/capture_rgbd_localization_samples.py" \
+  --output-npz "${output_dir}/wrist_rgbd_samples.npz" \
+  --output-json "${output_dir}/wrist_rgbd_samples.json" \
+  --expected-target-id "${expected_target_id}" \
+  --roi "${roi_min_x}" "${roi_min_y}" "${roi_max_x}" "${roi_max_y}" \
+  --samples 20 --timeout-sec 60 \
+  >"${output_dir}/wrist_rgbd_capture.log" 2>&1
+ros2 node list --no-daemon \
+  | grep -Ev '^/_ros2cli_[[:alnum:]_]+$' \
+  | sort -u >"${output_dir}/wrist_runtime_nodes.txt"
+ros2 topic list --no-daemon \
+  | sort -u >"${output_dir}/wrist_runtime_topics.txt"
+# The just-finished wrist receipt is the authoritative target-topic proof.
+# A fresh ``ros2 topic list --no-daemon`` process can see an incomplete graph
+# while DDS discovery converges, so its inventory is retained as diagnostic
+# evidence but is not required to rediscover the known publisher immediately.
+if grep -Fxq "/strawberry/oracle/target_pose" \
+  "${output_dir}/wrist_runtime_topics.txt"; then
+  echo "Oracle target topic unexpectedly exists" >&2
+  exit 1
+fi
+if grep -Eqi "oracle|orchestrator" "${output_dir}/wrist_runtime_nodes.txt"; then
+  echo "Oracle or orchestrator node unexpectedly exists" >&2
+  exit 1
+fi
 timeout --signal=TERM 180 ros2 run strawberry_manipulation \
   handoff_shadow_probe \
   --output-json "${output_dir}/handoff_shadow.json" \

@@ -1,7 +1,9 @@
 import unittest
 
 from strawberry_perception.shadow_window_probe import (
+    classify_readiness_frame,
     find_consecutive_true_run,
+    summarize_readiness_trace,
     summarize_window_frames,
 )
 
@@ -18,6 +20,84 @@ class ShadowWindowSummaryTests(unittest.TestCase):
         self.assertIsNone(find_consecutive_true_run([True, False, True], 2))
         with self.assertRaises(ValueError):
             find_consecutive_true_run([True], 0)
+
+    def test_readiness_frame_reason_is_fail_closed_and_identity_aware(self):
+        self.assertEqual(
+            "NO_DETECTION",
+            classify_readiness_frame(
+                detection_ids=[],
+                ripe_detection_ids=[],
+                target_pose_ids=[],
+            ),
+        )
+        self.assertEqual(
+            "NO_RIPE_DETECTION",
+            classify_readiness_frame(
+                detection_ids=[2],
+                ripe_detection_ids=[],
+                target_pose_ids=[2],
+            ),
+        )
+        self.assertEqual(
+            "TARGET_POSE_MISSING",
+            classify_readiness_frame(
+                detection_ids=[1],
+                ripe_detection_ids=[1],
+                target_pose_ids=[],
+            ),
+        )
+        self.assertEqual(
+            "TARGET_IDENTITY_MISMATCH",
+            classify_readiness_frame(
+                detection_ids=[1],
+                ripe_detection_ids=[1],
+                target_pose_ids=[3],
+            ),
+        )
+        self.assertEqual(
+            "READY",
+            classify_readiness_frame(
+                detection_ids=[1, 2],
+                ripe_detection_ids=[1],
+                target_pose_ids=[1],
+            ),
+        )
+
+    def test_readiness_trace_reports_streak_resets_and_delay(self):
+        statuses = [
+            ("READY", 0.02),
+            ("READY", 0.03),
+            ("TARGET_POSE_MISSING", None),
+            ("READY", 0.01),
+            ("TARGET_IDENTITY_MISMATCH", 0.04),
+            ("READY", 0.02),
+            ("READY", 0.02),
+            ("READY", 0.02),
+        ]
+        frames = [
+            {
+                "detection_index": index,
+                "status": status,
+                "target_pose_delay_sec": delay,
+            }
+            for index, (status, delay) in enumerate(statuses, start=1)
+        ]
+        result = summarize_readiness_trace(frames, 3)
+        self.assertEqual(3, result["maximum_consecutive_ready_frames"])
+        self.assertEqual(3, result["terminal_consecutive_ready_frames"])
+        self.assertEqual(2, result["streak_reset_count"])
+        self.assertEqual(
+            {
+                "TARGET_IDENTITY_MISMATCH": 1,
+                "TARGET_POSE_MISSING": 1,
+            },
+            result["streak_reset_reason_counts"],
+        )
+        self.assertEqual(6, result["qualifying_run_start_detection_index"])
+        self.assertEqual(8, result["qualifying_run_end_detection_index"])
+        self.assertAlmostEqual(
+            0.04, result["matched_target_pose_delay_sec"]["maximum"]
+        )
 
     def test_exact_window_is_summarized_by_frame(self):
         frames = [

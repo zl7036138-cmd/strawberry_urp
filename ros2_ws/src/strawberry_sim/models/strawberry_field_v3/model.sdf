@@ -1,0 +1,948 @@
+<?xml version="1.0"?>
+<sdf version="1.10">
+  <model name="strawberry_field_v3">
+    <static>true</static>
+    <link name="field_link">
+      <collision name="field_collision_01">
+        <pose>2.699999809 0.150000095 -0.100000001 0.000000000 0.000000000 0.000000000</pose>
+        <geometry>
+          <box><size>5.000000000 12.000000000 0.200000003</size></box>
+        </geometry>
+      </collision>
+      <collision name="field_collision_02">
+        <pose>0.637499988 0.150000095 0.140000001 0.000000000 0.000000000 0.000000000</pose>
+        <geometry>
+          <box><size>0.874999940 11.500000000 0.280000001</size></box>
+        </geometry>
+      </collision>
+      <collision name="field_collision_03">
+        <pose>2.700000048 0.150000095 0.140000001 0.000000000 0.000000000 0.000000000</pose>
+        <geometry>
+          <box><size>1.049999714 11.500000000 0.280000001</size></box>
+        </geometry>
+      </collision>
+      <collision name="field_collision_04">
+        <pose>4.850000381 0.150000095 0.140000001 0.000000000 0.000000000 0.000000000</pose>
+        <geometry>
+          <box><size>1.049999714 11.500000000 0.280000001</size></box>
+        </geometry>
+      </collision>
+      <visual name="field_structure_visual">
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/field_structure_v3.obj</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_001">
+        <pose>0.320633411 -5.137762070 0.291999996 -0.039024323 -0.001517374 -2.806272507</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_15.obj</uri>
+            <scale>1.072024107 1.100537181 1.416153908</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_002">
+        <pose>0.320211887 -4.576955795 0.291999996 -0.038435064 -0.015278942 -0.677393734</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_01.obj</uri>
+            <scale>1.094378829 1.068136454 1.319209933</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_003">
+        <pose>0.293572664 -4.015722275 0.291999996 -0.040510722 0.015572663 1.866826177</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_16.obj</uri>
+            <scale>1.075826287 1.088083982 1.357053638</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_004">
+        <pose>0.351743460 -3.473317385 0.291999996 -0.051471591 -0.000970344 -0.183475301</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_13.obj</uri>
+            <scale>0.983219266 0.990807831 1.142348051</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_005">
+        <pose>0.314839602 -2.930595875 0.291999996 0.046653017 -0.002885877 0.762526393</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_24.obj</uri>
+            <scale>1.026008487 0.996115506 1.177296519</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_006">
+        <pose>0.293889284 -2.340422630 0.291999996 0.052128483 0.053211313 2.547087908</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_05.obj</uri>
+            <scale>1.030707479 1.044065952 1.358797550</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_007">
+        <pose>0.337052345 -1.785432458 0.291999996 -0.066570483 0.032421302 0.027590480</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_12.obj</uri>
+            <scale>0.816731572 0.838112414 1.025308847</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_008">
+        <pose>0.342016935 -1.273898840 0.291999996 0.064934090 -0.017728889 1.797638416</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_20.obj</uri>
+            <scale>1.142134070 1.075604558 1.300963283</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_009">
+        <pose>0.299603462 -0.657721043 0.291999996 0.045145165 0.017819442 1.552111149</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_14.obj</uri>
+            <scale>0.977177978 0.971220016 1.201064587</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_010">
+        <pose>0.240983963 0.555702448 0.291999996 0.007851325 0.057549100 -2.114476919</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_08.obj</uri>
+            <scale>1.072513938 1.164670110 1.516654491</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_011">
+        <pose>0.268754244 1.092485070 0.291999996 -0.052947942 -0.028181979 1.018173218</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_04.obj</uri>
+            <scale>0.822432578 0.883062959 1.193078041</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_012">
+        <pose>0.316371679 1.726445794 0.291999996 0.061466467 0.007465492 1.180172682</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_22.obj</uri>
+            <scale>0.942885756 1.050608397 1.205057621</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_013">
+        <pose>0.328890562 2.341292381 0.291999996 0.045506161 0.062563628 -1.211369395</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_06.obj</uri>
+            <scale>0.930793345 0.880558133 1.193372250</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_014">
+        <pose>0.324987650 3.342002869 0.291999996 -0.059709743 -0.018135101 1.406375408</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_02.obj</uri>
+            <scale>1.120646834 1.195522070 1.324106216</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_015">
+        <pose>0.345541477 3.883794546 0.291999996 -0.074865915 -0.042582493 0.669866443</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_10.obj</uri>
+            <scale>1.140016079 1.081305981 1.417366385</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_016">
+        <pose>0.276962042 4.471618652 0.291999996 0.070759937 0.051214926 -2.851462841</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_23.obj</uri>
+            <scale>0.921386957 0.943502128 1.308684945</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_017">
+        <pose>0.839234829 -4.909469128 0.291999996 0.047978632 -0.011728718 -2.826824665</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_07.obj</uri>
+            <scale>0.852588236 0.831202865 1.121308327</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_018">
+        <pose>0.826880097 -4.179974079 0.291999996 -0.059114374 -0.061053459 2.297929764</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_19.obj</uri>
+            <scale>1.162744164 1.209443212 1.428757548</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_019">
+        <pose>0.843321800 -3.693405390 0.291999996 -0.041761521 -0.062420923 -0.032131974</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_09.obj</uri>
+            <scale>1.103702545 1.063246489 1.275771976</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_020">
+        <pose>0.811780810 -3.130272865 0.291999996 -0.072627157 0.033855267 2.345251083</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_17.obj</uri>
+            <scale>0.915727019 0.866674840 1.161338449</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_021">
+        <pose>0.811987281 -2.535339355 0.291999996 0.016293973 -0.054078985 -1.241596103</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_18.obj</uri>
+            <scale>0.817645192 0.887828648 1.132858634</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_022">
+        <pose>0.787307501 -1.860984445 0.291999996 0.059840780 0.060831629 0.294789702</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_21.obj</uri>
+            <scale>1.068729520 0.956307769 1.137978077</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_023">
+        <pose>0.828045726 -1.307363629 0.291999996 -0.015426510 0.056390196 -0.314106792</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_03.obj</uri>
+            <scale>0.859404624 0.954354882 1.186589003</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_024">
+        <pose>0.805346131 -0.683232903 0.291999996 -0.051033340 -0.014417507 -1.767155051</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_13.obj</uri>
+            <scale>1.170718431 1.088990569 1.227372169</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_025">
+        <pose>0.770777225 0.518236697 0.291999996 0.056598432 0.074078232 -2.941845894</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_20.obj</uri>
+            <scale>1.025943637 0.954007149 1.082262397</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_026">
+        <pose>0.758643031 1.027588487 0.291999996 -0.045537163 0.031144295 -0.770329714</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_24.obj</uri>
+            <scale>1.081413269 1.202772975 1.526950598</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_027">
+        <pose>0.782931447 2.201677561 0.291999996 0.024885884 0.050542772 2.763186216</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_03.obj</uri>
+            <scale>1.082591534 1.051052213 1.342447877</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_028">
+        <pose>0.756421328 2.832828522 0.291999996 -0.052420113 -0.069561966 -2.502909660</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_08.obj</uri>
+            <scale>1.063679218 1.046632290 1.300917268</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_029">
+        <pose>0.841207147 3.310695410 0.291999996 -0.013913229 0.045648493 -2.513859034</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_02.obj</uri>
+            <scale>1.066623569 1.030310631 1.156193137</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_030">
+        <pose>0.844432473 3.851028204 0.291999996 -0.070082322 0.068586960 -0.788223505</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_18.obj</uri>
+            <scale>0.895562768 0.805207670 1.045081258</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_031">
+        <pose>0.780515313 4.502907753 0.291999996 0.022333998 0.002677897 -1.865770221</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_12.obj</uri>
+            <scale>1.036307931 1.010560155 1.252905846</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_032">
+        <pose>0.808663249 5.180850506 0.291999996 -0.019277055 0.019135360 0.784555316</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_05.obj</uri>
+            <scale>0.885497570 0.963917792 1.092728138</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_033">
+        <pose>2.488573313 -5.177884579 0.291999996 -0.021027206 -0.040066164 -3.132934093</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_15.obj</uri>
+            <scale>0.917115390 0.866289914 1.252181292</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_034">
+        <pose>2.469247341 -4.576313019 0.291999996 -0.015954355 0.005168292 -0.478239357</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_17.obj</uri>
+            <scale>0.985761523 1.067652464 1.238542438</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_035">
+        <pose>2.409305334 -4.064064503 0.291999996 -0.038406961 0.026415283 0.308761060</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_23.obj</uri>
+            <scale>0.858439207 0.905881524 1.167541981</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_036">
+        <pose>2.469563484 -3.412086964 0.291999996 -0.021037854 -0.046376083 -1.921638727</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_01.obj</uri>
+            <scale>1.198367119 1.192213297 1.509563565</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_037">
+        <pose>2.415072918 -2.828857899 0.291999996 -0.061208721 0.024672162 2.933129072</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_21.obj</uri>
+            <scale>1.075727582 1.103379130 1.324002385</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_038">
+        <pose>2.467104673 -2.341687918 0.291999996 0.052389089 0.064297952 -2.389237642</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_11.obj</uri>
+            <scale>1.164038897 1.090767384 1.317389250</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_039">
+        <pose>2.438309431 -1.769814134 0.291999996 -0.037193183 0.029668741 2.533962488</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_22.obj</uri>
+            <scale>0.924374521 0.983337641 1.122141242</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_040">
+        <pose>2.475159645 -1.252120733 0.291999996 0.062240515 0.029371174 2.598111391</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_09.obj</uri>
+            <scale>0.881933868 0.963693857 1.272262692</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_041">
+        <pose>2.476382494 -0.602767944 0.291999996 -0.062762864 -0.064479150 -1.758258224</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_07.obj</uri>
+            <scale>1.110688925 1.127722383 1.283512950</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_042">
+        <pose>2.467822790 -0.073685929 0.291999996 0.048724495 0.074680664 -0.116206944</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_10.obj</uri>
+            <scale>1.107341051 1.128634572 1.368517995</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_043">
+        <pose>2.412190437 0.648736596 0.291999996 -0.041590609 0.050042592 -0.372561783</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_14.obj</uri>
+            <scale>0.844933510 0.965009689 1.065269589</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_044">
+        <pose>2.448808193 1.195949435 0.291999996 -0.017195120 0.044525195 -2.051211596</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_04.obj</uri>
+            <scale>0.773434222 0.882844210 1.100392461</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_045">
+        <pose>2.508199215 2.525650740 0.291999996 -0.008255282 0.043915648 0.422681242</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_19.obj</uri>
+            <scale>0.831597447 0.836080492 1.131294608</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_046">
+        <pose>2.509592772 3.117294550 0.291999996 0.031767040 -0.027313942 2.312622547</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_06.obj</uri>
+            <scale>0.905627072 0.965435147 1.288330793</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_047">
+        <pose>2.485638618 3.689554453 0.291999996 0.070996895 -0.021417519 0.551254988</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_02.obj</uri>
+            <scale>0.900795758 0.934152424 1.277928352</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_048">
+        <pose>2.471810102 4.841697216 0.291999996 -0.016916839 0.071780756 2.933835030</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_13.obj</uri>
+            <scale>1.099948049 0.973207057 1.324559212</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_049">
+        <pose>2.420594692 5.364883900 0.291999996 0.024858857 -0.006987339 0.617638886</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_15.obj</uri>
+            <scale>0.834822714 0.939915478 1.154236197</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_050">
+        <pose>2.994986296 -4.855542660 0.291999996 -0.072503999 -0.072105654 -1.906750917</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_07.obj</uri>
+            <scale>1.095107913 1.041294575 1.388713360</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_051">
+        <pose>2.973828077 -4.371832371 0.291999996 0.032783899 -0.008636081 0.242117509</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_17.obj</uri>
+            <scale>1.095334888 1.155926466 1.394659758</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_052">
+        <pose>2.940542221 -3.749866247 0.291999996 -0.050047953 0.071810894 2.928029537</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_10.obj</uri>
+            <scale>0.981914818 1.050547957 1.278333545</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_053">
+        <pose>2.952363968 -3.129052401 0.291999996 -0.023949722 -0.052577466 1.703923345</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_04.obj</uri>
+            <scale>0.910847485 0.884167492 1.018841386</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_054">
+        <pose>2.932086706 -2.626328468 0.291999996 -0.063829042 -0.016812921 -1.634547114</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_20.obj</uri>
+            <scale>0.961333513 0.891247690 1.161758780</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_055">
+        <pose>2.945948362 -1.911693454 0.291999996 -0.001387198 0.043767996 -2.061340570</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_03.obj</uri>
+            <scale>0.812164843 0.892177820 1.243199706</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_056">
+        <pose>2.955128908 -1.392736077 0.291999996 0.000164616 -0.069689825 1.652206659</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_23.obj</uri>
+            <scale>1.155648947 1.111565590 1.436701655</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_057">
+        <pose>2.967401505 -0.901268363 0.291999996 -0.010811040 -0.060581408 0.095343530</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_11.obj</uri>
+            <scale>1.027452350 1.119249582 1.286587477</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_058">
+        <pose>2.983785868 -0.333735853 0.291999996 -0.050956409 -0.070261754 2.104733467</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_05.obj</uri>
+            <scale>0.984939575 0.956252575 1.067599773</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_059">
+        <pose>2.970587254 0.261624217 0.291999996 -0.027084697 -0.048444808 0.854378045</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_16.obj</uri>
+            <scale>1.068207145 0.953829706 1.186172605</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_060">
+        <pose>2.952939749 0.749042153 0.291999996 0.037384622 -0.018619180 -0.059332196</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_12.obj</uri>
+            <scale>1.034150481 0.993000865 1.313221335</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_061">
+        <pose>2.965315104 1.326217175 0.291999996 -0.058549877 -0.041094031 2.269577026</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_22.obj</uri>
+            <scale>1.029776812 1.033740401 1.517490983</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_062">
+        <pose>3.011323690 1.969589114 0.291999996 0.038391106 0.066939242 -1.709550261</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_14.obj</uri>
+            <scale>0.866842330 0.943484366 1.268362880</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_063">
+        <pose>3.011313200 2.616792440 0.291999996 0.040155623 -0.002862410 -0.666140854</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_18.obj</uri>
+            <scale>1.087250113 1.205315232 1.323528051</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_064">
+        <pose>3.005017519 3.241057873 0.291999996 -0.008264921 -0.011021978 0.222493425</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_19.obj</uri>
+            <scale>0.949647546 0.997573197 1.362750530</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_065">
+        <pose>2.962279797 3.667445183 0.291999996 -0.029092368 0.036313180 0.901800632</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_08.obj</uri>
+            <scale>0.970668554 0.955235422 1.078857064</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_066">
+        <pose>2.932312489 4.228162766 0.291999996 -0.038516983 -0.040049344 -1.572364688</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_09.obj</uri>
+            <scale>1.005364060 1.036920309 1.293441772</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_067">
+        <pose>2.944473505 4.818930149 0.291999996 -0.005597695 -0.021551743 -0.234745353</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_24.obj</uri>
+            <scale>0.981004715 1.133800030 1.421467662</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_068">
+        <pose>4.579987049 -5.221268654 0.291999996 0.008621283 0.050891887 -2.869493723</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_01.obj</uri>
+            <scale>0.893234193 0.898667991 1.195507050</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_069">
+        <pose>4.622327328 -4.594408512 0.291999996 -0.056844939 -0.023472011 0.787759840</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_06.obj</uri>
+            <scale>1.007636309 0.987681210 1.298135996</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_070">
+        <pose>4.584495068 -3.975075722 0.291999996 0.054125674 0.057755787 -1.818651915</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_21.obj</uri>
+            <scale>1.007632017 0.999707401 1.225294828</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_071">
+        <pose>4.574137211 -3.465526104 0.291999996 0.065031864 -0.070021808 -1.093805075</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_14.obj</uri>
+            <scale>0.862235367 0.910689473 1.187235355</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_072">
+        <pose>4.582203865 -2.936382771 0.291999996 0.074898824 0.054280698 0.563176572</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_19.obj</uri>
+            <scale>0.856986821 0.865340233 1.168136477</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_073">
+        <pose>4.601029396 -2.227708101 0.291999996 0.031526342 -0.060013402 -1.986455679</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_20.obj</uri>
+            <scale>1.213389158 1.161876798 1.290320873</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_074">
+        <pose>4.645820618 -1.702367425 0.291999996 0.072564438 0.015843773 1.768971801</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_12.obj</uri>
+            <scale>1.018261909 1.074081540 1.257764816</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_075">
+        <pose>4.592477322 -1.029340744 0.291999996 -0.040650487 0.003070448 -1.934595823</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_06.obj</uri>
+            <scale>0.870359540 0.924494088 1.223617911</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_076">
+        <pose>4.646238327 -0.424737304 0.291999996 0.003260628 0.018440757 0.719926000</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_01.obj</uri>
+            <scale>0.966244042 0.917399168 1.124639392</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_077">
+        <pose>4.645133018 0.110038161 0.291999996 -0.043114305 0.053786848 -3.098430634</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_10.obj</uri>
+            <scale>0.841317058 0.940608621 1.052618504</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_078">
+        <pose>4.597489357 0.706469893 0.291999996 0.051401708 0.038361937 2.455142260</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_13.obj</uri>
+            <scale>0.896866083 0.805584371 1.102064848</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_079">
+        <pose>4.575053215 1.289300203 0.291999996 -0.019512106 -0.037620232 -2.352815866</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_04.obj</uri>
+            <scale>0.849096477 0.879466474 1.105547428</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_080">
+        <pose>4.551285744 1.848170161 0.291999996 -0.045499075 0.070717506 3.039731741</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_03.obj</uri>
+            <scale>1.028174162 0.994418323 1.211997628</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_081">
+        <pose>4.576692581 2.508737087 0.291999996 -0.074750580 -0.029086972 -0.680100262</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_05.obj</uri>
+            <scale>1.033594251 1.028283119 1.244469643</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_082">
+        <pose>4.610818386 3.700753927 0.291999996 -0.069484726 0.064640574 0.949407339</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_22.obj</uri>
+            <scale>0.983706117 1.058920264 1.452989221</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_083">
+        <pose>4.549748421 4.426755905 0.291999996 -0.025021791 -0.022376023 -1.861659765</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_21.obj</uri>
+            <scale>1.035755754 1.161110759 1.330930710</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_084">
+        <pose>4.605280876 4.946250439 0.291999996 -0.042528592 0.015062382 1.806489348</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_16.obj</uri>
+            <scale>1.064280510 1.011346340 1.168405533</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_085">
+        <pose>4.590920925 5.454280853 0.291999996 0.073802628 0.029596120 -2.778539896</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_08.obj</uri>
+            <scale>0.926697791 1.062458158 1.209198475</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_086">
+        <pose>5.102199554 -4.853037834 0.291999996 0.030755807 -0.014523514 3.031726837</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_09.obj</uri>
+            <scale>1.114767909 1.144867778 1.374225497</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_087">
+        <pose>5.098698616 -4.339474201 0.291999996 0.014744367 -0.014970155 2.323385954</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_18.obj</uri>
+            <scale>1.082272887 0.974407196 1.275613427</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_088">
+        <pose>5.057741642 -3.688139915 0.291999996 0.072880141 0.002506771 0.166847900</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_23.obj</uri>
+            <scale>0.978800058 0.898439109 1.047762752</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_089">
+        <pose>5.118390560 -3.166618347 0.291999996 -0.008816084 -0.046981324 -0.377228081</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_02.obj</uri>
+            <scale>1.124164939 1.101742268 1.278544188</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_090">
+        <pose>5.122976780 -2.751982212 0.291999996 -0.037524015 0.052556586 -2.916471004</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_11.obj</uri>
+            <scale>0.981806755 1.127335668 1.283907890</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_091">
+        <pose>5.111721992 -2.095850706 0.291999996 -0.063930817 0.057908252 -0.056154553</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_07.obj</uri>
+            <scale>0.811292827 0.856923223 1.047336459</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_092">
+        <pose>5.150241375 -1.636632919 0.291999996 -0.056653924 0.037413992 0.045004107</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_24.obj</uri>
+            <scale>0.977478385 0.958596706 1.134281397</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_093">
+        <pose>5.136908531 -0.983600497 0.291999996 0.048310917 -0.010918089 -2.078799486</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_17.obj</uri>
+            <scale>1.053870320 1.020213008 1.465463400</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_094">
+        <pose>5.122310638 0.305774510 0.291999996 0.024507890 0.020541504 0.904016912</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_15.obj</uri>
+            <scale>0.952484846 0.984759927 1.158783913</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_095">
+        <pose>5.109951973 0.794156671 0.291999996 -0.069847621 0.028745899 2.615136147</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_06.obj</uri>
+            <scale>0.867230594 0.871768415 0.958034933</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_096">
+        <pose>5.065530777 1.397891879 0.291999996 0.023426760 0.049853101 2.004520416</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_16.obj</uri>
+            <scale>0.963395298 0.989633918 1.051232219</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_097">
+        <pose>5.110590935 2.036248922 0.291999996 0.057803337 0.057165436 -1.326126337</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_15.obj</uri>
+            <scale>0.923293531 0.841646016 1.182450771</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_098">
+        <pose>5.093343735 2.561789989 0.291999996 -0.054651268 -0.054069024 0.177152738</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_17.obj</uri>
+            <scale>0.897008061 0.847231328 1.192237139</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_099">
+        <pose>5.111798763 3.758633852 0.291999996 -0.012465032 -0.069036089 2.827468872</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_18.obj</uri>
+            <scale>1.035340548 0.953596950 1.335637808</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_100">
+        <pose>5.103583336 4.456317902 0.291999996 -0.016327826 -0.042324793 2.527723789</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_21.obj</uri>
+            <scale>1.161912799 1.122920632 1.251142859</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <visual name="field_plant_101">
+        <pose>5.054238319 4.973731518 0.291999996 0.011846015 -0.043975521 2.060174942</pose>
+        <geometry>
+          <mesh>
+            <uri>model://strawberry_field_v3/meshes/plant_variant_19.obj</uri>
+            <scale>1.059130073 1.193015695 1.397829890</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>

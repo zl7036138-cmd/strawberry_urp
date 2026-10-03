@@ -12,7 +12,7 @@ setup(
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
     ],
-    install_requires=["setuptools"],
+    install_requires=["setuptools", "PyYAML"],
     zip_safe=True,
     maintainer="Strawberry URP Team",
     maintainer_email="strawberry-urp@example.invalid",
@@ -25,6 +25,11 @@ setup(
     entry_points={
         "console_scripts": [
             "strawberry-benchmark = strawberry_benchmark.cli:main",
+            "generalized-harvest-acceptance = strawberry_benchmark.generalized_acceptance:main",
+            "claim-generalized-harvest = strawberry_benchmark.generalized_claim:main",
+            "generalized-detector-eval = strawberry_benchmark.generalized_detector_eval:main",
+            "materialize-generalized-harvest = strawberry_benchmark.materialize_generalized:main",
+            "strawberry-evidence-contract = strawberry_benchmark.run_identity:main",
         ],
     },
 )

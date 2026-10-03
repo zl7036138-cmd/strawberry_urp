@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "kind": "strawberry_urp_environment_identity",
+  "captured_at_utc": "2026-09-08T23:26:41Z",
+  "host": {
+    "os": "Microsoft Windows 11 Home China",
+    "version": "10.0.26200",
+    "build": "26200",
+    "architecture": "64-bit",
+    "powershell": "7.6.5",
+    "git": "2.50.1.windows.1",
+    "python": "3.12.5"
+  },
+  "execution_environment": {
+    "wsl_distribution": "Ubuntu-24.04-URP",
+    "os": "Ubuntu 24.04.3 LTS",
+    "kernel": "Linux 6.6.87.2-microsoft-standard-WSL2 x86_64 GNU/Linux",
+    "python": "3.12.3",
+    "pytest": "7.4.4",
+    "numpy": "1.26.4",
+    "pyyaml": "6.0.1",
+    "ros_distro": "jazzy",
+    "ros_base_package": "0.11.0-1noble.20260616.084325",
+    "moveit_package": "2.12.4-1noble.20260617.161956",
+    "ros_gz_package": "1.0.22-1noble.20260616.074726"
+  },
+  "workspace_state": {
+    "repository_tracked_file_count": 958,
+    "root_build": {
+      "exists": true,
+      "file_count": 18,
+      "bytes": 920990,
+      "directory_last_write_local": "2026-07-12T17:00:23.7212244+08:00"
+    },
+    "root_install": {
+      "exists": false
+    },
+    "root_log": {
+      "exists": true,
+      "file_count": 48,
+      "bytes": 694432,
+      "directory_last_write_local": "2026-09-03T11:30:29.9796306+08:00"
+    },
+    "ros2_ws_build": {
+      "exists": true,
+      "file_count": 1258,
+      "bytes": 14895875,
+      "directory_last_write_local": "2026-07-26T18:57:41.1667293+08:00"
+    },
+    "ros2_ws_install": {
+      "exists": true,
+      "file_count": 582,
+      "bytes": 2720113,
+      "directory_last_write_local": "2026-07-26T19:02:04.0441487+08:00",
+      "layout": "symlink_install_with_python_egg_links"
+    },
+    "ros2_ws_log": {
+      "exists": true,
+      "file_count": 1494,
+      "bytes": 14710011,
+      "latest_test_result_local": "2026-09-02T22:30:29.7228014+08:00"
+    },
+    "install_identity_status": "PARTIAL",
+    "install_identity_reason": "The overlay is a symlink install and resolves Python/launch sources into the working tree, but generated entry points and non-symlink build products are not bound to a source commit by an existing receipt."
+  },
+  "capture_commands": [
+    "Get-CimInstance Win32_OperatingSystem",
+    "python --version",
+    "git --version",
+    "wsl.exe -d Ubuntu-24.04-URP -- bash -lc <read-only environment queries>",
+    "dpkg-query -W ros-jazzy-ros-base ros-jazzy-moveit ros-jazzy-ros-gz"
+  ]
+}

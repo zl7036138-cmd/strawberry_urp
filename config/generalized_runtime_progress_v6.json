@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v6",
+  "scope": "development_only_depth_safety_and_runtime_followup",
+  "extends": "generalized_runtime_progress_v5",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "foreground_band_support": "A foreground cutoff now requires aggregate support from complete depth clusters inside the configured 60 mm band; a weak leaf sliver cannot truncate a supported fruit surface behind it.",
+    "cluster_preservation": "Foreground rejection masks complete depth clusters instead of slicing a continuous surface at a scalar threshold, preventing low-MAD pseudo-layers.",
+    "geometry_conflict_window": "The generalized-only support conflict window is 40 mm. A candidate still wins only with at least twice the runner-up support; similarly supported layers remain ambiguous and fail closed.",
+    "bearing_source": "The base localizer now uses the detector box centre for ray bearing while depth-layer evidence supplies range, matching the existing wrist behavior and reducing one-sided occlusion bias.",
+    "unchanged_gates": "The 15 mm base and wrist uncertainty gates, 50 mm wrist correction gate, 20 mm clearance gate, collision checks, and dual-contact attachment verification were not relaxed."
+  },
+  "development_rgbd_matrix": {
+    "seeds": [44004, 44005, 44007, 44008, 44011, 44012],
+    "mode": "read_only_truth_scored_single_frame",
+    "commands_published_per_seed": 0,
+    "formal_seed_consumed": false,
+    "accepted_target_count": 19,
+    "accepted_within_30_mm_count": 19,
+    "accepted_error_median_mm": 5.83,
+    "accepted_error_max_mm": 9.22,
+    "control_eligible_target_count": 12,
+    "control_eligible_error_max_mm": 7.40,
+    "high_uncertainty_rejected_by_control_count": 7,
+    "receipts": {
+      "44004": "307114712b332f7831b8c58142cbd92586f74efa84debdba4721e2b094e8b40e",
+      "44005": "c67683807db77d58e6dada9c3292ee926e9053ccd8296d81a05a43480e962503",
+      "44007": "10b047252a1cad77bece26680860cb923011ea4b3e6906bdd0376650f37dea4a",
+      "44008": "59c2bbcc72c6be4cdbc327e12145ac38df427ea71f81c31dceb8d94cdccc2dd2",
+      "44011": "314a687884ff1aaf432ec30c2a350a76dfaebcd788b4804346da17f41b41f68c",
+      "44012": "f4d52fbd2fee30f3e37ae08275e0e7c8ce238e41f9084463a47a9cfdd36fc727"
+    }
+  },
+  "development_runtime_followup": {
+    "seed_44012": {
+      "outcome": "NO_PICK",
+      "reason": "two remaining ripe candidates had only 16.3 mm estimated fruit clearance, below the unchanged 20 mm minimum",
+      "motion_safety": "no unsafe target was selected",
+      "cleanup": "CLEAN"
+    },
+    "seed_44008_before_bbox_bearing": {
+      "outcome": "FAILED",
+      "target_2": "wrist evidence exceeded the unchanged 15 mm uncertainty gate and was skipped after one retry",
+      "target_1": "wrist confirmation passed, but dual-contact attachment verification rejected the off-centre grasp",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN"
+    },
+    "seed_44008_after_bbox_bearing": {
+      "outcome": "FAILED",
+      "target_2": "wrist evidence again exceeded the unchanged uncertainty gate; its retry later failed feasibility",
+      "target_1": "no qualifying wrist confirmation arrived in either bounded window",
+      "collision_or_limit_violation": false,
+      "cleanup": "CLEAN"
+    },
+    "claims": {
+      "unsafe_low_uncertainty_depth_failures_reproduced_and_repaired": true,
+      "fail_closed_runtime_behavior_preserved": true,
+      "completed_multi_fruit_batch_proved": false,
+      "runtime_generalization_gate_passed": false
+    }
+  },
+  "verification": {
+    "targeted_test_count": 40,
+    "targeted_test_failures": 0,
+    "full_regression": {
+      "test_count": 510,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "frozen_localization_core_sha256": "14ae123a98b7083ef87bca8eb782ff024e49bc99056efc594c0076465985b9ec"
+  },
+  "decision": {
+    "depth_safety_milestone_accepted": true,
+    "continuous_harvest_acceptance_deferred": true,
+    "formal_30_seed_matrix_remains_sealed": true,
+    "next_required_work": [
+      "Improve wrist target visibility and uncertainty without relaxing the 15 mm gate.",
+      "Diagnose remaining grasp-contact repeatability with the corrected base bearing.",
+      "Obtain development batches with at least two successful harvested fruits across more than one seed.",
+      "Open the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

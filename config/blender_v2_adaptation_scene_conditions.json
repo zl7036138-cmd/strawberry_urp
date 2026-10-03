@@ -1,0 +1,80 @@
+{
+  "schema_version": 3,
+  "scope": "NON_ACCEPTANCE_SYNTHETIC_CAPTURE_PREFLIGHT",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "allowed_materialization_ids": [20260601, 20260602],
+  "lighting": {
+    "dim": {
+      "ambient_rgba": [0.12, 0.12, 0.12, 1.0],
+      "sun_diffuse_rgba": [0.30, 0.30, 0.30, 1.0],
+      "sun_specular_rgba": [0.08, 0.08, 0.08, 1.0]
+    },
+    "nominal": {
+      "ambient_rgba": [0.45, 0.45, 0.45, 1.0],
+      "sun_diffuse_rgba": [0.90, 0.90, 0.90, 1.0],
+      "sun_specular_rgba": [0.25, 0.25, 0.25, 1.0]
+    },
+    "bright": {
+      "ambient_rgba": [0.75, 0.75, 0.75, 1.0],
+      "sun_diffuse_rgba": [1.00, 1.00, 1.00, 1.0],
+      "sun_specular_rgba": [0.45, 0.45, 0.45, 1.0]
+    }
+  },
+  "occlusion": {
+    "none": {
+      "enabled": false
+    },
+    "partial": {
+      "enabled": true,
+      "visual_only": true,
+      "pose_xyz_rpy": [0.346, -0.3825, 0.665, 0.0, 0.0, 0.0],
+      "size_xyz_m": [0.030, 0.018, 0.085],
+      "ambient_rgba": [0.03, 0.08, 0.80, 1.0],
+      "diffuse_rgba": [0.04, 0.12, 0.95, 1.0]
+    },
+    "heavy": {
+      "enabled": true,
+      "visual_only": true,
+      "pose_xyz_rpy": [0.346, -0.3825, 0.665, 0.0, 0.0, 0.0],
+      "size_xyz_m": [0.050, 0.018, 0.090],
+      "ambient_rgba": [0.03, 0.08, 0.80, 1.0],
+      "diffuse_rgba": [0.04, 0.12, 0.95, 1.0]
+    }
+  },
+  "occluder_tracking": {
+    "mode": "anchor_relative_translation",
+    "anchor_target_position_m": [0.50, 0.03, 0.55],
+    "anchor_occluder_position_m": [0.346, -0.3825, 0.665],
+    "target_translation_scale": 0.70,
+    "maximum_target_offset_m": 0.20
+  },
+  "validation_scene": {
+    "seed": 20260601,
+    "target_id": 1,
+    "target_model_name": "strawberry_1",
+    "target_position_m": [0.50, 0.03, 0.55],
+    "parked_models": [
+      {
+        "target_id": 2,
+        "model_name": "strawberry_2",
+        "position_m": [0.20, -2.00, 1.00]
+      },
+      {
+        "target_id": 3,
+        "model_name": "strawberry_3",
+        "position_m": [0.40, -2.00, 1.00]
+      }
+    ],
+    "fruit_radius_m": 0.026,
+    "frames_per_condition": 1
+  },
+  "pre_gate_thresholds": {
+    "lighting_mean_gap_8bit_minimum": 5.0,
+    "none_blue_coverage_maximum": 0.02,
+    "partial_blue_coverage_minimum": 0.05,
+    "heavy_blue_coverage_minimum": 0.35,
+    "heavy_minus_partial_coverage_minimum": 0.15,
+    "heavy_blue_coverage_maximum": 0.98
+  }
+}

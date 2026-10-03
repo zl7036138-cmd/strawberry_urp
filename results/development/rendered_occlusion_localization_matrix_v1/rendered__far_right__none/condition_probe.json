@@ -1,0 +1,157 @@
+{
+  "configured_models": [
+    {
+      "model_name": "strawberry_1",
+      "position_m": [
+        0.47,
+        -0.025,
+        0.48
+      ],
+      "target_id": 1
+    },
+    {
+      "model_name": "strawberry_2",
+      "position_m": [
+        0.2,
+        -2.0,
+        1.0
+      ],
+      "target_id": 2
+    },
+    {
+      "model_name": "strawberry_3",
+      "position_m": [
+        0.4,
+        -2.0,
+        1.0
+      ],
+      "target_id": 3
+    }
+  ],
+  "formal_acceptance": false,
+  "frames": [
+    {
+      "blue_coverage_ratio": 0.0,
+      "encoding": "rgb8",
+      "frame_index": 1,
+      "height": 480,
+      "image_sha256": "6a71e6d842d136c9be3ee3811d3604a3692f5d5c3ab67f0e0168e121c3557a9d",
+      "luminance_mean_8bit": 172.32411193847656,
+      "stamp_nanosec": 925000000,
+      "stamp_sec": 0,
+      "target_roi_luminance_mean_8bit": 56.821651458740234,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.0,
+      "encoding": "rgb8",
+      "frame_index": 2,
+      "height": 480,
+      "image_sha256": "e2b75f8c0d33a9add1a8865cf17299a6eb2686a5f3d8544b263deca280b7012a",
+      "luminance_mean_8bit": 172.32447814941406,
+      "stamp_nanosec": 991000000,
+      "stamp_sec": 0,
+      "target_roi_luminance_mean_8bit": 57.024600982666016,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.0,
+      "encoding": "rgb8",
+      "frame_index": 3,
+      "height": 480,
+      "image_sha256": "c629b6e0ddee65486aee94d700549f43aae548ddcedff62b51c8dbdeb7944527",
+      "luminance_mean_8bit": 172.32408142089844,
+      "stamp_nanosec": 189000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 56.92568588256836,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.0,
+      "encoding": "rgb8",
+      "frame_index": 4,
+      "height": 480,
+      "image_sha256": "30d0157f59be68d4e3951e7fd18a95a9982885dfba0311efae85f5b1249b697c",
+      "luminance_mean_8bit": 172.32403564453125,
+      "stamp_nanosec": 222000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 56.90061950683594,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    },
+    {
+      "blue_coverage_ratio": 0.0,
+      "encoding": "rgb8",
+      "frame_index": 5,
+      "height": 480,
+      "image_sha256": "cdd04d658c650cfcab04f7d841f7166d5c3762c776af03f60f99aa87d561a793",
+      "luminance_mean_8bit": 172.32406616210938,
+      "stamp_nanosec": 255000000,
+      "stamp_sec": 1,
+      "target_roi_luminance_mean_8bit": 56.95488739013672,
+      "target_roi_pixel_count": 625,
+      "target_roi_xyxy": [
+        523,
+        304,
+        548,
+        329
+      ],
+      "width": 640
+    }
+  ],
+  "gate": "SCENE_CONDITION_PROBE",
+  "generated_at_utc": "2026-08-05T04:16:11.032482+00:00",
+  "held_out_test_consumed": false,
+  "lighting_level": "nominal",
+  "materialized_world_sha256": "98228ff3cee5c7254af81d335e7595fca80ce6622dc6a38b3b7d60d35ff5ce95",
+  "occlusion_level": "none",
+  "pose_configuration_attempts": [
+    {
+      "attempts": 1,
+      "model_name": "strawberry_1"
+    },
+    {
+      "attempts": 1,
+      "model_name": "strawberry_2"
+    },
+    {
+      "attempts": 1,
+      "model_name": "strawberry_3"
+    }
+  ],
+  "receipt": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/rendered_occlusion_localization_matrix_v1/rendered__far_right__none/condition_receipt.json",
+    "sha256": "4a8f8a99ebee19cda219493b1b096cc66087e10e2e8500320bb4dddf8a05c712",
+    "size_bytes": 2351
+  },
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_MULTIPOSITION_SCENE_DIAGNOSTIC",
+  "seed": 20260805
+}

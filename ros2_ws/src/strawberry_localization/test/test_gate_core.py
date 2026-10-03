@@ -21,6 +21,23 @@ from strawberry_localization.localization_gate import (  # noqa: E402
     SIMULATION_SHARE_PROVENANCE_PATHS,
     _file_fingerprint,
 )
+from strawberry_localization.v2_gate_contract import (  # noqa: E402
+    load_contract as load_v2_contract,
+    position_grid as v2_position_grid,
+)
+
+
+REPOSITORY_ROOT = PACKAGE_ROOT.parents[2]
+INITIAL_V2_CONTRACT = (
+    REPOSITORY_ROOT
+    / "config"
+    / "blender_v2_localization_accuracy_100_v1.json"
+)
+POST_WINDING_V2_CONTRACT = (
+    REPOSITORY_ROOT
+    / "config"
+    / "blender_v2_localization_accuracy_100_post_winding_v1.json"
+)
 
 
 class LocalizationGateCoreTests(unittest.TestCase):
@@ -63,10 +80,73 @@ class LocalizationGateCoreTests(unittest.TestCase):
         self.assertIn("surface_to_center_offset_m: 0.035", config_text)
         self.assertIn('"enable_pose_control": "true"', launch_text)
 
+    def test_blender_v2_config_has_separate_26_mm_offset(self) -> None:
+        v1_config = (
+            PACKAGE_ROOT / "config" / "localization.yaml"
+        ).read_text(encoding="utf-8")
+        v2_config = (
+            PACKAGE_ROOT / "config" / "localization_blender_v2.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("surface_to_center_offset_m: 0.035", v1_config)
+        self.assertIn("surface_to_center_offset_m: 0.026", v2_config)
+
+    def test_renamed_dual_camera_nodes_receive_v2_offset_explicitly(self) -> None:
+        runner = (
+            REPOSITORY_ROOT / "scripts" / "run_dual_sequential_observation.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("__node:=strawberry_base_overview_localization", runner)
+        self.assertIn("__node:=strawberry_wrist_attention_localization", runner)
+        self.assertEqual(
+            runner.count("-p surface_to_center_offset_m:=0.026"),
+            2,
+        )
+
     def test_default_grid_contains_one_hundred_distinct_positions(self) -> None:
         positions = benchmark_positions()
         self.assertEqual(len(positions), 100)
         self.assertEqual(len(set(positions)), 100)
+
+    def test_blender_v2_gate_freezes_separate_camera_clear_grid(self) -> None:
+        contract = load_v2_contract(
+            POST_WINDING_V2_CONTRACT,
+            REPOSITORY_ROOT,
+        )
+        positions = v2_position_grid(contract)
+        self.assertEqual(len(positions), 100)
+        self.assertEqual(len(set(positions)), 100)
+        self.assertEqual(positions[0], (0.44, -0.12, 0.51))
+        self.assertEqual(positions[-1], (0.56, 0.06, 0.57))
+        self.assertEqual(contract["target"]["fruit_radius_m"], 0.026)
+        self.assertFalse(contract["safety"]["robot_motion_authorized"])
+        self.assertTrue(
+            contract["safety"]["simulated_fruit_pose_motion_authorized"]
+        )
+
+    def test_consumed_pre_repair_contract_rejects_repaired_mesh(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "target_visual_mesh binding changed",
+        ):
+            load_v2_contract(INITIAL_V2_CONTRACT, REPOSITORY_ROOT)
+
+    def test_blender_v2_gate_launch_and_runner_remain_fail_closed(self) -> None:
+        launch_text = (
+            PACKAGE_ROOT
+            / "launch"
+            / "blender_v2_localization_gate.launch.py"
+        ).read_text(encoding="utf-8")
+        runner_text = (
+            REPOSITORY_ROOT
+            / "scripts"
+            / "run_blender_v2_localization_gate.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("localization_blender_v2.yaml", launch_text)
+        self.assertIn('"enable_attachment": "false"', launch_text)
+        self.assertIn('"enable_pose_control": "true"', launch_text)
+        self.assertIn('"camera_mount": "fixed"', launch_text)
+        self.assertIn("--gate-contract", runner_text)
+        self.assertNotIn("start_manipulation:=true", runner_text)
+        self.assertNotIn("enable_attachment:=true", runner_text)
 
     def test_sphere_projection_contains_principal_point(self) -> None:
         box = sphere_projection_bbox(

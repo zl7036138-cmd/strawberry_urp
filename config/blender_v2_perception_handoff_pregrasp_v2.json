@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "gate_id": "blender_v2_perception_handoff_pregrasp_v2",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_HANDOFF_PREGRASP",
+  "status": "FROZEN_EXECUTION_AUTHORIZED",
+  "decision_record": {
+    "path": "docs/decisions/0054-preserve-v1-handoff-failure-and-freeze-v2.md",
+    "size_bytes": 2768,
+    "sha256": "7f9bd5e02dbf3cb53310ca8cb1eb6cc130259a320d44dca4e354a2d470c5843e"
+  },
+  "bindings": {
+    "perception_waiver": {
+      "path": "config/p3_perception_control_waiver_v1.json",
+      "size_bytes": 2948,
+      "sha256": "59b071bd6b867a5f794b1bf3ee15ffcf8101a4d6545346a4fe869da6378981b5"
+    },
+    "model": {
+      "path": "outputs/perception/yolo11s_640_train_audit_v1/weights/best.pt",
+      "size_bytes": 19162586,
+      "sha256": "e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70"
+    },
+    "runner": {
+      "path": "scripts/run_dual_sequential_observation.sh",
+      "size_bytes": 10857,
+      "sha256": "41ed8c4b1a76b0437015b522857f5d6ce3941576d7273b736fe03a9d9deccdfa"
+    },
+    "observation_motion": {
+      "path": "scripts/move_wrist_observation_pose.py",
+      "size_bytes": 6465,
+      "sha256": "dcf26058722b850c6419d22e5497f97f5567d7834246bfbc6c70eca65ad07085"
+    },
+    "observation_selector": {
+      "path": "ros2_ws/src/strawberry_bringup/strawberry_bringup/observation_selection.py",
+      "size_bytes": 4330,
+      "sha256": "a6cb47c099e47dee247c21697d635a703bc21b4e6b5a17bd4e3fce7a5ccefa91"
+    },
+    "sequence_summary": {
+      "path": "ros2_ws/src/strawberry_bringup/strawberry_bringup/observation_sequence.py",
+      "size_bytes": 16114,
+      "sha256": "c93a1baa8ba79069e0d076c9a21752dbc17cbf25d02ab01826c0d93453996a64"
+    },
+    "perception_node": {
+      "path": "ros2_ws/src/strawberry_perception/strawberry_perception/perception_node.py",
+      "size_bytes": 7797,
+      "sha256": "9fbecb4495828b147f0e8555f15b7328ea96efb56c084f333bb44c3bbaeb3476"
+    },
+    "localization_node": {
+      "path": "ros2_ws/src/strawberry_localization/strawberry_localization/node.py",
+      "size_bytes": 36654,
+      "sha256": "43ee5c55f2dd4fc1e56ba253b0a83413ce0dd7e321d891292e72e20feab63d64"
+    },
+    "handoff_shadow": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/handoff_shadow.py",
+      "size_bytes": 24156,
+      "sha256": "244f3715c5a0555b18f2a2f940159e4874d159fb7e69424e6ee68828868b1419"
+    },
+    "pregrasp_shadow": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/pregrasp_shadow.py",
+      "size_bytes": 28876,
+      "sha256": "0a1fbf6ae3619c106f06c279c1de364d5de4e1909be6133b240bdbbe0385fdb8"
+    },
+    "moveit_backend": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/moveit_backend.py",
+      "size_bytes": 48241,
+      "sha256": "e29b5d68345ee35712649267391968678371ca7bc6f0a125402d52fc0ed90178"
+    },
+    "grasp_geometry_loader": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/grasp_geometry.py",
+      "size_bytes": 4259,
+      "sha256": "6ccc8495bc21f35803bf41bdd833237bf9f9a4793c73b809dd1be64ffc3a861b"
+    },
+    "grasp_geometry_config": {
+      "path": "ros2_ws/src/strawberry_manipulation/config/grasp_geometry.yaml",
+      "size_bytes": 668,
+      "sha256": "e23678ec96679625059ed88f262ddf5c6051abdff948e30e26743d9a67e96b5c"
+    },
+    "scene_config": {
+      "path": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "size_bytes": 1927,
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093"
+    },
+    "validator": {
+      "path": "scripts/validate_blender_v2_perception_handoff_pregrasp.py",
+      "size_bytes": 19144,
+      "sha256": "a2913060ff11916296e18b2f902b4d2b34732df94f9358a709c4f1cce340465e"
+    },
+    "failed_v1_summary": {
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v1/summary.json",
+      "size_bytes": 7520,
+      "sha256": "e5e62f7c2c8e213d107c6516ee27b9b5f1ded316eedbc23fcbf0fb8f7f716346"
+    },
+    "failed_v1_observation_log": {
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v1/observation_motion.log",
+      "size_bytes": 8854,
+      "sha256": "b22fd89c2eb91428bedc99b79cc92ca4691cef140f4775ff555f06c1286b011d"
+    }
+  },
+  "parameters": {
+    "expected_target_id": 1,
+    "expected_wrist_preset": "lower",
+    "detections_topic": "/strawberry/shadow/detections",
+    "target_topic": "/strawberry/shadow/target_pose",
+    "camera_mount": "dual",
+    "confidence_threshold": 0.58,
+    "base_measurement_frames": 60,
+    "minimum_base_support_frames": 48,
+    "wrist_measurement_frames": 60,
+    "required_matching_wrist_target_pose_frames": 60,
+    "minimum_ready_consecutive_frames": 15,
+    "minimum_target_samples": 15,
+    "minimum_joint_samples": 10,
+    "maximum_target_age_sec": 0.5,
+    "maximum_joint_delta_rad": 0.002,
+    "expected_grasp_profile": "blender_v2_26mm",
+    "expected_tool_center_offset_m": 0.0964,
+    "pregrasp_offset_m": 0.15,
+    "planning_attempts": 3
+  },
+  "safety": {
+    "formal_acceptance": false,
+    "held_out_test_access_authorized": false,
+    "oracle_target_authorized": false,
+    "perception_authorized": true,
+    "localization_authorized": true,
+    "observation_pose_motion_authorized": true,
+    "manipulation_authorized": false,
+    "orchestrator_authorized": false,
+    "attachment_authorized": false,
+    "gripper_command_authorized": false,
+    "trajectory_execution_authorized": false,
+    "pick_action_authorized": false
+  },
+  "execution": {
+    "maximum_trials": 1,
+    "retry_authorized": false,
+    "ros_domain_id": 231,
+    "output_directory": "results/development/blender_v2_perception_handoff_pregrasp_v2"
+  }
+}

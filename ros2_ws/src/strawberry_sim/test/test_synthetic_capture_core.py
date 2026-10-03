@@ -1,5 +1,6 @@
 import unittest
 
+from strawberry_sim.synthetic_capture import normalized_orientation_xyzw
 from strawberry_sim.synthetic_capture_core import (
     parse_yolo_label,
     project_sphere_in_camera,
@@ -8,6 +9,16 @@ from strawberry_sim.synthetic_capture_core import (
 
 
 class SyntheticCaptureGeometryTests(unittest.TestCase):
+    def test_manifest_orientation_is_normalized_and_defaults_to_identity(self):
+        self.assertEqual(
+            normalized_orientation_xyzw(None),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+        normalized = normalized_orientation_xyzw([0.0, 0.0, 1.0, 1.0])
+        self.assertAlmostEqual(sum(value * value for value in normalized), 1.0)
+        with self.assertRaisesRegex(ValueError, "non-zero"):
+            normalized_orientation_xyzw([0.0, 0.0, 0.0, 0.0])
+
     def test_principal_point_projection_round_trips_to_yolo(self):
         box = project_sphere_in_camera(
             (0.0, 0.0, 1.0),

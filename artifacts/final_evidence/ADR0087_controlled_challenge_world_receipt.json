@@ -1,0 +1,17 @@
+{
+  "model_name": "development_candidate_challenge_obstacle",
+  "obstacle_spec": [
+    0.397,
+    0.135,
+    0.78,
+    0.012,
+    0.034,
+    0.002
+  ],
+  "output_world": ".codex_tmp\\adr0087e_challenge_20261002\\worlds\\generalized_seed_045504_g00_g01_block_g02_open_z780.sdf",
+  "output_world_sha256": "d9b2efbdd0a95a67aacbd29d45efaa407630a5bf037acc34aeaac07cb074597b",
+  "schema_version": 1,
+  "scope": "ADR0087_E_DEVELOPMENT_ONLY_PHYSICAL_CHALLENGE",
+  "source_world": ".codex_tmp\\generalized_feasibility_discovery_b04_640x480_primary_clearance\\scenes\\generalized_seed_045504.sdf",
+  "source_world_sha256": "452c5e858de28ffb5377d658b5d8697aeba61884f894683277acd9e3b0dda1aa"
+}

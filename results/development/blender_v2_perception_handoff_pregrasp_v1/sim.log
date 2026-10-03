@@ -1,0 +1,176 @@
+[INFO] [launch]: All log files can be found below /home/lzl/.ros/log/2026-07-27-11-44-12-187082-liuzelin-19743
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [gazebo-1]: process started with pid [19789]
+[INFO] [parameter_bridge-2]: process started with pid [19790]
+[INFO] [robot_state_publisher-3]: process started with pid [19791]
+[INFO] [create-4]: process started with pid [19792]
+[INFO] [ground_truth_publisher-5]: process started with pid [19793]
+[INFO] [contact_monitor-6]: process started with pid [19794]
+[INFO] [attachment_manager-7]: process started with pid [19795]
+[create-4] [INFO] [1785123852.446710366] [spawn_panda]: Waiting messages on topic [robot_description].
+[robot_state_publisher-3] [INFO] [1785123852.459531240] [panda_robot_state_publisher]: Robot initialized
+[attachment_manager-7] [WARN] [1785123852.774944266] [attachment_manager]: attachment backend disabled: attach, detach, and verification services will reject requests safely
+[create-4] [INFO] [1785123853.342067761] [spawn_panda]: Entity creation successful.
+[INFO] [create-4]: process has finished cleanly [pid 19792]
+[parameter_bridge-2] [INFO] [1785123853.530218419] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/clock (gz.msgs.Clock) -> /clock (rosgraph_msgs/msg/Clock)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.532910233] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/image (gz.msgs.Image) -> /camera/color/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.536145429] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/depth_image (gz.msgs.Image) -> /camera/depth/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.536774266] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/camera_info (gz.msgs.CameraInfo) -> /camera/camera_info (sensor_msgs/msg/CameraInfo)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.537494199] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/base/image (gz.msgs.Image) -> /camera/base/color/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.538039669] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/base/depth_image (gz.msgs.Image) -> /camera/base/depth/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.538658388] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/base/camera_info (gz.msgs.CameraInfo) -> /camera/base/camera_info (sensor_msgs/msg/CameraInfo)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.539248793] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/wrist/image (gz.msgs.Image) -> /camera/wrist/color/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.539771582] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/wrist/depth_image (gz.msgs.Image) -> /camera/wrist/depth/image_raw (sensor_msgs/msg/Image)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.540363692] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/camera/wrist/camera_info (gz.msgs.CameraInfo) -> /camera/wrist/camera_info (sensor_msgs/msg/CameraInfo)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.541008014] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/gripper/left_contacts (gz.msgs.Contacts) -> /strawberry/sim/gripper/left_contacts (ros_gz_interfaces/msg/Contacts)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.545241352] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/gripper/right_contacts (gz.msgs.Contacts) -> /strawberry/sim/gripper/right_contacts (ros_gz_interfaces/msg/Contacts)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.545856210] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_contacts (gz.msgs.Contacts) -> /strawberry/sim/fruit_contacts (ros_gz_interfaces/msg/Contacts)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.546425349] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/model/strawberry_1/pose (gz.msgs.Pose_V) -> /strawberry/sim/fruit_1/pose_tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.549543343] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/model/strawberry_2/pose (gz.msgs.Pose_V) -> /strawberry/sim/fruit_2/pose_tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.550207982] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/model/strawberry_3/pose (gz.msgs.Pose_V) -> /strawberry/sim/fruit_3/pose_tf (tf2_msgs/msg/TFMessage)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.551037180] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_1/attach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_1/attach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.552836834] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_1/detach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_1/detach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.553549421] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_1/attached (gz.msgs.StringMsg) -> /strawberry/sim/fruit_1/attached_state (std_msgs/msg/String)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.554312566] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_2/attach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_2/attach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.555031784] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_2/detach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_2/detach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.555672516] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_2/attached (gz.msgs.StringMsg) -> /strawberry/sim/fruit_2/attached_state (std_msgs/msg/String)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.556397907] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_3/attach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_3/attach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.557004612] [strawberry_gz_bridge]: Creating ROS->GZ Bridge: [/strawberry/sim/fruit_3/detach_command (std_msgs/msg/Empty) -> /strawberry/sim/fruit_3/detach (gz.msgs.Empty)] (Lazy 0)
+[parameter_bridge-2] [INFO] [1785123853.557585139] [strawberry_gz_bridge]: Creating GZ->ROS Bridge: [/strawberry/sim/fruit_3/attached (gz.msgs.StringMsg) -> /strawberry/sim/fruit_3/attached_state (std_msgs/msg/String)] (Lazy 0)
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="panda"]/link[@name="strawberry_base_camera_link"]/sensor[@name="base_rgbd"]/gz_frame_id:<urdf-string>:L0]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="panda"]/link[@name="strawberry_wrist_camera_link"]/sensor[@name="wrist_rgbd"]/gz_frame_id:<urdf-string>:L0]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[gazebo-1] [INFO] [1785123854.834951163] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_world_joint'] (Entity='100') is skipped.
+[gazebo-1] [INFO] [1785123854.835063341] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_base_camera_mast_joint'] (Entity='101') is skipped.
+[gazebo-1] [INFO] [1785123854.835068380] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_base_camera_joint'] (Entity='102') is skipped.
+[gazebo-1] [INFO] [1785123854.835070761] [gz_ros_control]: [gz_ros2_control] Fixed joint ['strawberry_base_camera_optical_joint'] (Entity='103') is skipped.
+[gazebo-1] [INFO] [1785123854.835078060] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_left_contact_pad_joint'] (Entity='112') is skipped.
+[gazebo-1] [INFO] [1785123854.835081949] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_right_contact_pad_joint'] (Entity='114') is skipped.
+[gazebo-1] [INFO] [1785123854.835084759] [gz_ros_control]: [gz_ros2_control] Fixed joint ['panda_wrist_camera_joint'] (Entity='115') is skipped.
+[gazebo-1] [INFO] [1785123854.835087008] [gz_ros_control]: [gz_ros2_control] Fixed joint ['strawberry_wrist_camera_optical_joint'] (Entity='116') is skipped.
+[gazebo-1] [INFO] [1785123854.838187742] [gz_ros_control]: Loading controller_manager
+[gazebo-1] [INFO] [1785123854.872117869] [controller_manager]: Using ROS clock for triggering controller manager cycles.
+[gazebo-1] [INFO] [1785123854.878798274] [controller_manager]: Subscribing to '/robot_description' topic for robot description.
+[gazebo-1] [WARN] [1785123854.882237208] [gz_ros_control]: Waiting RM to load and initialize hardware...
+[gazebo-1] [INFO] [1785123855.130521178] [controller_manager]: Received robot description from topic.
+[gazebo-1] [INFO] [1785123855.130714245] [controller_manager]: Enforcing command limits is disabled. Command limits from URDF will be ignored.
+[gazebo-1] [INFO] [1785123855.135177454] [gz_ros_control]: The position_proportional_gain has been set to: 1
+[gazebo-1] [INFO] [1785123855.135229706] [gz_ros_control]: Loading joint: panda_joint1
+[gazebo-1] [INFO] [1785123855.135235114] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135238542] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135247662] [gz_ros_control]: 			 found initial value: 0.000000
+[gazebo-1] [INFO] [1785123855.135280982] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135288564] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135290694] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135300395] [gz_ros_control]: Loading joint: panda_joint2
+[gazebo-1] [INFO] [1785123855.135302901] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135304717] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135307100] [gz_ros_control]: 			 found initial value: -0.785000
+[gazebo-1] [INFO] [1785123855.135309933] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135311844] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135313342] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135318299] [gz_ros_control]: Loading joint: panda_joint3
+[gazebo-1] [INFO] [1785123855.135320198] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135321922] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135323874] [gz_ros_control]: 			 found initial value: 0.000000
+[gazebo-1] [INFO] [1785123855.135325804] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135327416] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135328991] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135334062] [gz_ros_control]: Loading joint: panda_joint4
+[gazebo-1] [INFO] [1785123855.135335858] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135337525] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135339209] [gz_ros_control]: 			 found initial value: -2.356000
+[gazebo-1] [INFO] [1785123855.135344304] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135346057] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135347566] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135351939] [gz_ros_control]: Loading joint: panda_joint5
+[gazebo-1] [INFO] [1785123855.135353684] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135355348] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135357623] [gz_ros_control]: 			 found initial value: 0.000000
+[gazebo-1] [INFO] [1785123855.135359622] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135361440] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135363067] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135368477] [gz_ros_control]: Loading joint: panda_joint6
+[gazebo-1] [INFO] [1785123855.135413254] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135418064] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135421098] [gz_ros_control]: 			 found initial value: 1.571000
+[gazebo-1] [INFO] [1785123855.135424450] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135426865] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135428726] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135434442] [gz_ros_control]: Loading joint: panda_joint7
+[gazebo-1] [INFO] [1785123855.135436973] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135438806] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135440315] [gz_ros_control]: 			 found initial value: 0.785000
+[gazebo-1] [INFO] [1785123855.135442708] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135444316] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135445839] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135451153] [gz_ros_control]: Loading joint: panda_finger_joint1
+[gazebo-1] [INFO] [1785123855.135453453] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135455226] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135456896] [gz_ros_control]: 			 found initial value: 0.040000
+[gazebo-1] [INFO] [1785123855.135459139] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135460846] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135462388] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135467945] [gz_ros_control]: Loading joint: panda_finger_joint2
+[gazebo-1] [INFO] [1785123855.135470841] [gz_ros_control]: Joint 'panda_finger_joint2'is mimicking joint 'panda_finger_joint1' with multiplier: 1 and offset: 0
+[gazebo-1] [INFO] [1785123855.135473286] [gz_ros_control]: 	State:
+[gazebo-1] [INFO] [1785123855.135475084] [gz_ros_control]: 		 position
+[gazebo-1] [INFO] [1785123855.135477791] [gz_ros_control]: 			 found initial value: 0.040000
+[gazebo-1] [INFO] [1785123855.135481033] [gz_ros_control]: 		 velocity
+[gazebo-1] [INFO] [1785123855.135482728] [gz_ros_control]: 	Command:
+[gazebo-1] [INFO] [1785123855.135574460] [controller_manager]: Initialize hardware 'PandaGazeboSystem' 
+[gazebo-1] [WARN] [1785123855.135585276] [controller_manager.hardware_component.system.PandaGazeboSystem]: Executor is not available during hardware component initialization for 'PandaGazeboSystem'. Skipping node creation!
+[gazebo-1] [INFO] [1785123855.135628899] [controller_manager]: Successful initialization of hardware 'PandaGazeboSystem'
+[gazebo-1] [INFO] [1785123855.135810883] [controller_manager]: Activating component 'PandaGazeboSystem'.
+[gazebo-1] [INFO] [1785123855.135868624] [resource_manager]: 'configure' hardware 'PandaGazeboSystem' 
+[gazebo-1] [INFO] [1785123855.135873392] [gz_ros_control]: System Successfully configured!
+[gazebo-1] [INFO] [1785123855.135877632] [resource_manager]: Successful 'configure' of hardware 'PandaGazeboSystem'
+[gazebo-1] [INFO] [1785123855.135884342] [resource_manager]: 'activate' hardware 'PandaGazeboSystem' 
+[gazebo-1] [INFO] [1785123855.135897213] [resource_manager]: Successful 'activate' of hardware 'PandaGazeboSystem'
+[gazebo-1] [WARN] [1785123855.135959370] [controller_manager]: Component 'PandaGazeboSystem' does not have read or write statistics initialized, skipping registration.
+[gazebo-1] [INFO] [1785123855.135964439] [controller_manager]: Resource Manager has been successfully initialized. Starting Controller Manager services...
+[gazebo-1] [1;31m[Err] [Physics.cc:1808] [0m[1;31mAttempting to create a mimic constraint for joint [[0m[1;31mpanda_finger_joint2[0m[1;31m] but the chosen physics engine does not support [0m[1;31mmimic constraints, so no constraint will be [0m[1;31mcreated.[0m[1;31m[0m
+[gazebo-1] [WARN] [1785123856.935500490] [gz_ros_control]:  Desired controller update period (0.01 s) is slower than the gazebo simulation period (0.001 s).
+[INFO] [spawner-8]: process started with pid [20141]
+[INFO] [spawner-9]: process started with pid [20142]
+[INFO] [spawner-10]: process started with pid [20143]
+[spawner-10] [INFO] [1785123857.597894208] [spawner_panda_gripper_controller]: waiting for service /controller_manager/list_controllers to become available...
+[gazebo-1] [INFO] [1785123858.991685707] [controller_manager]: Loading controller : 'panda_gripper_controller' of type 'parallel_gripper_action_controller/GripperActionController'
+[gazebo-1] [INFO] [1785123858.991798663] [controller_manager]: Loading controller 'panda_gripper_controller'
+[gazebo-1] [INFO] [1785123859.002207856] [controller_manager]: Controller 'panda_gripper_controller' node arguments: --ros-args --params-file /home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/panda_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-10] [INFO] [1785123859.057724169] [spawner_panda_gripper_controller]: Loaded panda_gripper_controller
+[gazebo-1] [INFO] [1785123859.059247674] [controller_manager]: Configuring controller: 'panda_gripper_controller'
+[gazebo-1] [INFO] [1785123859.059621219] [panda_gripper_controller]: Action status changes will be monitored at 20.000000 Hz.
+[gazebo-1] [INFO] [1785123859.059695622] [panda_gripper_controller]: Joint name is : panda_finger_joint1
+[gazebo-1] [INFO] [1785123859.067414275] [controller_manager]: Activating controllers: [ panda_gripper_controller ]
+[gazebo-1] [INFO] [1785123859.096456373] [controller_manager]: Successfully switched controllers!
+[spawner-10] [INFO] [1785123859.130112938] [spawner_panda_gripper_controller]: Configured and activated panda_gripper_controller
+[spawner-8] [INFO] [1785123859.233287273] [spawner_joint_state_broadcaster]: waiting for service /controller_manager/list_controllers to become available...
+[INFO] [spawner-10]: process has finished cleanly [pid 20143]
+[gazebo-1] [INFO] [1785123859.486396706] [controller_manager]: Loading controller : 'joint_state_broadcaster' of type 'joint_state_broadcaster/JointStateBroadcaster'
+[gazebo-1] [INFO] [1785123859.486507799] [controller_manager]: Loading controller 'joint_state_broadcaster'
+[gazebo-1] [INFO] [1785123859.490511628] [controller_manager]: Controller 'joint_state_broadcaster' node arguments: --ros-args --params-file /home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/panda_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-8] [INFO] [1785123859.547135539] [spawner_joint_state_broadcaster]: Loaded joint_state_broadcaster
+[gazebo-1] [INFO] [1785123859.549223090] [controller_manager]: Configuring controller: 'joint_state_broadcaster'
+[gazebo-1] [INFO] [1785123859.549404104] [joint_state_broadcaster]: 'joints' or 'interfaces' parameter is empty. All available state interfaces will be published
+[gazebo-1] [INFO] [1785123859.557570113] [controller_manager]: Activating controllers: [ joint_state_broadcaster ]
+[gazebo-1] [INFO] [1785123859.565529907] [controller_manager]: Successfully switched controllers!
+[spawner-8] [INFO] [1785123859.576870201] [spawner_joint_state_broadcaster]: Configured and activated joint_state_broadcaster
+[spawner-9] [INFO] [1785123859.677536371] [spawner_panda_arm_controller]: waiting for service /controller_manager/list_controllers to become available...
+[INFO] [spawner-8]: process has finished cleanly [pid 20141]
+[gazebo-1] [INFO] [1785123862.001739581] [controller_manager]: Loading controller : 'panda_arm_controller' of type 'joint_trajectory_controller/JointTrajectoryController'
+[gazebo-1] [INFO] [1785123862.001971523] [controller_manager]: Loading controller 'panda_arm_controller'
+[gazebo-1] [INFO] [1785123862.018848586] [controller_manager]: Controller 'panda_arm_controller' node arguments: --ros-args --params-file /home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/panda_controllers.yaml -p use_sim_time:=true --param use_sim_time:=true 
+[spawner-9] [INFO] [1785123862.153199149] [spawner_panda_arm_controller]: Loaded panda_arm_controller
+[gazebo-1] [INFO] [1785123862.157899219] [controller_manager]: Configuring controller: 'panda_arm_controller'
+[gazebo-1] [INFO] [1785123862.158693698] [panda_arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.
+[gazebo-1] [INFO] [1785123862.158820225] [panda_arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].
+[gazebo-1] [INFO] [1785123862.158901158] [panda_arm_controller]: Using 'splines' interpolation method.
+[gazebo-1] [INFO] [1785123862.169620761] [panda_arm_controller]: Action status changes will be monitored at 20.00 Hz.
+[gazebo-1] [INFO] [1785123862.190450009] [panda_arm_controller]: Setting initial scaling factor to 1.000000
+[gazebo-1] [INFO] [1785123862.190625795] [panda_arm_controller]: No scaling interface set. This controller will not read speed scaling from the hardware.
+[gazebo-1] [INFO] [1785123862.274972130] [controller_manager]: Activating controllers: [ panda_arm_controller ]
+[gazebo-1] [INFO] [1785123862.284394358] [controller_manager]: Successfully switched controllers!
+[spawner-9] [INFO] [1785123862.298881786] [spawner_panda_arm_controller]: Configured and activated panda_arm_controller
+[INFO] [spawner-9]: process has finished cleanly [pid 20142]
+[gazebo-1] [INFO] [1785123886.129885046] [controller_manager]: Received robot description from topic.
+[gazebo-1] [WARN] [1785123886.129991264] [controller_manager]: ResourceManager has already loaded a urdf. Ignoring attempt to reload a robot description.

@@ -142,6 +142,16 @@ def localization_retry_is_fresh(
     return -sync_tolerance_sec <= age <= stale_after_sec
 
 
+def validate_sensor_qos_depth(value: int) -> int:
+    """Validate a bounded sensor subscription history depth."""
+
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("sensor QoS depth must be a positive integer")
+    if value > 120:
+        raise ValueError("sensor QoS depth cannot exceed 120")
+    return value
+
+
 def validate_selection_roi(
     roi_xyxy_px: Sequence[int] | None,
 ) -> tuple[int, int, int, int] | None:
@@ -234,11 +244,26 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("sync_tolerance_sec", 0.05)
             self.declare_parameter("sensor_cache_capacity", 60)
             self.declare_parameter("sensor_cache_retention_sec", 2.0)
+            self.declare_parameter("sensor_qos_depth", 5)
             self.declare_parameter("center_fraction", 0.30)
             self.declare_parameter("min_depth_m", 0.05)
             self.declare_parameter("max_depth_m", 5.0)
             self.declare_parameter("min_valid_pixels", 9)
             self.declare_parameter("surface_to_center_offset_m", 0.0)
+            self.declare_parameter("depth_estimator_mode", "center_median")
+            self.declare_parameter("geometry_search_fraction", 1.0)
+            self.declare_parameter("geometry_layer_gap_m", 0.015)
+            self.declare_parameter("geometry_min_layer_fraction", 0.03)
+            self.declare_parameter(
+                "geometry_expected_depth_tolerance_m", 0.08
+            )
+            self.declare_parameter("geometry_ambiguity_margin_m", 0.01)
+            self.declare_parameter(
+                "geometry_ambiguity_min_support_ratio", 0.50
+            )
+            self.declare_parameter(
+                "geometry_bbox_quantization_margin_px", 0.0
+            )
             self.declare_parameter("ground_truth_association_enabled", True)
             self.declare_parameter("association_max_distance_m", 0.08)
             self.declare_parameter("camera_info_topic", "/camera/camera_info")
@@ -287,18 +312,25 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 str(self.get_parameter("target_pose_topic").value),
                 10,
             )
+            sensor_qos = QoSProfile(
+                depth=validate_sensor_qos_depth(
+                    self.get_parameter("sensor_qos_depth").value
+                )
+            )
+            sensor_qos.reliability = ReliabilityPolicy.BEST_EFFORT
+            sensor_qos.durability = DurabilityPolicy.VOLATILE
             self.create_subscription(
                 CameraInfo,
                 str(self.get_parameter("camera_info_topic").value),
                 self._on_camera_info,
-                qos_profile_sensor_data,
+                sensor_qos,
                 callback_group=self._sensor_callback_group,
             )
             self.create_subscription(
                 Image,
                 str(self.get_parameter("depth_topic").value),
                 self._on_depth,
-                qos_profile_sensor_data,
+                sensor_qos,
                 callback_group=self._sensor_callback_group,
             )
             self.create_subscription(
@@ -667,6 +699,36 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     ),
                     surface_to_center_offset_m=float(
                         self.get_parameter("surface_to_center_offset_m").value
+                    ),
+                    depth_estimator_mode=str(
+                        self.get_parameter("depth_estimator_mode").value
+                    ),
+                    geometry_search_fraction=float(
+                        self.get_parameter("geometry_search_fraction").value
+                    ),
+                    geometry_layer_gap_m=float(
+                        self.get_parameter("geometry_layer_gap_m").value
+                    ),
+                    geometry_min_layer_fraction=float(
+                        self.get_parameter("geometry_min_layer_fraction").value
+                    ),
+                    geometry_expected_depth_tolerance_m=float(
+                        self.get_parameter(
+                            "geometry_expected_depth_tolerance_m"
+                        ).value
+                    ),
+                    geometry_ambiguity_margin_m=float(
+                        self.get_parameter("geometry_ambiguity_margin_m").value
+                    ),
+                    geometry_ambiguity_min_support_ratio=float(
+                        self.get_parameter(
+                            "geometry_ambiguity_min_support_ratio"
+                        ).value
+                    ),
+                    geometry_bbox_quantization_margin_px=float(
+                        self.get_parameter(
+                            "geometry_bbox_quantization_margin_px"
+                        ).value
                     ),
                 )
             except (LocalizationError, TypeError, ValueError) as exc:

@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "matrix_id": "rendered_occlusion_localization_matrix_v1",
+  "scope": "NON_FORMAL_RENDERED_OCCLUSION_LOCALIZATION",
+  "status": "FROZEN_EXECUTION_AUTHORIZED",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "bindings": {
+    "decision_record": {
+      "path": "docs/decisions/0063-freeze-rendered-occlusion-localization-matrix.md",
+      "size_bytes": 4224,
+      "sha256": "a7562ccefe24d443527ec344a9a3bfa6573e404c3ca7066fad3e0e492b13cdc0"
+    },
+    "base_world": {
+      "path": "ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sdf",
+      "size_bytes": 4710,
+      "sha256": "aeb61d02ee7fe79cccd97bba34e43b9a9319cd66cfb45c91a6e6cd8929c8b487"
+    },
+    "scene_manifest": {
+      "path": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "size_bytes": 1927,
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093"
+    },
+    "condition_config": {
+      "path": "config/rendered_occlusion_localization_conditions_v1.json",
+      "size_bytes": 2330,
+      "sha256": "b4a51949a93cf367d5dab1e2335b392f8b8079505c2d4a53d13bab3bd31647f3"
+    },
+    "center_localization_config": {
+      "path": "ros2_ws/src/strawberry_localization/config/localization_rendered_center_v1.yaml",
+      "size_bytes": 1131,
+      "sha256": "bb5e33bf019563c0c386c64276dc30bb052b8e915931381b0d19e00a674191f0"
+    },
+    "geometry_localization_config": {
+      "path": "ros2_ws/src/strawberry_localization/config/localization_rendered_geometry_layer_v1.yaml",
+      "size_bytes": 1486,
+      "sha256": "9e8bb613c1e0b5dc5a0f0e21f16dff09d526102cfa5fc2a8a55ca6f621c86f02"
+    },
+    "localization_core": {
+      "path": "ros2_ws/src/strawberry_localization/strawberry_localization/core.py",
+      "size_bytes": 27119,
+      "sha256": "14ae123a98b7083ef87bca8eb782ff024e49bc99056efc594c0076465985b9ec"
+    },
+    "localization_node": {
+      "path": "ros2_ws/src/strawberry_localization/strawberry_localization/node.py",
+      "size_bytes": 38781,
+      "sha256": "7df8eb67b6e1214e0f19f215ec29949ddad00b380285fd8227fe5a339fc29f7b"
+    },
+    "trial_probe": {
+      "path": "scripts/probe_paired_rendered_localization.py",
+      "size_bytes": 16544,
+      "sha256": "b77d11be3166d2ccfe6b90397d4a39985096a2a2196980d04a2592d9e802595f"
+    },
+    "validator": {
+      "path": "scripts/validate_rendered_occlusion_localization_matrix.py",
+      "size_bytes": 7582,
+      "sha256": "d564086569dffcbf984f7044c678fbac452415d619503f59e89bb17ca0025fba"
+    },
+    "summarizer": {
+      "path": "scripts/summarize_rendered_occlusion_localization_matrix.py",
+      "size_bytes": 11328,
+      "sha256": "1ce0e91e9f4db67ea818bae0e88e301fbe18d04f5586a78e2b7f7890034b78cd"
+    },
+    "runner": {
+      "path": "scripts/run_rendered_occlusion_localization_matrix.sh",
+      "size_bytes": 7776,
+      "sha256": "379015c9733593592acc211cda12061013f61d0fc9767f61e5e44fb4d51bc3d5"
+    }
+  },
+  "positions": [
+    {"label": "near_left", "position_m": [0.44, -0.10, 0.48]},
+    {"label": "near_right", "position_m": [0.50, -0.05, 0.52]},
+    {"label": "center", "position_m": [0.47, -0.075, 0.50]},
+    {"label": "far_left", "position_m": [0.44, 0.00, 0.52]},
+    {"label": "far_right", "position_m": [0.47, -0.025, 0.48]}
+  ],
+  "conditions": [
+    {"label": "nominal_none", "lighting": "nominal", "occlusion": "none"},
+    {"label": "nominal_partial", "lighting": "nominal", "occlusion": "partial"},
+    {"label": "nominal_heavy", "lighting": "nominal", "occlusion": "heavy"}
+  ],
+  "runtime": {
+    "samples_per_scenario": 20,
+    "scenario_count": 15,
+    "simulation_seed": 20260805,
+    "base_ros_domain_id": 150,
+    "pair_wait_sec": 0.5,
+    "oracle_bbox_padding": 1.0,
+    "ground_truth_association_in_localizers": false
+  },
+  "thresholds": {
+    "none_blue_coverage_max": 0.02,
+    "partial_blue_coverage_min": 0.05,
+    "heavy_blue_coverage_min": 0.35,
+    "heavy_blue_coverage_max": 0.98,
+    "heavy_minus_partial_coverage_min": 0.15,
+    "geometry_none_acceptance_min_each_position": 0.95,
+    "geometry_partial_acceptance_min_each_position": 0.80,
+    "geometry_heavy_acceptance_min_each_position": 0.60,
+    "geometry_p95_error_mm_max_each_condition": 30.0,
+    "planning_sigma_m_max": 0.015
+  },
+  "safety": {
+    "robot_motion_authorized": false,
+    "gripper_command_authorized": false,
+    "manipulation_authorized": false,
+    "orchestrator_authorized": false,
+    "attachment_authorized": false,
+    "perception_model_authorized": false,
+    "simulated_fruit_pose_motion_authorized": true,
+    "visual_only_occluder_authorized": true
+  },
+  "execution": {
+    "maximum_claims": 1,
+    "retry_authorized": false,
+    "output_directory": "results/development/rendered_occlusion_localization_matrix_v1"
+  }
+}

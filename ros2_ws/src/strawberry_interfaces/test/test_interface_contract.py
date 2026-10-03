@@ -62,6 +62,79 @@ class InterfaceContractTest(unittest.TestCase):
             ],
         )
 
+    def test_tracked_target_schema_carries_stable_identity_and_quality(self) -> None:
+        self.assertEqual(
+            schema_lines("msg/TrackedTarget.msg"),
+            [
+                "std_msgs/Header header",
+                "uint32 track_id",
+                "uint32 source_detection_id",
+                "uint8 UNKNOWN=0",
+                "uint8 RIPE=1",
+                "uint8 UNRIPE=2",
+                "uint8 maturity",
+                "geometry_msgs/Pose pose",
+                "float32 detection_confidence",
+                "float32 position_sigma_m",
+                "uint32 observation_count",
+            ],
+        )
+        self.assertEqual(
+            schema_lines("msg/TrackedTargetArray.msg"),
+            [
+                "std_msgs/Header header",
+                "strawberry_interfaces/TrackedTarget[] targets",
+            ],
+        )
+
+    def test_observation_plan_contains_a_bounded_runtime_pose_bank(self) -> None:
+        self.assertEqual(
+            schema_lines("msg/ObservationPlan.msg"),
+            [
+                "std_msgs/Header header",
+                "uint32 target_id",
+                "geometry_msgs/Pose[] hand_poses",
+            ],
+        )
+
+    def test_candidate_qualification_schema_is_plan_only_and_traceable(self) -> None:
+        self.assertEqual(
+            schema_lines("msg/GraspCandidateEvaluation.msg"),
+            [
+                "string candidate_id",
+                "string geometry_fingerprint",
+                "string result",
+                "bool feasible",
+                "float32 allocated_budget_sec",
+                "float32 planning_time_sec",
+                "float32 joint_travel_rad",
+                "string[] stages",
+                "string detail",
+            ],
+        )
+        self.assertEqual(
+            schema_lines("srv/QualifyGraspCandidates.srv"),
+            [
+                "uint32 target_id",
+                "geometry_msgs/PoseStamped target_pose",
+                "geometry_msgs/PoseStamped place_pose",
+                "---",
+                "bool feasible",
+                "bool plan_only",
+                "bool scene_isolated",
+                "bool cleanup_succeeded",
+                "string status",
+                "string selected_candidate_id",
+                "string geometry_fingerprint",
+                "string certificate_fingerprint",
+                "string scene_signature",
+                "float32 planning_time_sec",
+                "float32 joint_travel_rad",
+                "strawberry_interfaces/GraspCandidateEvaluation[] evaluations",
+                "string message",
+            ],
+        )
+
     def test_action_goal_result_and_feedback(self) -> None:
         sections: list[list[str]] = [[]]
         for line in schema_lines("action/PickAndPlace.action"):
@@ -80,10 +153,11 @@ class InterfaceContractTest(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            sections[1][-5:],
+            sections[1][-6:],
             [
                 "bool success",
                 "uint8 failure_code",
+                "uint8 recovery_disposition",
                 "float32 planning_time_sec",
                 "float32 execution_time_sec",
                 "string message",
@@ -91,7 +165,35 @@ class InterfaceContractTest(unittest.TestCase):
         )
         self.assertEqual(sections[2], ["string stage", "float32 progress"])
 
-    def test_failure_codes_are_stable_and_contiguous(self) -> None:
+    def test_observation_motion_service_is_bounded_and_typed(self) -> None:
+        self.assertEqual(
+            schema_lines("srv/MoveToObservation.srv"),
+            [
+                "uint32 target_id",
+                "geometry_msgs/PoseStamped target_pose",
+                "geometry_msgs/PoseStamped observation_pose",
+                "---",
+                "bool success",
+                "float32 planning_time_sec",
+                "float32 execution_time_sec",
+                "string message",
+            ],
+        )
+        self.assertEqual(
+            schema_lines("srv/EvaluateTarget.srv"),
+            [
+                "uint32 target_id",
+                "geometry_msgs/PoseStamped target_pose",
+                "---",
+                "bool feasible",
+                "bool collision",
+                "float32 planning_time_sec",
+                "float32 joint_travel_rad",
+                "string message",
+            ],
+        )
+
+    def test_action_result_codes_are_stable(self) -> None:
         expected = {
             "NONE": 0,
             "NO_TARGET": 1,
@@ -104,6 +206,9 @@ class InterfaceContractTest(unittest.TestCase):
             "GRASP_FAILED": 8,
             "PLACE_FAILED": 9,
             "STALE_DATA": 10,
+            "RECOVERY_MOTION_WITHHELD": 0,
+            "RECOVERY_AT_HOME": 1,
+            "RECOVERY_HOME_REQUIRED": 2,
         }
         declarations = schema_lines("action/PickAndPlace.action")
         actual = {}
@@ -142,6 +247,13 @@ class InterfaceContractTest(unittest.TestCase):
             "msg/StrawberryDetection.msg",
             "msg/StrawberryDetectionArray.msg",
             "msg/TargetPose.msg",
+            "msg/TrackedTarget.msg",
+            "msg/TrackedTargetArray.msg",
+            "msg/ObservationPlan.msg",
+            "msg/GraspCandidateEvaluation.msg",
+            "srv/MoveToObservation.srv",
+            "srv/EvaluateTarget.srv",
+            "srv/QualifyGraspCandidates.srv",
             "action/PickAndPlace.action",
         ):
             self.assertIn(f'"{interface}"', cmake)

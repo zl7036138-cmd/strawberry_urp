@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import partial
 import inspect
+import json
 import signal
 import threading
 import time
@@ -12,11 +13,15 @@ import time
 from .core import (
     AttachmentGate,
     BinStabilityTracker,
+    ContactStabilityTracker,
     Pose3D,
+    classify_anonymous_fruit_contacts,
     dual_pad_geometric_contact,
     load_scene_config,
     parse_attachment_state,
+    select_unique_contact_target,
 )
+from .attachment_transfer import transfer_stem_to_gripper, state_confirmed
 
 
 def _shutdown_executor_and_wait(executor, timeout_sec: float | None = None) -> bool:
@@ -86,11 +91,13 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
     @dataclass
     class FruitRuntime:
         target_id: int
-        condition: threading.Condition = field(
-            default_factory=threading.Condition
-        )
+        condition: threading.Condition = field(default_factory=threading.Condition)
         state_known: bool = False
+        state_generation: int = 0
         attached: bool = False
+        stem_state_known: bool = False
+        stem_state_generation: int = 0
+        stem_attached: bool = False
         left_contact: bool = False
         left_stamp_sec: float | None = None
         right_contact: bool = False
@@ -99,6 +106,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
         latest_pose_stamp_sec: float | None = None
         attach_publisher: object | None = None
         detach_publisher: object | None = None
+        stem_attach_publisher: object | None = None
+        stem_detach_publisher: object | None = None
 
     class AttachmentManager(Node):
         def __init__(self) -> None:
@@ -107,13 +116,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self.declare_parameter("attachment_backend_enabled", False)
             self.declare_parameter("contact_freshness_sec", 0.25)
             self.declare_parameter("geometric_contact_fallback", True)
-            self.declare_parameter("fruit_collision_radius_m", 0.026)
             self.declare_parameter("geometric_contact_margin_m", 0.003)
             self.declare_parameter("confirmation_timeout_wall_sec", 0.75)
             self.declare_parameter("verification_timeout_wall_sec", 3.0)
             self.declare_parameter("backend_initialization_attempts", 10)
             self.declare_parameter("backend_initialization_period_sec", 0.20)
             self.declare_parameter("resume_world_after_initialization", False)
+            self.declare_parameter("stem_constraints_enabled", False)
+            self.declare_parameter("stem_release_before_gripper_attach", False)
+            self.declare_parameter("contact_resolved_only", False)
             self.declare_parameter(
                 "world_control_service",
                 "/world/strawberry_orchard/control",
@@ -138,14 +149,21 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._resume_world = bool(
                 self.get_parameter("resume_world_after_initialization").value
             )
+            self._stem_constraints_enabled = bool(
+                self.get_parameter("stem_constraints_enabled").value
+            )
+            self._stem_release_before_gripper_attach = bool(
+                self.get_parameter("stem_release_before_gripper_attach").value
+            )
+            self._contact_resolved_only = bool(
+                self.get_parameter("contact_resolved_only").value
+            )
             if self._confirmation_timeout <= 0.0 or self._verification_timeout <= 0.0:
                 raise RuntimeError("service wall timeouts must be positive")
             if self._max_initialization_attempts <= 0:
                 raise RuntimeError("backend_initialization_attempts must be positive")
             if self._resume_world and not self._backend_enabled:
-                raise RuntimeError(
-                    "world resume gate requires the attachment backend"
-                )
+                raise RuntimeError("world resume gate requires the attachment backend")
 
             self._gate = AttachmentGate(
                 float(self.get_parameter("contact_freshness_sec").value)
@@ -153,9 +171,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             self._geometric_contact_fallback = bool(
                 self.get_parameter("geometric_contact_fallback").value
             )
-            fruit_radius = float(
-                self.get_parameter("fruit_collision_radius_m").value
-            )
+            fruit_radius = self._scene.fruit_collision_radius_m
             geometric_margin = float(
                 self.get_parameter("geometric_contact_margin_m").value
             )
@@ -164,8 +180,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     "geometric contact radius must be positive and margin non-negative"
                 )
             self._geometric_contact_distance = fruit_radius + geometric_margin
-            self._stability = BinStabilityTracker(
-                self._scene.bin_bounds, self._scene.bin_stability_sec
+            self._stability = (
+                None
+                if self._contact_resolved_only
+                else BinStabilityTracker(
+                    self._scene.bin_bounds,
+                    self._scene.bin_stability_sec,
+                )
+            )
+            self._bin_contact_stability = ContactStabilityTracker(
+                self._scene.bin_stability_sec,
+                contact_freshness_sec=float(
+                    self.get_parameter("contact_freshness_sec").value
+                ),
             )
             self._group = ReentrantCallbackGroup()
             self._tf_buffer = Buffer()
@@ -176,12 +203,22 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 fruit.target_id: FruitRuntime(fruit.target_id)
                 for fruit in self._scene.ordered_fruits
             }
+            # This identity-bearing stream is evidence only.  Its truth
+            # namespace makes accidental use by perception/control visible to
+            # the ROS graph isolation audit.
+            self._score_event_publisher = self.create_publisher(
+                String,
+                "/strawberry/ground_truth/harvest_events",
+                10,
+            )
             self._managed_subscriptions: list[object] = []
             self._managed_services: list[object] = []
             self._initialization_attempts = 0
             self._initialization_complete = False
             self._initialization_timer = None
             self._initialization_lock = threading.RLock()
+            self._contact_target_lock = threading.RLock()
+            self._contact_resolved_target_id: int | None = None
             self._world_control_client = None
             self._world_resume_future = None
             self._shutting_down = False
@@ -206,60 +243,119 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 runtime.detach_publisher = self.create_publisher(
                     Empty, f"{prefix}/detach_command", 10
                 )
-                self._managed_subscriptions.extend(
-                    [
-                        self.create_subscription(
-                            String,
-                            f"{prefix}/attached_state",
-                            partial(self._on_attachment_state, fruit.target_id),
-                            10,
-                            callback_group=self._group,
-                        ),
-                        self.create_subscription(
-                            Bool,
-                            f"{prefix}/left_contact",
-                            partial(self._on_contact, fruit.target_id, "left"),
-                            qos_profile_sensor_data,
-                            callback_group=self._group,
-                        ),
-                        self.create_subscription(
-                            Bool,
-                            f"{prefix}/right_contact",
-                            partial(self._on_contact, fruit.target_id, "right"),
-                            qos_profile_sensor_data,
-                            callback_group=self._group,
-                        ),
+                if self._stem_constraints_enabled:
+                    runtime.stem_attach_publisher = self.create_publisher(
+                        Empty, f"{prefix}/stem_attach_command", 10
+                    )
+                    runtime.stem_detach_publisher = self.create_publisher(
+                        Empty, f"{prefix}/stem_detach_command", 10
+                    )
+                subscriptions = [
+                    self.create_subscription(
+                        String,
+                        f"{prefix}/attached_state",
+                        partial(self._on_attachment_state, fruit.target_id),
+                        10,
+                        callback_group=self._group,
+                    ),
+                    self.create_subscription(
+                        Bool,
+                        f"{prefix}/left_contact",
+                        partial(self._on_contact, fruit.target_id, "left"),
+                        qos_profile_sensor_data,
+                        callback_group=self._group,
+                    ),
+                    self.create_subscription(
+                        Bool,
+                        f"{prefix}/right_contact",
+                        partial(self._on_contact, fruit.target_id, "right"),
+                        qos_profile_sensor_data,
+                        callback_group=self._group,
+                    ),
+                    self.create_subscription(
+                        Bool,
+                        f"{prefix}/bin_contact",
+                        partial(self._on_bin_contact, fruit.target_id),
+                        qos_profile_sensor_data,
+                        callback_group=self._group,
+                    ),
+                ]
+                if not self._contact_resolved_only:
+                    subscriptions.append(
                         self.create_subscription(
                             PoseStamped,
                             fruit.ground_truth_pose_topic,
                             partial(self._on_pose, fruit.target_id),
                             qos_profile_sensor_data,
                             callback_group=self._group,
-                        ),
-                    ]
-                )
-                self._managed_services.extend(
-                    [
-                        self.create_service(
-                            Trigger,
-                            f"{prefix}/attach",
-                            partial(self._attach, fruit.target_id),
+                        )
+                    )
+                self._managed_subscriptions.extend(subscriptions)
+                if self._stem_constraints_enabled:
+                    self._managed_subscriptions.append(
+                        self.create_subscription(
+                            String,
+                            f"{prefix}/stem_attached_state",
+                            partial(
+                                self._on_stem_attachment_state,
+                                fruit.target_id,
+                            ),
+                            10,
                             callback_group=self._group,
-                        ),
-                        self.create_service(
-                            Trigger,
-                            f"{prefix}/detach",
-                            partial(self._detach, fruit.target_id),
-                            callback_group=self._group,
-                        ),
-                        self.create_service(
-                            Trigger,
-                            f"{prefix}/verify_in_bin",
-                            partial(self._verify_in_bin, fruit.target_id),
-                            callback_group=self._group,
-                        ),
-                    ]
-                )
+                        )
+                    )
+                if not self._contact_resolved_only:
+                    self._managed_services.extend(
+                        [
+                            self.create_service(
+                                Trigger,
+                                f"{prefix}/attach",
+                                partial(self._attach, fruit.target_id),
+                                callback_group=self._group,
+                            ),
+                            self.create_service(
+                                Trigger,
+                                f"{prefix}/detach",
+                                partial(self._detach, fruit.target_id),
+                                callback_group=self._group,
+                            ),
+                            self.create_service(
+                                Trigger,
+                                f"{prefix}/verify_in_bin",
+                                partial(self._verify_in_bin, fruit.target_id),
+                                callback_group=self._group,
+                            ),
+                        ]
+                    )
+
+            self._managed_services.extend(
+                [
+                    self.create_service(
+                        Trigger,
+                        "/strawberry/sim/contact_target/attach",
+                        self._attach_contact_target,
+                        callback_group=self._group,
+                    ),
+                    self.create_service(
+                        Trigger,
+                        "/strawberry/sim/contact_target/detach",
+                        self._detach_contact_target,
+                        callback_group=self._group,
+                    ),
+                    self.create_service(
+                        Trigger,
+                        "/strawberry/sim/contact_target/verify_in_bin",
+                        self._verify_contact_target_in_bin,
+                        callback_group=self._group,
+                    ),
+                    self.create_service(
+                        Trigger,
+                        "/strawberry/sim/contact_target/contact_class",
+                        self._contact_target_class,
+                        callback_group=self._group,
+                    ),
+                ]
+            )
 
             if self._backend_enabled:
                 period = float(
@@ -271,9 +367,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 # created before that transition may be scheduled against wall
                 # time and then jump far into the future when simulation time
                 # starts. Infrastructure retries therefore use a steady clock.
-                self._initialization_clock = Clock(
-                    clock_type=ClockType.STEADY_TIME
-                )
+                self._initialization_clock = Clock(clock_type=ClockType.STEADY_TIME)
                 self._initialization_timer = self.create_timer(
                     period,
                     self._initialize_backend,
@@ -282,13 +376,29 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 )
                 self.get_logger().warn(
                     "attachment backend enabled; waiting for every DetachableJoint "
-                    "to confirm the detached startup state"
+                    "to confirm the safe startup state"
                 )
             else:
                 self.get_logger().warn(
                     "attachment backend disabled: attach, detach, and verification "
                     "services will reject requests safely"
                 )
+
+        def _publish_score_event(self, event: str, target_id: int) -> None:
+            fruit = self._scene.fruit(int(target_id))
+            message = String()
+            message.data = json.dumps(
+                {
+                    "schema_version": 1,
+                    "scope": "SIMULATION_GROUND_TRUTH_SCORING_ONLY",
+                    "event": str(event),
+                    "target_id": int(target_id),
+                    "maturity": fruit.maturity,
+                    "sim_time_sec": self._sim_time_sec(),
+                },
+                separators=(",", ":"),
+            )
+            self._score_event_publisher.publish(message)
 
         def _sim_time_sec(self) -> float:
             return self.get_clock().now().nanoseconds / 1_000_000_000.0
@@ -308,7 +418,24 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             runtime = self._runtime[target_id]
             with runtime.condition:
                 runtime.state_known = True
+                runtime.state_generation += 1
                 runtime.attached = attached
+                runtime.condition.notify_all()
+            self._complete_initialization_if_ready()
+
+        def _on_stem_attachment_state(self, target_id: int, message) -> None:
+            if self._is_shutting_down():
+                return
+            try:
+                attached = parse_attachment_state(message.data)
+            except ValueError as exc:
+                self.get_logger().error(str(exc))
+                return
+            runtime = self._runtime[target_id]
+            with runtime.condition:
+                runtime.stem_state_known = True
+                runtime.stem_state_generation += 1
+                runtime.stem_attached = attached
                 runtime.condition.notify_all()
             self._complete_initialization_if_ready()
 
@@ -326,6 +453,19 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     runtime.right_stamp_sec = stamp
                 runtime.condition.notify_all()
 
+        def _on_bin_contact(self, target_id: int, message) -> None:
+            if self._is_shutting_down():
+                return
+            stamp = self._sim_time_sec()
+            self._bin_contact_stability.update(
+                target_id,
+                bool(message.data),
+                stamp,
+            )
+            runtime = self._runtime[target_id]
+            with runtime.condition:
+                runtime.condition.notify_all()
+
         def _on_pose(self, target_id: int, message) -> None:
             if self._is_shutting_down():
                 return
@@ -337,7 +477,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 stamp = self._sim_time_sec()
             position = message.pose.position
             pose = Pose3D(float(position.x), float(position.y), float(position.z))
-            self._stability.update(target_id, pose, stamp)
+            if self._stability is not None:
+                self._stability.update(target_id, pose, stamp)
             runtime = self._runtime[target_id]
             with runtime.condition:
                 runtime.latest_pose = pose
@@ -404,9 +545,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 # infrastructure error for the cancellation requested by
                 # prepare_shutdown().
                 if not shutting_down:
-                    self.get_logger().error(
-                        f"world resume request failed: {exc}"
-                    )
+                    self.get_logger().error(f"world resume request failed: {exc}")
                 return
             with self._initialization_lock:
                 if self._world_resume_future is future:
@@ -415,12 +554,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             if shutting_down:
                 return
             if response is None or not response.success:
-                self.get_logger().error(
-                    "Gazebo rejected the world resume request"
-                )
+                self.get_logger().error("Gazebo rejected the world resume request")
                 return
             self._finish_initialization(
-                "attachment backend initialized with all fruits detached; "
+                "attachment backend initialized with grippers detached and "
+                "plant supports confirmed; "
                 "Gazebo physics resumed"
             )
 
@@ -432,11 +570,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     runtime.state_known and not runtime.attached
                     for runtime in self._runtime.values()
                 )
-                if not detached:
+                stems_supported = not self._stem_constraints_enabled or all(
+                    runtime.stem_state_known and runtime.stem_attached
+                    for runtime in self._runtime.values()
+                )
+                if not detached or not stems_supported:
                     return
                 if not self._resume_world:
                     self._finish_initialization(
-                        "attachment backend initialized with all fruits detached"
+                        "attachment backend initialized with grippers detached"
                     )
                     return
                 if self._world_resume_future is not None:
@@ -452,8 +594,8 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 self._world_resume_future = future
             future.add_done_callback(self._on_world_resume)
             self.get_logger().info(
-                "all fruits detached at their initial poses; requesting Gazebo "
-                "physics resume"
+                "all gripper attachments detached and plant supports confirmed; "
+                "requesting Gazebo physics resume"
             )
 
         def _initialize_backend(self) -> None:
@@ -466,7 +608,7 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 if self._initialization_timer is not None:
                     self._initialization_timer.cancel()
                 self.get_logger().error(
-                    "attachment backend did not confirm a detached startup state; "
+                    "attachment backend did not confirm a safe startup state; "
                     "services remain locked"
                 )
                 return
@@ -474,11 +616,17 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             for runtime in self._runtime.values():
                 if not runtime.state_known or runtime.attached:
                     runtime.detach_publisher.publish(Empty())
+                if self._stem_constraints_enabled and (
+                    not runtime.stem_state_known or not runtime.stem_attached
+                ):
+                    runtime.stem_attach_publisher.publish(Empty())
 
-        def _wait_for_state(self, runtime: FruitRuntime, desired: bool) -> bool:
+        def _wait_for_state(self, runtime: FruitRuntime, desired: bool, *, after_generation=None) -> bool:
             deadline = time.monotonic() + self._confirmation_timeout
             with runtime.condition:
-                while not (runtime.state_known and runtime.attached is desired):
+                while not state_confirmed(known=runtime.state_known, value=runtime.attached,
+                                          generation=runtime.state_generation, desired=desired,
+                                          after_generation=after_generation):
                     if self._is_shutting_down():
                         return False
                     remaining = deadline - time.monotonic()
@@ -487,8 +635,27 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     runtime.condition.wait(timeout=remaining)
                 return True
 
-        def _attach(self, target_id: int, request, response):
-            del request
+        def _wait_for_stem_state(self, runtime: FruitRuntime, desired: bool, *, after_generation=None) -> bool:
+            deadline = time.monotonic() + self._confirmation_timeout
+            with runtime.condition:
+                while not state_confirmed(known=runtime.stem_state_known, value=runtime.stem_attached,
+                                          generation=runtime.stem_state_generation, desired=desired,
+                                          after_generation=after_generation):
+                    if self._is_shutting_down():
+                        return False
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0.0:
+                        return False
+                    runtime.condition.wait(timeout=remaining)
+                return True
+
+        def _attach_selected(
+            self,
+            target_id: int,
+            response,
+            *,
+            allow_geometric_fallback: bool,
+        ):
             if self._is_shutting_down():
                 response.success = False
                 response.message = "attachment manager is shutting down"
@@ -508,7 +675,11 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                     right_stamp_sec=runtime.right_stamp_sec,
                 )
                 already_attached = runtime.state_known and runtime.attached
-            if not decision.allowed and self._geometric_dual_contact(runtime):
+            if (
+                allow_geometric_fallback
+                and not decision.allowed
+                and self._geometric_dual_contact(runtime)
+            ):
                 now = self._sim_time_sec()
                 with runtime.condition:
                     decision = self._gate.assess_attach(
@@ -529,20 +700,157 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                 response.message = decision.reason
                 return response
             if already_attached:
-                response.success = True
-                response.message = decision.reason
+                if self._stem_constraints_enabled and runtime.stem_attached:
+                    runtime.stem_detach_publisher.publish(Empty())
+                    response.success = self._wait_for_stem_state(runtime, False)
+                    response.message = (
+                        "Gazebo attachment confirmed and stem released"
+                        if response.success
+                        else "gripper attached but stem release was not confirmed"
+                    )
+                else:
+                    response.success = True
+                    response.message = decision.reason
                 return response
             if geometric_fallback_used:
                 self.get_logger().warn(
                     f"target {target_id} attachment accepted by strict geometric "
                     "dual-pad contact fallback"
                 )
+            if self._stem_constraints_enabled and self._stem_release_before_gripper_attach:
+                generations = {}
+                def request_stem_release():
+                    with runtime.condition:
+                        generations["stem"] = runtime.stem_state_generation
+                        runtime.stem_detach_publisher.publish(Empty())
+                def request_gripper_attach():
+                    with runtime.condition:
+                        generations["attach"] = runtime.state_generation
+                        runtime.attach_publisher.publish(Empty())
+                def request_gripper_detach():
+                    with runtime.condition:
+                        generations["detach"] = runtime.state_generation
+                        runtime.detach_publisher.publish(Empty())
+                response.success, response.message = transfer_stem_to_gripper(
+                    release_stem=request_stem_release,
+                    stem_released=lambda: self._wait_for_stem_state(runtime, False, after_generation=generations["stem"]),
+                    attach_gripper=request_gripper_attach,
+                    gripper_attached=lambda: self._wait_for_state(runtime, True, after_generation=generations["attach"]),
+                    detach_gripper=request_gripper_detach,
+                    gripper_detached=lambda: self._wait_for_state(runtime, False, after_generation=generations["detach"]),
+                )
+                return response
             runtime.attach_publisher.publish(Empty())
-            response.success = self._wait_for_state(runtime, True)
+            gripper_attached = self._wait_for_state(runtime, True)
+            if not gripper_attached:
+                response.success = False
+                response.message = "no Gazebo attachment confirmation before timeout"
+                return response
+            if self._stem_constraints_enabled:
+                runtime.stem_detach_publisher.publish(Empty())
+                if not self._wait_for_stem_state(runtime, False):
+                    runtime.detach_publisher.publish(Empty())
+                    self._wait_for_state(runtime, False)
+                    response.success = False
+                    response.message = (
+                        "stem release was not confirmed; gripper attachment rolled back"
+                    )
+                    return response
+            response.success = True
             response.message = (
-                "Gazebo attachment confirmed"
-                if response.success
-                else "no Gazebo attachment confirmation before timeout"
+                "Gazebo attachment confirmed and stem released"
+                if self._stem_constraints_enabled
+                else "Gazebo attachment confirmed"
+            )
+            return response
+
+        def _attach(self, target_id: int, request, response):
+            del request
+            return self._attach_selected(
+                target_id,
+                response,
+                allow_geometric_fallback=True,
+            )
+
+        def _attach_contact_target(self, request, response):
+            """Attach the sole fruit with fresh raw bilateral pad contact."""
+
+            del request
+            with self._contact_target_lock:
+                if self._contact_resolved_target_id is not None:
+                    prior = self._runtime[self._contact_resolved_target_id]
+                    with prior.condition:
+                        prior_attached = prior.state_known and prior.attached
+                    if prior_attached:
+                        response.success = False
+                        response.message = (
+                            "a contact-resolved fruit lifecycle is already active"
+                        )
+                        return response
+                    # A failed pick can detach during recovery without reaching
+                    # bin verification.  Once the simulator confirms detached,
+                    # the old lifecycle cannot own a later physical contact.
+                    self._contact_resolved_target_id = None
+                now = self._sim_time_sec()
+                allowed = {}
+                for target_id, runtime in self._runtime.items():
+                    with runtime.condition:
+                        allowed[target_id] = self._gate.assess_attach(
+                            now_sec=now,
+                            backend_enabled=self._backend_enabled,
+                            backend_initialized=self._initialization_complete,
+                            state_known=runtime.state_known,
+                            attached=runtime.attached,
+                            left_contact=runtime.left_contact,
+                            left_stamp_sec=runtime.left_stamp_sec,
+                            right_contact=runtime.right_contact,
+                            right_stamp_sec=runtime.right_stamp_sec,
+                        ).allowed
+                target_id, reason = select_unique_contact_target(allowed)
+                if target_id is None:
+                    response.success = False
+                    response.message = reason
+                    return response
+                response = self._attach_selected(
+                    target_id,
+                    response,
+                    allow_geometric_fallback=False,
+                )
+                if response.success:
+                    self._contact_resolved_target_id = target_id
+                    self._publish_score_event("CONTACT_RESOLVED", target_id)
+                    self.get_logger().info(
+                        "physical bilateral contact resolved attachment to "
+                        f"fruit entity {target_id}"
+                    )
+                return response
+
+        def _contact_target_class(self, request, response):
+            """Return an identity-free summary of fresh fruit-pad contacts."""
+
+            del request
+            if self._is_shutting_down():
+                response.success = False
+                response.message = "CONTACT_CLASS_UNAVAILABLE"
+                return response
+            now = self._sim_time_sec()
+            contacts = {}
+            for target_id, runtime in self._runtime.items():
+                with runtime.condition:
+                    contacts[target_id] = (
+                        runtime.left_contact,
+                        runtime.left_stamp_sec,
+                        runtime.right_contact,
+                        runtime.right_stamp_sec,
+                    )
+            response.success = True
+            response.message = classify_anonymous_fruit_contacts(
+                contacts,
+                now_sec=now,
+                freshness_sec=self._gate.contact_freshness_sec,
+            )
+            self.get_logger().info(
+                "anonymous fruit contact class: " + response.message
             )
             return response
 
@@ -575,6 +883,15 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
             )
             return response
 
+        def _detach_contact_target(self, request, response):
+            with self._contact_target_lock:
+                target_id = self._contact_resolved_target_id
+                if target_id is None:
+                    response.success = False
+                    response.message = "no contact-resolved fruit lifecycle is active"
+                    return response
+                return self._detach(target_id, request, response)
+
         def _verify_in_bin(self, target_id: int, request, response):
             del request
             if self._is_shutting_down():
@@ -601,7 +918,9 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         response.success = False
                         response.message = "fruit is still attached"
                         return response
-                    if self._stability.is_stable(target_id):
+                    if self._stability is not None and self._stability.is_stable(
+                        target_id
+                    ):
                         response.success = True
                         response.message = (
                             f"fruit remained inside bin for "
@@ -616,6 +935,54 @@ def main(args=None) -> None:  # pragma: no cover - exercised in ROS integration
                         )
                         return response
                     runtime.condition.wait(timeout=remaining)
+
+        def _verify_contact_target_in_bin(self, request, response):
+            del request
+            with self._contact_target_lock:
+                target_id = self._contact_resolved_target_id
+                if target_id is None:
+                    response.success = False
+                    response.message = "no contact-resolved fruit lifecycle is active"
+                    return response
+                runtime = self._runtime[target_id]
+                deadline = time.monotonic() + self._verification_timeout
+                with runtime.condition:
+                    while True:
+                        if self._is_shutting_down():
+                            response.success = False
+                            response.message = "attachment manager is shutting down"
+                            return response
+                        if not runtime.state_known:
+                            response.success = False
+                            response.message = "attachment state is unknown"
+                            return response
+                        if runtime.attached:
+                            response.success = False
+                            response.message = "fruit is still attached"
+                            return response
+                        if self._bin_contact_stability.is_stable(
+                            target_id,
+                            self._sim_time_sec(),
+                        ):
+                            self._publish_score_event("PLACED", target_id)
+                            response.success = True
+                            response.message = (
+                                "fruit maintained physical collection-bin contact "
+                                f"for {self._scene.bin_stability_sec:.3f} "
+                                "simulated seconds"
+                            )
+                            self._contact_resolved_target_id = None
+                            return response
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0.0:
+                            response.success = False
+                            response.message = (
+                                "no stable physical collection-bin contact before "
+                                "timeout"
+                            )
+                            self._contact_resolved_target_id = None
+                            return response
+                        runtime.condition.wait(timeout=remaining)
 
         def prepare_shutdown(self) -> None:
             with self._initialization_lock:

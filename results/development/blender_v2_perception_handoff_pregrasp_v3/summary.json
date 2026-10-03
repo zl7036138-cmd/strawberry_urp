@@ -1,0 +1,747 @@
+{
+  "attachment_started": false,
+  "base_support_frames": 60,
+  "candidate_target_id": 1,
+  "contract": {
+    "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\config\\blender_v2_perception_handoff_pregrasp_v3.json",
+    "sha256": "845679c436f3b8acb3e347f3a0460369e66ef47283df31a5175687924eb723c4",
+    "size_bytes": 6438
+  },
+  "control_command_count": 0,
+  "formal_acceptance": false,
+  "gate": "blender_v2_perception_handoff_pregrasp_v3",
+  "generated_at_utc": "2026-07-27T04:03:02.255809+00:00",
+  "grasp_geometry_profile": "blender_v2_26mm",
+  "handoff_maximum_target_age_sec": 0.07800000000000296,
+  "handoff_moveit_state_delta_rad": 0.0,
+  "handoff_observed_joint_delta_rad": 0.0,
+  "handoff_target_sample_count": 15,
+  "held_out_test_accessed": false,
+  "localization_started": true,
+  "manipulation_started": false,
+  "observation_motion": {
+    "camera_mount": "dual",
+    "execution_time_sec": 23.304810362000353,
+    "fruit_collision_obstacle_ids": [
+      1,
+      2,
+      3
+    ],
+    "fruit_manipulation_started": false,
+    "planning_attempt_count": 1,
+    "planning_attempt_limit": 3,
+    "planning_attempts": [
+      {
+        "attempt": 1,
+        "collision": false,
+        "execution_time_sec": 23.304810362000353,
+        "planning_time_sec": 0.024113108000165084,
+        "success": true
+      }
+    ],
+    "planning_time_sec": 0.024113108000165084,
+    "requested_hand_pose": {
+      "frame_id": "panda_link0",
+      "orientation_xyzw": [
+        0.0,
+        0.9537169507450916,
+        0.0,
+        0.30070579951421733
+      ],
+      "position_m": [
+        0.28,
+        0.0,
+        0.72
+      ]
+    },
+    "robot_motion_started": true,
+    "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml",
+    "schema_version": 1,
+    "scope": "NON_ACCEPTANCE_WRIST_CAMERA_OBSERVATION_POSE",
+    "success": true
+  },
+  "observation_pose_motion_started": true,
+  "oracle_target_started": false,
+  "orchestrator_started": false,
+  "passed": true,
+  "perception_started": true,
+  "pick_action_started": false,
+  "pick_authorized": false,
+  "planning_attempts": [
+    {
+      "attempt": 1,
+      "endpoint_orientation_error_rad": 0.00567601556799191,
+      "endpoint_position_error_m": 0.0007954609478213658,
+      "planning_time_sec": 0.022236882001379854,
+      "success": true,
+      "trajectory_waypoint_count": 38
+    }
+  ],
+  "pregrasp_pose": {
+    "frame_id": "panda_link0",
+    "orientation_xyzw": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "position_xyz_m": [
+      0.41045713336026773,
+      -0.04799510535429612,
+      0.8198457795376587
+    ],
+    "pregrasp_offset_m": 0.15,
+    "tool_center_offset_m": 0.0964
+  },
+  "resolved_inputs": {
+    "decision_record": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\docs\\decisions\\0055-preserve-v2-topic-discovery-failure-and-freeze-v3.md",
+      "sha256": "39cebdf1408682f9c40e845f5df05dd5d9ce8b4400238a48efa055ba1016309d",
+      "size_bytes": 2647
+    },
+    "failed_v1_observation_log": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v1\\observation_motion.log",
+      "sha256": "b22fd89c2eb91428bedc99b79cc92ca4691cef140f4775ff555f06c1286b011d",
+      "size_bytes": 8854
+    },
+    "failed_v1_summary": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v1\\summary.json",
+      "sha256": "e5e62f7c2c8e213d107c6516ee27b9b5f1ded316eedbc23fcbf0fb8f7f716346",
+      "size_bytes": 7520
+    },
+    "failed_v2_runtime_topics": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v2\\wrist_runtime_topics.txt",
+      "sha256": "c8928278e29c56d0a1cce86ee942b2641b1f22a33b4819701e9951c1515c0620",
+      "size_bytes": 93
+    },
+    "failed_v2_summary": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v2\\summary.json",
+      "sha256": "63beedc97df3c89d0b118cffc75617c0714848a32c4b2fa7f7ae8b30b669f443",
+      "size_bytes": 9519
+    },
+    "failed_v2_wrist_window": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\results\\development\\blender_v2_perception_handoff_pregrasp_v2\\wrist_window.json",
+      "sha256": "31e6ea9c74c70c32a0d25cc9ed09d62ec80a7985ccfe2706b791ebc672edeb31",
+      "size_bytes": 66248
+    },
+    "grasp_geometry_config": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\config\\grasp_geometry.yaml",
+      "sha256": "e23678ec96679625059ed88f262ddf5c6051abdff948e30e26743d9a67e96b5c",
+      "size_bytes": 668
+    },
+    "grasp_geometry_loader": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\grasp_geometry.py",
+      "sha256": "6ccc8495bc21f35803bf41bdd833237bf9f9a4793c73b809dd1be64ffc3a861b",
+      "size_bytes": 4259
+    },
+    "handoff_shadow": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\handoff_shadow.py",
+      "sha256": "244f3715c5a0555b18f2a2f940159e4874d159fb7e69424e6ee68828868b1419",
+      "size_bytes": 24156
+    },
+    "localization_node": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_localization\\strawberry_localization\\node.py",
+      "sha256": "43ee5c55f2dd4fc1e56ba253b0a83413ce0dd7e321d891292e72e20feab63d64",
+      "size_bytes": 36654
+    },
+    "model": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\outputs\\perception\\yolo11s_640_train_audit_v1\\weights\\best.pt",
+      "sha256": "e3aca77e627469a1e9cf43c0776438623d881332163e03afe1fbcc55aba1af70",
+      "size_bytes": 19162586
+    },
+    "moveit_backend": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\moveit_backend.py",
+      "sha256": "e29b5d68345ee35712649267391968678371ca7bc6f0a125402d52fc0ed90178",
+      "size_bytes": 48241
+    },
+    "observation_motion": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\scripts\\move_wrist_observation_pose.py",
+      "sha256": "dcf26058722b850c6419d22e5497f97f5567d7834246bfbc6c70eca65ad07085",
+      "size_bytes": 6465
+    },
+    "observation_selector": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_bringup\\strawberry_bringup\\observation_selection.py",
+      "sha256": "a6cb47c099e47dee247c21697d635a703bc21b4e6b5a17bd4e3fce7a5ccefa91",
+      "size_bytes": 4330
+    },
+    "perception_node": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_perception\\strawberry_perception\\perception_node.py",
+      "sha256": "9fbecb4495828b147f0e8555f15b7328ea96efb56c084f333bb44c3bbaeb3476",
+      "size_bytes": 7797
+    },
+    "perception_waiver": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\config\\p3_perception_control_waiver_v1.json",
+      "sha256": "59b071bd6b867a5f794b1bf3ee15ffcf8101a4d6545346a4fe869da6378981b5",
+      "size_bytes": 2948
+    },
+    "pregrasp_shadow": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_manipulation\\strawberry_manipulation\\pregrasp_shadow.py",
+      "sha256": "0a1fbf6ae3619c106f06c279c1de364d5de4e1909be6133b240bdbbe0385fdb8",
+      "size_bytes": 28876
+    },
+    "runner": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\scripts\\run_dual_sequential_observation.sh",
+      "sha256": "32195305be5cbd5db380e276e7f13d81f53104486b6836599987d1b979a655f1",
+      "size_bytes": 11000
+    },
+    "scene_config": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_sim\\config\\scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    },
+    "sequence_summary": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\ros2_ws\\src\\strawberry_bringup\\strawberry_bringup\\observation_sequence.py",
+      "sha256": "c93a1baa8ba79069e0d076c9a21752dbc17cbf25d02ab01826c0d93453996a64",
+      "size_bytes": 16114
+    },
+    "validator": {
+      "path": "C:\\Users\\12753\\Documents\\New project\\strawberry_urp\\scripts\\validate_blender_v2_perception_handoff_pregrasp.py",
+      "sha256": "2d1b699887b0b41e0b3cce6cf7315459b391ec024e53ef30beace98ba0a27d84",
+      "size_bytes": 21384
+    }
+  },
+  "run_inputs": {
+    "handoff": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\handoff_shadow.json",
+      "sha256": "21270a715feec68e8d0d7ea4af822e53ef47795c82d3189447bf83f5056b6fb9",
+      "size_bytes": 2914
+    },
+    "observation_motion": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\observation_motion.json",
+      "sha256": "30d2d93d0b606f4464ce3791f6fa8822537842bd31d6d63dc8a2728566947c57",
+      "size_bytes": 972
+    },
+    "pregrasp": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\pregrasp_shadow.json",
+      "sha256": "9f0233c4c207891d73fa8b5e1221c003b1a6532d3d472ec20f617c24105c6adb",
+      "size_bytes": 3368
+    },
+    "runtime_nodes": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\wrist_runtime_nodes.txt",
+      "sha256": "422310ffa1ffc69dd6e3ba27c02581eefcc5e069d9cbb9a7ca6f27fe8e371263",
+      "size_bytes": 312
+    },
+    "runtime_topics": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\wrist_runtime_topics.txt",
+      "sha256": "165edf9928e248e4ac5e2ca9420c2aac099c41fd0d2b6a0160fc26b569e50475",
+      "size_bytes": 1891
+    },
+    "sequence": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\sequence_summary.json",
+      "sha256": "fbc29431a75ef461672eeebba9056b57a92ace14b1d3a1e41f17d5d9e27a45cc",
+      "size_bytes": 3463
+    },
+    "wrist_window": {
+      "path": "results\\development\\blender_v2_perception_handoff_pregrasp_v3\\wrist_window.json",
+      "sha256": "793bb0264289e4eb076788b4a44e19f6d6fabed5ea640951547dcc1a03fc9b42",
+      "size_bytes": 66250
+    }
+  },
+  "runtime_nodes": [
+    "/attachment_manager",
+    "/controller_manager",
+    "/ground_truth_publisher",
+    "/gz_ros_control",
+    "/joint_state_broadcaster",
+    "/panda_arm_controller",
+    "/panda_gripper_controller",
+    "/panda_robot_state_publisher",
+    "/strawberry_contact_monitor",
+    "/strawberry_gz_bridge",
+    "/strawberry_wrist_attention_localization",
+    "/strawberry_wrist_attention_perception"
+  ],
+  "runtime_topics": [
+    "/camera/base/camera_info",
+    "/camera/base/color/image_raw",
+    "/camera/base/depth/image_raw",
+    "/camera/camera_info",
+    "/camera/color/image_raw",
+    "/camera/depth/image_raw",
+    "/camera/wrist/camera_info",
+    "/camera/wrist/color/image_raw",
+    "/camera/wrist/depth/image_raw",
+    "/clock",
+    "/controller_manager/activity",
+    "/controller_manager/introspection_data/full",
+    "/controller_manager/introspection_data/names",
+    "/controller_manager/introspection_data/values",
+    "/controller_manager/statistics/full",
+    "/controller_manager/statistics/names",
+    "/controller_manager/statistics/values",
+    "/diagnostics",
+    "/dynamic_joint_states",
+    "/joint_state_broadcaster/transition_event",
+    "/joint_states",
+    "/panda_arm_controller/controller_state",
+    "/panda_arm_controller/joint_trajectory",
+    "/panda_arm_controller/speed_scaling_input",
+    "/panda_arm_controller/transition_event",
+    "/panda_gripper_controller/transition_event",
+    "/parameter_events",
+    "/robot_description",
+    "/rosout",
+    "/strawberry/ground_truth/catalog",
+    "/strawberry/ground_truth/fruit_1/pose",
+    "/strawberry/ground_truth/fruit_2/pose",
+    "/strawberry/ground_truth/fruit_3/pose",
+    "/strawberry/ground_truth/poses",
+    "/strawberry/shadow/detections",
+    "/strawberry/shadow/target_pose",
+    "/strawberry/sim/fruit_1/attach_command",
+    "/strawberry/sim/fruit_1/attached_state",
+    "/strawberry/sim/fruit_1/detach_command",
+    "/strawberry/sim/fruit_1/left_contact",
+    "/strawberry/sim/fruit_1/pose_tf",
+    "/strawberry/sim/fruit_1/right_contact",
+    "/strawberry/sim/fruit_2/attach_command",
+    "/strawberry/sim/fruit_2/attached_state",
+    "/strawberry/sim/fruit_2/detach_command",
+    "/strawberry/sim/fruit_2/left_contact",
+    "/strawberry/sim/fruit_2/pose_tf",
+    "/strawberry/sim/fruit_2/right_contact",
+    "/strawberry/sim/fruit_3/attach_command",
+    "/strawberry/sim/fruit_3/attached_state",
+    "/strawberry/sim/fruit_3/detach_command",
+    "/strawberry/sim/fruit_3/left_contact",
+    "/strawberry/sim/fruit_3/pose_tf",
+    "/strawberry/sim/fruit_3/right_contact",
+    "/strawberry/sim/fruit_contacts",
+    "/strawberry/sim/gripper/left_contacts",
+    "/strawberry/sim/gripper/right_contacts",
+    "/tf",
+    "/tf_static"
+  ],
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_PERCEPTION_HANDOFF_PREGRASP",
+  "selected_preset": "lower",
+  "trajectory_discarded": true,
+  "trajectory_execution_started": false,
+  "trajectory_generated": true,
+  "violations": [],
+  "wrist_matching_target_pose_frames": 60,
+  "wrist_readiness_gate": {
+    "enabled": true,
+    "measurement_started_after_detection_index": 20,
+    "qualifying_run_end_detection_index": 20,
+    "qualifying_run_start_detection_index": 6,
+    "required_consecutive_target_pose_frames": 15,
+    "satisfied": true,
+    "telemetry": {
+      "matched_target_pose_delay_sec": {
+        "count": 15,
+        "maximum": 0.3989800239996839,
+        "mean": 0.0992743926000306,
+        "minimum": 0.003909514000042691
+      },
+      "maximum_consecutive_ready_frames": 15,
+      "observed_detection_frame_count": 20,
+      "observed_target_pose_stamp_count": 15,
+      "orphan_target_pose_stamp_count": 0,
+      "qualifying_run_end_detection_index": 20,
+      "qualifying_run_start_detection_index": 6,
+      "recent_frames": [
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 1,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 187000000,
+          "stamp_sec": 21,
+          "status": "TARGET_POSE_MISSING",
+          "target_pose_delay_sec": null,
+          "target_pose_ids": []
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 2,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 318000000,
+          "stamp_sec": 21,
+          "status": "TARGET_POSE_MISSING",
+          "target_pose_delay_sec": null,
+          "target_pose_ids": []
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 3,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 583000000,
+          "stamp_sec": 21,
+          "status": "TARGET_POSE_MISSING",
+          "target_pose_delay_sec": null,
+          "target_pose_ids": []
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 4,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 714000000,
+          "stamp_sec": 21,
+          "status": "TARGET_POSE_MISSING",
+          "target_pose_delay_sec": null,
+          "target_pose_ids": []
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 5,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 781000000,
+          "stamp_sec": 21,
+          "status": "TARGET_POSE_MISSING",
+          "target_pose_delay_sec": null,
+          "target_pose_ids": []
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 6,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 979000000,
+          "stamp_sec": 21,
+          "status": "READY",
+          "target_pose_delay_sec": 0.3989800239996839,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 7,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 209000000,
+          "stamp_sec": 22,
+          "status": "READY",
+          "target_pose_delay_sec": 0.38842747299895564,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 8,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 276000000,
+          "stamp_sec": 22,
+          "status": "READY",
+          "target_pose_delay_sec": 0.29941010200127494,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 9,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 441000000,
+          "stamp_sec": 22,
+          "status": "READY",
+          "target_pose_delay_sec": 0.036750994999238173,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 10,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 639000000,
+          "stamp_sec": 22,
+          "status": "READY",
+          "target_pose_delay_sec": 0.048093166000398924,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 11,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 68000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.054247594000116806,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 12,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 331000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.03635879300054512,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 13,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 596000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.003909514000042691,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 14,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 628000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.023050530999171315,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 15,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 761000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.06987830600155576,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 16,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 893000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.012750216999847908,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 17,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 925000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.02584817800016026,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 18,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 959000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.04094352699939918,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 19,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 992000000,
+          "stamp_sec": 23,
+          "status": "READY",
+          "target_pose_delay_sec": 0.027314369999658084,
+          "target_pose_ids": [
+            1
+          ]
+        },
+        {
+          "detection_ids": [
+            1,
+            2
+          ],
+          "detection_index": 20,
+          "ripe_detection_ids": [
+            1,
+            2
+          ],
+          "stamp_nanosec": 24000000,
+          "stamp_sec": 24,
+          "status": "READY",
+          "target_pose_delay_sec": 0.023153099000410293,
+          "target_pose_ids": [
+            1
+          ]
+        }
+      ],
+      "status_counts": {
+        "NO_DETECTION": 0,
+        "NO_RIPE_DETECTION": 0,
+        "READY": 15,
+        "TARGET_IDENTITY_MISMATCH": 0,
+        "TARGET_POSE_MISSING": 5
+      },
+      "streak_reset_count": 0,
+      "streak_reset_reason_counts": {},
+      "terminal_consecutive_ready_frames": 15
+    }
+  },
+  "wrist_window_summary": {
+    "confidence": {
+      "all": {
+        "count": 120,
+        "maximum": 0.8463676571846008,
+        "mean": 0.8228278458118439,
+        "median": 0.8228278458118439,
+        "minimum": 0.7992880344390869
+      },
+      "ripe": {
+        "count": 120,
+        "maximum": 0.8463676571846008,
+        "mean": 0.8228278458118439,
+        "median": 0.8228278458118439,
+        "minimum": 0.7992880344390869
+      },
+      "unripe": {
+        "count": 0,
+        "maximum": null,
+        "mean": null,
+        "median": null,
+        "minimum": null
+      }
+    },
+    "detection_count": 120,
+    "frame_count": 60,
+    "frames_with_any_detection": 60,
+    "frames_with_ripe_detection": 60,
+    "frames_with_target_pose": 60,
+    "frames_with_unripe_detection": 0,
+    "ripe_detection_count": 120,
+    "roi": {
+      "count": 120,
+      "maximum_area_px": 20502,
+      "mean_area_px": 14391.0,
+      "median_area_px": 14391.0,
+      "minimum_area_px": 8280
+    },
+    "unripe_detection_count": 0
+  }
+}

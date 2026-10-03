@@ -1,0 +1,41 @@
+{
+  "camera_mount": "dual",
+  "execution_time_sec": 25.80282122299832,
+  "fruit_collision_obstacle_ids": [
+    1,
+    2,
+    3
+  ],
+  "fruit_manipulation_started": false,
+  "planning_attempt_count": 1,
+  "planning_attempt_limit": 3,
+  "planning_attempts": [
+    {
+      "attempt": 1,
+      "collision": false,
+      "execution_time_sec": 25.80282122299832,
+      "planning_time_sec": 0.02337547299975995,
+      "success": true
+    }
+  ],
+  "planning_time_sec": 0.02337547299975995,
+  "requested_hand_pose": {
+    "frame_id": "panda_link0",
+    "orientation_xyzw": [
+      0.0,
+      0.9537169507450916,
+      0.0,
+      0.30070579951421733
+    ],
+    "position_m": [
+      0.28,
+      0.0,
+      0.72
+    ]
+  },
+  "robot_motion_started": true,
+  "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml",
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_WRIST_CAMERA_OBSERVATION_POSE",
+  "success": true
+}

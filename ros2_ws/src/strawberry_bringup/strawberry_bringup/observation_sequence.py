@@ -39,6 +39,7 @@ def summarize_observation_sequence(
     )
     summary = wrist_window.get("summary", {})
     readiness = wrist_window.get("readiness_gate", {})
+    readiness_telemetry = readiness.get("telemetry", {})
     readiness_required = int(
         readiness.get("required_consecutive_target_pose_frames", 0)
     )
@@ -64,6 +65,20 @@ def summarize_observation_sequence(
         violations.append(
             "wrist pipeline did not prove at least 10 consecutive ready frames"
         )
+    if int(wrist_window.get("schema_version", 1)) >= 2:
+        if wrist_window.get("completed") is not True:
+            violations.append("wrist window did not complete")
+        if not isinstance(readiness_telemetry, Mapping):
+            violations.append("wrist readiness telemetry is unavailable")
+            readiness_telemetry = {}
+        elif int(
+            readiness_telemetry.get(
+                "maximum_consecutive_ready_frames", 0
+            )
+        ) < readiness_required:
+            violations.append(
+                "wrist readiness telemetry does not prove the required streak"
+            )
     if int(summary.get("frame_count", 0)) != 60:
         violations.append("wrist window does not contain exactly 60 frames")
     if matching_pose_frames < minimum_matching_pose_frames:
@@ -193,6 +208,25 @@ def summarize_observation_sequence(
         ),
         "wrist_readiness_consecutive_frames": readiness_required,
         "wrist_readiness_satisfied": readiness.get("satisfied") is True,
+        "wrist_readiness_maximum_consecutive_frames": int(
+            readiness_telemetry.get(
+                "maximum_consecutive_ready_frames", 0
+            )
+        ),
+        "wrist_readiness_streak_reset_count": int(
+            readiness_telemetry.get("streak_reset_count", 0)
+        ),
+        "wrist_readiness_streak_reset_reason_counts": dict(
+            readiness_telemetry.get("streak_reset_reason_counts", {})
+        ),
+        "wrist_readiness_status_counts": dict(
+            readiness_telemetry.get("status_counts", {})
+        ),
+        "wrist_readiness_target_pose_delay_sec": dict(
+            readiness_telemetry.get(
+                "matched_target_pose_delay_sec", {}
+            )
+        ),
         "wrist_matching_target_pose_frames": matching_pose_frames,
         "wrist_target_pose_counts": {
             str(target_id): count

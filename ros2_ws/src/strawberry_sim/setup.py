@@ -14,8 +14,19 @@ def share_data_files(*directories: str) -> list[tuple[str, list[str]]]:
 
     result: list[tuple[str, list[str]]] = []
     for directory in directories:
-        for current, _, filenames in os.walk(directory):
-            files = [os.path.join(current, filename) for filename in filenames]
+        for current, dirnames, filenames in os.walk(directory):
+            # Importing a launch file can create transient Python bytecode in
+            # the source tree.  Never let those cache files enter setuptools'
+            # persistent manifest, where their later disappearance breaks an
+            # otherwise valid incremental ROS build.
+            dirnames[:] = [
+                dirname for dirname in dirnames if dirname != "__pycache__"
+            ]
+            files = [
+                os.path.join(current, filename)
+                for filename in filenames
+                if not filename.endswith((".pyc", ".pyo"))
+            ]
             if files:
                 result.append((os.path.join("share", PACKAGE_NAME, current), files))
     return result
@@ -47,7 +58,10 @@ setup(
         "console_scripts": [
             "attachment_manager = strawberry_sim.attachment_manager:main",
             "contact_monitor = strawberry_sim.contact_monitor:main",
+            "contact_telemetry_recorder = strawberry_sim.contact_telemetry_recorder:main",
             "ground_truth_publisher = strawberry_sim.ground_truth_publisher:main",
+            "generalized_development_capture = strawberry_sim.generalized_capture:main",
+            "generate_generalized_scene = strawberry_sim.generalized_scene:main",
             "runtime_health_check = strawberry_sim.runtime_health:main",
             "scene_condition_probe = strawberry_sim.scene_condition_probe:main",
             "synthetic_capture = strawberry_sim.synthetic_capture:main",

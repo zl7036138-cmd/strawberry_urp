@@ -14,6 +14,7 @@ EXPECTED_CONTROLLERS = frozenset(
         "joint_state_broadcaster",
         "panda_arm_controller",
         "panda_gripper_controller",
+        "panda_gripper_right_controller",
     }
 )
 

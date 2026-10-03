@@ -1,0 +1,55 @@
+WARNING:root:[33;21mCannot infer URDF from `/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation`. -- using config/panda.urdf[0m
+WARNING:root:[33;21mCannot infer SRDF from `/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation`. -- using config/panda.srdf[0m
+[INFO] [1785145232.523451145] [moveit_571227939.moveit.py.cpp_initializer]: Initialize rclcpp
+[INFO] [1785145232.523932495] [moveit_571227939.moveit.py.cpp_initializer]: Initialize node parameters
+[INFO] [1785145232.524382615] [moveit_571227939.moveit.py.cpp_initializer]: Initialize node and executor
+[INFO] [1785145232.532793570] [moveit_571227939.moveit.py.cpp_initializer]: Spin separate thread
+[INFO] [1785145232.536064715] [moveit_571227939.moveit.ros.rdf_loader]: Loaded robot model in 0 seconds
+[INFO] [1785145232.536460283] [moveit_571227939.moveit.core.robot_model]: Loading robot model 'panda'...
+[INFO] [1785145232.536951062] [moveit_571227939.moveit.core.robot_model]: No root/virtual joint specified in SRDF. Assuming fixed joint
+[INFO] [1785145232.542235988] [moveit_571227939.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'panda_arm': 1 1 1 1 1 1 1
+[INFO] [1785145232.564228553] [moveit_571227939.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[INFO] [1785145232.564819385] [moveit_571227939.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[INFO] [1785145232.565777878] [moveit_571227939.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[INFO] [1785145232.566903807] [moveit_571227939.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[INFO] [1785145232.567594470] [moveit_571227939.moveit.ros.planning_scene_monitor]: Stopping existing planning scene publisher.
+[INFO] [1785145232.567938947] [moveit_571227939.moveit.ros.planning_scene_monitor]: Stopped publishing maintained planning scene.
+[INFO] [1785145232.569190530] [moveit_571227939.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[INFO] [1785145232.569811398] [moveit_571227939.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[INFO] [1785145232.570640271] [moveit_571227939.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[INFO] [1785145232.570854655] [moveit_571227939.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[INFO] [1785145232.571960848] [moveit_571227939.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[INFO] [1785145232.572688253] [moveit_571227939.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[WARN] [1785145232.573145583] [moveit_571227939.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[ERROR] [1785145232.573559201] [moveit_571227939.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[INFO] [1785145232.581449391] [moveit_571227939.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[INFO] [1785145232.582575363] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[INFO] [1785145232.583673140] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[INFO] [1785145232.584242738] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[INFO] [1785145232.585168582] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[INFO] [1785145232.585733177] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[INFO] [1785145232.586165298] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[INFO] [1785145232.586589222] [strawberry_moveit_py]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[INFO] [1785145232.587059019] [strawberry_moveit_py]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[INFO] [1785145232.587988725] [strawberry_moveit_py]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[INFO] [1785145232.590003851] [strawberry_moveit_py]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[INFO] [1785145232.590550414] [strawberry_moveit_py]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[INFO] [1785145232.592540270] [strawberry_moveit_py]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[INFO] [1785145232.613873064] [moveit_571227939.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for panda_arm_controller
+[INFO] [1785145232.614498856] [moveit_571227939.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[INFO] [1785145232.614690582] [moveit_571227939.moveit.plugins.simple_controller_manager]: Returned 1 controllers in list
+[INFO] [1785145232.616307348] [moveit_571227939.moveit.ros.trajectory_execution_manager]: Trajectory execution is not managing controllers
+[INFO] [1785145242.506320812] [strawberry_wrist_observation_pose]: MoveIt static collision scene loaded: work_table, strawberry_planter, strawberry_plant_crown, collection_bin
+[INFO] [1785145242.535558817] [strawberry_wrist_observation_pose]: MoveIt fruit collision scene loaded: strawberry_fruit_1, strawberry_fruit_2, strawberry_fruit_3
+[INFO] [1785145242.564244423] [strawberry_wrist_observation_pose]: MoveIt stage WRIST_OBSERVATION
+[INFO] [1785145242.715741979] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'ResolveConstraintFrames'
+[INFO] [1785145242.716261076] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'ValidateWorkspaceBounds'
+[WARN] [1785145242.716619021] [moveit_571227939.moveit.ros.validate_workspace_bounds]: It looks like the planning volume was not specified. Using default values.
+[INFO] [1785145242.717200657] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'CheckStartStateBounds'
+[INFO] [1785145242.717428340] [strawberry_moveit_py]: Calling PlanningRequestAdapter 'CheckStartStateCollision'
+[INFO] [1785145242.718577780] [moveit_571227939.moveit.planners.ompl.model_based_planning_context]: Planner configuration 'panda_arm[RRTConnectkConfigDefault]' will use planner 'geometric::RRTConnect'. Additional configuration parameters will be set when the planner is constructed.
+[INFO] [1785145242.719562136] [strawberry_moveit_py]: Calling Planner 'OMPL'
+[INFO] [1785145242.735565773] [strawberry_moveit_py]: Calling PlanningResponseAdapter 'AddTimeOptimalParameterization'
+[INFO] [1785145242.737805959] [strawberry_moveit_py]: Calling PlanningResponseAdapter 'ValidateSolution'
+[INFO] [1785145242.768385888] [strawberry_wrist_observation_pose]: planned endpoint pose error: 0.0006 m, 0.69 deg
+[INFO] [1785145269.602508833] [strawberry_wrist_observation_pose]: executed endpoint pose error: 0.0006 m, 0.69 deg

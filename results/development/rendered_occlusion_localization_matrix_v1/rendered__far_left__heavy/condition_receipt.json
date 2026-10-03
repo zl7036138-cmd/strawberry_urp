@@ -1,0 +1,128 @@
+{
+  "base_world": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sdf",
+    "sha256": "aeb61d02ee7fe79cccd97bba34e43b9a9319cd66cfb45c91a6e6cd8929c8b487",
+    "size_bytes": 4710
+  },
+  "condition_config": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/config/rendered_occlusion_localization_conditions_v1.json",
+    "sha256": "b4a51949a93cf367d5dab1e2335b392f8b8079505c2d4a53d13bab3bd31647f3",
+    "size_bytes": 2330
+  },
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "lighting_level": "nominal",
+  "lighting_parameters": {
+    "ambient_rgba": [
+      0.45,
+      0.45,
+      0.45,
+      1.0
+    ],
+    "sun_diffuse_rgba": [
+      0.9,
+      0.9,
+      0.9,
+      1.0
+    ],
+    "sun_specular_rgba": [
+      0.25,
+      0.25,
+      0.25,
+      1.0
+    ]
+  },
+  "materialization_id_role": "frozen_validation_seed",
+  "materialized_world": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/results/development/rendered_occlusion_localization_matrix_v1/rendered__far_left__heavy/world.sdf",
+    "sha256": "02e0c10d96809dd0c18831aa72c6273c59c0ca8e3465df495f5e70a81075cc97",
+    "size_bytes": 5466
+  },
+  "occluder_tracking": {
+    "anchor_occluder_position_m": [
+      0.346,
+      -0.3825,
+      0.665
+    ],
+    "anchor_target_position_m": [
+      0.47,
+      -0.075,
+      0.5
+    ],
+    "maximum_target_offset_m": 0.1,
+    "mode": "anchor_relative_translation",
+    "target_translation_scale": 0.7
+  },
+  "occlusion_level": "heavy",
+  "occlusion_parameters": {
+    "ambient_rgba": [
+      0.03,
+      0.08,
+      0.8,
+      1.0
+    ],
+    "diffuse_rgba": [
+      0.04,
+      0.12,
+      0.95,
+      1.0
+    ],
+    "enabled": true,
+    "pose_xyz_rpy": [
+      0.325,
+      -0.33,
+      0.679,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "size_xyz_m": [
+      0.035,
+      0.018,
+      0.09
+    ],
+    "tracking_target_offset_m": 0.08321658488546618,
+    "tracking_target_position_m": [
+      0.44,
+      0.0,
+      0.52
+    ],
+    "visual_only": true
+  },
+  "schema_version": 2,
+  "scope": "NON_ACCEPTANCE_MULTIPOSITION_SCENE_DIAGNOSTIC",
+  "seed": 20260805,
+  "validation_scene": {
+    "frames_per_condition": 5,
+    "fruit_radius_m": 0.026,
+    "parked_models": [
+      {
+        "model_name": "strawberry_2",
+        "position_m": [
+          0.2,
+          -2.0,
+          1.0
+        ],
+        "target_id": 2
+      },
+      {
+        "model_name": "strawberry_3",
+        "position_m": [
+          0.4,
+          -2.0,
+          1.0
+        ],
+        "target_id": 3
+      }
+    ],
+    "seed": 20260805,
+    "target_id": 1,
+    "target_model_name": "strawberry_1",
+    "target_position_m": [
+      0.44,
+      0.0,
+      0.52
+    ]
+  },
+  "visual_only_occluder": true
+}

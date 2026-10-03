@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(strawberry_dart_step_audit LANGUAGES CXX)
+find_package(DART 6.13 REQUIRED COMPONENTS dart)
+add_library(strawberry_dart_step_audit SHARED StepAudit.cc)
+target_compile_features(strawberry_dart_step_audit PRIVATE cxx_std_17)
+target_link_libraries(strawberry_dart_step_audit PRIVATE dart ${CMAKE_DL_LIBS})
+add_executable(dart_step_audit_smoke Smoke.cc)
+target_link_libraries(dart_step_audit_smoke PRIVATE dart)

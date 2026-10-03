@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v5",
+  "scope": "development_only_terminal_pick_and_failure_recovery_progress",
+  "extends": "generalized_runtime_progress_v4",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_matrix_authorized": false,
+  "runtime_truth_use": false,
+  "changes": {
+    "terminal_recorder": "The installable development recorder uses startup and inactivity timeouts plus a non-extendable 900-second hard limit. Distinct manipulation feedback stages extend only the inactivity window.",
+    "action_progress": "The continuous orchestrator records PLAN, APPROACH, GRASP, RETREAT, PLACE, VERIFY, and DONE action feedback in the batch receipt.",
+    "wrist_diagnostics": "Accepted and rejected confirmations record target IDs, correction, confidence, sigma, and the unchanged safety thresholds.",
+    "confirmation_window": "The post-motion stationary confirmation window is 3.0 seconds instead of 1.5 seconds; the 15 mm uncertainty, 50 mm correction, and confidence gates remain unchanged.",
+    "process_cleanup": "The runner uses the setsid child PID as the race-free launch PGID, requires stable process-group absence, and emits a separate cleanup receipt."
+  },
+  "development_probe": {
+    "seed": 44012,
+    "runtime_receipt_sha256": "0871181698759cd9c351593b8f57f41d033efa0038b9c65670c276aedf1519d0",
+    "runtime_receipt_bytes": 58670,
+    "launch_log_sha256": "f0a15eb725da4bde19c13871d08474d1d024df3f41d52fa1cc49f12cb14b1d86",
+    "launch_log_bytes": 862395,
+    "recorder_schema_version": 2,
+    "recorder_outcome": "PARTIAL_SUCCESS",
+    "terminal_status_received": true,
+    "elapsed_wall_sec": 440.112246995,
+    "harvested_target_ids": [7],
+    "skipped_targets": {
+      "2": "wrist confirmation timeout"
+    },
+    "failures": [
+      {
+        "target_id": 2,
+        "failure_code": 8,
+        "message": "gripper contact or simulated attachment failed"
+      }
+    ],
+    "successful_target": {
+      "target_id": 7,
+      "wrist_correction_m": 0.0069210875430622916,
+      "wrist_sigma_m": 0.014669408090412617,
+      "wrist_max_sigma_m": 0.015,
+      "fused_correction_m": 0.0003733056037633264,
+      "fused_sigma_m": 0.0077556788115642405,
+      "terminal_stage_sequence": [
+        "PLAN",
+        "APPROACH",
+        "GRASP",
+        "RETREAT",
+        "PLACE",
+        "VERIFY",
+        "DONE"
+      ],
+      "outcome": "HARVESTED"
+    },
+    "claims": {
+      "complete_perception_controlled_single_pick_proved": true,
+      "failed_target_did_not_abort_batch_proved": true,
+      "terminal_multi_target_batch_proved": true,
+      "all_reachable_ripe_targets_harvested_proved": false,
+      "multi_fruit_successful_harvest_proved": false
+    },
+    "cleanup_note": "The successful action receipt is valid, but this run exposed a post-receipt PGID discovery race and required manual process-group cleanup. Cleanup correctness is therefore supported by the later dedicated smoke, not retroactively claimed for this run."
+  },
+  "cleanup_smoke": {
+    "mode": "runtime_ready_then_cleanup_without_harvest",
+    "seed": 44012,
+    "receipt_sha256": "8089e59f715cbce46511d8703299a7694e28cdf8933c11fe7d5866767b35ed94",
+    "receipt_bytes": 62,
+    "runner_exit_code": 0,
+    "receipt_outcome": "CLEAN",
+    "post_exit_ros_gazebo_process_count": 0
+  },
+  "verification": {
+    "targeted_test_count": 31,
+    "targeted_test_failures": 0,
+    "full_regression_before_final_cleanup_fix": {
+      "test_count": 504,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "full_regression_after_final_cleanup_fix": {
+      "test_count": 505,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "frozen_localization_core_sha256": "14ae123a98b7083ef87bca8eb782ff024e49bc99056efc594c0076465985b9ec"
+  },
+  "host_maintenance": {
+    "removed_regenerable_offline_wheel_cache_gb_approx": 2.68,
+    "removed_training_data": false,
+    "removed_trained_models": false,
+    "removed_results_or_git_history": false,
+    "c_drive_free_gb_after_milestone_approx": 8.93
+  },
+  "decision": {
+    "complete_perception_controlled_pick_proved": true,
+    "failure_recovery_continue_to_next_target_proved": true,
+    "completed_multi_fruit_batch_proved": false,
+    "runtime_generalization_gate_passed": false,
+    "formal_30_seed_matrix_remains_sealed": true,
+    "next_required_work": [
+      "Diagnose target-2 gripper contact or attachment failure without weakening contact verification.",
+      "Obtain a development batch with at least two successful harvested fruits.",
+      "Run several fresh development seeds to measure runtime repeatability before opening the formal matrix.",
+      "Execute the 30 one-attempt formal scenarios only after the runtime generalization gate passes."
+    ]
+  }
+}

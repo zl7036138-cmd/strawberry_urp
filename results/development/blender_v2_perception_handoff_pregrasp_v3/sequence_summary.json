@@ -1,0 +1,102 @@
+{
+  "base_frame_count": 60,
+  "base_support_frames": 60,
+  "candidate_target_id": 1,
+  "focus_roi_xyxy_px": [
+    320,
+    240,
+    640,
+    480
+  ],
+  "formal_acceptance": false,
+  "generated_at_utc": "2026-07-27T04:02:24.848848+00:00",
+  "handoff_joint_sample_count": 10,
+  "handoff_moveit_state_delta_rad": 0.0,
+  "handoff_observed_joint_delta_rad": 0.0,
+  "handoff_shadow_included": true,
+  "handoff_shadow_passed": true,
+  "handoff_target_sample_count": 15,
+  "held_out_test_consumed": false,
+  "inputs": {
+    "handoff_shadow": {
+      "bytes": 2914,
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v3/handoff_shadow.json",
+      "sha256": "21270a715feec68e8d0d7ea4af822e53ef47795c82d3189447bf83f5056b6fb9"
+    },
+    "motion": {
+      "bytes": 972,
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v3/observation_motion.json",
+      "sha256": "30d2d93d0b606f4464ce3791f6fa8822537842bd31d6d63dc8a2728566947c57"
+    },
+    "pregrasp_shadow": {
+      "bytes": 3368,
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v3/pregrasp_shadow.json",
+      "sha256": "9f0233c4c207891d73fa8b5e1221c003b1a6532d3d472ec20f617c24105c6adb"
+    },
+    "selection": {
+      "bytes": 848,
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v3/selection.json",
+      "sha256": "b65277e8936ae833f69c9b66951f3d9b520a906521263f2e7d81c0fd876ac097"
+    },
+    "wrist_window": {
+      "bytes": 66250,
+      "path": "results/development/blender_v2_perception_handoff_pregrasp_v3/wrist_window.json",
+      "sha256": "793bb0264289e4eb076788b4a44e19f6d6fabed5ea640951547dcc1a03fc9b42"
+    }
+  },
+  "motion_execution_time_sec": 23.304810362000353,
+  "motion_planning_time_sec": 0.024113108000165084,
+  "pick_authorized": false,
+  "pregrasp_control_command_count": 0,
+  "pregrasp_joint_sample_count": 10,
+  "pregrasp_planning_attempt_count": 1,
+  "pregrasp_shadow_included": true,
+  "pregrasp_shadow_passed": true,
+  "pregrasp_target_age_at_plan_completion_sec": 0.07600000000000762,
+  "pregrasp_target_sample_count": 15,
+  "pregrasp_trajectory_discarded": true,
+  "schema_version": 3,
+  "scope": "NON_ACCEPTANCE_DUAL_CAMERA_SEQUENTIAL_OBSERVATION",
+  "selected_preset": "lower",
+  "sequence_passed": true,
+  "state_history": [
+    "OVERVIEW_ACQUIRE",
+    "OVERVIEW_CANDIDATE_VALIDATED",
+    "WRIST_PRESET_SELECTED",
+    "BASE_PIPELINE_STOPPED",
+    "WRIST_OBSERVATION_MOVE",
+    "WRIST_STATIONARY",
+    "WRIST_PIPELINE_READY",
+    "WRIST_ATTENTION_LOCALIZE",
+    "CONTROL_HANDOFF_SHADOW_VALIDATED",
+    "PREGRASP_PLANNING_SHADOW_VALIDATED",
+    "OBSERVATION_COMPLETE"
+  ],
+  "violations": [],
+  "wrist_detection_count": 120,
+  "wrist_frame_count": 60,
+  "wrist_matching_target_pose_frames": 60,
+  "wrist_readiness_consecutive_frames": 15,
+  "wrist_readiness_maximum_consecutive_frames": 15,
+  "wrist_readiness_satisfied": true,
+  "wrist_readiness_status_counts": {
+    "NO_DETECTION": 0,
+    "NO_RIPE_DETECTION": 0,
+    "READY": 15,
+    "TARGET_IDENTITY_MISMATCH": 0,
+    "TARGET_POSE_MISSING": 5
+  },
+  "wrist_readiness_streak_reset_count": 0,
+  "wrist_readiness_streak_reset_reason_counts": {},
+  "wrist_readiness_target_pose_delay_sec": {
+    "count": 15,
+    "maximum": 0.3989800239996839,
+    "mean": 0.0992743926000306,
+    "minimum": 0.003909514000042691
+  },
+  "wrist_ripe_detection_count": 120,
+  "wrist_target_pose_counts": {
+    "1": 60
+  },
+  "wrist_unripe_detection_count": 0
+}

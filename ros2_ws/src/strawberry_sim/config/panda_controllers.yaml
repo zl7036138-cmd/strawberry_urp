@@ -1,12 +1,18 @@
 controller_manager:
   ros__parameters:
-    update_rate: 100
+    # 200 Hz (plan A follow-up, v22/v23 receipts): the plugin recomputes its
+    # velocity law once per cycle; doubling the rate halves the command-pipeline
+    # skew window behind the recovery-home stale-velocity drift.
+    update_rate: 200
     use_sim_time: true
 
     panda_arm_controller:
       type: joint_trajectory_controller/JointTrajectoryController
 
     panda_gripper_controller:
+      type: parallel_gripper_action_controller/GripperActionController
+
+    panda_gripper_right_controller:
       type: parallel_gripper_action_controller/GripperActionController
 
     joint_state_broadcaster:
@@ -22,6 +28,10 @@ panda_arm_controller:
       - panda_joint5
       - panda_joint6
       - panda_joint7
+    # Position command interface (plan A final, v32 receipt): effort gravity
+    # compensation requires the hardware_interface parameters feature that
+    # Jazzy lacks; residual home drift is a documented plugin limitation,
+    # guarded by the zero-velocity confirmation window.
     command_interfaces: [position]
     state_interfaces: [position, velocity]
     allow_nonzero_velocity_at_trajectory_end: true
@@ -31,21 +41,34 @@ panda_arm_controller:
     constraints:
       goal_time: 8.0
       stopped_velocity_tolerance: 0.02
-      # The Cartesian endpoint is independently checked at 10 mm / 5 deg.
-      # A 0.05 rad joint gate prevents the old premature success while still
-      # allowing convergence under rigid-contact loads near the table.
-      panda_joint1: {trajectory: 0.50, goal: 0.05}
-      panda_joint2: {trajectory: 0.50, goal: 0.05}
-      panda_joint3: {trajectory: 0.50, goal: 0.05}
-      panda_joint4: {trajectory: 0.50, goal: 0.05}
-      panda_joint5: {trajectory: 0.50, goal: 0.05}
-      panda_joint6: {trajectory: 0.50, goal: 0.05}
-      panda_joint7: {trajectory: 0.50, goal: 0.05}
+      # Keep path and goal error within 0.05 rad. The Cartesian endpoint and a
+      # separate live-joint hard-limit monitor independently fail closed.
+      panda_joint1: {trajectory: 0.05, goal: 0.05}
+      panda_joint2: {trajectory: 0.05, goal: 0.05}
+      panda_joint3: {trajectory: 0.05, goal: 0.05}
+      panda_joint4: {trajectory: 0.05, goal: 0.05}
+      panda_joint5: {trajectory: 0.05, goal: 0.05}
+      panda_joint6: {trajectory: 0.05, goal: 0.05}
+      panda_joint7: {trajectory: 0.05, goal: 0.05}
 
 panda_gripper_controller:
   ros__parameters:
     joint: panda_finger_joint1
     state_interfaces: [position, velocity]
     allow_stalling: true
-    stall_timeout: 0.25
+    # Gazebo may need several controller cycles to produce the first measured
+    # finger displacement immediately after a long arm trajectory.  The old
+    # 0.25 s gate could report a false stall at the fully open 0.04 m position.
+    # Runtime manipulation still rejects any stalled close with <2 mm travel.
+    stall_timeout: 1.0
+    goal_tolerance: 0.003
+
+panda_gripper_right_controller:
+  ros__parameters:
+    joint: panda_finger_joint2
+    state_interfaces: [position, velocity]
+    allow_stalling: true
+    # DART does not enforce the Panda mimic constraint, so the right finger
+    # receives the same bounded command through its own single-joint action.
+    stall_timeout: 1.0
     goal_tolerance: 0.003

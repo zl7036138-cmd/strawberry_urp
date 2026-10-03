@@ -1,0 +1,114 @@
+{
+  "camera_mount": "dual",
+  "clock_unsynchronized_target_samples_ignored": 2,
+  "collision_scene": {
+    "after_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "before_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "expected_ids": [
+      "collection_bin",
+      "strawberry_fruit_1",
+      "strawberry_fruit_2",
+      "strawberry_fruit_3",
+      "strawberry_plant_crown",
+      "strawberry_planter",
+      "work_table"
+    ],
+    "missing_after": [],
+    "missing_before": [],
+    "selected_fruit_collision_retained": true
+  },
+  "control_command_count": 0,
+  "control_interface_created": false,
+  "controller_configuration_keys": [],
+  "expected_target_id": 1,
+  "formal_acceptance": false,
+  "generated_at_utc": "2026-07-28T01:48:35.660567+00:00",
+  "grasp_geometry_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_manipulation/share/strawberry_manipulation/config/grasp_geometry.yaml",
+  "grasp_geometry_profile": "blender_v2_26mm",
+  "gripper_command_sent": false,
+  "handoff_input": {
+    "bytes": 2920,
+    "path": "results/development/blender_v2_perception_pick_once_v4/handoff_shadow.json",
+    "sha256": "d60756a29876609ec29b84b68d61a8722d472b8f1861d7220b5693d07c0388c9"
+  },
+  "held_out_test_consumed": false,
+  "joint_sample_count": 10,
+  "minimum_target_samples": 15,
+  "moveit_state_delta_rad": 0.0,
+  "observed_joint_delta_rad": 0.0,
+  "observed_target_ids": [
+    1
+  ],
+  "pick_action_called": false,
+  "pick_authorized": false,
+  "planning_attempt_count": 1,
+  "planning_attempts": [
+    {
+      "attempt": 1,
+      "endpoint_orientation_error_rad": 0.011638759755227256,
+      "endpoint_position_error_m": 0.0009935032444313998,
+      "planning_time_sec": 0.0356675169969094,
+      "success": true,
+      "trajectory_waypoint_count": 62
+    }
+  ],
+  "planning_passed": true,
+  "pregrasp_pose": {
+    "frame_id": "panda_link0",
+    "orientation_xyzw": [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "position_xyz_m": [
+      0.41938314988323155,
+      -0.056053161801222974,
+      0.7967097790600958
+    ],
+    "pregrasp_offset_m": 0.15,
+    "tool_center_offset_m": 0.0964
+  },
+  "scene_config": "/home/lzl/.cache/strawberry_urp/colcon/install/strawberry_sim/share/strawberry_sim/config/scene.yaml",
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_PREGRASP_PLANNING_SHADOW",
+  "state_history": [
+    "HANDOFF_RECEIPT_VALIDATED",
+    "READ_ONLY_MOVEIT_READY",
+    "PLANNING_COLLISION_SCENE_VALIDATED",
+    "PLANNING_TARGET_FROZEN",
+    "PREGRASP_GOAL_CONSTRUCTED",
+    "PREGRASP_PLAN_REQUESTED",
+    "TRAJECTORY_DISCARDED",
+    "STOP_BEFORE_TRAJECTORY_EXECUTION"
+  ],
+  "target_age_sec": {
+    "at_plan_completion": 0.0660000000000025,
+    "maximum": 0.0779999999999994,
+    "minimum": 0.03200000000000003
+  },
+  "target_sample_count": 15,
+  "target_topic": "/strawberry/perception/target_pose",
+  "trajectory_discarded": true,
+  "trajectory_executed": false,
+  "trajectory_execution_requested": false,
+  "trajectory_execution_time_sec": 0.0,
+  "trajectory_generated": true,
+  "violations": []
+}

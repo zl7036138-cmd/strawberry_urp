@@ -1,0 +1,27 @@
+Strawberry URP is a multi-license repository.
+
+The license for each ROS 2 package is authoritative in that package's
+`package.xml` and `setup.py` metadata:
+
+- `strawberry_bringup`, `strawberry_localization`, and
+  `strawberry_manipulation`: AGPL-3.0-only.
+- `strawberry_benchmark`, `strawberry_gazebo_plugins`,
+  `strawberry_interfaces`, `strawberry_perception`, and `strawberry_sim`:
+  Apache-2.0.
+
+Unless a file or directory carries a more specific notice, project-authored
+documentation, configuration, and scripts outside those packages are licensed
+under Apache-2.0. SPDX identifiers in individual files override this index.
+
+This repository also references or interoperates with third-party software,
+datasets, models, and assets under their own terms. See
+`THIRD_PARTY_NOTICES.md` and `ASSET_PROVENANCE.md`. No rights to third-party
+material are granted by this file.
+
+Canonical license texts:
+
+- Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+- GNU Affero General Public License v3.0 only:
+  https://www.gnu.org/licenses/agpl-3.0.html
+
+SPDX expressions: `Apache-2.0` and `AGPL-3.0-only`.

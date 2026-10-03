@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "capture_id": "blender_v2_unripe_adapt_capture_v1",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_ADAPTATION_CAPTURE",
+  "formal_acceptance": false,
+  "held_out_test_consumed": false,
+  "training_started": false,
+  "decision_record": "docs/decisions/0037-freeze-blender-v2-unripe-adaptation-research.md",
+  "scene_condition_config": "config/blender_v2_adaptation_scene_conditions.json",
+  "simulation_scene": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+  "base_world": "ros2_ws/src/strawberry_sim/worlds/strawberry_orchard.sdf",
+  "capture": {
+    "image_width": 640,
+    "image_height": 480,
+    "image_format": "png",
+    "png_compression": 3,
+    "fruit_radius_m": 0.026,
+    "settled_frames_after_pose": 5,
+    "images_per_render_configuration": 1,
+    "label_format": "yolo_normalized_xywh",
+    "label_source": "gazebo_truth_sphere_projection",
+    "labels_per_image": 1,
+    "group_count": 12,
+    "expected_train_images": 72,
+    "expected_heldout_images": 24,
+    "expected_total_images": 96
+  },
+  "classes": [
+    {
+      "maturity": "RIPE",
+      "class_id": 0,
+      "target_id": 1,
+      "target_model_name": "strawberry_1"
+    },
+    {
+      "maturity": "UNRIPE",
+      "class_id": 1,
+      "target_id": 2,
+      "target_model_name": "strawberry_2"
+    }
+  ],
+  "parked_models": [
+    {
+      "model_name": "strawberry_1",
+      "target_id": 1,
+      "position_m": [0.0, -2.0, 1.0]
+    },
+    {
+      "model_name": "strawberry_2",
+      "target_id": 2,
+      "position_m": [0.2, -2.0, 1.0]
+    },
+    {
+      "model_name": "strawberry_3",
+      "target_id": 3,
+      "position_m": [0.4, -2.0, 1.0]
+    }
+  ],
+  "conditions": [
+    {"condition_id": "dim_none", "lighting": "dim", "occlusion": "none"},
+    {"condition_id": "nominal_none", "lighting": "nominal", "occlusion": "none"},
+    {"condition_id": "bright_none", "lighting": "bright", "occlusion": "none"}
+  ],
+  "splits": {
+    "train": {
+      "materialization_id": 20260601,
+      "positions": [
+        {"position_id": "tr01", "position_m": [0.419, -0.053, 0.546], "orientation_xyzw": [0.0, 0.0, 0.0, 1.0]},
+        {"position_id": "tr02", "position_m": [0.445, -0.020, 0.535], "orientation_xyzw": [0.0, 0.0, 0.3826834, 0.9238795]},
+        {"position_id": "tr03", "position_m": [0.470, 0.010, 0.550], "orientation_xyzw": [0.0, 0.0, 0.7071068, 0.7071068]},
+        {"position_id": "tr04", "position_m": [0.495, 0.040, 0.530], "orientation_xyzw": [0.0, 0.2588190, 0.0, 0.9659258]},
+        {"position_id": "tr05", "position_m": [0.520, 0.070, 0.545], "orientation_xyzw": [0.0, -0.2588190, 0.0, 0.9659258]},
+        {"position_id": "tr06", "position_m": [0.550, 0.100, 0.532], "orientation_xyzw": [0.2588190, 0.0, 0.0, 0.9659258]},
+        {"position_id": "tr07", "position_m": [0.579, 0.068, 0.540], "orientation_xyzw": [0.0, 0.0, 0.9238795, 0.3826834]},
+        {"position_id": "tr08", "position_m": [0.560, 0.030, 0.565], "orientation_xyzw": [-0.2588190, 0.0, 0.0, 0.9659258]},
+        {"position_id": "tr09", "position_m": [0.530, -0.010, 0.575], "orientation_xyzw": [0.0, 0.0, 1.0, 0.0]},
+        {"position_id": "tr10", "position_m": [0.490, 0.090, 0.560], "orientation_xyzw": [0.0, 0.3826834, 0.0, 0.9238795]},
+        {"position_id": "tr11", "position_m": [0.455, 0.120, 0.540], "orientation_xyzw": [0.1830127, 0.1830127, 0.6830127, 0.6830127]},
+        {"position_id": "tr12", "position_m": [0.430, 0.080, 0.570], "orientation_xyzw": [-0.1830127, 0.1830127, -0.1830127, 0.9485882]}
+      ]
+    },
+    "heldout": {
+      "materialization_id": 20260602,
+      "positions": [
+        {"position_id": "va01", "position_m": [0.435, -0.035, 0.558], "orientation_xyzw": [0.0, 0.0, 0.1950903, 0.9807853]},
+        {"position_id": "va02", "position_m": [0.480, 0.025, 0.540], "orientation_xyzw": [0.0, 0.0, 0.5555702, 0.8314696]},
+        {"position_id": "va03", "position_m": [0.535, 0.055, 0.558], "orientation_xyzw": [0.0, -0.1736482, 0.0, 0.9848078]},
+        {"position_id": "va04", "position_m": [0.570, 0.095, 0.550], "orientation_xyzw": [0.1736482, 0.0, 0.0, 0.9848078]}
+      ]
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "evidence_id": "generalized_feasibility_observed_envelope_v1",
+  "scope": "DEVELOPMENT_ONLY_CONTROL_POSE_DIAGNOSTIC",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "runtime_control_input": false,
+  "sources": [
+    {
+      "split": "discovery",
+      "seed_range": [45001, 45018],
+      "summary_path_local": ".codex_tmp/generalized_feasibility_discovery_v2/sweep_summary.json",
+      "summary_sha256": "08ab7efdeae7a0a0877810b2f7466d23e88c4d80dc9663a4494ba46d18c664d0"
+    },
+    {
+      "split": "qualification",
+      "seed_range": [46001, 46018],
+      "summary_path_local": ".codex_tmp/generalized_feasibility_qualification_b00/sweep_summary.json",
+      "summary_sha256": "4a9aae4a0e203c0551ca207f2449e31268f6606a0b56ea912c5c92188c0a6e72"
+    }
+  ],
+  "observations": {
+    "scenario_count": 36,
+    "eligible_scenario_count": 2,
+    "eligible_scenario_ids": [
+      "discovery_b00_45007",
+      "qualification_b00_46016"
+    ],
+    "accepted_ripe_moveit_evaluation_count": 55,
+    "moveit_feasible_count": 14,
+    "moveit_rejected_count": 41,
+    "moveit_collision_rejection_count": 12,
+    "moveit_feasible_fraction": 0.2545454545454545,
+    "feasible_observed_control_pose_bounds_m": {
+      "min_x": 0.3206308105179073,
+      "max_x": 0.42553634497306425,
+      "min_y": 0.05036678328032812,
+      "max_y": 0.18898109981165573,
+      "min_z": 0.5380479245648883,
+      "max_z": 0.5698480279504766
+    },
+    "rejected_observed_control_pose_bounds_m": {
+      "min_x": 0.3037290365095209,
+      "max_x": 0.7041845955336611,
+      "min_y": -0.03225380898824248,
+      "max_y": 0.33723212914958883,
+      "min_z": 0.5215363359831185,
+      "max_z": 0.6085625951194075
+    }
+  },
+  "generator_policy": {
+    "layout_contract": "multi_pick_v2",
+    "primary_spawn_patterns": [
+      {
+        "layout_role": "primary_upper",
+        "plant_anchor_xy_m": [0.435, 0.2],
+        "required_slot_id": 1
+      },
+      {
+        "layout_role": "primary_lower",
+        "plant_anchor_xy_m": [0.4, -0.09],
+        "required_slot_id": 2
+      }
+    ],
+    "primary_yaw_range_rad": [-0.12, 0.12],
+    "position_band_x_shift_m": {
+      "near": -0.02,
+      "middle": 0.0,
+      "far": 0.02
+    },
+    "minimum_primary_ripe_by_construction": 2,
+    "minimum_unripe_targets": 1,
+    "moveit_feasibility_guaranteed": false
+  },
+  "interpretation": "These are observed perception-derived control poses, not ground-truth fruit positions and not a safe workspace certificate. The generator guarantees only two reproducible ripe spawn candidates; the unchanged perception and MoveIt gates remain authoritative."
+}

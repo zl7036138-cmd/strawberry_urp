@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "outcome_id": "field_v3_runtime_progress_v1",
+  "generated_at": "2026-09-23",
+  "scope": "non_formal_fixed_scene_perception_pick_round_trip",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "held_out_real_test_consumed": false,
+  "runtime_truth_control": false,
+  "source_identity": {
+    "parent_commit": "7af0cf49e963aafd527adec0deb1e0e3bfde5c8d",
+    "pre_documentation_source_diff_sha256": "384596c9d618affde397db5bf85ca6ca078bc64d7b61b204af0c5363bf605e0a",
+    "dirty_run_declared": true,
+    "changed_runtime_paths": [
+      "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/core.py",
+      "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/moveit_backend.py",
+      "ros2_ws/src/strawberry_manipulation/test/test_core.py",
+      "ros2_ws/src/strawberry_manipulation/test/test_moveit_backend.py",
+      "ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "ros2_ws/src/strawberry_sim/test/test_assets.py",
+      "ros2_ws/src/strawberry_sim/test/test_dynamic_attachment_capacity.py",
+      "scripts/run_field_v3_perception_pick_headed.sh"
+    ]
+  },
+  "run": {
+    "run_id": "field_v3_headed_pick_20260923_v8",
+    "local_output": ".codex_tmp/field_v3_headed_pick_20260923_v8",
+    "ros_domain_id": 228,
+    "headed": true,
+    "video_recorded": true,
+    "cleanup": "CLEAN",
+    "action_status": 4,
+    "result_success": true,
+    "failure_code": 0,
+    "message": "pick-and-place completed",
+    "target_id": 1,
+    "localization_error_m": 0.004856822626828648,
+    "planning_time_sec": 0.506,
+    "execution_time_sec": 227.1681,
+    "feedback_stages": [
+      "PLAN",
+      "APPROACH",
+      "GRASP",
+      "RETREAT",
+      "PLACE",
+      "VERIFY",
+      "RETURN_ROUTE",
+      "DONE"
+    ],
+    "selected_place_route": "direct_overhead",
+    "recorded_place_route_segments": 5,
+    "attachment_events": [
+      "attached_at_grasp",
+      "detached_at_place"
+    ],
+    "final_attached": false,
+    "final_gripper_open_m": [
+      0.03999999659769783,
+      0.04
+    ],
+    "final_arm_home_confirmed": true,
+    "target_final_position_m": [
+      -0.45292452359710883,
+      0.25024695902150434,
+      0.4488882641687281
+    ]
+  },
+  "runtime_changes": {
+    "place_route_bank": [
+      "clear_corridor",
+      "direct_overhead"
+    ],
+    "place_candidate_order": "route_order_then_quarter_turn_wrist_orientation",
+    "place_preflight": "complete_connected_ik_joint_limit_and_collision_preview_before_motion",
+    "release_open_retry": "one_identical_bounded_retry_after_one_settle_interval",
+    "normal_return": "reverse_the_five_recorded_place_segments_before_home",
+    "post_place_failure_recovery": "reverse_recorded_place_route_before_home",
+    "partial_place_failure_recovery": "withhold_unrecorded_home_sweep_after_controller_motion",
+    "grasp_close_acceptance": "bilateral_same_fruit_contact_may_defer_position_residual_to_strict_attachment_gate"
+  },
+  "verification": {
+    "targeted_unit_tests": {
+      "test_count": 134,
+      "errors": 0,
+      "failures": 0
+    },
+    "full_pure_tests": {
+      "test_count": 921,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 3
+    },
+    "full_colcon_tests": {
+      "test_count": 778,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "packages": 8
+    }
+  },
+  "evidence": {
+    "trial_01.json": {
+      "size_bytes": 10364,
+      "sha256": "a0b0adc463260ef450dfcc0653737b4b739af63381dbe4cf229f3961870ca7ea"
+    },
+    "execution_readiness.json": {
+      "size_bytes": 2365,
+      "sha256": "d046ece3957c21de319722fca905569e2e9665edbe3d3d381e862ccd3fde4875"
+    },
+    "handoff_shadow.json": {
+      "size_bytes": 3120,
+      "sha256": "be3bdf52563b2f47ae4247acf73173b26e0b45c5f3a385a232d4916ad087c0de"
+    },
+    "pregrasp_shadow.json": {
+      "size_bytes": 3510,
+      "sha256": "80047f4eb548967472608cd44c030fd99c5a86d645b6051d5e993b7b1c9cda2f"
+    },
+    "launch.log": {
+      "size_bytes": 56653,
+      "sha256": "973bd1bcdf909f8d4ac0667eb65b101616c6b2ee70583d0bec413b3337de8bfb"
+    },
+    "field_v3_live_demo.avi": {
+      "size_bytes": 130685998,
+      "sha256": "206ae86f58edd4b93dbba3346d46179ca14c4a287601cda39f2daa7253722bbe",
+      "frames": 1506,
+      "duration_sec": 376.365536377,
+      "tracked_in_git": false
+    },
+    "field_v3_live_demo.receipt.json": {
+      "size_bytes": 1352,
+      "sha256": "06423e442e45858de8cf25db34cc836784a248d931b7941fba0909dc916d6587"
+    }
+  },
+  "limits": {
+    "fixed_scene": true,
+    "fixed_target": true,
+    "single_completed_pick": true,
+    "multi_fruit_batch_proved": false,
+    "generalized_random_scene_gate_passed": false,
+    "physical_robot_evidence": false,
+    "fruit_damage_evidence": false,
+    "sim_to_real_claim": false,
+    "formal_30_seed_matrix_remains_sealed": true
+  }
+}

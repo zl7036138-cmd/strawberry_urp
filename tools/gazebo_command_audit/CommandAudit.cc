@@ -1,0 +1,162 @@
+// Optional read-only ECM observer. Never writes components or control commands.
+#include <chrono>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <stdexcept>
+#include <map>
+#include <google/protobuf/util/json_util.h>
+#include <gz/sim/components/ContactSensorData.hh>
+#include <gz/plugin/Register.hh>
+#include <gz/sim/System.hh>
+#include <gz/sim/Util.hh>
+#include <gz/sim/components/Link.hh>
+#include <gz/sim/components/Model.hh>
+#include <gz/sim/components/ParentEntity.hh>
+#include <gz/sim/components/Joint.hh>
+#include <gz/sim/components/Name.hh>
+#include <gz/sim/components/JointPosition.hh>
+#include <gz/sim/components/JointVelocity.hh>
+#include <gz/sim/components/JointVelocityCmd.hh>
+#include <gz/sim/components/JointForceCmd.hh>
+#include <gz/sim/components/JointVelocityReset.hh>
+#include <gz/sim/components/DetachableJoint.hh>
+#include <sdf/Element.hh>
+
+namespace strawberry {
+class CommandAudit final : public gz::sim::System,
+    public gz::sim::ISystemConfigure, public gz::sim::ISystemConfigurePriority,
+    public gz::sim::ISystemUpdate,
+    public gz::sim::ISystemPostUpdate {
+ public:
+  // All PreUpdate command writers finish before Update. Run immediately
+  // BEFORE Physics::Update (default priority 0), which consumes and clears
+  // JointVelocityCmd; otherwise every recorded command misleadingly is zero.
+  gz::sim::System::PriorityType ConfigurePriority() override { return -1; }
+  void Configure(const gz::sim::Entity &, const std::shared_ptr<const sdf::Element> &sdf,
+      gz::sim::EntityComponentManager &, gz::sim::EventManager &) override {
+    stream.open(sdf->Get<std::string>("output_file"), std::ios::out | std::ios::app);
+    if (!stream) throw std::runtime_error("Cannot open command-audit output");
+    stream << std::setprecision(17);
+    fixturePoseEnabled = sdf->Get<bool>("diagnostic_payload_pose_enabled", false).first;
+    contactAuditEnabled = sdf->Get<bool>("contact_audit_enabled", false).first;
+  }
+  void Update(const gz::sim::UpdateInfo &info,
+      gz::sim::EntityComponentManager &ecm) override {
+    RecordGraph(info, ecm);
+    Record("UPDATE", info, ecm);
+  }
+  void PostUpdate(const gz::sim::UpdateInfo &info,
+      const gz::sim::EntityComponentManager &ecm) override {
+    Record("POST_UPDATE", info, ecm);
+    if (contactAuditEnabled && !info.paused) RecordContacts(info, ecm);
+    if (fixturePoseEnabled && !info.paused && info.iterations % 10 == 0) RecordFixture(info, ecm);
+  }
+ private:
+  std::ofstream stream;
+  bool fixturePoseEnabled = false;
+  bool contactAuditEnabled = false;
+  // Observe only existing data. No new sensors/components, collision changes,
+  // or control feedback. Absence of a pair is NOT proof of collision freedom:
+  // this covers only collisions requested by the world's contact sensors.
+  void RecordContacts(const gz::sim::UpdateInfo &info,
+      const gz::sim::EntityComponentManager &ecm) {
+    unsigned sources = 0, pairs = 0;
+    ecm.Each<gz::sim::components::ContactSensorData>(
+      [&](const auto &id, const auto *data) {
+        ++sources;
+        pairs += data->Data().contact_size();
+        if (data->Data().contact_size() == 0) return true;
+        std::string raw;
+        auto status = google::protobuf::util::MessageToJsonString(data->Data(), &raw);
+        if (!status.ok()) throw std::runtime_error("Contact audit serialization failed");
+        stream << "{\"schema_version\":1,\"phase\":\"CONTACTS\",\"iteration\":"
+               << info.iterations << ",\"sim_time_sec\":"
+               << std::chrono::duration<double>(info.simTime).count()
+               << ",\"source_entity\":" << id << ",\"contacts\":" << raw << "}\n";
+        return true;
+      });
+    if (info.iterations % 100 == 0) {
+      stream << "{\"schema_version\":1,\"phase\":\"CONTACT_COVERAGE\",\"sim_time_sec\":"
+             << std::chrono::duration<double>(info.simTime).count()
+             << ",\"source_count\":" << sources << ",\"pair_count\":" << pairs << "}\n";
+    }
+  }
+  void RecordFixture(const gz::sim::UpdateInfo &info, const gz::sim::EntityComponentManager &ecm) {
+    auto resolve = [&](const std::string &modelName, const std::string &linkName) {
+      gz::sim::Entity modelId = gz::sim::kNullEntity;
+      unsigned matches = 0;
+      ecm.Each<gz::sim::components::Model, gz::sim::components::Name>(
+        [&](const auto &id, const auto *, const auto *name) {
+          if (name->Data() == modelName) { modelId = id; ++matches; } return true;
+        });
+      return matches == 1 ? ecm.EntityByComponents(gz::sim::components::Link(),
+          gz::sim::components::ParentEntity(modelId), gz::sim::components::Name(linkName)) : gz::sim::kNullEntity;
+    };
+    auto parent = resolve("panda", "panda_link7"), child = resolve("diagnostic_payload", "fruit_link");
+    if (parent == gz::sim::kNullEntity || child == gz::sim::kNullEntity) return;
+    const auto parentPose = gz::sim::worldPose(parent, ecm);
+    const auto childPose = gz::sim::worldPose(child, ecm);
+    const auto relative = parentPose.Inverse() * childPose;
+    stream << "{\"schema_version\":1,\"phase\":\"FIXTURE_POSE\",\"sim_time_sec\":"
+           << std::chrono::duration<double>(info.simTime).count() << ",\"parent_xyz\":["
+           << parentPose.Pos().X() << "," << parentPose.Pos().Y() << "," << parentPose.Pos().Z()
+           << "],\"child_xyz\":[" << childPose.Pos().X() << "," << childPose.Pos().Y() << "," << childPose.Pos().Z()
+           << "],\"relative_xyz\":[" << relative.Pos().X() << "," << relative.Pos().Y() << "," << relative.Pos().Z()
+           << "],\"relative_quat_wxyz\":[" << relative.Rot().W() << "," << relative.Rot().X() << ","
+           << relative.Rot().Y() << "," << relative.Rot().Z() << "]}\n";
+  }
+  std::map<gz::sim::Entity, unsigned> previousSupports;
+  void RecordGraph(const gz::sim::UpdateInfo &info,
+      const gz::sim::EntityComponentManager &ecm) {
+    std::map<gz::sim::Entity, unsigned> supports;
+    unsigned count = 0, multiple = 0;
+    ecm.Each<gz::sim::components::DetachableJoint>(
+      [&](const auto &, const auto *joint) { ++supports[joint->Data().childLink]; ++count; return true; });
+    if (supports == previousSupports) return;
+    previousSupports = supports;
+    for (const auto &entry : supports) if (entry.second > 1) ++multiple;
+    stream << "{\"schema_version\":1,\"phase\":\"GRAPH\",\"sim_time_sec\":"
+           << std::chrono::duration<double>(info.simTime).count()
+           << ",\"paused\":" << (info.paused ? "true" : "false")
+           << ",\"detachable_joint_count\":" << count
+           << ",\"multi_supported_child_count\":" << multiple << "}\n";
+    stream.flush();
+  }
+  template<class Component>
+  void Scalar(const gz::sim::EntityComponentManager &ecm, gz::sim::Entity id) {
+    auto c = ecm.Component<Component>(id);
+    if (c && !c->Data().empty() && std::isfinite(c->Data()[0])) stream << c->Data()[0];
+    else stream << "null";
+  }
+  void Record(const char *phase, const gz::sim::UpdateInfo &info,
+      const gz::sim::EntityComponentManager &ecm) {
+    if (info.paused) return;
+    ecm.Each<gz::sim::components::Joint, gz::sim::components::Name>(
+      [&](const gz::sim::Entity &id, const auto *, const auto *name) {
+        if (name->Data() != "panda_joint5") return true;
+        stream << "{\"schema_version\":1,\"phase\":\"" << phase
+               << "\",\"iteration\":" << info.iterations
+               << ",\"sim_time_sec\":" << std::chrono::duration<double>(info.simTime).count()
+               << ",\"entity\":" << id << ",\"position_rad\":";
+        Scalar<gz::sim::components::JointPosition>(ecm, id);
+        stream << ",\"velocity_rad_s\":";
+        Scalar<gz::sim::components::JointVelocity>(ecm, id);
+        stream << ",\"velocity_command_rad_s\":";
+        Scalar<gz::sim::components::JointVelocityCmd>(ecm, id);
+        stream << ",\"force_command_present\":"
+               << (ecm.Component<gz::sim::components::JointForceCmd>(id) ? "true" : "false")
+               << ",\"velocity_reset_present\":"
+               << (ecm.Component<gz::sim::components::JointVelocityReset>(id) ? "true" : "false")
+               << "}\n";
+        return true;
+      });
+    if (info.iterations % 100 == 0) stream.flush();
+  }
+};
+}
+GZ_ADD_PLUGIN(strawberry::CommandAudit, gz::sim::System,
+              strawberry::CommandAudit::ISystemConfigure,
+              strawberry::CommandAudit::ISystemConfigurePriority,
+              strawberry::CommandAudit::ISystemUpdate,
+              strawberry::CommandAudit::ISystemPostUpdate)

@@ -1,0 +1,2415 @@
+{
+  "attachment_started": false,
+  "candidate_count": 24,
+  "candidates": [
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": false,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0077511346561828336,
+      "close_width_m_per_finger": 0.018,
+      "contact_pad_center_distances_m": {
+        "left": 0.027278580169811998,
+        "right": 0.027278580169811998
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025751134656182832,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025751134656182832,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.001721419830188,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608777,
+            0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            -0.001458809764130221,
+            0.04013667126912811,
+            0.09652812614012535
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608777,
+            -0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            0.001458809764130221,
+            -0.04013667126912811,
+            0.09652812614012535
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025751134656182832,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0944
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.18531786200036454,
+      "minimum_open_finger_clearance_m": 0.014219515503823017,
+      "palm_clearance_m": 0.0024440464139989064,
+      "palm_nearest_point_hand_m": [
+        -0.00030895507285344075,
+        2.0387332171495354e-06,
+        0.06595763162097346
+      ],
+      "pregrasp_clearance_m": 0.11222739238683496,
+      "tool_center_offset_m": 0.0944,
+      "wrist_housing_clearance_m": 0.024046078767471887
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": false,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.005751134656182832,
+      "close_width_m_per_finger": 0.02,
+      "contact_pad_center_distances_m": {
+        "left": 0.027278580169811998,
+        "right": 0.027278580169811998
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025751134656182832,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025751134656182832,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.001721419830188,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608777,
+            0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            -0.001458809764130221,
+            0.04013667126912811,
+            0.09652812614012535
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608777,
+            -0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            0.001458809764130221,
+            -0.04013667126912811,
+            0.09652812614012535
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025751134656182832,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0944
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.18531786200036454,
+      "minimum_open_finger_clearance_m": 0.014219515503823017,
+      "palm_clearance_m": 0.0024440464139989064,
+      "palm_nearest_point_hand_m": [
+        -0.00030895507285344075,
+        2.0387332171495354e-06,
+        0.06595763162097346
+      ],
+      "pregrasp_clearance_m": 0.11222739238683496,
+      "tool_center_offset_m": 0.0944,
+      "wrist_housing_clearance_m": 0.024046078767471887
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": false,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0037511346561828335,
+      "close_width_m_per_finger": 0.022,
+      "contact_pad_center_distances_m": {
+        "left": 0.027278580169811998,
+        "right": 0.027278580169811998
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025751134656182832,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025751134656182832,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.001721419830188,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608777,
+            0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            -0.001458809764130221,
+            0.04013667126912811,
+            0.09652812614012535
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608777,
+            -0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            0.001458809764130221,
+            -0.04013667126912811,
+            0.09652812614012535
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025751134656182832,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0944
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.18531786200036454,
+      "minimum_open_finger_clearance_m": 0.014219515503823017,
+      "palm_clearance_m": 0.0024440464139989064,
+      "palm_nearest_point_hand_m": [
+        -0.00030895507285344075,
+        2.0387332171495354e-06,
+        0.06595763162097346
+      ],
+      "pregrasp_clearance_m": 0.11222739238683496,
+      "tool_center_offset_m": 0.0944,
+      "wrist_housing_clearance_m": 0.024046078767471887
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": false,
+        "open_finger_clearance": true,
+        "palm_clearance": false,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0007511346561828308,
+      "close_width_m_per_finger": 0.025,
+      "contact_pad_center_distances_m": {
+        "left": 0.027278580169811998,
+        "right": 0.027278580169811998
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025751134656182832,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025751134656182832,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.001721419830188,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608777,
+            0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            -0.001458809764130221,
+            0.04013667126912811,
+            0.09652812614012535
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608777,
+            -0.025946445150442872,
+            0.09577573212780247
+          ],
+          "first_contact_solver_error_m": -3.469446951953614e-18,
+          "first_contact_width_m": 0.025751134656182832,
+          "open_clearance_m": 0.014219515503823017,
+          "open_nearest_point_hand_m": [
+            0.001458809764130221,
+            -0.04013667126912811,
+            0.09652812614012535
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025751134656182832,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0944
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.6244326719085846,
+      "minimum_open_finger_clearance_m": 0.014219515503823017,
+      "palm_clearance_m": 0.0024440464139989064,
+      "palm_nearest_point_hand_m": [
+        -0.00030895507285344075,
+        2.0387332171495354e-06,
+        0.06595763162097346
+      ],
+      "pregrasp_clearance_m": 0.11222739238683496,
+      "tool_center_offset_m": 0.0944,
+      "wrist_housing_clearance_m": 0.024046078767471887
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.007804156645122965,
+      "close_width_m_per_finger": 0.018,
+      "contact_pad_center_distances_m": {
+        "left": 0.027674076320015516,
+        "right": 0.027674076320015516
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025804156645122964,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025804156645122964,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0013259236799844816,
+      "feasible": true,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            -0.0014568905547462964,
+            0.0400838674848149,
+            0.09752532637845751
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            0.0014568905547462964,
+            -0.0400838674848149,
+            0.09752532637845751
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025804156645122964,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0954
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": 0.13184958454392354,
+      "minimum_open_finger_clearance_m": 0.014166602729676774,
+      "palm_clearance_m": 0.0034439894232661007,
+      "palm_nearest_point_hand_m": [
+        -0.0003089549698144105,
+        2.0874265087844623e-06,
+        0.0659576316233445
+      ],
+      "pregrasp_clearance_m": 0.11318495845439236,
+      "tool_center_offset_m": 0.0954,
+      "wrist_housing_clearance_m": 0.02449168248335561
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.005804156645122963,
+      "close_width_m_per_finger": 0.02,
+      "contact_pad_center_distances_m": {
+        "left": 0.027674076320015516,
+        "right": 0.027674076320015516
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025804156645122964,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025804156645122964,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0013259236799844816,
+      "feasible": true,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            -0.0014568905547462964,
+            0.0400838674848149,
+            0.09752532637845751
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            0.0014568905547462964,
+            -0.0400838674848149,
+            0.09752532637845751
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025804156645122964,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0954
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": 0.13184958454392354,
+      "minimum_open_finger_clearance_m": 0.014166602729676774,
+      "palm_clearance_m": 0.0034439894232661007,
+      "palm_nearest_point_hand_m": [
+        -0.0003089549698144105,
+        2.0874265087844623e-06,
+        0.0659576316233445
+      ],
+      "pregrasp_clearance_m": 0.11318495845439236,
+      "tool_center_offset_m": 0.0954,
+      "wrist_housing_clearance_m": 0.02449168248335561
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.003804156645122965,
+      "close_width_m_per_finger": 0.022,
+      "contact_pad_center_distances_m": {
+        "left": 0.027674076320015516,
+        "right": 0.027674076320015516
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025804156645122964,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025804156645122964,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0013259236799844816,
+      "feasible": true,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            -0.0014568905547462964,
+            0.0400838674848149,
+            0.09752532637845751
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            0.0014568905547462964,
+            -0.0400838674848149,
+            0.09752532637845751
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025804156645122964,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0954
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": 0.13184958454392354,
+      "minimum_open_finger_clearance_m": 0.014166602729676774,
+      "palm_clearance_m": 0.0034439894232661007,
+      "palm_nearest_point_hand_m": [
+        -0.0003089549698144105,
+        2.0874265087844623e-06,
+        0.0659576316233445
+      ],
+      "pregrasp_clearance_m": 0.11318495845439236,
+      "tool_center_offset_m": 0.0954,
+      "wrist_housing_clearance_m": 0.02449168248335561
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": false,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0008041566451229623,
+      "close_width_m_per_finger": 0.025,
+      "contact_pad_center_distances_m": {
+        "left": 0.027674076320015516,
+        "right": 0.027674076320015516
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025804156645122964,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025804156645122964,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0013259236799844816,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            -0.0014568905547462964,
+            0.0400838674848149,
+            0.09752532637845751
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09677573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025804156645122964,
+          "open_clearance_m": 0.014166602729676774,
+          "open_nearest_point_hand_m": [
+            0.0014568905547462964,
+            -0.0400838674848149,
+            0.09752532637845751
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025804156645122964,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0954
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.5979216774385189,
+      "minimum_open_finger_clearance_m": 0.014166602729676774,
+      "palm_clearance_m": 0.0034439894232661007,
+      "palm_nearest_point_hand_m": [
+        -0.0003089549698144105,
+        2.0874265087844623e-06,
+        0.0659576316233445
+      ],
+      "pregrasp_clearance_m": 0.11318495845439236,
+      "tool_center_offset_m": 0.0954,
+      "wrist_housing_clearance_m": 0.02449168248335561
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.007857178634063097,
+      "close_width_m_per_finger": 0.018,
+      "contact_pad_center_distances_m": {
+        "left": 0.02809970973006392,
+        "right": 0.02809970973006392
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025857178634063095,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025857178634063095,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0009002902699360785,
+      "feasible": true,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            -0.0014549713453623752,
+            0.04003106370050169,
+            0.09852252661678965
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            0.0014549713453623752,
+            -0.04003106370050169,
+            0.09852252661678965
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025857178634063095,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0964
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": 0.14143116111370396,
+      "minimum_open_finger_clearance_m": 0.014113689955530518,
+      "palm_clearance_m": 0.004443936176328218,
+      "palm_nearest_point_hand_m": [
+        -0.00030895486677538016,
+        2.1361198004749005e-06,
+        0.06595763162571555
+      ],
+      "pregrasp_clearance_m": 0.1141431161113704,
+      "tool_center_offset_m": 0.0964,
+      "wrist_housing_clearance_m": 0.024953017575017087
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.005857178634063095,
+      "close_width_m_per_finger": 0.02,
+      "contact_pad_center_distances_m": {
+        "left": 0.02809970973006392,
+        "right": 0.02809970973006392
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025857178634063095,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025857178634063095,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0009002902699360785,
+      "feasible": true,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            -0.0014549713453623752,
+            0.04003106370050169,
+            0.09852252661678965
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            0.0014549713453623752,
+            -0.04003106370050169,
+            0.09852252661678965
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025857178634063095,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0964
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": 0.14143116111370396,
+      "minimum_open_finger_clearance_m": 0.014113689955530518,
+      "palm_clearance_m": 0.004443936176328218,
+      "palm_nearest_point_hand_m": [
+        -0.00030895486677538016,
+        2.1361198004749005e-06,
+        0.06595763162571555
+      ],
+      "pregrasp_clearance_m": 0.1141431161113704,
+      "tool_center_offset_m": 0.0964,
+      "wrist_housing_clearance_m": 0.024953017575017087
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0038571786340630965,
+      "close_width_m_per_finger": 0.022,
+      "contact_pad_center_distances_m": {
+        "left": 0.02809970973006392,
+        "right": 0.02809970973006392
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025857178634063095,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025857178634063095,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0009002902699360785,
+      "feasible": true,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            -0.0014549713453623752,
+            0.04003106370050169,
+            0.09852252661678965
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            0.0014549713453623752,
+            -0.04003106370050169,
+            0.09852252661678965
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025857178634063095,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0964
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": 0.14143116111370396,
+      "minimum_open_finger_clearance_m": 0.014113689955530518,
+      "palm_clearance_m": 0.004443936176328218,
+      "palm_nearest_point_hand_m": [
+        -0.00030895486677538016,
+        2.1361198004749005e-06,
+        0.06595763162571555
+      ],
+      "pregrasp_clearance_m": 0.1141431161113704,
+      "tool_center_offset_m": 0.0964,
+      "wrist_housing_clearance_m": 0.024953017575017087
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": true,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": false,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0008571786340630938,
+      "close_width_m_per_finger": 0.025,
+      "contact_pad_center_distances_m": {
+        "left": 0.02809970973006392,
+        "right": 0.02809970973006392
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025857178634063095,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025857178634063095,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0009002902699360785,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            -0.0014549713453623752,
+            0.04003106370050169,
+            0.09852252661678965
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.025946445150442875,
+            0.09777573212780248
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025857178634063095,
+          "open_clearance_m": 0.014113689955530518,
+          "open_nearest_point_hand_m": [
+            0.0014549713453623752,
+            -0.04003106370050169,
+            0.09852252661678965
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025857178634063095,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0964
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.5714106829684531,
+      "minimum_open_finger_clearance_m": 0.014113689955530518,
+      "palm_clearance_m": 0.004443936176328218,
+      "palm_nearest_point_hand_m": [
+        -0.00030895486677538016,
+        2.1361198004749005e-06,
+        0.06595763162571555
+      ],
+      "pregrasp_clearance_m": 0.1141431161113704,
+      "tool_center_offset_m": 0.0964,
+      "wrist_housing_clearance_m": 0.024953017575017087
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.007910200623003228,
+      "close_width_m_per_finger": 0.018,
+      "contact_pad_center_distances_m": {
+        "left": 0.028554132736335676,
+        "right": 0.028554132736335676
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025910200623003227,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025910200623003227,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0004458672636643221,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            -0.0014530521359784557,
+            0.03997825991618848,
+            0.09951972685512181
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            0.0014530521359784557,
+            -0.03997825991618848,
+            0.09951972685512181
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025910200623003227,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0974
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.10826547267135579,
+      "minimum_open_finger_clearance_m": 0.014060777181384276,
+      "palm_clearance_m": 0.005443886316016094,
+      "palm_nearest_point_hand_m": [
+        -0.0003089547637363499,
+        2.1848130921098274e-06,
+        0.0659576316280866
+      ],
+      "pregrasp_clearance_m": 0.11510185330613631,
+      "tool_center_offset_m": 0.0974,
+      "wrist_housing_clearance_m": 0.02542966070275012
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.005910200623003226,
+      "close_width_m_per_finger": 0.02,
+      "contact_pad_center_distances_m": {
+        "left": 0.028554132736335676,
+        "right": 0.028554132736335676
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025910200623003227,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025910200623003227,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0004458672636643221,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            -0.0014530521359784557,
+            0.03997825991618848,
+            0.09951972685512181
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            0.0014530521359784557,
+            -0.03997825991618848,
+            0.09951972685512181
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025910200623003227,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0974
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.10826547267135579,
+      "minimum_open_finger_clearance_m": 0.014060777181384276,
+      "palm_clearance_m": 0.005443886316016094,
+      "palm_nearest_point_hand_m": [
+        -0.0003089547637363499,
+        2.1848130921098274e-06,
+        0.0659576316280866
+      ],
+      "pregrasp_clearance_m": 0.11510185330613631,
+      "tool_center_offset_m": 0.0974,
+      "wrist_housing_clearance_m": 0.02542966070275012
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.003910200623003228,
+      "close_width_m_per_finger": 0.022,
+      "contact_pad_center_distances_m": {
+        "left": 0.028554132736335676,
+        "right": 0.028554132736335676
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025910200623003227,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025910200623003227,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0004458672636643221,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            -0.0014530521359784557,
+            0.03997825991618848,
+            0.09951972685512181
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            0.0014530521359784557,
+            -0.03997825991618848,
+            0.09951972685512181
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025910200623003227,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0974
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.10826547267135579,
+      "minimum_open_finger_clearance_m": 0.014060777181384276,
+      "palm_clearance_m": 0.005443886316016094,
+      "palm_nearest_point_hand_m": [
+        -0.0003089547637363499,
+        2.1848130921098274e-06,
+        0.0659576316280866
+      ],
+      "pregrasp_clearance_m": 0.11510185330613631,
+      "tool_center_offset_m": 0.0974,
+      "wrist_housing_clearance_m": 0.02542966070275012
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": false,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0009102006230032253,
+      "close_width_m_per_finger": 0.025,
+      "contact_pad_center_distances_m": {
+        "left": 0.028554132736335676,
+        "right": 0.028554132736335676
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.025910200623003227,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.025910200623003227,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": 0.0004458672636643221,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.0009430509888608794,
+            0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            -0.0014530521359784557,
+            0.03997825991618848,
+            0.09951972685512181
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.0009430509888608794,
+            -0.02594644515044288,
+            0.09877573212780247
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.025910200623003227,
+          "open_clearance_m": 0.014060777181384276,
+          "open_nearest_point_hand_m": [
+            0.0014530521359784557,
+            -0.03997825991618848,
+            0.09951972685512181
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.025910200623003227,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.0974
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -0.5448996884983873,
+      "minimum_open_finger_clearance_m": 0.014060777181384276,
+      "palm_clearance_m": 0.005443886316016094,
+      "palm_nearest_point_hand_m": [
+        -0.0003089547637363499,
+        2.1848130921098274e-06,
+        0.0659576316280866
+      ],
+      "pregrasp_clearance_m": 0.11510185330613631,
+      "tool_center_offset_m": 0.0974,
+      "wrist_housing_clearance_m": 0.02542966070275012
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.008058607825619592,
+      "close_width_m_per_finger": 0.018,
+      "contact_pad_center_distances_m": {
+        "left": 0.030067441557429568,
+        "right": 0.030067441557429568
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02605860782561959,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02605860782561959,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.00106744155742957,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.00047761592252403874,
+            0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            -0.00042456532963882146,
+            0.03992445718289465,
+            0.10123946947091754
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.00047761592252403874,
+            -0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            0.00042456532963882146,
+            -0.03992445718289465,
+            0.10123946947091754
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02605860782561959,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1004
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -3.1348831148591403,
+      "minimum_open_finger_clearance_m": 0.013935538634911659,
+      "palm_clearance_m": 0.008443754105275546,
+      "palm_nearest_point_hand_m": [
+        -0.00030895445461925897,
+        2.330892967097875e-06,
+        0.06595763163519973
+      ],
+      "pregrasp_clearance_m": 0.11798142631219469,
+      "tool_center_offset_m": 0.1004,
+      "wrist_housing_clearance_m": 0.02694723788829782
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.006058607825619591,
+      "close_width_m_per_finger": 0.02,
+      "contact_pad_center_distances_m": {
+        "left": 0.030067441557429568,
+        "right": 0.030067441557429568
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02605860782561959,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02605860782561959,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.00106744155742957,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.00047761592252403874,
+            0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            -0.00042456532963882146,
+            0.03992445718289465,
+            0.10123946947091754
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.00047761592252403874,
+            -0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            0.00042456532963882146,
+            -0.03992445718289465,
+            0.10123946947091754
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02605860782561959,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1004
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -3.1348831148591403,
+      "minimum_open_finger_clearance_m": 0.013935538634911659,
+      "palm_clearance_m": 0.008443754105275546,
+      "palm_nearest_point_hand_m": [
+        -0.00030895445461925897,
+        2.330892967097875e-06,
+        0.06595763163519973
+      ],
+      "pregrasp_clearance_m": 0.11798142631219469,
+      "tool_center_offset_m": 0.1004,
+      "wrist_housing_clearance_m": 0.02694723788829782
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.004058607825619592,
+      "close_width_m_per_finger": 0.022,
+      "contact_pad_center_distances_m": {
+        "left": 0.030067441557429568,
+        "right": 0.030067441557429568
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02605860782561959,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02605860782561959,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.00106744155742957,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.00047761592252403874,
+            0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            -0.00042456532963882146,
+            0.03992445718289465,
+            0.10123946947091754
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.00047761592252403874,
+            -0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            0.00042456532963882146,
+            -0.03992445718289465,
+            0.10123946947091754
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02605860782561959,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1004
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -3.1348831148591403,
+      "minimum_open_finger_clearance_m": 0.013935538634911659,
+      "palm_clearance_m": 0.008443754105275546,
+      "palm_nearest_point_hand_m": [
+        -0.00030895445461925897,
+        2.330892967097875e-06,
+        0.06595763163519973
+      ],
+      "pregrasp_clearance_m": 0.11798142631219469,
+      "tool_center_offset_m": 0.1004,
+      "wrist_housing_clearance_m": 0.02694723788829782
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": false,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0010586078256195897,
+      "close_width_m_per_finger": 0.025,
+      "contact_pad_center_distances_m": {
+        "left": 0.030067441557429568,
+        "right": 0.030067441557429568
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02605860782561959,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02605860782561959,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.00106744155742957,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            -0.00047761592252403874,
+            0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            -0.00042456532963882146,
+            0.03992445718289465,
+            0.10123946947091754
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            0.00047761592252403874,
+            -0.025983397252837683,
+            0.10119683764455428
+          ],
+          "first_contact_solver_error_m": 3.469446951953614e-18,
+          "first_contact_width_m": 0.02605860782561959,
+          "open_clearance_m": 0.013935538634911659,
+          "open_nearest_point_hand_m": [
+            0.00042456532963882146,
+            -0.03992445718289465,
+            0.10123946947091754
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02605860782561959,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1004
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -3.1348831148591403,
+      "minimum_open_finger_clearance_m": 0.013935538634911659,
+      "palm_clearance_m": 0.008443754105275546,
+      "palm_nearest_point_hand_m": [
+        -0.00030895445461925897,
+        2.330892967097875e-06,
+        0.06595763163519973
+      ],
+      "pregrasp_clearance_m": 0.11798142631219469,
+      "tool_center_offset_m": 0.1004,
+      "wrist_housing_clearance_m": 0.02694723788829782
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.008090583300831223,
+      "close_width_m_per_finger": 0.018,
+      "contact_pad_center_distances_m": {
+        "left": 0.03287428382455826,
+        "right": 0.03287428382455826
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02609058330083122,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02609058330083122,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.003874283824558261,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            9.679400206384636e-05,
+            0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            0.0001485760041475756,
+            0.03990877493922035,
+            0.10552613625263796
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            -9.679400206384636e-05,
+            -0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            -0.0001485760041475756,
+            -0.03990877493922035,
+            0.10552613625263796
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02609058330083122,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1054
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -8.748567649116524,
+      "minimum_open_finger_clearance_m": 0.013909250836523859,
+      "palm_clearance_m": 0.013443578443815305,
+      "palm_nearest_point_hand_m": [
+        -0.0003089539394241075,
+        2.57435942539741e-06,
+        0.06595763164705497
+      ],
+      "pregrasp_clearance_m": 0.1227912684770783,
+      "tool_center_offset_m": 0.1054,
+      "wrist_housing_clearance_m": 0.0297441476748905
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.006090583300831221,
+      "close_width_m_per_finger": 0.02,
+      "contact_pad_center_distances_m": {
+        "left": 0.03287428382455826,
+        "right": 0.03287428382455826
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02609058330083122,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02609058330083122,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.003874283824558261,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            9.679400206384636e-05,
+            0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            0.0001485760041475756,
+            0.03990877493922035,
+            0.10552613625263796
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            -9.679400206384636e-05,
+            -0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            -0.0001485760041475756,
+            -0.03990877493922035,
+            0.10552613625263796
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02609058330083122,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1054
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -8.748567649116524,
+      "minimum_open_finger_clearance_m": 0.013909250836523859,
+      "palm_clearance_m": 0.013443578443815305,
+      "palm_nearest_point_hand_m": [
+        -0.0003089539394241075,
+        2.57435942539741e-06,
+        0.06595763164705497
+      ],
+      "pregrasp_clearance_m": 0.1227912684770783,
+      "tool_center_offset_m": 0.1054,
+      "wrist_housing_clearance_m": 0.0297441476748905
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": true,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.004090583300831223,
+      "close_width_m_per_finger": 0.022,
+      "contact_pad_center_distances_m": {
+        "left": 0.03287428382455826,
+        "right": 0.03287428382455826
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02609058330083122,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02609058330083122,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.003874283824558261,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            9.679400206384636e-05,
+            0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            0.0001485760041475756,
+            0.03990877493922035,
+            0.10552613625263796
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            -9.679400206384636e-05,
+            -0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            -0.0001485760041475756,
+            -0.03990877493922035,
+            0.10552613625263796
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02609058330083122,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1054
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -8.748567649116524,
+      "minimum_open_finger_clearance_m": 0.013909250836523859,
+      "palm_clearance_m": 0.013443578443815305,
+      "palm_nearest_point_hand_m": [
+        -0.0003089539394241075,
+        2.57435942539741e-06,
+        0.06595763164705497
+      ],
+      "pregrasp_clearance_m": 0.1227912684770783,
+      "tool_center_offset_m": 0.1054,
+      "wrist_housing_clearance_m": 0.0297441476748905
+    },
+    {
+      "checks": {
+        "contact_inside_finger_axial_section": true,
+        "fallback_pad_margin": false,
+        "fruit_between_pads": true,
+        "maximum_close_overtravel": true,
+        "minimum_close_overtravel": false,
+        "open_finger_clearance": true,
+        "palm_clearance": true,
+        "pregrasp_clearance": true,
+        "symmetric_first_contact": true,
+        "wrist_housing_clearance": true
+      },
+      "close_command_overtravel_m": 0.0010905833008312202,
+      "close_width_m_per_finger": 0.025,
+      "contact_pad_center_distances_m": {
+        "left": 0.03287428382455826,
+        "right": 0.03287428382455826
+      },
+      "contact_pad_centers_hand_m": {
+        "left": [
+          0.0,
+          0.02609058330083122,
+          0.0854
+        ],
+        "right": [
+          0.0,
+          -0.02609058330083122,
+          0.0854
+        ]
+      },
+      "contact_symmetry_error_m": 0.0,
+      "fallback_distance_limit_m": 0.028999999999999998,
+      "fallback_margin_m": -0.003874283824558261,
+      "feasible": false,
+      "finger": {
+        "left": {
+          "first_contact_point_hand_m": [
+            9.679400206384636e-05,
+            0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            0.0001485760041475756,
+            0.03990877493922035,
+            0.10552613625263796
+          ]
+        },
+        "right": {
+          "first_contact_point_hand_m": [
+            -9.679400206384636e-05,
+            -0.025999689963363583,
+            0.10548217499702063
+          ],
+          "first_contact_solver_error_m": 0.0,
+          "first_contact_width_m": 0.02609058330083122,
+          "open_clearance_m": 0.013909250836523859,
+          "open_nearest_point_hand_m": [
+            -0.0001485760041475756,
+            -0.03990877493922035,
+            0.10552613625263796
+          ]
+        }
+      },
+      "finger_axial_range_hand_z_m": [
+        0.0585316962443525,
+        0.11224903401136399
+      ],
+      "first_contact_width_m_per_finger": 0.02609058330083122,
+      "fruit_center_in_hand_m": [
+        0.0,
+        0.0,
+        0.1054
+      ],
+      "fruit_projection_between_pads": 0.5,
+      "minimum_normalized_threshold_margin": -8.748567649116524,
+      "minimum_open_finger_clearance_m": 0.013909250836523859,
+      "palm_clearance_m": 0.013443578443815305,
+      "palm_nearest_point_hand_m": [
+        -0.0003089539394241075,
+        2.57435942539741e-06,
+        0.06595763164705497
+      ],
+      "pregrasp_clearance_m": 0.1227912684770783,
+      "tool_center_offset_m": 0.1054,
+      "wrist_housing_clearance_m": 0.0297441476748905
+    }
+  ],
+  "contract": {
+    "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/config/blender_v2_gripper_geometry_sweep_v1.json",
+    "sha256": "e1a6b137d7ee78d23d7780f2f2912f967d920cda04262ac450608c1b92e7009f",
+    "size_bytes": 4270
+  },
+  "current_production_result": {
+    "checks": {
+      "contact_inside_finger_axial_section": true,
+      "fallback_pad_margin": false,
+      "fruit_between_pads": true,
+      "maximum_close_overtravel": true,
+      "minimum_close_overtravel": false,
+      "open_finger_clearance": true,
+      "palm_clearance": true,
+      "pregrasp_clearance": true,
+      "symmetric_first_contact": true,
+      "wrist_housing_clearance": true
+    },
+    "close_command_overtravel_m": 0.0010905833008312202,
+    "close_width_m_per_finger": 0.025,
+    "contact_pad_center_distances_m": {
+      "left": 0.03287428382455826,
+      "right": 0.03287428382455826
+    },
+    "contact_pad_centers_hand_m": {
+      "left": [
+        0.0,
+        0.02609058330083122,
+        0.0854
+      ],
+      "right": [
+        0.0,
+        -0.02609058330083122,
+        0.0854
+      ]
+    },
+    "contact_symmetry_error_m": 0.0,
+    "fallback_distance_limit_m": 0.028999999999999998,
+    "fallback_margin_m": -0.003874283824558261,
+    "feasible": false,
+    "finger": {
+      "left": {
+        "first_contact_point_hand_m": [
+          9.679400206384636e-05,
+          0.025999689963363583,
+          0.10548217499702063
+        ],
+        "first_contact_solver_error_m": 0.0,
+        "first_contact_width_m": 0.02609058330083122,
+        "open_clearance_m": 0.013909250836523859,
+        "open_nearest_point_hand_m": [
+          0.0001485760041475756,
+          0.03990877493922035,
+          0.10552613625263796
+        ]
+      },
+      "right": {
+        "first_contact_point_hand_m": [
+          -9.679400206384636e-05,
+          -0.025999689963363583,
+          0.10548217499702063
+        ],
+        "first_contact_solver_error_m": 0.0,
+        "first_contact_width_m": 0.02609058330083122,
+        "open_clearance_m": 0.013909250836523859,
+        "open_nearest_point_hand_m": [
+          -0.0001485760041475756,
+          -0.03990877493922035,
+          0.10552613625263796
+        ]
+      }
+    },
+    "finger_axial_range_hand_z_m": [
+      0.0585316962443525,
+      0.11224903401136399
+    ],
+    "first_contact_width_m_per_finger": 0.02609058330083122,
+    "fruit_center_in_hand_m": [
+      0.0,
+      0.0,
+      0.1054
+    ],
+    "fruit_projection_between_pads": 0.5,
+    "minimum_normalized_threshold_margin": -8.748567649116524,
+    "minimum_open_finger_clearance_m": 0.013909250836523859,
+    "palm_clearance_m": 0.013443578443815305,
+    "palm_nearest_point_hand_m": [
+      -0.0003089539394241075,
+      2.57435942539741e-06,
+      0.06595763164705497
+    ],
+    "pregrasp_clearance_m": 0.1227912684770783,
+    "tool_center_offset_m": 0.1054,
+    "wrist_housing_clearance_m": 0.0297441476748905
+  },
+  "feasible_candidate_count": 6,
+  "formal_acceptance": false,
+  "formal_held_out_test_accessed": false,
+  "gate": "blender_v2_gripper_geometry_sweep_v1",
+  "generated_at_utc": "2026-07-27T01:43:40.655789+00:00",
+  "gripper_command_started": false,
+  "mesh_triangle_counts": {
+    "finger": 32,
+    "hand": 200
+  },
+  "passed": true,
+  "pick_action_started": false,
+  "planning_started": false,
+  "recommendation": {
+    "checks": {
+      "contact_inside_finger_axial_section": true,
+      "fallback_pad_margin": true,
+      "fruit_between_pads": true,
+      "maximum_close_overtravel": true,
+      "minimum_close_overtravel": true,
+      "open_finger_clearance": true,
+      "palm_clearance": true,
+      "pregrasp_clearance": true,
+      "symmetric_first_contact": true,
+      "wrist_housing_clearance": true
+    },
+    "close_command_overtravel_m": 0.0038571786340630965,
+    "close_width_m_per_finger": 0.022,
+    "contact_pad_center_distances_m": {
+      "left": 0.02809970973006392,
+      "right": 0.02809970973006392
+    },
+    "contact_pad_centers_hand_m": {
+      "left": [
+        0.0,
+        0.025857178634063095,
+        0.0854
+      ],
+      "right": [
+        0.0,
+        -0.025857178634063095,
+        0.0854
+      ]
+    },
+    "contact_symmetry_error_m": 0.0,
+    "fallback_distance_limit_m": 0.028999999999999998,
+    "fallback_margin_m": 0.0009002902699360785,
+    "feasible": true,
+    "finger": {
+      "left": {
+        "first_contact_point_hand_m": [
+          -0.0009430509888608794,
+          0.025946445150442875,
+          0.09777573212780248
+        ],
+        "first_contact_solver_error_m": 3.469446951953614e-18,
+        "first_contact_width_m": 0.025857178634063095,
+        "open_clearance_m": 0.014113689955530518,
+        "open_nearest_point_hand_m": [
+          -0.0014549713453623752,
+          0.04003106370050169,
+          0.09852252661678965
+        ]
+      },
+      "right": {
+        "first_contact_point_hand_m": [
+          0.0009430509888608794,
+          -0.025946445150442875,
+          0.09777573212780248
+        ],
+        "first_contact_solver_error_m": 3.469446951953614e-18,
+        "first_contact_width_m": 0.025857178634063095,
+        "open_clearance_m": 0.014113689955530518,
+        "open_nearest_point_hand_m": [
+          0.0014549713453623752,
+          -0.04003106370050169,
+          0.09852252661678965
+        ]
+      }
+    },
+    "finger_axial_range_hand_z_m": [
+      0.0585316962443525,
+      0.11224903401136399
+    ],
+    "first_contact_width_m_per_finger": 0.025857178634063095,
+    "fruit_center_in_hand_m": [
+      0.0,
+      0.0,
+      0.0964
+    ],
+    "fruit_projection_between_pads": 0.5,
+    "minimum_normalized_threshold_margin": 0.14143116111370396,
+    "minimum_open_finger_clearance_m": 0.014113689955530518,
+    "palm_clearance_m": 0.004443936176328218,
+    "palm_nearest_point_hand_m": [
+      -0.00030895486677538016,
+      2.1361198004749005e-06,
+      0.06595763162571555
+    ],
+    "pregrasp_clearance_m": 0.1141431161113704,
+    "tool_center_offset_m": 0.0964,
+    "wrist_housing_clearance_m": 0.024953017575017087
+  },
+  "resolved_inputs": {
+    "action_server": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/strawberry_manipulation/action_server.py",
+      "sha256": "488f95cd5333644b456f40ffd14859b9582f21e807a855315b0e20c754c316d5",
+      "size_bytes": 16861
+    },
+    "attachment_manager": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/strawberry_sim/attachment_manager.py",
+      "sha256": "4f62ad8ec7f9caf8400a622763c67a743b2f2f2c017b64f0bb65cbc687b86ea6",
+      "size_bytes": 28483
+    },
+    "decision_record": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/docs/decisions/0043-freeze-blender-v2-gripper-geometry-sweep.md",
+      "sha256": "5e99f13f59611159e5f03fb119fb38d159cfb4b9f690ed5cedceb3937b212641",
+      "size_bytes": 3933
+    },
+    "manipulation_core": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_manipulation/strawberry_manipulation/core.py",
+      "sha256": "36ccdb31a8ae42b3d76532e87e59cea9dcf5cdcf9a8b665fc833d1e1bb19db14",
+      "size_bytes": 14382
+    },
+    "panda_extension_xacro": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/urdf/panda_gz.urdf.xacro",
+      "sha256": "f1f539d478caa7ba47c031290f342672e1b866249a49c9929f0a62df31ebd43f",
+      "size_bytes": 11855
+    },
+    "scene_manifest": {
+      "path": "/mnt/c/Users/12753/Documents/New project/strawberry_urp/ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093",
+      "size_bytes": 1927
+    },
+    "upstream_finger_collision_mesh": {
+      "path": "/opt/ros/jazzy/share/moveit_resources_panda_description/meshes/collision/finger.stl",
+      "sha256": "2d07a740392f3b9b0816f65d64fff9927d3d57c897870fc4b6ff9c56fff3a0c8",
+      "size_bytes": 1684
+    },
+    "upstream_hand_collision_mesh": {
+      "path": "/opt/ros/jazzy/share/moveit_resources_panda_description/meshes/collision/hand.stl",
+      "sha256": "94493e94f30fe940f2c8ca2f155c3bbe67bbff406d3edf5e261670d2f0f6e2ed",
+      "size_bytes": 10084
+    },
+    "upstream_panda_xacro": {
+      "path": "/opt/ros/jazzy/share/moveit_resources_panda_description/urdf/panda.urdf.xacro",
+      "sha256": "c8ee3bad4d89ad9bf4af717037418a3e6b046d47df6375a92a912a901d256a34",
+      "size_bytes": 12867
+    }
+  },
+  "robot_motion_started": false,
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_GRIPPER_GEOMETRY",
+  "simulated_fruit_motion_started": false
+}

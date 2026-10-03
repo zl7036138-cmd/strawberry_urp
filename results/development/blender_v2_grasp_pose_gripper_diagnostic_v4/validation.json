@@ -1,0 +1,22 @@
+{
+  "generated_at_utc": "2026-07-28T01:47:00.334935+00:00",
+  "input": {
+    "path": "results\\development\\blender_v2_grasp_pose_gripper_diagnostic_v4\\summary.json",
+    "sha256": "2d3725f4873df25d780d79f69fa9ac9914bae9ea20cb12cfbe0949d8fa0e3da6",
+    "size_bytes": 21016
+  },
+  "passed": true,
+  "policy": {
+    "controller_goal_tolerance_m": 0.003,
+    "maximum_fruit_displacement_m": 0.005,
+    "minimum_measured_close_travel_m": 0.002,
+    "minimum_stalled_close_travel_m": 0.002,
+    "require_processed_bilateral_target_contact": true,
+    "require_raw_bilateral_target_contact": true,
+    "require_safe_recovery": true
+  },
+  "schema_version": 1,
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_GRASP_POSE_GRIPPER_VALIDATION",
+  "source_diagnostic_passed": false,
+  "violations": []
+}

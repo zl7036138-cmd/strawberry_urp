@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "outcome_id": "generalized_runtime_progress_v18",
+  "scope": "development_only_two_fruit_runtime_and_drop_slot_qualification",
+  "extends": "generalized_runtime_progress_v17",
+  "behavior_git_commit": "a97529f26cafa93c903dab06e528acd4a5dd5cec",
+  "formal_acceptance": false,
+  "formal_results_consumed": false,
+  "formal_claim_created": false,
+  "runtime_truth_use": false,
+  "development_seed": 45504,
+  "changes": {
+    "drop_slot_static_qualification": "Filter the bounded drop-slot lattice against the active scene collision profile, carried-fruit radius plus localization uncertainty, and collection-bin interior before assigning a slot.",
+    "deterministic_slot_order": "Sort statically safe in-bin candidates by distance to panda_link0 while preserving a bounded capacity and stable retry assignment.",
+    "authoritative_runtime_gate": "Keep the attached-body MoveIt preview authoritative for reachability, joint bounds, self-collision and dynamic collision checks."
+  },
+  "development_runtime_probe": {
+    "run_id": "generalized_harvest_seed_45504_qualified_drop_slot_20260928_v9_retry1",
+    "local_output": ".codex_tmp/generalized_harvest_seed_45504_qualified_drop_slot_20260928_v9_retry1",
+    "terminal_outcome": "SUCCESS",
+    "elapsed_wall_sec": 623.456532711,
+    "truth_isolation_pass": true,
+    "cleanup": "CLEAN",
+    "harvested_distinct_count": 2,
+    "harvested_track_ids": [4, 3],
+    "runtime_to_sim_target_id": {
+      "4": 1,
+      "3": 4
+    },
+    "physical_harvest_sim_target_ids": [1, 4],
+    "placed_sim_target_ids": [1, 4],
+    "physical_identity_status": "PASS",
+    "maximum_reobservations_for_one_target": 1,
+    "pick_commands": [
+      {
+        "runtime_track_id": 4,
+        "drop_slot_index": 0,
+        "place_position_m": [0.35, -0.45, 0.45]
+      },
+      {
+        "runtime_track_id": 3,
+        "drop_slot_index": 1,
+        "place_position_m": [0.27, -0.45, 0.45]
+      }
+    ],
+    "unripe_pick_count": 0,
+    "collision_count_reported_by_runtime": 0,
+    "joint_limit_violation_count_reported_by_runtime": 0,
+    "unsafe_motion_attempt_count": 0,
+    "safety_evidence_status": "INDETERMINATE",
+    "run_safety_pass": false,
+    "evidence_integrity_pass": false,
+    "evidence_unknowns": [
+      "independent collision telemetry is missing",
+      "independent joint-limit telemetry is missing",
+      "independent home/stop telemetry is missing",
+      "independent scene terminal state is missing"
+    ],
+    "artifact_sha256": {
+      "runtime_probe.json": "e14c5391429ce6323156b6032bbf474ece2d5bf3804445fdcdbd5f2cb08b99dc",
+      "runtime_score.json": "31b94be54d7866066f322ec29d774214dfdac394bbb5e0626a857117ce6769eb",
+      "truth_isolation.json": "6ec376b827bb5cfcadc84f06db3597b3018e27dace8e171e93856be578f6ef16",
+      "cleanup_probe.json": "263f735ec43e8936d7f4a15c02110d6324db0693672fe63aca205b8b2410d2ef",
+      "launch.log": "902fa396612c0250d1ad147a7372b483bec0b9c3bf82bd7a2302ea9f1c346273"
+    }
+  },
+  "verification": {
+    "dependency_light_regression": {
+      "test_count": 939,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 3
+    },
+    "ros_colcon_regression": {
+      "test_count": 796,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "formal_30_seed_matrix_remains_sealed": true
+  },
+  "decision": {
+    "same_batch_two_fruit_harvest_proved_for_one_development_scene": true,
+    "qualified_second_drop_slot_runtime_proved": true,
+    "five_scene_multi_fruit_development_gate_passed": false,
+    "runtime_generalization_gate_passed": false,
+    "formal_30_seed_matrix_may_be_opened": false,
+    "current_primary_blocker": "The behavior chain has one two-fruit development success, but four independent safety telemetry streams are not bound into the runtime receipt and the required five-scene qualification batch has not run.",
+    "next_required_work": [
+      "Make post-grasp failure semantics explicit so ordinary plan failures cannot detach or open outside an authorized bin or safe-release state.",
+      "Bind independent collision, joint-limit, home/stop and scene-terminal telemetry into the development recorder and strict score.",
+      "After the behavior and evidence code is frozen, screen a fresh development seed block and run five one-attempt qualification scenes without relaxing safety thresholds.",
+      "Keep the formal 30-seed matrix sealed until the five-scene development gate passes."
+    ]
+  }
+}

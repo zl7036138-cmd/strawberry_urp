@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "gate_id": "blender_v2_gripper_contact_round_trip_v1",
+  "scope": "NON_ACCEPTANCE_BLENDER_V2_GRIPPER_CONTACT_RUNTIME",
+  "status": "FROZEN_EXECUTION_AUTHORIZED",
+  "decision_record": {
+    "path": "docs/decisions/0044-freeze-blender-v2-gripper-contact-round-trip.md",
+    "size_bytes": 3650,
+    "sha256": "d9813b489b9a2da822ea672bfda344a719f5471a4a3653c7048941e3090065f1"
+  },
+  "bindings": {
+    "scene_manifest": {
+      "path": "ros2_ws/src/strawberry_sim/config/scene.yaml",
+      "size_bytes": 1927,
+      "sha256": "55fe913e87c246c66c6f2c4b8bc60388133321221d3cf0d5b19b082f40fae093"
+    },
+    "panda_xacro": {
+      "path": "ros2_ws/src/strawberry_sim/urdf/panda_gz.urdf.xacro",
+      "size_bytes": 11855,
+      "sha256": "f1f539d478caa7ba47c031290f342672e1b866249a49c9929f0a62df31ebd43f"
+    },
+    "attachment_manager": {
+      "path": "ros2_ws/src/strawberry_sim/strawberry_sim/attachment_manager.py",
+      "size_bytes": 28483,
+      "sha256": "4f62ad8ec7f9caf8400a622763c67a743b2f2f2c017b64f0bb65cbc687b86ea6"
+    },
+    "sim_launch": {
+      "path": "ros2_ws/src/strawberry_sim/launch/sim.launch.py",
+      "size_bytes": 13264,
+      "sha256": "185dea9f22687cfafddb33e675bcb5c4d9aa813832e3ad2c4f5e43eb9a577667"
+    },
+    "controller_config": {
+      "path": "ros2_ws/src/strawberry_sim/config/panda_controllers.yaml",
+      "size_bytes": 1767,
+      "sha256": "52dfbbc12c0479dad2fd325ef0fa143b7109b51a49c2b6705e554ec40b98b335"
+    },
+    "geometry_contract": {
+      "path": "config/blender_v2_gripper_geometry_sweep_v1.json",
+      "size_bytes": 4270,
+      "sha256": "e1a6b137d7ee78d23d7780f2f2912f967d920cda04262ac450608c1b92e7009f"
+    },
+    "geometry_result": {
+      "path": "results/development/blender_v2_gripper_geometry_sweep_v1/summary.json",
+      "size_bytes": 77616,
+      "sha256": "70dd93e29aa72bad8b5b0c5be50596fe35f60f565946fb71270ca45747ba5781"
+    },
+    "contact_gate_logic": {
+      "path": "ros2_ws/src/strawberry_manipulation/strawberry_manipulation/gripper_contact_gate.py",
+      "size_bytes": 9528,
+      "sha256": "9c4478c41acaf00f6a3cb83e99b83b59ddf3e6887bfde3723355c7f4a9dbf7b1"
+    },
+    "runtime_probe": {
+      "path": "scripts/run_blender_v2_gripper_contact_trial.py",
+      "size_bytes": 22078,
+      "sha256": "804a754db9d10f942a7f8d6fbf5311d3d1cdd1d6d8d5b1fee85c41095735644d"
+    },
+    "runtime_runner": {
+      "path": "scripts/run_blender_v2_gripper_contact_gate.sh",
+      "size_bytes": 2269,
+      "sha256": "e829108acd8907d1a99bcf508c759c83995d82b8f5f79854c3f97e70c60ca050"
+    }
+  },
+  "parameters": {
+    "target_id": 1,
+    "target_model": "strawberry_1",
+    "tool_center_offset_m": 0.0964,
+    "predicted_contact_width_m_per_finger": 0.025857178634063095,
+    "gripper_open_width_m_per_finger": 0.04,
+    "gripper_close_width_m_per_finger": 0.022,
+    "gripper_effort_n": 40.0,
+    "geometric_contact_limit_m": 0.029,
+    "canonical_restore_position_m": [
+      0.419064753,
+      -0.053479813,
+      0.546111838
+    ],
+    "camera_mount": "dual"
+  },
+  "thresholds": {
+    "maximum_arm_joint_delta_rad": 0.002,
+    "maximum_finger_symmetry_error_m": 0.002,
+    "maximum_contact_width_error_m": 0.003,
+    "maximum_pad_center_distance_m": 0.029,
+    "maximum_target_pose_error_m": 0.002,
+    "maximum_restore_pose_error_m": 0.002,
+    "maximum_open_recovery_error_m": 0.003,
+    "required_gripper_command_count": 3
+  },
+  "runtime": {
+    "headless": true,
+    "startup_timeout_sec": 60.0,
+    "action_timeout_sec": 20.0,
+    "contact_settle_sec": 2.0,
+    "shutdown_timeout_sec": 20.0
+  },
+  "safety": {
+    "formal_acceptance": false,
+    "formal_held_out_test_access_authorized": false,
+    "robot_arm_motion_authorized": false,
+    "simulated_fruit_motion_authorized": true,
+    "gripper_command_authorized": true,
+    "attachment_authorized": true,
+    "planning_authorized": false,
+    "perception_authorized": false,
+    "localization_authorized": false,
+    "orchestrator_authorized": false,
+    "pick_action_authorized": false
+  },
+  "execution": {
+    "maximum_trials": 1,
+    "retry_authorized": false,
+    "output_directory": "results/development/blender_v2_gripper_contact_round_trip_v1"
+  }
+}

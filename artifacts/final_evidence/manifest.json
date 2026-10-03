@@ -1,0 +1,142 @@
+{
+  "code_baseline_commit": "e21b7043508e950277ce3e84c92d0464741802b2",
+  "files": [
+    {
+      "bytes": 62,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0086_blocked_transport_cleanup.json",
+      "sha256": "a8cf3a1bbdb74f454564a3f806396dee8b398949c646f773ba87907afb11178b"
+    },
+    {
+      "bytes": 724494,
+      "expected_hash_verified": true,
+      "expected_sha256": "6d7f088e9942661fa68580fef1cacf30236429d557673cb7d7a9d224112fefc0",
+      "path": "artifacts/final_evidence/ADR0086_blocked_transport_runtime_probe.json",
+      "sha256": "6d7f088e9942661fa68580fef1cacf30236429d557673cb7d7a9d224112fefc0"
+    },
+    {
+      "bytes": 6083,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0086_blocked_transport_truth_isolation.json",
+      "sha256": "621d5313c221927b0178bc7665924af2802ea9197a4838395889cbe6e29d7f63"
+    },
+    {
+      "bytes": 62,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0086_positive_cleanup.json",
+      "sha256": "4a4ca0a22021a6ad4813dd3f707ec914fd7a10694615acd2db0430a0d86288d4"
+    },
+    {
+      "bytes": 1564380,
+      "expected_hash_verified": true,
+      "expected_sha256": "0900f0f55e5df97fda6e0cfeef7c2b476be644ff52c54d7c6fde53b89040830d",
+      "path": "artifacts/final_evidence/ADR0086_positive_runtime_probe.json",
+      "sha256": "0900f0f55e5df97fda6e0cfeef7c2b476be644ff52c54d7c6fde53b89040830d"
+    },
+    {
+      "bytes": 1515,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0086_positive_truth_isolation.json",
+      "sha256": "fa7c6c5c998f337f0a5e22f0adda6a0fcc1dbed8d0cd4b730631e773a91b8193"
+    },
+    {
+      "bytes": 6829,
+      "expected_hash_verified": true,
+      "expected_sha256": "d9b2efbdd0a95a67aacbd29d45efaa407630a5bf037acc34aeaac07cb074597b",
+      "path": "artifacts/final_evidence/ADR0087_controlled_challenge_world.sdf",
+      "sha256": "d9b2efbdd0a95a67aacbd29d45efaa407630a5bf037acc34aeaac07cb074597b"
+    },
+    {
+      "bytes": 699,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0087_controlled_challenge_world_receipt.json",
+      "sha256": "63f1f6de512bda6c87290046804207422f118ed83a90a40fca452f84b2aee1ec"
+    },
+    {
+      "bytes": 62,
+      "expected_hash_verified": true,
+      "expected_sha256": "9b1c8dc673cf3f5147ac0c1db28d1f3e06c3b00abedc1f276b185d09b9d9682f",
+      "path": "artifacts/final_evidence/ADR0087_controlled_positive_cleanup.json",
+      "sha256": "9b1c8dc673cf3f5147ac0c1db28d1f3e06c3b00abedc1f276b185d09b9d9682f"
+    },
+    {
+      "bytes": 447018,
+      "expected_hash_verified": true,
+      "expected_sha256": "50745b32644fe9d5154d5d887f3192b88166cb185285a799187509c0fc1a7431",
+      "path": "artifacts/final_evidence/ADR0087_controlled_positive_probe.json",
+      "sha256": "50745b32644fe9d5154d5d887f3192b88166cb185285a799187509c0fc1a7431"
+    },
+    {
+      "bytes": 4022,
+      "expected_hash_verified": true,
+      "expected_sha256": "2cd7d8e502766399524857b934ad18c5c0a7182d030a3538569791f5d874b0e2",
+      "path": "artifacts/final_evidence/ADR0087_controlled_positive_truth_isolation.json",
+      "sha256": "2cd7d8e502766399524857b934ad18c5c0a7182d030a3538569791f5d874b0e2"
+    },
+    {
+      "bytes": 63,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0087_plan_only_cleanup.json",
+      "sha256": "c8f43e6a7ce3f4c83097a2c97ef6a089fbe9b7d67eb339742294bdc8a69a9a74"
+    },
+    {
+      "bytes": 9824,
+      "expected_hash_verified": true,
+      "expected_sha256": "108993d9c6984cd54a9e3b71aa99f4ba46bd3fb6a27a6640653aa1f150829f49",
+      "path": "artifacts/final_evidence/ADR0087_plan_only_probe.json",
+      "sha256": "108993d9c6984cd54a9e3b71aa99f4ba46bd3fb6a27a6640653aa1f150829f49"
+    },
+    {
+      "bytes": 6214,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/ADR0087_plan_only_truth_isolation.json",
+      "sha256": "9bbde86f7371fe06597edbd43b21005fe4ef5eccef2f984b49a93de7b4067584"
+    },
+    {
+      "bytes": 1559,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/FINAL_ROS_TEST_RECEIPT.json",
+      "sha256": "f51d018653225fc5b5766358f426c5cb296bd5ab588b8eadeafd1ec99544ab4a"
+    },
+    {
+      "bytes": 1737,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/FINAL_TEST_RECEIPT.json",
+      "sha256": "e92b5375cf25bd537c537aa2d11ff372c86ae60900670becac402c34afb11219"
+    },
+    {
+      "bytes": 1276,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/FINAL_TEST_RECEIPT_WINDOWS_NONCANONICAL.json",
+      "sha256": "930d18c0cb66ca38534f0fb4aebe7ba1639731fcd91815a71a89b855bd875537"
+    },
+    {
+      "bytes": 844,
+      "expected_hash_verified": true,
+      "expected_sha256": null,
+      "path": "artifacts/final_evidence/README.md",
+      "sha256": "bd0124845cec234875bdea8f44bdd87ad7f93ef78170eedaf57f8398bf174087"
+    }
+  ],
+  "five_scene_multi_fruit_gate_passed": false,
+  "formal_30_seed_matrix_opened": false,
+  "formal_acceptance_claimed": false,
+  "generated_at_utc": "2026-10-03T01:53:37.913007+00:00",
+  "schema_version": 1,
+  "scope": "final_closure_key_runtime_evidence",
+  "verification": {
+    "critical_expected_hashes": 7,
+    "critical_hash_failures": [],
+    "passed": true
+  }
+}

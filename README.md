@@ -5,38 +5,44 @@
 Reproducible ROS 2 simulation for strawberry maturity detection, 3D localization,
 and Panda pick-and-place evaluation.
 
-Current status (2026-09-28): the fixed field-v3 round trip remains the
-single-fruit regression baseline. Generalized development seed 45504 previously
-completed two distinct ripe-fruit pick, bin-place, reverse-route, and home
-cycles in one batch without runtime truth control (ADR 0084). The current code
-then adopted an explicit held-payload lifecycle and phase-aware collision
-policy (ADR 0085), so that prior run is historical evidence rather than a
-validation of the new post-grasp failure path. The five-scene qualification and
-formal safety result remain **not passed**: independent collision, joint-limit,
-home/stop, and scene-terminal telemetry are still unbound.
+Current status (2026-10-03): the repository is in a closure pass; no new robot
+capability is being added. The fixed field-v3 current-code round trip is the
+single-fruit regression baseline. One truth-isolated development seed completed
+two distinct ripe fruits in one batch (ADR 0084), but its strict safety evidence
+remains incomplete and the five-scene gate is not passed.
 
-The current manipulation architecture also includes a read-only nominal
-whole-chain authorization gate (ADR 0086): before any gripper command, it
-checks a copied PlanningScene through pregrasp, grasp, virtual attachment,
-escape, transport and bin entry. This is code- and unit-verified only; fresh
-positive and deliberately blocked-bin Gazebo evidence are still required.
+The final manipulation structure is runtime-qualified within explicit bounds:
+ADR 0085 separates payload ownership from collision/recovery semantics; ADR
+0086 has both positive and deliberately blocked-transport Gazebo evidence; and
+ADR 0087 generates fifteen deterministic candidates, searches first-feasible,
+binds certificate identity to exact execution, and completed one controlled
+non-nominal `G03` physical-parity challenge. This proves the mechanism, not a
+general success-rate improvement or formal multi-fruit acceptance.
 
-For continuation in a new Codex task, repository, or VS Code workspace, start
-with [`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md). It separates the frozen
-v1 release from the newer Blender v2 simulator baseline and records the exact
-next steps and unresolved boundaries.
+The safe default remains the **standard/conservative** profile with adaptive
+candidate execution disabled. ADR 0087 is an explicit opt-in bounded demo.
+Both profiles and their claim boundaries are frozen in
+[`config/final_run_profiles.yaml`](config/final_run_profiles.yaml).
+
+For review or continuation, start with
+[`docs/FINAL_ARCHITECTURE.md`](docs/FINAL_ARCHITECTURE.md), then
+[`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md) and the permanent evidence
+manifest under `artifacts/final_evidence/`.
 
 For a structured Chinese learning path covering ROS 2, Gazebo, TF, RGB-D,
 YOLO, MoveIt, testing, and the matching source modules, see
 [`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md).
 
-The final hand-in candidate is assembled as a submission-v2 supplement rather
-than overwriting the frozen P5/P6 baseline. Its authoritative narrative and
-gate checklist are
+The historical submission-v2 package remains immutable evidence but no longer
+represents the current code. The closure-pass narrative and gate checklist are
 [`docs/submission-report.md`](docs/submission-report.md) and
-[`docs/submission-checklist.md`](docs/submission-checklist.md). The supplement
-adds the field-v3 fixed-scene perception pick while preserving the failed
-YOLO/P3/P4 numeric results and their original evidence.
+[`docs/submission-checklist.md`](docs/submission-checklist.md). They preserve the
+failed YOLO/P3/P4 formal results while separately reporting post-formal
+development extensions.
+
+> Historical sections below preserve earlier baselines and counts. For final
+> status, use the documents linked above; do not reinterpret old `396/396` or
+> `417/417` receipts as the current test baseline.
 
 ## Project baseline
 

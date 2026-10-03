@@ -4,17 +4,20 @@
 
 这是一个可复现的草莓成熟度识别、三维定位与机械臂抓取搬运仿真项目。系统运行在 ROS 2、Gazebo 和 MoveIt 2 之上，使用 YOLO11s 区分成熟与未成熟草莓，并控制 Franka Emika Panda 机械臂完成安全预抓取、接近、夹取、搬运、放置和恢复。
 
-当前状态（2026-09-28）：固定 field-v3 单果完整往返继续作为回归基线。
-广义开发种子45504此前曾在一次不使用运行时真值控制的批次中，连续完成两颗
-不同成熟草莓的夹取、入箱、原路撤离和回零（ADR 0084）。当前代码随后引入
-显式持果状态机和阶段化碰撞语义（ADR 0085），因此该运行是历史证据，不能
-代替新持果失败路径的验证。五场资格门和正式安全验收仍**尚未通过**：独立
-碰撞、关节界限、home/stop和场景终态遥测尚未绑定。
+当前状态（2026-10-03）：项目进入结项收口，不再增加新的机器人能力。固定
+field-v3 当前代码单果往返是回归基线；一个无运行时真值控制的开发种子曾在同一
+批次完成两颗不同成熟草莓（ADR 0084），但其独立安全遥测仍不完整，五场开发门
+尚未通过。
 
-当前操作架构还加入了只读的 nominal 整链授权门（ADR 0086）：在任何夹爪命令
-之前，系统会在 MoveIt PlanningScene 副本中检查预抓取、抓取、虚拟附着、退出、
-运输和料箱进入。该部分目前仅完成代码与单元测试验证；仍需新的 field-v3 正例和
-故意封堵料箱的反例 Gazebo 证据。
+最终操作结构已在明确边界内完成运行时资格：ADR 0085 将载荷所有权、碰撞语义
+和恢复授权分开；ADR 0086 已有整链正例及故意封堵运输的负例；ADR 0087 已实现
+15 个确定性候选、first-feasible 搜索、证书与执行身份绑定，并在受控挑战中自动
+跳过 `G00–G02`、选择 `G03` 完成完整抓放。它证明了机制可行，不证明一般场景
+成功率提升，也不代表多果正式验收通过。
+
+最终安全默认仍是 **standard/conservative**：自适应候选执行默认关闭。ADR 0087
+作为显式开启的 bounded adaptive demo。两个 profile 及结论边界见
+[`config/final_run_profiles.yaml`](config/final_run_profiles.yaml)。
 
 当前提交版已经在固定的 field-v3 草莓植株场景中跑通以下工程链路：
 
@@ -34,6 +37,8 @@ MoveIt 2 碰撞检测与运动规划
 
 ## 快速导航
 
+- 最终架构与证据地图：[`docs/FINAL_ARCHITECTURE.md`](docs/FINAL_ARCHITECTURE.md)
+- 结项收口状态：[`docs/FINAL_CLOSURE_STATUS.md`](docs/FINAL_CLOSURE_STATUS.md)
 - 新任务或新工作区接手项目：[`NEW_PROJECT_HANDOFF.md`](NEW_PROJECT_HANDOFF.md)
 - 团队成员自底向上全解析：[`docs/team-walkthrough-zh.md`](docs/team-walkthrough-zh.md)
 - 中文系统学习路线：[`docs/learning-roadmap-zh.md`](docs/learning-roadmap-zh.md)
@@ -45,7 +50,11 @@ MoveIt 2 碰撞检测与运动规划
 - field-v3 场景集成：[`docs/field-v3-integration.md`](docs/field-v3-integration.md)
 - 最终项目总结：[`docs/submission-report.md`](docs/submission-report.md)
 - 提交检查清单：[`docs/submission-checklist.md`](docs/submission-checklist.md)
-- submission-v2 视频脚本：[`docs/submission-video-storyboard-v2.md`](docs/submission-video-storyboard-v2.md)
+- 历史 submission-v2 视频脚本：[`docs/submission-video-storyboard-v2.md`](docs/submission-video-storyboard-v2.md)
+
+> 下文保留了早期基线、旧收据和历史测试数字。结项状态以最终架构、当前交接、
+> submission report 和 `artifacts/final_evidence/manifest.json` 为准；不得把历史
+> `396/396` 或 `417/417` 当成当前测试基线。
 
 ## 项目基线
 
@@ -426,7 +435,7 @@ python3 scripts/capture_submission_test_receipt.py \
   --test-result-base "$HOME/.cache/strawberry_urp/colcon/build"
 ```
 
-生成并验证确定性提交包：
+以下命令仅用于复核历史 submission-v2，不再生成当前结项版本：
 
 ```powershell
 python scripts/package_submission_v2.py
@@ -445,7 +454,7 @@ artifacts/submission_v2/
 
 提交包包含源代码、配置、文档、接受模型、必要证据、报告、视频、测试收据和内嵌 `SUBMISSION_INVENTORY.json`。大型原始 MJPG、完整失败运行目录、训练数据压缩包和 colcon 构建树不会放入精简提交包。
 
-## 提交版状态
+## 历史 submission-v2 状态（仅供追溯）
 
 submission-v2 已完成以下检查：
 

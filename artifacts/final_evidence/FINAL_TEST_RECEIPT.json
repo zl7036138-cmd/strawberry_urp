@@ -1,0 +1,53 @@
+{
+  "branch": "codex/wp01-evidence-validation",
+  "code_baseline_commit": "e21b7043508e950277ce3e84c92d0464741802b2",
+  "command": [
+    "python",
+    "scripts/run_pure_tests.py"
+  ],
+  "dirty_paths_at_test_time": [
+    ".gitignore",
+    "NEW_PROJECT_HANDOFF.md",
+    "README.md",
+    "README.zh-CN.md",
+    "docs/architecture.md",
+    "docs/milestones.md",
+    "docs/p0/ADR0086_BLOCKED_TRANSPORT_EVIDENCE_2026-10-01.md",
+    "docs/p0/ADR0086_RUNTIME_EVIDENCE_2026-09-28.md",
+    "docs/p0/ADR0087E_CONTROLLED_CHALLENGE_POSITIVE_2026-10-02.md",
+    "docs/p0/ADR0087_PLAN_ONLY_EVIDENCE_2026-10-01.md",
+    "docs/risks.md",
+    "docs/submission-checklist.md",
+    "docs/submission-report.md",
+    ".github/",
+    "ASSET_PROVENANCE.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "artifacts/final_evidence/",
+    "config/final_run_profiles.yaml",
+    "docs/FINAL_ARCHITECTURE.md",
+    "docs/FINAL_CLOSURE_STATUS.md",
+    "scripts/build_final_evidence_manifest.py",
+    "scripts/capture_final_test_receipt.py",
+    "scripts/package_final_delivery.py"
+  ],
+  "environment": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]"
+  },
+  "generated_at_utc": "2026-10-03T01:53:15.371736+00:00",
+  "process_returncode": 0,
+  "receipt_type": "final_dependency_light_test",
+  "result": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 3,
+    "successful": true,
+    "test_directories": 13,
+    "tests_run": 1040
+  },
+  "schema_version": 1,
+  "stderr_sha256": "9e01d813cbfa2d306dcebc3b546a84df39d459a1ba876d0485858fd300a0d9df",
+  "stdout_sha256": "727ec8ba2cfca266ce3b542c24d32a0c618045582134337128a214f2b5e70285",
+  "working_tree_clean": false
+}

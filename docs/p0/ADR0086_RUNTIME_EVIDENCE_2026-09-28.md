@@ -11,12 +11,15 @@ run and does not consume a hidden/formal seed.
 - Scenario: `generalized_seed_045504` (development seed `45504`)
 - Run ID: `generalized_dev_seed_45504_adr0086_positive_v3_20260928T153133Z`
 - Receipt: `.codex_tmp/generalized_harvest_seed_45504_adr0086_positive_v3/runtime_probe.json`
+- Permanent closure copy: `artifacts/final_evidence/ADR0086_positive_runtime_probe.json`
 - Receipt SHA-256: `0900F0F55E5DF97FDA6E0CFEEF7C2B476BE644FF52C54D7C6FDE53B89040830D`
 - Recorder terminal outcome: `SUCCESS`
 - Wall duration: `611.508 s`
 
-The receipt stays in the local development evidence directory; this document
-records its content hash rather than relabeling it as a formal artifact.
+The original development receipt remains in the local run directory. The
+closure pass copied the exact bytes into the tracked final-evidence directory;
+the manifest verifies the same content hash. This remains development evidence,
+not a formal result.
 
 ## Authorization results
 

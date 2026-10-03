@@ -1,0 +1,40 @@
+{
+  "branch": "codex/wp01-evidence-validation",
+  "code_baseline_commit": "e21b7043508e950277ce3e84c92d0464741802b2",
+  "command": [
+    "python",
+    "scripts/run_pure_tests.py"
+  ],
+  "dirty_paths_at_test_time": [
+    "gitignore",
+    ".github/",
+    "ASSET_PROVENANCE.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "artifacts/final_evidence/",
+    "config/final_run_profiles.yaml",
+    "docs/FINAL_ARCHITECTURE.md",
+    "docs/FINAL_CLOSURE_STATUS.md",
+    "scripts/build_final_evidence_manifest.py",
+    "scripts/capture_final_test_receipt.py"
+  ],
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.5 (tags/v3.12.5:ff3bc82, Aug  6 2024, 20:45:27) [MSC v.1940 64 bit (AMD64)]"
+  },
+  "generated_at_utc": "2026-10-03T01:34:40.426621+00:00",
+  "process_returncode": 1,
+  "receipt_type": "final_dependency_light_test",
+  "result": {
+    "errors": 1,
+    "failures": 4,
+    "skipped": 3,
+    "successful": false,
+    "test_directories": 13,
+    "tests_run": 1040
+  },
+  "schema_version": 1,
+  "stderr_sha256": "f4ac79ec15742baf213b47ae6c7348b1cf786b335540f27f96422512a244cfeb",
+  "stdout_sha256": "ea7b2ebb8fdfc68b0bf126cb9f79659db4827ed635bf5861cb3d311b1c51548e",
+  "working_tree_clean": false
+}

@@ -4,6 +4,11 @@ This document is the T00 authority. Downstream packages may extend internal
 implementation, but they must not change these contracts without a recorded
 architecture decision.
 
+> Closure note (2026-10-03): the short reviewer entry point is
+> [`FINAL_ARCHITECTURE.md`](FINAL_ARCHITECTURE.md). This document retains the
+> full historical contract and ends with the accepted ADR 0085–0087 generalized
+> manipulation extension.
+
 ## Fixed scope
 
 The system detects `RIPE` and `UNRIPE` strawberries, localizes a ripe target
@@ -446,3 +451,35 @@ only to produce offline YOLO labels. Its train, validation, and qualification
 seed ranges are disjoint from the formal 30-seed matrix; projected labels need
 rendered-depth support, and the qualification split is absent from the training
 configuration. This executable is never launched by the harvest runtime.
+
+## Final generalized manipulation authorization extension
+
+ADR 0085 separates physical payload ownership from collision semantics and
+recovery permission. The accepted lifecycle is `EMPTY → CONTACT → HOLDING →
+ESCAPED → AT_BIN → RELEASED`. After `HOLDING`, an ordinary failure cannot
+detach, open the gripper, or command home; the carried-body collision model and
+process interlock remain active until an explicitly authorized release path.
+
+ADR 0086 places a read-only whole-chain authorization boundary before the
+first gripper command. A copied PlanningScene evaluates pregrasp, approach,
+grasp state, virtual attachment, escape, transport, and bin approach while
+issuing zero real controller, gripper, or attach commands. A rejection restores
+the target collision object and leaves the live payload empty. Positive and
+deliberately blocked-transport runtime receipts qualify both branches.
+
+ADR 0087 adds fifteen immutable local-X/Y tilt candidates (`G00`–`G14`) and a
+deterministic first-feasible search through ADR 0086. `AuthorizedGraspPlan`
+binds the target, candidate, complete geometry fingerprint, scene signature,
+and certificate fingerprint. Execution must match every identity field and use
+the exact certified pregrasp, grasp, and escape geometry. Missing, stale, or
+mismatched authority fails before preparation, motion, gripper, or attachment.
+
+Adaptive execution remains default-disabled. The final run profiles are:
+
+- `standard_conservative`: nominal whole-chain authorization plus the payload
+  lifecycle; final default.
+- `bounded_adaptive_demo`: explicit opt-in ADR 0087-E controlled challenge.
+
+The controlled challenge result (`G00`–`G02` failed, `G03` completed the full
+physical chain) is a mechanism qualification, not a general-scene success-rate
+claim. The five-scene multi-fruit gate and formal 30-seed matrix remain closed.

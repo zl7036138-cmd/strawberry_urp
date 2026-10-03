@@ -1,0 +1,29 @@
+schema_version: 1
+status: frozen_for_final_documentation
+updated: 2026-10-03
+profiles:
+  standard_conservative:
+    purpose: default generalized development and demonstration baseline
+    launch: strawberry_bringup generalized_harvest.launch.py
+    launch_arguments:
+      adaptive_candidate_execution_enabled: false
+      whole_chain_virtual_bin_blocker_enabled: false
+    claim_boundary: nominal whole-chain authorization with payload lifecycle; no adaptive-grasp claim
+  bounded_adaptive_demo:
+    purpose: reproduce the ADR 0087-E controlled non-nominal grasp extension
+    runner: scripts/run_generalized_candidate_execution.sh
+    required_arguments:
+      seed: 45504
+      scene_directory: externally materialized or final-evidence scene directory
+    environment:
+      STRAWBERRY_CANDIDATE_EXECUTION_TARGET_ID: 0
+      STRAWBERRY_DEVELOPMENT_CANDIDATE_CHALLENGE_OBSTACLE_SPEC: "0.3970 0.1350 0.7800 0.012 0.034 0.002"
+    launch_arguments:
+      harvest_control_enabled: false
+      adaptive_candidate_execution_enabled: true
+    claim_boundary: bounded controlled challenge only; not the default system and not a general success-rate claim
+prohibited_final_claims:
+  - adaptive execution is the default runtime path
+  - adaptive grasping has a statistically higher general-scene success rate
+  - five-scene multi-fruit development acceptance has passed
+  - the formal 30-seed matrix has been opened or passed

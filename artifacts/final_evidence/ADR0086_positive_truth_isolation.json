@@ -1,0 +1,53 @@
+{
+  "allowed_nodes": [
+    "/attachment_manager"
+  ],
+  "missing_required_nodes": [],
+  "overall_pass": true,
+  "required_nodes": [
+    "/strawberry_base_localization",
+    "/strawberry_harvest_orchestrator",
+    "/strawberry_pick_and_place",
+    "/strawberry_target_selector",
+    "/strawberry_wrist_localization"
+  ],
+  "schema_version": 1,
+  "scope": "GENERALIZED_RUNTIME_TRUTH_ISOLATION_AUDIT",
+  "subscriptions": {
+    "/generalized_truth_isolation_auditor": [],
+    "/ground_truth_publisher": [],
+    "/moveit_1412604709": [],
+    "/moveit_simple_controller_manager": [],
+    "/strawberry_base_localization": [
+      "/camera/base/camera_info",
+      "/camera/base/depth/image_raw",
+      "/clock",
+      "/joint_states",
+      "/strawberry/base/detections",
+      "/strawberry/completed_track_id",
+      "/tf",
+      "/tf_static"
+    ],
+    "/strawberry_harvest_orchestrator": [],
+    "/strawberry_moveit_py": [],
+    "/strawberry_moveit_py_private_532694912": [],
+    "/strawberry_pick_and_place": [],
+    "/strawberry_target_selector": [],
+    "/strawberry_world_control_bridge": [
+      "/parameter_events"
+    ],
+    "/strawberry_wrist_localization": [
+      "/camera/wrist/camera_info",
+      "/camera/wrist/depth/image_raw",
+      "/clock",
+      "/joint_states",
+      "/strawberry/wrist/detections",
+      "/strawberry/wrist/target_hint",
+      "/tf",
+      "/tf_static"
+    ],
+    "/transform_listener_impl_1fde0450": []
+  },
+  "truth_topic_prefix": "/strawberry/ground_truth",
+  "violations": []
+}

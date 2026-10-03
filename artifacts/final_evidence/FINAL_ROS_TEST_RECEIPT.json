@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "receipt_type": "final_ros_colcon_test",
+  "generated_at_utc": "2026-10-03T01:44:44Z",
+  "code_baseline_commit": "e21b7043508e950277ce3e84c92d0464741802b2",
+  "branch": "codex/wp01-evidence-validation",
+  "working_tree_clean": false,
+  "command": [
+    "bash",
+    "scripts/build_and_test.sh"
+  ],
+  "environment": {
+    "distribution": "Ubuntu-24.04-URP",
+    "ros_distribution": "Jazzy",
+    "workspace_build_root": "/home/lzl/.cache/strawberry_urp/colcon/build"
+  },
+  "result": {
+    "packages_finished": 8,
+    "tests_run": 897,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "successful": true
+  },
+  "package_results": [
+    {"package": "strawberry_benchmark", "tests": 84},
+    {"package": "strawberry_bringup", "tests": 185},
+    {"package": "strawberry_gazebo_plugins", "tests": 1},
+    {"package": "strawberry_interfaces", "tests": 12},
+    {"package": "strawberry_localization", "tests": 104},
+    {"package": "strawberry_manipulation", "tests": 337},
+    {"package": "strawberry_perception", "tests": 45},
+    {"package": "strawberry_sim", "tests": 129}
+  ],
+  "verification_command": [
+    "colcon",
+    "test-result",
+    "--test-result-base",
+    "/home/lzl/.cache/strawberry_urp/colcon/build",
+    "--all"
+  ],
+  "verification_summary": "Summary: 897 tests, 0 errors, 0 failures, 0 skipped",
+  "note": "The closure edits were uncommitted at test time. Runtime source code remained bound to the recorded baseline commit; this receipt and closure-only documentation/evidence files were added afterward."
+}

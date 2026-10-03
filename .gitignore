@@ -21,7 +21,9 @@ venv/
 # Data and generated artifacts
 data/raw/
 data/processed/
-artifacts/
+/artifacts/*
+!/artifacts/final_evidence/
+!/artifacts/final_evidence/**
 models/*.pt
 weights/*.pt
 outputs/

@@ -1,0 +1,25 @@
+name: Pure Python tests
+
+on:
+  push:
+    branches: [main, codex/wp01-evidence-validation]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-light-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependency-light test requirements
+        run: python -m pip install --upgrade numpy opencv-python-headless PyYAML
+      - name: Run repository pure tests
+        run: python scripts/run_pure_tests.py

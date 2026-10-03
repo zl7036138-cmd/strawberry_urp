@@ -34,6 +34,8 @@ manual grasp-angle adjustment. It is not a claim of multi-fruit or formal
 
 - Receipt:
   `.codex_tmp/adr0087e_challenge_20261002/execution_45504_small_tilt_z780_r2_bound/candidate_execution_probe.json`
+- Permanent closure copy:
+  `artifacts/final_evidence/ADR0087_controlled_positive_probe.json`
 - Receipt SHA-256:
   `50745B32644FE9D5154D5D887F3192B88166CB185285A799187509C0FC1A7431`
 - Truth-isolation receipt SHA-256:
@@ -44,6 +46,10 @@ manual grasp-angle adjustment. It is not a claim of multi-fruit or formal
 - Strict receipt validation: `passed=true`
 - Cleanup: `CLEAN`
 - Elapsed wall time: `212.033349888 s`
+
+The closure manifest archives the exact probe, truth-isolation receipt, cleanup
+receipt, challenge world and world materialization receipt. The expected hashes
+are checked when `scripts/build_final_evidence_manifest.py` runs.
 
 ## Candidate trace
 

@@ -1,52 +1,65 @@
-# URP submission checklist
+# URP final closure checklist
 
-This checklist defines the final submission-v2 packaging gate. It supplements
-the frozen P5/P6 release and never replaces its failed formal P3/P4 results.
+This checklist supersedes the submission-v2 packaging checklist for current
+code. The old archive remains immutable historical evidence.
 
 ## Scientific integrity
 
-- [x] Audited YOLO validation macro-F1 remains `0.800675`; the `0.85` gate is
-  still failed.
-- [x] Formal P3 remains `39/135` positive successes and `30/30` safe
-  only-unripe `NO_PICK`.
-- [x] P4 remains `300/300` heavy ripe detection frames and `0/300` heavy target
+- [x] Real-image audited macro-F1 remains `0.800675 < 0.85`.
+- [x] Formal P3 remains `39/135` positives and `30/30` safe only-unripe
+  `NO_PICK`.
+- [x] P4 remains `300/300` heavy ripe detections and `0/300` valid heavy target
   poses.
-- [x] The held-out real-image test remains sealed.
-- [x] field-v3 is labelled fixed-scene, fixed-target, fixed-seed and non-formal.
-- [x] No hardware, fruit-damage, stem-cutting or sim-to-real claim is made.
+- [x] Held-out real-image test remains sealed.
+- [x] Simulator-detector metrics are separated from real-image metrics.
+- [x] ADR 0087 is labelled a bounded controlled mechanism proof, not a general
+  success-rate improvement.
+- [x] One development two-fruit run is not presented as the five-scene gate.
+- [x] No hardware, damage, cutting, flexible-plant, or sim-to-real claim.
 
-## Engineering evidence
+## Final architecture and profiles
 
-- [x] Seven ROS 2 packages build.
-- [x] The latest baseline records 396 tests with zero errors, failures or skips.
-- [x] field-v3 no-motion sensing, localization, collision parity and pre-grasp
-  planning pass.
-- [x] Three consecutive field-v3 perception-derived runs complete all seven
-  action stages.
-- [x] Every accepted field-v3 run records bilateral raw/processed contact,
-  attach/detach, gripper reopening and arm recovery.
-- [x] The simulator and controller manager use a dedicated robot-description
-  channel, removing the nondeterministic startup-pose race.
-- [x] A fresh submission demonstration recording passes its media and outcome
-  checks.
+- [x] ADR 0085 payload lifecycle is documented.
+- [x] ADR 0086 positive and blocked-transport runtime paths are documented.
+- [x] ADR 0087 A–E candidate/certificate/execution chain is documented.
+- [x] `standard_conservative` is the final default profile.
+- [x] `bounded_adaptive_demo` is explicit opt-in.
+- [x] `adaptive_candidate_execution_enabled` remains false by default.
+- [x] No ADR 0088, Servo, soft-collision, or MTC expansion is included.
 
-## Submission artifacts
+## Evidence and tests
 
-- [x] Source repository and reproduction guide.
-- [x] Submission report in Markdown.
-- [x] Submission report in DOCX and PDF.
-- [x] Final field-v3 submission video and receipt.
-- [x] Current colcon test receipt bound to the submission commit.
-- [x] `strawberry_urp_submission_v2.zip` with embedded inventory.
-- [x] Archive CRC and member SHA-256 verification.
-- [x] Git working tree clean and branch pushed.
-- [ ] Draft PR converted to ready only after the local package verifies.
+- [x] Key ADR 0086/0087 raw receipts are archived under
+  `artifacts/final_evidence/`.
+- [x] Challenge world, truth-isolation, and cleanup receipts are archived.
+- [x] Manifest verifies critical expected hashes.
+- [x] Canonical Ubuntu/WSL pure suite: 1040 tests, 0 failures, 0 errors, 3 skips.
+- [x] Noncanonical Windows failures are retained and clearly labelled.
+- [x] GitHub Actions pure-test workflow is present.
+- [ ] GitHub Actions is green on the pushed closure commit.
+- [x] Current closure baseline full ROS/colcon receipt is archived: 897 tests,
+  0 failures, 0 errors, 0 skips.
+
+## Documentation and publication
+
+- [x] README and Chinese README point to final documents.
+- [x] `NEW_PROJECT_HANDOFF.md` reflects ADR 0085–0087.
+- [x] `docs/FINAL_ARCHITECTURE.md` provides a short reviewer entry point.
+- [x] milestones and risk register include post-P6 extensions.
+- [x] license index, third-party notices, and asset provenance are present.
+- [x] Clean-tree final archive builder is present and refuses dirty sources.
+- [ ] Closure branch committed and pushed.
+- [ ] PR to `main` reviewed and merged after CI passes.
+- [ ] Annotated final tag created from merged commit.
+- [ ] GitHub Release created from the tag.
+- [ ] Final delivery archive generated, verified, and attached with SHA-256.
 
 ## Human review before hand-in
 
-- [ ] Confirm student names, student IDs, supervisor and college-specific cover
-  page fields.
-- [ ] Confirm the institution's required filename and upload-size limit.
-- [ ] Play the final MP4 from beginning to end.
-- [ ] Open the final DOCX and PDF on the submission computer.
-- [ ] Keep the external archive SHA-256 receipt beside the uploaded ZIP.
+- [ ] Confirm names, student IDs, supervisor, and institution cover page.
+- [ ] Confirm required archive filename and upload-size limit.
+- [ ] Play the final video from beginning to end.
+- [ ] Open final DOCX/PDF on the submission computer.
+- [ ] Clone the default branch into a clean directory and follow the short
+  reproduction path.
+- [ ] Keep archive SHA-256 and the final evidence manifest beside the upload.

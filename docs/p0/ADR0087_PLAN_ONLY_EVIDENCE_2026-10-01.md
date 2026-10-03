@@ -16,9 +16,13 @@ auditable, temporary certificate without moving the arm or gripper.
 - Scenario: `generalized_seed_045504` (development seed `45504`)
 - Run: `adr0087d_45504_v2`
 - Receipt: `.codex_tmp/adr0087d_runtime_20261001_seed45504_v2/candidate_qualification_probe.json`
+- Permanent closure copy: `artifacts/final_evidence/ADR0087_plan_only_probe.json`
 - Receipt SHA-256: `108993D9C6984CD54A9E3B71AA99F4BA46BD3FB6A27A6640653AA1F150829F49`
 - Truth-isolation audit: `.codex_tmp/adr0087d_runtime_20261001_seed45504_v2/truth_isolation.json`
 - Process cleanup: `CLEAN`
+
+The closure manifest also archives and hashes the truth-isolation and cleanup
+receipts beside the probe.
 
 The truth-isolation audit passed. In particular, base localization, wrist
 localization, and the pick server have no subscription below

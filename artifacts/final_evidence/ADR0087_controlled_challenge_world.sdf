@@ -1,0 +1,198 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sdf version="1.10">
+  <world name="strawberry_orchard">
+    <physics name="1ms" type="dart">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics" />
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands" />
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact" />
+    <scene>
+      <ambient>0.45 0.45 0.45 1</ambient>
+      <background>0.72 0.80 0.88 1</background>
+      <shadows>true</shadows>
+    </scene>
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 6 0 0 0</pose>
+      <diffuse>0.90 0.90 0.90 1</diffuse>
+      <specular>0.25 0.25 0.25 1</specular>
+      <attenuation>
+        <range>100</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="ground_link">
+        <collision name="ground_collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>8 8</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="ground_visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>8 8</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.30 0.34 0.30 1</ambient>
+            <diffuse>0.46 0.52 0.46 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="work_table">
+      <static>true</static>
+      <link name="table_link">
+        <collision name="table_collision">
+          <pose>0.58 0 0.38 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.72 0.72 0.06</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="table_visual">
+          <pose>0.58 0 0.38 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.72 0.72 0.06</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.24 0.13 0.06 1</ambient>
+            <diffuse>0.48 0.27 0.12 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <include>
+      <uri>model://rgbd_camera</uri>
+      <name>strawberry_rgbd_camera</name>
+      <pose>0 -1.10 1.05 0 0.35 1.5707963268</pose>
+    </include>
+    <include>
+      <uri>model://collection_bin</uri>
+      <name>collection_bin</name>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+    <model name="strawberry_planter">
+      <static>true</static>
+      <link name="planter_link">
+        <collision name="planter_collision">
+          <pose>0.50 0 0.44 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.10</radius>
+              <length>0.06</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="planter_visual">
+          <pose>0.50 0 0.44 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.10</radius>
+              <length>0.06</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.20 0.08 0.025 1</ambient>
+            <diffuse>0.42 0.16 0.05 1</diffuse>
+          </material>
+        </visual>
+        <visual name="soil_visual">
+          <pose>0.50 0 0.471 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.091</radius>
+              <length>0.004</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.08 0.045 0.02 1</ambient>
+            <diffuse>0.18 0.09 0.035 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <include>
+      <uri>model://strawberry_plant_v2</uri>
+      <name>strawberry_plant_1</name>
+      <pose>0.430926456 0.203572688 0.470000000 0.000000000 0.000000000 0.022846273</pose>
+    </include>
+    <include>
+      <uri>model://strawberry_plant_v2</uri>
+      <name>strawberry_plant_2</name>
+      <pose>0.403283957 -0.090056765 0.470000000 0.000000000 0.000000000 0.012435509</pose>
+    </include>
+    <include>
+      <uri>model://strawberry_ripe_generalized</uri>
+      <name>strawberry_1</name>
+      <pose>0.347823939 0.152971165 0.551730634 -0.069813050 -0.087266445 0.755884579</pose>
+      <scale>0.952333 0.952333 0.952333</scale>
+    </include>
+    <include>
+      <uri>model://strawberry_unripe_generalized</uri>
+      <name>strawberry_2</name>
+      <pose>0.474260404 0.318522015 0.526974876 -0.104719654 0.087266445 -0.396032700</pose>
+      <scale>0.920667 0.920667 0.920667</scale>
+    </include>
+    <include>
+      <uri>model://strawberry_ripe_generalized</uri>
+      <name>strawberry_3</name>
+      <pose>0.508208901 0.268741700 0.539481467 0.087266490 -0.122173049 0.337005577</pose>
+      <scale>0.965008 0.965008 0.965008</scale>
+    </include>
+    <include>
+      <uri>model://strawberry_ripe_generalized</uri>
+      <name>strawberry_4</name>
+      <pose>0.452151535 0.024400101 0.536655412 -0.104719654 0.087266445 -0.406443464</pose>
+      <scale>1.019173 1.019173 1.019173</scale>
+    </include>
+    <include>
+      <uri>model://strawberry_unripe_generalized</uri>
+      <name>strawberry_5</name>
+      <pose>0.317579632 -0.140702429 0.544572066 -0.069813050 -0.087266445 0.745473815</pose>
+      <scale>1.062378 1.062378 1.062378</scale>
+    </include>
+    <model name="development_candidate_challenge_obstacle">
+      <static>true</static>
+      <pose>0.397000000 0.135000000 0.780000000 0 0 0</pose>
+      <link name="obstacle_link">
+        <collision name="obstacle_collision">
+          <geometry>
+            <box>
+              <size>0.012000000 0.034000000 0.002000000</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="obstacle_visual">
+          <geometry>
+            <box>
+              <size>0.012000000 0.034000000 0.002000000</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.75 0.15 0.05 1</ambient>
+            <diffuse>0.90 0.22 0.08 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

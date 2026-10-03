@@ -12,6 +12,7 @@ scene, the executed trajectory, perception inputs, or safety thresholds.
 - Scenario: `generalized_seed_045504` (development seed `45504`)
 - Run: `adr0086_blocked_bin_v2`
 - Receipt: `.codex_tmp/generalized_harvest_seed_45504_adr0086_blocked_bin_v2/runtime_probe.json`
+- Permanent closure copy: `artifacts/final_evidence/ADR0086_blocked_transport_runtime_probe.json`
 - Receipt SHA-256: `6D7F088E9942661FA68580FEF1CACF30236429D557673CB7D7A9D224112FEFC0`
 
 ## Qualification result
